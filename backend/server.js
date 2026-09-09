@@ -7,9 +7,13 @@ require("dotenv").config();
 
 const app = express();
 
-// =======================================================
-// IMPORT ROUTES
-// =======================================================
+/* =========================================================
+   GOLDTRADE V4 FINAL - PRODUCTION SERVER
+========================================================= */
+
+// ==========================
+// Routes
+// ==========================
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const walletRoutes = require("./routes/walletRoutes");
@@ -21,57 +25,60 @@ const adminRoutes = require("./routes/adminRoutes");
 const usdtRoutes = require("./routes/usdtRoutes");
 const goldRoutes = require("./routes/goldRoutes");
 
-// =======================================================
-// CREATE UPLOAD FOLDERS
-// =======================================================
+// ==========================
+// Upload Folders
+// ==========================
 const uploadFolder = path.join(__dirname, "uploads");
-const receiptFolder = path.join(uploadFolder, "receipts");
-const qrFolder = path.join(uploadFolder, "qr");
-const settingsFolder = path.join(uploadFolder, "settings");
+const folders = [
+  uploadFolder,
+  path.join(uploadFolder, "receipts"),
+  path.join(uploadFolder, "qr"),
+  path.join(uploadFolder, "settings"),
+];
 
-[uploadFolder, receiptFolder, qrFolder, settingsFolder].forEach((folder) => {
+folders.forEach((folder) => {
   if (!fs.existsSync(folder)) {
     fs.mkdirSync(folder, { recursive: true });
   }
 });
 
-// =======================================================
-// CORS (LOCAL + VERCEL + DOMAIN)
-// =======================================================
+// ==========================
+// CORS
+// ==========================
 const allowedOrigins = [
   "http://localhost:3000",
+  "https://goldtrade.vercel.app",
   process.env.CLIENT_URL,
-  process.env.FRONTEND_URL,
-  process.env.DOMAIN_URL,
 ].filter(Boolean);
 
 app.use(
   cors({
-    origin: (origin, callback) => {
+    origin(origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      // Production launch: allow requests
+
+      console.log("⚠️ CORS Request:", origin);
       return callback(null, true);
     },
     credentials: true,
   })
 );
 
-// =======================================================
-// EXPRESS MIDDLEWARE
-// =======================================================
+// ==========================
+// Middleware
+// ==========================
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
-// =======================================================
-// STATIC FILES
-// =======================================================
+// ==========================
+// Static Files
+// ==========================
 app.use("/uploads", express.static(uploadFolder));
 
-// =======================================================
-// HEALTH CHECK
-// =======================================================
+// ==========================
+// Root Health Check
+// ==========================
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
@@ -82,60 +89,57 @@ app.get("/", (req, res) => {
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Disconnected",
-    serverTime: new Date(),
+    time: new Date(),
   });
 });
 
+// ==========================
+// API Status
+// ==========================
 app.get("/api/status", (req, res) => {
   res.json({
     success: true,
-    version: "V4 FINAL",
-    environment: process.env.NODE_ENV || "development",
-    uptime: process.uptime(),
+    environment: process.env.NODE_ENV,
     mongodb:
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Disconnected",
-    serverTime: new Date(),
+    uptime: process.uptime(),
+    version: "V4 FINAL",
   });
 });
 
-// =======================================================
-// API ROUTES
-// =======================================================
+// ==========================
+// API Routes
+// ==========================
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/wallets", walletRoutes);
-
 app.use("/api/deposit", depositRoutes);
 app.use("/api/withdraw", withdrawRoutes);
-
 app.use("/api/settings", settingsRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/usdt", usdtRoutes);
 app.use("/api/gold", goldRoutes);
 
-// =======================================================
-// 404 HANDLER
-// =======================================================
+// ==========================
+// 404 Handler
+// ==========================
 app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: "API Route Not Found",
-    path: req.originalUrl,
-    timestamp: new Date(),
+    route: req.originalUrl,
   });
 });
 
-// =======================================================
-// GLOBAL ERROR HANDLER
-// =======================================================
+// ==========================
+// Global Error Handler
+// ==========================
 app.use((err, req, res, next) => {
-  console.error("======================================");
   console.error("❌ GLOBAL SERVER ERROR");
   console.error(err.stack || err.message);
-  console.error("======================================");
 
   res.status(500).json({
     success: false,
@@ -147,34 +151,39 @@ app.use((err, req, res, next) => {
   });
 });
 
-// =======================================================
-// CONNECT MONGODB & START SERVER (RENDER READY)
-// =======================================================
-const PORT = process.env.PORT || 10000;
-
+// ==========================
+// MongoDB Connection
+// ==========================
 mongoose
   .connect(process.env.MONGO_URI, {
-    serverSelectionTimeoutMS: 10000,
+    serverSelectionTimeoutMS: 15000,
   })
   .then(() => {
+    console.log("====================================");
     console.log("✅ MongoDB Connected Successfully");
+    console.log("====================================");
 
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log("========================================");
-      console.log("🚀 GoldTrade Backend Started");
-      console.log(`🌍 Running on : http://0.0.0.0:${PORT}`);
-      console.log(`🌐 Environment: ${process.env.NODE_ENV || "development"}`);
-      console.log("💾 MongoDB    : Connected");
-      console.log("💰 Gold APIs  : Enabled");
-      console.log("👑 Wallet APIs: Enabled");
-      console.log("🪙 USDT APIs  : Enabled");
-      console.log("========================================");
+    const PORT = process.env.PORT || 10000;
+
+    const server = app.listen(PORT, "0.0.0.0", () => {
+      console.log("====================================");
+      console.log("🚀 GOLDTRADE BACKEND LIVE");
+      console.log(`🌐 Port: ${PORT}`);
+      console.log(`🌍 Mode: ${process.env.NODE_ENV}`);
+      console.log("💰 Gold Trading API Enabled");
+      console.log("👑 Wallet API Enabled");
+      console.log("🪙 USDT API Enabled");
+      console.log("====================================");
     });
+
+    // Render 502 timeout fix
+    server.keepAliveTimeout = 120000;
+    server.headersTimeout = 121000;
   })
   .catch((err) => {
-    console.error("========================================");
+    console.error("====================================");
     console.error("❌ MongoDB Connection Failed");
     console.error(err.message);
-    console.error("========================================");
+    console.error("====================================");
     process.exit(1);
   });
