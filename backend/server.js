@@ -8,7 +8,7 @@ require("dotenv").config();
 const app = express();
 
 /* =========================================================
-   GOLDTRADE V4 FINAL - PRODUCTION SERVER
+   GOLDTRADE V4 FINAL - RENDER + VERCEL PRODUCTION SERVER
 ========================================================= */
 
 // ==========================
@@ -47,8 +47,9 @@ folders.forEach((folder) => {
 // ==========================
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://goldtrade.vercel.app",
   process.env.CLIENT_URL,
+  process.env.FRONTEND_URL,
+  process.env.DOMAIN_URL,
 ].filter(Boolean);
 
 app.use(
@@ -77,7 +78,7 @@ app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 app.use("/uploads", express.static(uploadFolder));
 
 // ==========================
-// Root Health Check
+// Health Check
 // ==========================
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -89,23 +90,21 @@ app.get("/", (req, res) => {
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Disconnected",
-    time: new Date(),
+    environment: process.env.NODE_ENV || "development",
+    serverTime: new Date(),
   });
 });
 
-// ==========================
-// API Status
-// ==========================
 app.get("/api/status", (req, res) => {
   res.json({
     success: true,
-    environment: process.env.NODE_ENV,
+    version: "V4 FINAL",
+    environment: process.env.NODE_ENV || "development",
+    uptime: process.uptime(),
     mongodb:
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Disconnected",
-    uptime: process.uptime(),
-    version: "V4 FINAL",
   });
 });
 
@@ -130,7 +129,8 @@ app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: "API Route Not Found",
-    route: req.originalUrl,
+    path: req.originalUrl,
+    timestamp: new Date(),
   });
 });
 
@@ -138,8 +138,10 @@ app.use((req, res) => {
 // Global Error Handler
 // ==========================
 app.use((err, req, res, next) => {
+  console.error("====================================");
   console.error("❌ GLOBAL SERVER ERROR");
   console.error(err.stack || err.message);
+  console.error("====================================");
 
   res.status(500).json({
     success: false,
@@ -152,6 +154,26 @@ app.use((err, req, res, next) => {
 });
 
 // ==========================
+// PORT (Render uses 10000)
+// ==========================
+const PORT = process.env.PORT || 10000;
+
+// ==========================
+// Start Server First (Fixes Render 502)
+// ==========================
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log("====================================");
+  console.log("🚀 GOLDTRADE BACKEND STARTED");
+  console.log(`🌍 Environment : ${process.env.NODE_ENV || "development"}`);
+  console.log(`🌐 Listening on Port : ${PORT}`);
+  console.log("====================================");
+});
+
+// Render timeout fix
+server.keepAliveTimeout = 120000;
+server.headersTimeout = 121000;
+
+// ==========================
 // MongoDB Connection
 // ==========================
 mongoose
@@ -162,28 +184,23 @@ mongoose
     console.log("====================================");
     console.log("✅ MongoDB Connected Successfully");
     console.log("====================================");
-
-    const PORT = process.env.PORT || 10000;
-
-    const server = app.listen(PORT, "0.0.0.0", () => {
-      console.log("====================================");
-      console.log("🚀 GOLDTRADE BACKEND LIVE");
-      console.log(`🌐 Port: ${PORT}`);
-      console.log(`🌍 Mode: ${process.env.NODE_ENV}`);
-      console.log("💰 Gold Trading API Enabled");
-      console.log("👑 Wallet API Enabled");
-      console.log("🪙 USDT API Enabled");
-      console.log("====================================");
-    });
-
-    // Render 502 timeout fix
-    server.keepAliveTimeout = 120000;
-    server.headersTimeout = 121000;
   })
   .catch((err) => {
     console.error("====================================");
     console.error("❌ MongoDB Connection Failed");
     console.error(err.message);
     console.error("====================================");
-    process.exit(1);
   });
+
+// ==========================
+// Graceful Shutdown
+// ==========================
+process.on("SIGTERM", () => {
+  console.log("🛑 SIGTERM received. Closing server...");
+  server.close(() => {
+    mongoose.connection.close(false, () => {
+      console.log("MongoDB Closed.");
+      process.exit(0);
+    });
+  });
+});
