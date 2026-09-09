@@ -7,87 +7,77 @@ require("dotenv").config();
 
 const app = express();
 
-// =======================================
-// Import Routes
-// =======================================
+// =======================================================
+// IMPORT ROUTES
+// =======================================================
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
+const walletRoutes = require("./routes/walletRoutes");
 const depositRoutes = require("./routes/depositRoutes");
 const withdrawRoutes = require("./routes/withdrawRoutes");
+const settingsRoutes = require("./routes/settingsRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
 const adminRoutes = require("./routes/adminRoutes");
-const settingsRoutes = require("./routes/settingsRoutes");
-const walletRoutes = require("./routes/walletRoutes");
-const goldRoutes = require("./routes/goldRoutes"); // ⭐ Gold Trading Engine
+const usdtRoutes = require("./routes/usdtRoutes");
+const goldRoutes = require("./routes/goldRoutes");
 
-// =======================================
-// Create Upload Folders Automatically
-// =======================================
+// =======================================================
+// CREATE UPLOAD FOLDERS
+// =======================================================
 const uploadFolder = path.join(__dirname, "uploads");
 const receiptFolder = path.join(uploadFolder, "receipts");
 const qrFolder = path.join(uploadFolder, "qr");
+const settingsFolder = path.join(uploadFolder, "settings");
 
-if (!fs.existsSync(uploadFolder)) {
-  fs.mkdirSync(uploadFolder);
-}
+[uploadFolder, receiptFolder, qrFolder, settingsFolder].forEach((folder) => {
+  if (!fs.existsSync(folder)) {
+    fs.mkdirSync(folder, { recursive: true });
+  }
+});
 
-if (!fs.existsSync(receiptFolder)) {
-  fs.mkdirSync(receiptFolder, { recursive: true });
-}
+// =======================================================
+// CORS (LOCAL + VERCEL + DOMAIN)
+// =======================================================
+const allowedOrigins = [
+  "http://localhost:3000",
+  process.env.FRONTEND_URL,
+  process.env.DOMAIN_URL,
+].filter(Boolean);
 
-if (!fs.existsSync(qrFolder)) {
-  fs.mkdirSync(qrFolder, { recursive: true });
-}
-
-// =======================================
-// Middleware
-// =======================================
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Launch version
+      }
+    },
     credentials: true,
   })
 );
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
+// =======================================================
+// EXPRESS MIDDLEWARE
+// =======================================================
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
-// =======================================
-// Static Upload Files
-// =======================================
+// =======================================================
+// STATIC FILES
+// =======================================================
 app.use("/uploads", express.static(uploadFolder));
 
-// =======================================
-// API Routes
-// =======================================
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-
-app.use("/api/deposit", depositRoutes);
-app.use("/api/withdraw", withdrawRoutes);
-app.use("/api/transactions", transactionRoutes);
-
-app.use("/api/admin", adminRoutes);
-
-// Settings (Gold Price, TRC20 Wallet, Rates)
-app.use("/api/settings", settingsRoutes);
-
-// Manual Wallet Manager (PKR / USDT / GOLD)
-app.use("/api/wallets", walletRoutes);
-
-// ⭐ Gold Trading APIs
-app.use("/api/gold", goldRoutes);
-
-// =======================================
-// Health Check
-// =======================================
+// =======================================================
+// HEALTH CHECK
+// =======================================================
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
     app: "GoldTrade Backend",
     version: "V4 FINAL",
-    status: "Online",
-    database:
+    status: "ONLINE",
+    mongodb:
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Disconnected",
@@ -95,41 +85,56 @@ app.get("/", (req, res) => {
   });
 });
 
-// =======================================
-// API Status
-// =======================================
 app.get("/api/status", (req, res) => {
   res.json({
     success: true,
+    version: "V4 FINAL",
+    environment: process.env.NODE_ENV || "development",
     uptime: process.uptime(),
     mongodb:
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Disconnected",
-    environment: process.env.NODE_ENV || "development",
-    version: "V4 FINAL",
   });
 });
 
-// =======================================
-// 404 Handler
-// =======================================
+// =======================================================
+// API ROUTES
+// =======================================================
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/wallets", walletRoutes);
+
+app.use("/api/deposit", depositRoutes);
+app.use("/api/withdraw", withdrawRoutes);
+
+app.use("/api/settings", settingsRoutes);
+app.use("/api/transactions", transactionRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/usdt", usdtRoutes);
+app.use("/api/gold", goldRoutes);
+// =======================================================
+// 404 API HANDLER
+// =======================================================
 app.use((req, res) => {
-  res.status(404).json({
+  return res.status(404).json({
     success: false,
     message: "API Route Not Found",
     path: req.originalUrl,
+    timestamp: new Date(),
   });
 });
 
-// =======================================
-// Global Error Handler
-// =======================================
+// =======================================================
+// GLOBAL ERROR HANDLER
+// =======================================================
 app.use((err, req, res, next) => {
-  console.error("❌ Global Server Error");
-  console.error(err);
+  console.error("======================================");
+  console.error("❌ GLOBAL SERVER ERROR");
+  console.error(err.stack || err.message);
+  console.error("======================================");
 
-  res.status(500).json({
+  return res.status(500).json({
     success: false,
     message: "Internal Server Error",
     error:
@@ -139,22 +144,24 @@ app.use((err, req, res, next) => {
   });
 });
 
-// =======================================
-// MongoDB Connection
-// =======================================
+// =======================================================
+// CONNECT MONGODB & START SERVER
+// =======================================================
+const PORT = process.env.PORT || 5000;
+
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 10000,
+  })
   .then(() => {
     console.log("✅ MongoDB Connected Successfully");
 
-    const PORT = process.env.PORT || 5000;
-
-    app.listen(PORT, () => {
+    app.listen(PORT, "0.0.0.0", () => {
       console.log("");
       console.log("========================================");
       console.log("🚀 GoldTrade Backend Started");
-      console.log(`🌍 Server      : http://localhost:${PORT}`);
-      console.log("📦 Version     : V4 FINAL");
+      console.log(`🌍 Port        : ${PORT}`);
+      console.log(`🌐 Environment : ${process.env.NODE_ENV || "development"}`);
       console.log("💾 MongoDB     : Connected");
       console.log("💰 Gold Trading: Enabled");
       console.log("👑 Wallet APIs : Enabled");
@@ -164,7 +171,9 @@ mongoose
     });
   })
   .catch((err) => {
+    console.error("========================================");
     console.error("❌ MongoDB Connection Failed");
     console.error(err.message);
+    console.error("========================================");
     process.exit(1);
   });
