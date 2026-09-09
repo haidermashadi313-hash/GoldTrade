@@ -38,7 +38,7 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Blocked Account Check
+    // Check account status
     if (user.status !== "Active") {
       return res.status(403).json({
         success: false,
@@ -46,6 +46,7 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
+    // Save logged user
     req.user = user;
 
     next();
@@ -60,7 +61,7 @@ const verifyToken = async (req, res, next) => {
 };
 
 // ==========================================
-// OPTIONAL AUTH (Public + Logged User)
+// OPTIONAL AUTH (Guest + Logged User)
 // ==========================================
 const optionalAuth = async (req, res, next) => {
   try {
@@ -94,6 +95,7 @@ const verifySelf = (req, res, next) => {
       req.body.username ||
       req.query.username;
 
+    // Admin & Manager can access everyone
     if (
       req.user.role === "admin" ||
       req.user.role === "manager"
@@ -101,6 +103,7 @@ const verifySelf = (req, res, next) => {
       return next();
     }
 
+    // Normal user only own account
     if (req.user.username !== username) {
       return res.status(403).json({
         success: false,
@@ -110,7 +113,7 @@ const verifySelf = (req, res, next) => {
 
     next();
   } catch (err) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: err.message,
     });
@@ -137,7 +140,7 @@ const verifyAdmin = (req, res, next) => {
 
     next();
   } catch (err) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: err.message,
     });
@@ -145,7 +148,7 @@ const verifyAdmin = (req, res, next) => {
 };
 
 // ==========================================
-// ADMIN + MANAGER
+// ADMIN + MANAGER ACCESS
 // ==========================================
 const verifyManager = (req, res, next) => {
   try {
@@ -168,7 +171,7 @@ const verifyManager = (req, res, next) => {
 
     next();
   } catch (err) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: err.message,
     });
@@ -177,25 +180,33 @@ const verifyManager = (req, res, next) => {
 
 // ==========================================
 // ROLE HELPER
-// Example: hasRole("admin","manager")
+// Example:
+// router.get("/users", verifyToken, verifyRole("admin","manager"))
 // ==========================================
-const hasRole = (...roles) => {
+const verifyRole = (...roles) => {
   return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
+
+      if (!roles.includes(req.user.role)) {
+        return res.status(403).json({
+          success: false,
+          message: "Permission denied.",
+        });
+      }
+
+      next();
+    } catch (err) {
+      return res.status(500).json({
         success: false,
-        message: "Authentication required.",
+        message: err.message,
       });
     }
-
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: "Permission denied.",
-      });
-    }
-
-    next();
   };
 };
 
@@ -217,7 +228,7 @@ const generateToken = (user) => {
 };
 
 // ==========================================
-// EXPORTS
+// EXPORTS (FINAL LAUNCH VERSION)
 // ==========================================
 module.exports = {
   verifyToken,
@@ -225,6 +236,6 @@ module.exports = {
   verifySelf,
   verifyAdmin,
   verifyManager,
-  hasRole,
+  verifyRole,
   generateToken,
 };
