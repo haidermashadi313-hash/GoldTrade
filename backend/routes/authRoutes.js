@@ -1,16 +1,9 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-const express = require("express");
-const router = express.Router();
 
-const {
-  verifyToken,
-  verifyAdmin,
-} = require("../middleware/authMiddleware");
-
-// ============================================
-// VERIFY JWT TOKEN
-// ============================================
+// ======================================================
+// VERIFY JWT TOKEN (LOGIN REQUIRED)
+// ======================================================
 const verifyToken = async (req, res, next) => {
   try {
     let token = req.headers.authorization;
@@ -22,20 +15,17 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Bearer Token Remove
     token = token.replace("Bearer ", "").trim();
 
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Invalid token format.",
+        message: "Invalid authorization token.",
       });
     }
 
-    // Verify JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Find User
     const user = await User.findById(decoded.id).select("-password");
 
     if (!user) {
@@ -45,7 +35,6 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Account Status Check
     if (user.status !== "Active") {
       return res.status(403).json({
         success: false,
@@ -53,12 +42,10 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Attach User
     req.user = user;
-
     next();
   } catch (err) {
-    console.error("JWT Error:", err.message);
+    console.error("JWT Verify Error:", err.message);
 
     return res.status(401).json({
       success: false,
@@ -67,10 +54,9 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-// ============================================
-// OPTIONAL LOGIN USER
-// Continue even without token
-// ============================================
+// ======================================================
+// OPTIONAL AUTH (PUBLIC ROUTES)
+// ======================================================
 const optionalAuth = async (req, res, next) => {
   try {
     let token = req.headers.authorization;
@@ -90,15 +76,15 @@ const optionalAuth = async (req, res, next) => {
     }
 
     next();
-  } catch {
+  } catch (err) {
     next();
   }
 };
 
-// ============================================
-// VERIFY USER OWN ACCOUNT
-// ============================================
-const verifySelf = async (req, res, next) => {
+// ======================================================
+// VERIFY SELF (USER CAN ACCESS OWN ACCOUNT)
+// ======================================================
+const verifySelf = (req, res, next) => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -134,9 +120,10 @@ const verifySelf = async (req, res, next) => {
     });
   }
 };
-// ============================================
-// ADMIN ONLY ACCESS
-// ============================================
+
+// ======================================================
+// ADMIN ONLY
+// ======================================================
 const verifyAdmin = (req, res, next) => {
   try {
     if (!req.user) {
@@ -162,9 +149,9 @@ const verifyAdmin = (req, res, next) => {
   }
 };
 
-// ============================================
-// ADMIN + MANAGER ACCESS
-// ============================================
+// ======================================================
+// ADMIN + MANAGER
+// ======================================================
 const verifyManager = (req, res, next) => {
   try {
     if (!req.user) {
@@ -193,27 +180,10 @@ const verifyManager = (req, res, next) => {
   }
 };
 
-// ============================================
-// GENERATE JWT TOKEN
-// ============================================
-const generateToken = (user) => {
-  return jwt.sign(
-    {
-      id: user._id,
-      username: user.username,
-      role: user.role,
-    },
-    process.env.JWT_SECRET,
-    {
-      expiresIn: "7d",
-    }
-  );
-};
-
-// ============================================
-// ROLE CHECK HELPER
-// ============================================
-const hasRole = (...roles) => {
+// ======================================================
+// ROLE HELPER
+// ======================================================
+const verifyRole = (...roles) => {
   return (req, res, next) => {
     try {
       if (!req.user) {
@@ -240,15 +210,32 @@ const hasRole = (...roles) => {
   };
 };
 
-// ============================================
-// MODULE EXPORTS
-// ============================================
+// ======================================================
+// GENERATE JWT TOKEN
+// ======================================================
+const generateToken = (user) => {
+  return jwt.sign(
+    {
+      id: user._id,
+      username: user.username,
+      role: user.role,
+    },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: "7d",
+    }
+  );
+};
+
+// ======================================================
+// EXPORTS
+// ======================================================
 module.exports = {
   verifyToken,
   optionalAuth,
   verifySelf,
   verifyAdmin,
   verifyManager,
+  verifyRole,
   generateToken,
-  hasRole,
 };
