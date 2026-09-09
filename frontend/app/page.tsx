@@ -4,15 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Wallet,
   Coins,
-  TrendingUp,
-  TrendingDown,
-  ArrowUpCircle,
-  ArrowDownCircle,
   RefreshCw,
-  History,
-  DollarSign,
   LogOut,
-  User,
 } from "lucide-react";
 
 // ==========================================
@@ -177,9 +170,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white"></main>
+    <main className="min-h-screen bg-black text-white">
 
-          {/* ===========================
+      {/* ===========================
           HEADER
       ============================ */}
       <div className="sticky top-0 z-50 bg-zinc-950 border-b border-yellow-500">
@@ -274,8 +267,7 @@ export default function DashboardPage() {
 
           </div>
         </section>
-
-        {/* ===========================
+                {/* ===========================
             WALLET CARDS
         ============================ */}
         <section className="grid md:grid-cols-4 gap-5 mb-10">
@@ -457,17 +449,11 @@ export default function DashboardPage() {
 
                       <td>{trade.grams} g</td>
 
-                      <td>
-                        PKR {trade.pricePerGram.toLocaleString()}
-                      </td>
+                      <td>PKR {trade.pricePerGram.toLocaleString()}</td>
 
-                      <td>
-                        PKR {trade.totalPKR.toLocaleString()}
-                      </td>
+                      <td>PKR {trade.totalPKR.toLocaleString()}</td>
 
-                      <td>
-                        {new Date(trade.createdAt).toLocaleString()}
-                      </td>
+                      <td>{new Date(trade.createdAt).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -477,7 +463,8 @@ export default function DashboardPage() {
           )}
 
         </section>
-                {/* ===========================
+
+        {/* ===========================
             TRANSACTION HISTORY
         ============================ */}
         <section className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
@@ -516,9 +503,7 @@ export default function DashboardPage() {
                     >
                       <td className="py-4">{tx.type}</td>
 
-                      <td>
-                        PKR {Number(tx.amount).toLocaleString()}
-                      </td>
+                      <td>PKR {Number(tx.amount).toLocaleString()}</td>
 
                       <td>
                         <span
@@ -538,9 +523,7 @@ export default function DashboardPage() {
                         {tx.reason || "-"}
                       </td>
 
-                      <td>
-                        {new Date(tx.createdAt).toLocaleString()}
-                      </td>
+                      <td>{new Date(tx.createdAt).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -592,7 +575,6 @@ export default function DashboardPage() {
     </main>
   );
 }
-
 /* ===========================================================
    REUSABLE DASHBOARD CARD
 =========================================================== */
@@ -612,7 +594,6 @@ function DashboardCard({
   color,
   icon,
 }: DashboardCardProps) {
-
   const borderColor =
     color === "green"
       ? "border-green-600 text-green-400"
@@ -623,9 +604,7 @@ function DashboardCard({
       : "border-purple-500 text-purple-400";
 
   return (
-    <div
-      className={`bg-zinc-900 rounded-3xl border ${borderColor} p-5`}
-    >
+    <div className={`bg-zinc-900 rounded-3xl border ${borderColor} p-5`}>
       <div className="flex justify-between items-center mb-4">
         {icon}
       </div>
