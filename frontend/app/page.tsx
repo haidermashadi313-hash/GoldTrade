@@ -15,7 +15,12 @@ import {
   User,
 } from "lucide-react";
 
-const API = "http://localhost:5000";
+// ==========================================
+// GOLDTRADE V4 FINAL API (RENDER + VERCEL)
+// ==========================================
+const API =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://goldtrade-api.onrender.com";
 
 // ===============================
 // TYPES
@@ -62,10 +67,6 @@ interface Transaction {
 }
 
 export default function DashboardPage() {
-  // ===============================
-  // STATES
-  // ===============================
-
   const [loading, setLoading] = useState(true);
 
   const [user, setUser] = useState<UserData>({
@@ -93,13 +94,11 @@ export default function DashboardPage() {
 
   const [goldHistory, setGoldHistory] = useState<TradeHistory[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-
   const [lastUpdate, setLastUpdate] = useState("");
 
-  // ===============================
-  // LOAD DATA
-  // ===============================
-
+  // =====================================
+  // LOAD DASHBOARD
+  // =====================================
   const loadDashboard = async () => {
     try {
       setLoading(true);
@@ -111,17 +110,13 @@ export default function DashboardPage() {
         return;
       }
 
-      const [
-        userRes,
-        marketRes,
-        goldRes,
-        transactionRes,
-      ] = await Promise.all([
-        fetch(`${API}/api/users/${username}`),
-        fetch(`${API}/api/settings/market`),
-        fetch(`${API}/api/gold/history/${username}`),
-        fetch(`${API}/api/transactions/${username}`),
-      ]);
+      const [userRes, marketRes, goldRes, transactionRes] =
+        await Promise.all([
+          fetch(`${API}/api/users/${username}`),
+          fetch(`${API}/api/settings/market`),
+          fetch(`${API}/api/gold/history/${username}`),
+          fetch(`${API}/api/transactions/${username}`),
+        ]);
 
       const userData = await userRes.json();
       const marketData = await marketRes.json();
@@ -131,13 +126,12 @@ export default function DashboardPage() {
       if (userData.success) setUser(userData.data);
       if (marketData.success) setMarket(marketData.data);
       if (goldData.success) setGoldHistory(goldData.data);
-      if (transactionData.success)
-        setTransactions(transactionData.data);
+      if (transactionData.success) setTransactions(transactionData.data);
 
       setLastUpdate(new Date().toLocaleTimeString());
     } catch (error) {
-      console.error(error);
-      alert("Failed to load dashboard.");
+      console.error("Dashboard Error:", error);
+      alert("Failed to connect GoldTrade Server.");
     } finally {
       setLoading(false);
     }
@@ -145,15 +139,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboard();
-
     const interval = setInterval(loadDashboard, 15000);
-
     return () => clearInterval(interval);
   }, []);
-
-  // ===============================
-  // LIVE CALCULATIONS
-  // ===============================
 
   const portfolioValue = useMemo(() => {
     return user.goldBalance * market.sellGoldPrice;
@@ -174,18 +162,10 @@ export default function DashboardPage() {
     );
   }, [portfolioValue, user, market]);
 
-  // ===============================
-  // LOGOUT
-  // ===============================
-
   const logout = () => {
     localStorage.clear();
     window.location.href = "/login";
   };
-
-  // ===============================
-  // LOADING
-  // ===============================
 
   if (loading) {
     return (
@@ -196,17 +176,13 @@ export default function DashboardPage() {
     );
   }
 
-  // ===============================
-  // UI
-  // ===============================
-
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen bg-black text-white"></main>
 
-      {/* HEADER */}
-
+          {/* ===========================
+          HEADER
+      ============================ */}
       <div className="sticky top-0 z-50 bg-zinc-950 border-b border-yellow-500">
-
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
 
           <div>
@@ -220,7 +196,6 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex gap-3">
-
             <button
               onClick={loadDashboard}
               className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded-xl flex items-center gap-2"
@@ -236,23 +211,21 @@ export default function DashboardPage() {
               <LogOut size={18} />
               Logout
             </button>
-
           </div>
 
         </div>
-
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
 
-        {/* LIVE GOLD MARKET */}
-
+        {/* ===========================
+            LIVE GOLD MARKET
+        ============================ */}
         <section className="bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-400 rounded-3xl p-8 text-black mb-10 shadow-lg">
 
           <div className="flex justify-between items-center">
 
             <div>
-
               <p className="font-semibold tracking-widest">
                 LIVE GOLD MARKET
               </p>
@@ -268,51 +241,43 @@ export default function DashboardPage() {
               <p className="text-sm mt-2">
                 Last Updated : {lastUpdate}
               </p>
-
             </div>
 
             <Coins size={80} />
-
           </div>
 
           <div className="grid md:grid-cols-3 gap-5 mt-8">
 
             <div className="bg-green-700 rounded-2xl p-5 text-white">
-
               <p className="text-sm">BUY GOLD</p>
 
               <h3 className="text-3xl font-bold mt-2">
                 PKR {market.buyGoldPrice.toLocaleString()}
               </h3>
-
             </div>
 
             <div className="bg-red-700 rounded-2xl p-5 text-white">
-
               <p className="text-sm">SELL GOLD</p>
 
               <h3 className="text-3xl font-bold mt-2">
                 PKR {market.sellGoldPrice.toLocaleString()}
               </h3>
-
             </div>
 
             <div className="bg-zinc-900 rounded-2xl p-5 text-yellow-300">
-
               <p className="text-sm">USDT RATE</p>
 
               <h3 className="text-3xl font-bold mt-2">
                 PKR {market.usdtRate}
               </h3>
-
             </div>
 
           </div>
-
         </section>
 
-        {/* WALLET CARDS */}
-
+        {/* ===========================
+            WALLET CARDS
+        ============================ */}
         <section className="grid md:grid-cols-4 gap-5 mb-10">
 
           <DashboardCard
@@ -338,8 +303,8 @@ export default function DashboardPage() {
 
           <DashboardCard
             title="Total Assets"
-            value={`PKR ${totalAssets.toLocaleString(undefined,{
-              maximumFractionDigits:0
+            value={`PKR ${totalAssets.toLocaleString(undefined, {
+              maximumFractionDigits: 0,
             })}`}
             color="purple"
             icon={<TrendingUp size={28} />}
@@ -347,75 +312,64 @@ export default function DashboardPage() {
 
         </section>
 
-        {/* PORTFOLIO */}
-
+        {/* ===========================
+            PORTFOLIO
+        ============================ */}
         <section className="grid md:grid-cols-3 gap-6 mb-10">
 
           <div className="bg-zinc-900 rounded-3xl border border-yellow-500 p-6">
-
-            <p className="text-gray-400 mb-2">
-              Portfolio Value
-            </p>
+            <p className="text-gray-400 mb-2">Portfolio Value</p>
 
             <h2 className="text-4xl font-bold text-yellow-400">
-              PKR {portfolioValue.toLocaleString(undefined,{
-                maximumFractionDigits:0
+              PKR {portfolioValue.toLocaleString(undefined, {
+                maximumFractionDigits: 0,
               })}
             </h2>
-
           </div>
 
           <div className="bg-zinc-900 rounded-3xl border border-green-600 p-6">
-
-            <p className="text-gray-400 mb-2">
-              Average Buy Price
-            </p>
+            <p className="text-gray-400 mb-2">Average Buy Price</p>
 
             <h2 className="text-4xl font-bold text-green-400">
               PKR {user.goldAveragePrice.toLocaleString()}
             </h2>
-
           </div>
 
-          <div className={`rounded-3xl p-6 border ${
-            liveProfit >=0
-              ? "bg-green-950 border-green-600"
-              : "bg-red-950 border-red-600"
-          }`}>
+          <div
+            className={`rounded-3xl p-6 border ${
+              liveProfit >= 0
+                ? "bg-green-950 border-green-600"
+                : "bg-red-950 border-red-600"
+            }`}
+          >
+            <p className="text-gray-300 mb-2">Live Profit / Loss</p>
 
-            <p className="text-gray-300 mb-2">
-              Live Profit / Loss
-            </p>
-
-            <h2 className={`text-4xl font-bold ${
-              liveProfit >=0
-                ? "text-green-400"
-                : "text-red-400"
-            }`}>
-              PKR {liveProfit.toLocaleString(undefined,{
-                maximumFractionDigits:0
+            <h2
+              className={`text-4xl font-bold ${
+                liveProfit >= 0 ? "text-green-400" : "text-red-400"
+              }`}
+            >
+              PKR {liveProfit.toLocaleString(undefined, {
+                maximumFractionDigits: 0,
               })}
             </h2>
 
             <div className="mt-3 flex items-center gap-2">
-
-              {liveProfit >=0 ? (
+              {liveProfit >= 0 ? (
                 <ArrowUpCircle className="text-green-400" />
               ) : (
                 <ArrowDownCircle className="text-red-400" />
               )}
 
-              <span>
-                {liveProfit >=0 ? "Profit" : "Loss"}
-              </span>
-
+              <span>{liveProfit >= 0 ? "Profit" : "Loss"}</span>
             </div>
-
           </div>
 
         </section>
-                {/* QUICK ACTION BUTTONS */}
 
+        {/* ===========================
+            QUICK ACTION BUTTONS
+        ============================ */}
         <section className="grid md:grid-cols-4 gap-4 mb-10">
 
           <button
@@ -452,8 +406,9 @@ export default function DashboardPage() {
 
         </section>
 
-        {/* GOLD TRADE HISTORY */}
-
+        {/* ===========================
+            GOLD TRADE HISTORY
+        ============================ */}
         <section className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
 
           <div className="flex justify-between items-center mb-5">
@@ -470,34 +425,25 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-
               <table className="w-full">
 
                 <thead className="border-b border-yellow-600 text-yellow-400">
-
                   <tr className="text-left">
-
                     <th className="py-3">Type</th>
                     <th>Grams</th>
                     <th>Price/Gram</th>
                     <th>Total PKR</th>
                     <th>Date</th>
-
                   </tr>
-
                 </thead>
 
                 <tbody>
-
                   {goldHistory.slice(0, 8).map((trade) => (
-
                     <tr
                       key={trade._id}
                       className="border-b border-zinc-800 hover:bg-zinc-800"
                     >
-
                       <td className="py-4">
-
                         <span
                           className={`px-3 py-1 rounded-full text-sm font-bold ${
                             trade.tradeType === "BUY"
@@ -507,52 +453,41 @@ export default function DashboardPage() {
                         >
                           {trade.tradeType}
                         </span>
-
                       </td>
 
                       <td>{trade.grams} g</td>
 
                       <td>
-                        PKR{" "}
-                        {trade.pricePerGram.toLocaleString()}
+                        PKR {trade.pricePerGram.toLocaleString()}
                       </td>
 
                       <td>
-                        PKR{" "}
-                        {trade.totalPKR.toLocaleString()}
+                        PKR {trade.totalPKR.toLocaleString()}
                       </td>
 
                       <td>
-                        {new Date(
-                          trade.createdAt
-                        ).toLocaleString()}
+                        {new Date(trade.createdAt).toLocaleString()}
                       </td>
-
                     </tr>
-
                   ))}
-
                 </tbody>
 
               </table>
-
             </div>
           )}
 
         </section>
-
-        {/* TRANSACTION HISTORY */}
-
+                {/* ===========================
+            TRANSACTION HISTORY
+        ============================ */}
         <section className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
 
           <div className="flex justify-between items-center mb-5">
-
             <h2 className="text-2xl font-bold text-yellow-400">
               Recent Transactions
             </h2>
 
             <History className="text-yellow-400" />
-
           </div>
 
           {transactions.length === 0 ? (
@@ -561,45 +496,34 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-
               <table className="w-full">
 
                 <thead className="border-b border-yellow-600 text-yellow-400">
-
                   <tr className="text-left">
-
                     <th className="py-3">Type</th>
                     <th>Amount</th>
                     <th>Status</th>
                     <th>Reason</th>
                     <th>Date</th>
-
                   </tr>
-
                 </thead>
 
                 <tbody>
-
                   {transactions.slice(0, 10).map((tx) => (
-
                     <tr
                       key={tx._id}
                       className="border-b border-zinc-800 hover:bg-zinc-800"
                     >
-
                       <td className="py-4">{tx.type}</td>
 
                       <td>
-                        PKR{" "}
-                        {Number(tx.amount).toLocaleString()}
+                        PKR {Number(tx.amount).toLocaleString()}
                       </td>
 
                       <td>
-
                         <span
                           className={`px-3 py-1 rounded-full text-sm font-bold ${
-                            tx.status === "Completed" ||
-                            tx.status === "Credit"
+                            tx.status === "Completed" || tx.status === "Credit"
                               ? "bg-green-700 text-white"
                               : tx.status === "Pending"
                               ? "bg-yellow-600 text-black"
@@ -608,7 +532,6 @@ export default function DashboardPage() {
                         >
                           {tx.status}
                         </span>
-
                       </td>
 
                       <td className="max-w-[250px] truncate">
@@ -616,52 +539,40 @@ export default function DashboardPage() {
                       </td>
 
                       <td>
-                        {new Date(
-                          tx.createdAt
-                        ).toLocaleString()}
+                        {new Date(tx.createdAt).toLocaleString()}
                       </td>
-
                     </tr>
-
                   ))}
-
                 </tbody>
 
               </table>
-
             </div>
           )}
 
         </section>
 
-        {/* ACCOUNT SUMMARY */}
-
+        {/* ===========================
+            ACCOUNT SUMMARY
+        ============================ */}
         <section className="grid md:grid-cols-3 gap-6 mb-12">
 
           <div className="bg-zinc-900 rounded-3xl border border-green-600 p-6">
-
             <p className="text-gray-400">Total Deposit</p>
 
             <h2 className="text-3xl font-bold text-green-400 mt-2">
-              PKR{" "}
-              {user.totalDeposit.toLocaleString()}
+              PKR {user.totalDeposit.toLocaleString()}
             </h2>
-
           </div>
 
           <div className="bg-zinc-900 rounded-3xl border border-red-600 p-6">
-
             <p className="text-gray-400">Total Withdraw</p>
 
             <h2 className="text-3xl font-bold text-red-400 mt-2">
-              PKR{" "}
-              {user.totalWithdraw.toLocaleString()}
+              PKR {user.totalWithdraw.toLocaleString()}
             </h2>
-
           </div>
 
           <div className="bg-zinc-900 rounded-3xl border border-cyan-600 p-6">
-
             <p className="text-gray-400">Total Gold Profit</p>
 
             <h2
@@ -671,10 +582,8 @@ export default function DashboardPage() {
                   : "text-red-400"
               }`}
             >
-              PKR{" "}
-              {user.goldProfitLoss.toLocaleString()}
+              PKR {user.goldProfitLoss.toLocaleString()}
             </h2>
-
           </div>
 
         </section>
@@ -685,14 +594,10 @@ export default function DashboardPage() {
 }
 
 /* ===========================================================
-   REUSABLE CARD COMPONENT
+   REUSABLE DASHBOARD CARD
 =========================================================== */
 
-type CardColor =
-  | "green"
-  | "yellow"
-  | "cyan"
-  | "purple";
+type CardColor = "green" | "yellow" | "cyan" | "purple";
 
 interface DashboardCardProps {
   title: string;
@@ -707,6 +612,7 @@ function DashboardCard({
   color,
   icon,
 }: DashboardCardProps) {
+
   const borderColor =
     color === "green"
       ? "border-green-600 text-green-400"
