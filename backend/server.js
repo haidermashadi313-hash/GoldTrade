@@ -1,88 +1,8 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-const path = require("path");
-const fs = require("fs");
-require("dotenv").config();
-
-const app = express();
-
-/* =========================================================
-   GOLDTRADE V4 FINAL - RENDER + VERCEL PRODUCTION SERVER
-========================================================= */
-
-// ==========================
-// Routes
-// ==========================
-const authRoutes = require("./routes/authRoutes");
-const userRoutes = require("./routes/userRoutes");
-const walletRoutes = require("./routes/walletRoutes");
-const depositRoutes = require("./routes/depositRoutes");
-const withdrawRoutes = require("./routes/withdrawRoutes");
-const settingsRoutes = require("./routes/settingsRoutes");
-const transactionRoutes = require("./routes/transactionRoutes");
-const adminRoutes = require("./routes/adminRoutes");
-const usdtRoutes = require("./routes/usdtRoutes");
-const goldRoutes = require("./routes/goldRoutes");
-
-// ==========================
-// Upload Folders
-// ==========================
-const uploadFolder = path.join(__dirname, "uploads");
-
-[
-  uploadFolder,
-  path.join(uploadFolder, "receipts"),
-  path.join(uploadFolder, "qr"),
-  path.join(uploadFolder, "settings"),
-].forEach((folder) => {
-  if (!fs.existsSync(folder)) {
-    fs.mkdirSync(folder, { recursive: true });
-  }
-});
-
-// ==========================
-// CORS
-// ==========================
-const allowedOrigins = [
-  "http://localhost:3000",
-  process.env.CLIENT_URL,
-  process.env.FRONTEND_URL,
-  process.env.DOMAIN_URL,
-  "https://www.infotradewithzoyanet.org",
-  "https://infotradewithzoyanet.org",
-].filter(Boolean);
-
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.log("⚠️ CORS Request:", origin);
-      return callback(null, true);
-    },
-    credentials: true,
-  })
-);
-
-// ==========================
-// Middleware
-// ==========================
-app.use(express.json({ limit: "20mb" }));
-app.use(express.urlencoded({ extended: true, limit: "20mb" }));
-
-// ==========================
-// Static Uploads
-// ==========================
-app.use("/uploads", express.static(uploadFolder));
-
 // ==========================
 // ROOT API
 // ==========================
 app.get("/", (req, res) => {
-  res.json({
+  res.status(200).json({
     success: true,
     app: "GoldTrade Backend",
     version: "V4 FINAL",
@@ -97,18 +17,20 @@ app.get("/", (req, res) => {
 });
 
 // ==========================
-// HEALTH CHECK (IMPORTANT FIX)
+// HEALTH CHECK (MUST BE BEFORE API ROUTES & 404)
 // ==========================
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
     message: "GoldTrade API Running",
     version: "V4 FINAL",
+    status: "ONLINE",
     mongodb:
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Disconnected",
     environment: process.env.NODE_ENV || "development",
+    uptime: process.uptime(),
     timestamp: new Date(),
   });
 });
@@ -117,7 +39,7 @@ app.get("/api/health", (req, res) => {
 // STATUS API
 // ==========================
 app.get("/api/status", (req, res) => {
-  res.json({
+  res.status(200).json({
     success: true,
     version: "V4 FINAL",
     environment: process.env.NODE_ENV || "development",
@@ -126,6 +48,7 @@ app.get("/api/status", (req, res) => {
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Disconnected",
+    timestamp: new Date(),
   });
 });
 
@@ -143,13 +66,14 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/usdt", usdtRoutes);
 app.use("/api/gold", goldRoutes);
 // ==========================
-// 404 HANDLER
+// 404 HANDLER (LAST ROUTE)
 // ==========================
 app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: "API Route Not Found",
     path: req.originalUrl,
+    method: req.method,
     timestamp: new Date(),
   });
 });
