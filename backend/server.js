@@ -40,18 +40,19 @@ const settingsFolder = path.join(uploadFolder, "settings");
 // =======================================================
 const allowedOrigins = [
   "http://localhost:3000",
+  process.env.CLIENT_URL,
   process.env.FRONTEND_URL,
   process.env.DOMAIN_URL,
 ].filter(Boolean);
 
 app.use(
   cors({
-    origin: function (origin, callback) {
+    origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(null, true); // Launch version
+        return callback(null, true);
       }
+      // Production launch: allow requests
+      return callback(null, true);
     },
     credentials: true,
   })
@@ -95,6 +96,7 @@ app.get("/api/status", (req, res) => {
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Disconnected",
+    serverTime: new Date(),
   });
 });
 
@@ -113,11 +115,12 @@ app.use("/api/transactions", transactionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/usdt", usdtRoutes);
 app.use("/api/gold", goldRoutes);
+
 // =======================================================
-// 404 API HANDLER
+// 404 HANDLER
 // =======================================================
 app.use((req, res) => {
-  return res.status(404).json({
+  res.status(404).json({
     success: false,
     message: "API Route Not Found",
     path: req.originalUrl,
@@ -134,7 +137,7 @@ app.use((err, req, res, next) => {
   console.error(err.stack || err.message);
   console.error("======================================");
 
-  return res.status(500).json({
+  res.status(500).json({
     success: false,
     message: "Internal Server Error",
     error:
@@ -145,9 +148,9 @@ app.use((err, req, res, next) => {
 });
 
 // =======================================================
-// CONNECT MONGODB & START SERVER
+// CONNECT MONGODB & START SERVER (RENDER READY)
 // =======================================================
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -157,17 +160,15 @@ mongoose
     console.log("✅ MongoDB Connected Successfully");
 
     app.listen(PORT, "0.0.0.0", () => {
-      console.log("");
       console.log("========================================");
       console.log("🚀 GoldTrade Backend Started");
-      console.log(`🌍 Port        : ${PORT}`);
-      console.log(`🌐 Environment : ${process.env.NODE_ENV || "development"}`);
-      console.log("💾 MongoDB     : Connected");
-      console.log("💰 Gold Trading: Enabled");
-      console.log("👑 Wallet APIs : Enabled");
-      console.log("🪙 TRC20 Wallet: Enabled");
+      console.log(`🌍 Running on : http://0.0.0.0:${PORT}`);
+      console.log(`🌐 Environment: ${process.env.NODE_ENV || "development"}`);
+      console.log("💾 MongoDB    : Connected");
+      console.log("💰 Gold APIs  : Enabled");
+      console.log("👑 Wallet APIs: Enabled");
+      console.log("🪙 USDT APIs  : Enabled");
       console.log("========================================");
-      console.log("");
     });
   })
   .catch((err) => {
