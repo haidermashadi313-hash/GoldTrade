@@ -6,6 +6,11 @@ import {
   Coins,
   RefreshCw,
   LogOut,
+  DollarSign,
+  TrendingUp,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  History,
 } from "lucide-react";
 
 // ==========================================
