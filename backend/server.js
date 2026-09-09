@@ -29,14 +29,13 @@ const goldRoutes = require("./routes/goldRoutes");
 // Upload Folders
 // ==========================
 const uploadFolder = path.join(__dirname, "uploads");
-const folders = [
+
+[
   uploadFolder,
   path.join(uploadFolder, "receipts"),
   path.join(uploadFolder, "qr"),
   path.join(uploadFolder, "settings"),
-];
-
-folders.forEach((folder) => {
+].forEach((folder) => {
   if (!fs.existsSync(folder)) {
     fs.mkdirSync(folder, { recursive: true });
   }
@@ -50,6 +49,8 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   process.env.FRONTEND_URL,
   process.env.DOMAIN_URL,
+  "https://www.infotradewithzoyanet.org",
+  "https://infotradewithzoyanet.org",
 ].filter(Boolean);
 
 app.use(
@@ -73,15 +74,15 @@ app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
 // ==========================
-// Static Files
+// Static Uploads
 // ==========================
 app.use("/uploads", express.static(uploadFolder));
 
 // ==========================
-// Health Check
+// ROOT API
 // ==========================
 app.get("/", (req, res) => {
-  res.status(200).json({
+  res.json({
     success: true,
     app: "GoldTrade Backend",
     version: "V4 FINAL",
@@ -95,6 +96,26 @@ app.get("/", (req, res) => {
   });
 });
 
+// ==========================
+// HEALTH CHECK (IMPORTANT FIX)
+// ==========================
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "GoldTrade API Running",
+    version: "V4 FINAL",
+    mongodb:
+      mongoose.connection.readyState === 1
+        ? "Connected"
+        : "Disconnected",
+    environment: process.env.NODE_ENV || "development",
+    timestamp: new Date(),
+  });
+});
+
+// ==========================
+// STATUS API
+// ==========================
 app.get("/api/status", (req, res) => {
   res.json({
     success: true,
@@ -109,7 +130,7 @@ app.get("/api/status", (req, res) => {
 });
 
 // ==========================
-// API Routes
+// API ROUTES
 // ==========================
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
@@ -121,9 +142,8 @@ app.use("/api/transactions", transactionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/usdt", usdtRoutes);
 app.use("/api/gold", goldRoutes);
-
 // ==========================
-// 404 Handler
+// 404 HANDLER
 // ==========================
 app.use((req, res) => {
   res.status(404).json({
@@ -135,7 +155,7 @@ app.use((req, res) => {
 });
 
 // ==========================
-// Global Error Handler
+// GLOBAL ERROR HANDLER
 // ==========================
 app.use((err, req, res, next) => {
   console.error("====================================");
@@ -154,12 +174,12 @@ app.use((err, req, res, next) => {
 });
 
 // ==========================
-// PORT (Render uses 10000)
+// PORT
 // ==========================
 const PORT = process.env.PORT || 10000;
 
 // ==========================
-// Start Server First (Fixes Render 502)
+// START SERVER
 // ==========================
 const server = app.listen(PORT, "0.0.0.0", () => {
   console.log("====================================");
@@ -169,12 +189,12 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log("====================================");
 });
 
-// Render timeout fix
+// Render Keep Alive
 server.keepAliveTimeout = 120000;
 server.headersTimeout = 121000;
 
 // ==========================
-// MongoDB Connection
+// MONGODB CONNECTION
 // ==========================
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -193,10 +213,11 @@ mongoose
   });
 
 // ==========================
-// Graceful Shutdown
+// GRACEFUL SHUTDOWN
 // ==========================
 process.on("SIGTERM", () => {
   console.log("🛑 SIGTERM received. Closing server...");
+
   server.close(() => {
     mongoose.connection.close(false, () => {
       console.log("MongoDB Closed.");
