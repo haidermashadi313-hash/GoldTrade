@@ -4,228 +4,218 @@ const router = express.Router();
 const bcrypt = require("bcrypt");
 const User = require("../models/User");
 
-// Sirf middleware se import karo
 const {
   verifyToken,
   generateToken,
 } = require("../middleware/authMiddleware");
 
-// ======================================================
-// VERIFY JWT TOKEN (LOGIN REQUIRED)
-// ======================================================
+// =========================================
+// SIGNUP
+// POST /api/auth/signup
+// =========================================
+router.post("/signup", async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required.",
+      });
+    }
 
-    const user = await User.findById(decoded.id).select("-password");
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters.",
+      });
+    }
+
+    const usernameExists = await User.findOne({ username });
+
+    if (usernameExists) {
+      return res.status(400).json({
+        success: false,
+        message: "Username already exists.",
+      });
+    }
+
+    const emailExists = await User.findOne({
+      email: email.toLowerCase(),
+    });
+
+    if (emailExists) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const role =
+      email.toLowerCase() === "admin@goldtrade.com"
+        ? "admin"
+        : "user";
+
+    const user = await User.create({
+      username,
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      role,
+      status: "Active",
+      walletBalance: 0,
+      usdtBalance: 0,
+      goldBalance: 0,
+      goldAveragePrice: 0,
+      goldProfitLoss: 0,
+      totalDeposit: 0,
+      totalWithdraw: 0,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Account created successfully.",
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
+      message: "Signup failed.",
+    });
+  }
+});
+
+// =========================================
+// LOGIN
+// POST /api/auth/login
+// =========================================
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({
+      email: email.toLowerCase(),
+    });
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "User account not found.",
+        message: "Email not found.",
+      });
+    }
+
+    const validPassword = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!validPassword) {
+      return res.status(401).json({
+        success: false,
+        message: "Incorrect password.",
       });
     }
 
     if (user.status !== "Active") {
       return res.status(403).json({
         success: false,
-        message: "Your account has been blocked by administrator.",
+        message: "Your account is inactive.",
       });
     }
 
-    req.user = user;
-    next();
-  } catch (err) {
-    console.error("JWT Verify Error:", err.message);
+    const token = generateToken(user);
 
-    return res.status(401).json({
+    res.json({
+      success: true,
+      message: "Login successful.",
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        walletBalance: user.walletBalance,
+        usdtBalance: user.usdtBalance,
+        goldBalance: user.goldBalance,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
       success: false,
-      message: "Session expired. Please login again.",
+      message: "Login failed.",
     });
   }
-};
-
-// ======================================================
-// OPTIONAL AUTH (PUBLIC ROUTES)
-// ======================================================
-const optionalAuth = async (req, res, next) => {
+});
+// =========================================
+// GET CURRENT LOGGED-IN USER
+// GET /api/auth/me
+// =========================================
+router.get("/me", verifyToken, async (req, res) => {
   try {
-    let token = req.headers.authorization;
-
-    if (!token) {
-      return next();
-    }
-
-    token = token.replace("Bearer ", "").trim();
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const user = await User.findById(decoded.id).select("-password");
-
-    if (user && user.status === "Active") {
-      req.user = user;
-    }
-
-    next();
+    res.json({
+      success: true,
+      data: req.user,
+    });
   } catch (err) {
-    next();
-  }
-};
-
-// ======================================================
-// VERIFY SELF (USER CAN ACCESS OWN ACCOUNT)
-// ======================================================
-const verifySelf = (req, res, next) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized.",
-      });
-    }
-
-    const username =
-      req.params.username ||
-      req.body.username ||
-      req.query.username;
-
-    if (
-      req.user.role === "admin" ||
-      req.user.role === "manager"
-    ) {
-      return next();
-    }
-
-    if (req.user.username !== username) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied.",
-      });
-    }
-
-    next();
-  } catch (err) {
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: err.message,
     });
   }
-};
+});
 
-// ======================================================
-// ADMIN ONLY
-// ======================================================
-const verifyAdmin = (req, res, next) => {
+// =========================================
+// VERIFY TOKEN
+// GET /api/auth/verify
+// =========================================
+router.get("/verify", verifyToken, (req, res) => {
+  res.json({
+    success: true,
+    message: "Token is valid.",
+    user: req.user,
+  });
+});
+
+// =========================================
+// LOGOUT
+// =========================================
+router.post("/logout", verifyToken, (req, res) => {
+  res.json({
+    success: true,
+    message: "Logout successful.",
+  });
+});
+
+// =========================================
+// REFRESH USER PROFILE
+// =========================================
+router.get("/profile", verifyToken, async (req, res) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required.",
-      });
-    }
+    const user = await User.findById(req.user._id).select("-password");
 
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access required.",
-      });
-    }
-
-    next();
+    res.json({
+      success: true,
+      data: user,
+    });
   } catch (err) {
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: err.message,
     });
   }
-};
+});
 
-// ======================================================
-// ADMIN + MANAGER
-// ======================================================
-const verifyManager = (req, res, next) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required.",
-      });
-    }
-
-    if (
-      req.user.role !== "admin" &&
-      req.user.role !== "manager"
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Admin or Manager access required.",
-      });
-    }
-
-    next();
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
-
-// ======================================================
-// ROLE HELPER
-// ======================================================
-const verifyRole = (...roles) => {
-  return (req, res, next) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          message: "Authentication required.",
-        });
-      }
-
-      if (!roles.includes(req.user.role)) {
-        return res.status(403).json({
-          success: false,
-          message: "Permission denied.",
-        });
-      }
-
-      next();
-    } catch (err) {
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
-    }
-  };
-};
-
-// ======================================================
-// GENERATE JWT TOKEN
-// ======================================================
-const generateToken = (user) => {
-  return jwt.sign(
-    {
-      id: user._id,
-      username: user.username,
-      role: user.role,
-    },
-    process.env.JWT_SECRET,
-    {
-      expiresIn: "7d",
-    }
-  );
-};
-
-// ======================================================
-// EXPORTS
-// ======================================================
-module.exports = {
-  verifyToken,
-  optionalAuth,
-  verifySelf,
-  verifyAdmin,
-  verifyManager,
-  verifyRole,
-  generateToken,
-};
+// =========================================
+// EXPORT ROUTER
+// =========================================
+module.exports = router;
