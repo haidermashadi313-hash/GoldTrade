@@ -1,5 +1,42 @@
 // ==========================
-// ROOT API
+// CORS
+// ==========================
+const allowedOrigins = [
+  "http://localhost:3000",
+  process.env.CLIENT_URL,
+  process.env.FRONTEND_URL,
+  process.env.DOMAIN_URL,
+  "https://infotradewithzoyanet.org",
+  "https://www.infotradewithzoyanet.org",
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log("⚠️ CORS:", origin);
+      return callback(null, true);
+    },
+    credentials: true,
+  })
+);
+
+// ==========================
+// Middleware
+// ==========================
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ extended: true, limit: "20mb" }));
+
+// ==========================
+// Static Uploads
+// ==========================
+app.use("/uploads", express.static(uploadFolder));
+
+// ==========================
+// ROOT ROUTE
 // ==========================
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -12,12 +49,12 @@ app.get("/", (req, res) => {
         ? "Connected"
         : "Disconnected",
     environment: process.env.NODE_ENV || "development",
-    serverTime: new Date(),
+    timestamp: new Date(),
   });
 });
 
 // ==========================
-// HEALTH CHECK (MUST BE BEFORE API ROUTES & 404)
+// HEALTH ROUTE
 // ==========================
 app.get("/api/health", (req, res) => {
   res.status(200).json({
@@ -29,25 +66,25 @@ app.get("/api/health", (req, res) => {
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Disconnected",
-    environment: process.env.NODE_ENV || "development",
     uptime: process.uptime(),
+    environment: process.env.NODE_ENV || "development",
     timestamp: new Date(),
   });
 });
 
 // ==========================
-// STATUS API
+// STATUS ROUTE
 // ==========================
 app.get("/api/status", (req, res) => {
   res.status(200).json({
     success: true,
     version: "V4 FINAL",
-    environment: process.env.NODE_ENV || "development",
-    uptime: process.uptime(),
     mongodb:
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Disconnected",
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || "development",
     timestamp: new Date(),
   });
 });
@@ -113,12 +150,12 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log("====================================");
 });
 
-// Render Keep Alive
+// Keep Alive (Render)
 server.keepAliveTimeout = 120000;
 server.headersTimeout = 121000;
 
 // ==========================
-// MONGODB CONNECTION
+// MongoDB Connection
 // ==========================
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -137,13 +174,13 @@ mongoose
   });
 
 // ==========================
-// GRACEFUL SHUTDOWN
+// Graceful Shutdown
 // ==========================
 process.on("SIGTERM", () => {
   console.log("🛑 SIGTERM received. Closing server...");
 
   server.close(() => {
-    mongoose.connection.close(false, () => {
+    mongoose.connection.close(false).then(() => {
       console.log("MongoDB Closed.");
       process.exit(0);
     });

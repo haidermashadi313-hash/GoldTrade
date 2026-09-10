@@ -1,26 +1,19 @@
-const express = require("express");
-const router = express.Router();
-
-const bcrypt = require("bcrypt");
-const User = require("../models/User");
-
-const {
-  verifyToken,
-  generateToken,
-} = require("../middleware/authMiddleware");
-
 // =========================================
-// SIGNUP
+// SIGNUP (FINAL PRODUCTION FIX)
 // POST /api/auth/signup
 // =========================================
 router.post("/signup", async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    let { username, email, password } = req.body;
+
+    username = username?.trim();
+    email = email?.trim().toLowerCase();
+    password = password?.trim();
 
     if (!username || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required.",
+        message: "Username, email and password are required.",
       });
     }
 
@@ -31,8 +24,8 @@ router.post("/signup", async (req, res) => {
       });
     }
 
+    // Duplicate username
     const usernameExists = await User.findOne({ username });
-
     if (usernameExists) {
       return res.status(400).json({
         success: false,
@@ -40,10 +33,8 @@ router.post("/signup", async (req, res) => {
       });
     }
 
-    const emailExists = await User.findOne({
-      email: email.toLowerCase(),
-    });
-
+    // Duplicate email
+    const emailExists = await User.findOne({ email });
     if (emailExists) {
       return res.status(400).json({
         success: false,
@@ -51,18 +42,15 @@ router.post("/signup", async (req, res) => {
       });
     }
 
+    // Hash Password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const role =
-      email.toLowerCase() === "admin@goldtrade.com"
-        ? "admin"
-        : "user";
-
-    const user = await User.create({
+    // Create User
+    const newUser = new User({
       username,
-      email: email.toLowerCase(),
+      email,
       password: hashedPassword,
-      role,
+      role: email === "admin@goldtrade.com" ? "admin" : "user",
       status: "Active",
       walletBalance: 0,
       usdtBalance: 0,
@@ -73,149 +61,24 @@ router.post("/signup", async (req, res) => {
       totalWithdraw: 0,
     });
 
-    res.status(201).json({
+    await newUser.save();
+
+    return res.status(201).json({
       success: true,
       message: "Account created successfully.",
       user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
+        id: newUser._id,
+        username: newUser.username,
+        email: newUser.email,
+        role: newUser.role,
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error("❌ SIGNUP ERROR:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Signup failed.",
+      message: err.message || "Signup failed.",
     });
   }
 });
-
-// =========================================
-// LOGIN
-// POST /api/auth/login
-// =========================================
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({
-      email: email.toLowerCase(),
-    });
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Email not found.",
-      });
-    }
-
-    const validPassword = await bcrypt.compare(
-      password,
-      user.password
-    );
-
-    if (!validPassword) {
-      return res.status(401).json({
-        success: false,
-        message: "Incorrect password.",
-      });
-    }
-
-    if (user.status !== "Active") {
-      return res.status(403).json({
-        success: false,
-        message: "Your account is inactive.",
-      });
-    }
-
-    const token = generateToken(user);
-
-    res.json({
-      success: true,
-      message: "Login successful.",
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        walletBalance: user.walletBalance,
-        usdtBalance: user.usdtBalance,
-        goldBalance: user.goldBalance,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-
-    res.status(500).json({
-      success: false,
-      message: "Login failed.",
-    });
-  }
-});
-// =========================================
-// GET CURRENT LOGGED-IN USER
-// GET /api/auth/me
-// =========================================
-router.get("/me", verifyToken, async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      data: req.user,
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-});
-
-// =========================================
-// VERIFY TOKEN
-// GET /api/auth/verify
-// =========================================
-router.get("/verify", verifyToken, (req, res) => {
-  res.json({
-    success: true,
-    message: "Token is valid.",
-    user: req.user,
-  });
-});
-
-// =========================================
-// LOGOUT
-// =========================================
-router.post("/logout", verifyToken, (req, res) => {
-  res.json({
-    success: true,
-    message: "Logout successful.",
-  });
-});
-
-// =========================================
-// REFRESH USER PROFILE
-// =========================================
-router.get("/profile", verifyToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).select("-password");
-
-    res.json({
-      success: true,
-      data: user,
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-});
-
-// =========================================
-// EXPORT ROUTER
-// =========================================
-module.exports = router;
