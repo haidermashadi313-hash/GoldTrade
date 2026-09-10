@@ -1,35 +1,14 @@
-const express = require("express");
-const router = express.Router();
-
 const User = require("../models/User");
-const Transaction = require("../models/Transaction");
 const WalletTransaction = require("../models/WalletTransaction");
 
-const { verifyToken } = require("../middleware/authMiddleware");
-
-// =====================================================
-// ADMIN CHECK MIDDLEWARE
-// =====================================================
-const verifyAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin access only.",
-    });
-  }
-
-  next();
-};
-
-// =====================================================
-// GET ALL USERS (Wallet Manager)
-// GET /api/admin/wallet/users
-// =====================================================
-router.get("/users", verifyToken, verifyAdmin, async (req, res) => {
+// =======================================
+// GET ALL USERS FOR WALLET MANAGER
+// =======================================
+exports.getWalletUsers = async (req, res) => {
   try {
     const users = await User.find()
       .select(
-        "username email role status walletBalance usdtBalance goldBalance totalDeposit totalWithdraw createdAt"
+        "username email role status walletBalance usdtBalance goldBalance totalDeposit totalWithdraw"
       )
       .sort({ createdAt: -1 });
 
@@ -43,13 +22,12 @@ router.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       message: err.message,
     });
   }
-});
+};
 
-// =====================================================
+// =======================================
 // CREDIT / DEBIT WALLET
-// POST /api/admin/wallet/update
-// =====================================================
-router.post("/update", verifyToken, verifyAdmin, async (req, res) => {
+// =======================================
+exports.updateWallet = async (req, res) => {
   try {
     const {
       userId,
@@ -63,12 +41,11 @@ router.post("/update", verifyToken, verifyAdmin, async (req, res) => {
       !userId ||
       !walletType ||
       !action ||
-      !amount ||
-      !reason
+      !amount
     ) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required.",
+        message: "Missing required fields.",
       });
     }
 
@@ -83,21 +60,19 @@ router.post("/update", verifyToken, verifyAdmin, async (req, res) => {
 
     const value = Number(amount);
 
-    if (isNaN(value) || value <= 0) {
+    if (value <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Invalid amount.",
+        message: "Amount must be greater than zero.",
       });
     }
 
     let previousBalance = 0;
     let newBalance = 0;
 
-    // ===========================
-    // PKR WALLET
-    // ===========================
+    // PKR Wallet
     if (walletType === "PKR") {
-      previousBalance = user.walletBalance || 0;
+      previousBalance = user.walletBalance;
 
       newBalance =
         action === "credit"
@@ -109,11 +84,9 @@ router.post("/update", verifyToken, verifyAdmin, async (req, res) => {
       user.walletBalance = newBalance;
     }
 
-    // ===========================
-    // USDT WALLET
-    // ===========================
+    // USDT Wallet
     if (walletType === "USDT") {
-      previousBalance = user.usdtBalance || 0;
+      previousBalance = user.usdtBalance;
 
       newBalance =
         action === "credit"
@@ -125,11 +98,9 @@ router.post("/update", verifyToken, verifyAdmin, async (req, res) => {
       user.usdtBalance = newBalance;
     }
 
-    // ===========================
-    // GOLD WALLET
-    // ===========================
+    // GOLD Wallet
     if (walletType === "GOLD") {
-      previousBalance = user.goldBalance || 0;
+      previousBalance = user.goldBalance;
 
       newBalance =
         action === "credit"
@@ -143,7 +114,6 @@ router.post("/update", verifyToken, verifyAdmin, async (req, res) => {
 
     await user.save();
 
-    // Wallet History
     await WalletTransaction.create({
       user: user._id,
       admin: req.user.id,
@@ -155,40 +125,28 @@ router.post("/update", verifyToken, verifyAdmin, async (req, res) => {
       reason,
     });
 
-    // General Transaction History
-    await Transaction.create({
-      userId: user._id,
-      username: user.username,
-      type: `Wallet ${action === "credit" ? "Credit" : "Debit"}`,
-      amount: value,
-      status: "Completed",
-      description: `${walletType} wallet ${action}. Reason: ${reason}`,
-    });
-
     res.json({
       success: true,
-      message: `${walletType} wallet ${action} successful.`,
+      message: "Wallet updated successfully.",
       walletType,
-      action,
       previousBalance,
       newBalance,
       user,
     });
   } catch (err) {
-    console.error("Wallet Update Error:", err);
+    console.error(err);
 
     res.status(500).json({
       success: false,
       message: err.message,
     });
   }
-});
+};
 
-// =====================================================
+// =======================================
 // WALLET HISTORY
-// GET /api/admin/wallet/history
-// =====================================================
-router.get("/history", verifyToken, verifyAdmin, async (req, res) => {
+// =======================================
+exports.walletHistory = async (req, res) => {
   try {
     const history = await WalletTransaction.find()
       .populate("user", "username email")
@@ -205,6 +163,4 @@ router.get("/history", verifyToken, verifyAdmin, async (req, res) => {
       message: err.message,
     });
   }
-});
-
-module.exports = router;
+};
