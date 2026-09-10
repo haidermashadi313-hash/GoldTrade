@@ -1,12 +1,23 @@
-// =========================================
-// SIGNUP (FINAL PRODUCTION FIX)
-// POST /api/auth/signup
-// =========================================
+const express = require("express");
+const router = express.Router();
+
+const bcrypt = require("bcrypt");
+const User = require("../models/User");
+
+const {
+  verifyToken,
+  generateToken,
+} = require("../middleware/authMiddleware");
+
+/* =====================================================
+   SIGNUP
+   POST /api/auth/signup
+===================================================== */
 router.post("/signup", async (req, res) => {
   try {
     let { username, email, password } = req.body;
 
-    // Clean Inputs
+    // Clean input
     username = username?.trim();
     email = email?.trim().toLowerCase();
     password = password?.trim();
@@ -26,7 +37,7 @@ router.post("/signup", async (req, res) => {
       });
     }
 
-    // Username already exists
+    // Username exists?
     const usernameExists = await User.findOne({ username });
     if (usernameExists) {
       return res.status(400).json({
@@ -35,7 +46,7 @@ router.post("/signup", async (req, res) => {
       });
     }
 
-    // Email already exists
+    // Email exists?
     const emailExists = await User.findOne({ email });
     if (emailExists) {
       return res.status(400).json({
@@ -52,7 +63,6 @@ router.post("/signup", async (req, res) => {
       username,
       email,
       password: hashedPassword,
-
       role: email === "admin@goldtrade.com" ? "admin" : "user",
       status: "Active",
 
@@ -76,7 +86,7 @@ router.post("/signup", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("❌ SIGNUP ERROR:", err);
+    console.error("SIGNUP ERROR:", err);
 
     return res.status(500).json({
       success: false,
@@ -84,3 +94,99 @@ router.post("/signup", async (req, res) => {
     });
   }
 });
+
+/* =====================================================
+   LOGIN
+   POST /api/auth/login
+===================================================== */
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({
+      email: email.toLowerCase(),
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Email not found.",
+      });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password);
+
+    if (!validPassword) {
+      return res.status(401).json({
+        success: false,
+        message: "Incorrect password.",
+      });
+    }
+
+    if (user.status !== "Active") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is inactive.",
+      });
+    }
+
+    const token = generateToken(user);
+
+    return res.json({
+      success: true,
+      message: "Login successful.",
+      token,
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        walletBalance: user.walletBalance,
+        usdtBalance: user.usdtBalance,
+        goldBalance: user.goldBalance,
+      },
+    });
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Login failed.",
+    });
+  }
+});
+
+/* =====================================================
+   GET CURRENT USER
+===================================================== */
+router.get("/me", verifyToken, async (req, res) => {
+  return res.json({
+    success: true,
+    user: req.user,
+  });
+});
+
+/* =====================================================
+   VERIFY TOKEN
+===================================================== */
+router.get("/verify", verifyToken, (req, res) => {
+  return res.json({
+    success: true,
+    user: req.user,
+  });
+});
+
+/* =====================================================
+   LOGOUT
+===================================================== */
+router.post("/logout", verifyToken, (req, res) => {
+  return res.json({
+    success: true,
+    message: "Logout successful.",
+  });
+});
+
+/* =====================================================
+   EXPORT ROUTER
+===================================================== */
+module.exports = router;
