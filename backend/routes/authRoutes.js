@@ -6,10 +6,12 @@ router.post("/signup", async (req, res) => {
   try {
     let { username, email, password } = req.body;
 
+    // Clean Inputs
     username = username?.trim();
     email = email?.trim().toLowerCase();
     password = password?.trim();
 
+    // Validation
     if (!username || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -24,7 +26,7 @@ router.post("/signup", async (req, res) => {
       });
     }
 
-    // Duplicate username
+    // Username already exists
     const usernameExists = await User.findOne({ username });
     if (usernameExists) {
       return res.status(400).json({
@@ -33,7 +35,7 @@ router.post("/signup", async (req, res) => {
       });
     }
 
-    // Duplicate email
+    // Email already exists
     const emailExists = await User.findOne({ email });
     if (emailExists) {
       return res.status(400).json({
@@ -42,16 +44,18 @@ router.post("/signup", async (req, res) => {
       });
     }
 
-    // Hash Password
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create User
-    const newUser = new User({
+    // Create user
+    const newUser = await User.create({
       username,
       email,
       password: hashedPassword,
+
       role: email === "admin@goldtrade.com" ? "admin" : "user",
       status: "Active",
+
       walletBalance: 0,
       usdtBalance: 0,
       goldBalance: 0,
@@ -60,8 +64,6 @@ router.post("/signup", async (req, res) => {
       totalDeposit: 0,
       totalWithdraw: 0,
     });
-
-    await newUser.save();
 
     return res.status(201).json({
       success: true,
