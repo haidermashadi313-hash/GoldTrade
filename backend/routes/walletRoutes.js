@@ -4,11 +4,9 @@ const router = express.Router();
 const User = require("../models/User");
 const { verifyToken } = require("../middleware/authMiddleware");
 
-// =========================================
-// GET USER WALLET
-// GET /api/wallets
-// =========================================
-
+// ==========================================
+// GET WALLET
+// ==========================================
 router.get("/", verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("-password");
@@ -33,11 +31,30 @@ router.get("/", verifyToken, async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("WALLET ERROR:", err);
+    console.error(err);
 
     return res.status(500).json({
       success: false,
       message: "Wallet loading failed.",
+    });
+  }
+});
+
+// ==========================================
+// REFRESH WALLET
+// ==========================================
+router.get("/refresh", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+
+    return res.json({
+      success: true,
+      wallet: user,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Refresh failed.",
     });
   }
 });

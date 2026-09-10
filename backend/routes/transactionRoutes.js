@@ -1,181 +1,62 @@
-const mongoose = require("mongoose");
+const express = require("express");
+const router = express.Router();
 
-const transactionSchema = new mongoose.Schema(
-  {
-    // ==============================
-    // User Info
-    // ==============================
-    username: {
-      type: String,
-      required: true,
-      index: true,
-      trim: true,
-    },
+const Transaction = require("../models/Transaction");
+const { verifyToken } = require("../middleware/authMiddleware");
 
-    email: {
-      type: String,
-      default: "",
-      lowercase: true,
-      trim: true,
-    },
+// ==========================================
+// GET USER TRANSACTIONS
+// ==========================================
+router.get("/", verifyToken, async (req, res) => {
+  try {
+    const transactions = await Transaction.find({
+      userId: req.user._id,
+    }).sort({ createdAt: -1 });
 
-    // ==============================
-    // Transaction Type
-    // ==============================
-    type: {
-      type: String,
-      required: true,
-      enum: [
-        "Deposit",
-        "Withdraw",
-        "Gold Buy",
-        "Gold Sell",
-        "PKR Wallet Update",
-        "USDT Wallet Update",
-        "Gold Wallet Update",
-        "Admin Gold Wallet",
-        "Referral Bonus",
-      ],
-    },
+    return res.json({
+      success: true,
+      transactions,
+    });
+  } catch (err) {
+    console.error(err);
 
-    // ==============================
-    // Wallet / Payment Method
-    // ==============================
-    method: {
-      type: String,
-      default: "System",
-      trim: true,
-    },
-
-    // ==============================
-    // Amount
-    // ==============================
-    amount: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-
-    currency: {
-      type: String,
-      enum: ["PKR", "USDT", "GOLD"],
-      default: "PKR",
-    },
-
-    // ==============================
-    // Gold Fields
-    // ==============================
-    grams: {
-      type: Number,
-      default: 0,
-    },
-
-    goldPrice: {
-      type: Number,
-      default: 0,
-    },
-
-    profit: {
-      type: Number,
-      default: 0,
-    },
-
-    // ==============================
-    // Wallet Snapshot
-    // ==============================
-    walletBefore: {
-      type: Number,
-      default: 0,
-    },
-
-    walletAfter: {
-      type: Number,
-      default: 0,
-    },
-
-    usdtBefore: {
-      type: Number,
-      default: 0,
-    },
-
-    usdtAfter: {
-      type: Number,
-      default: 0,
-    },
-
-    goldBefore: {
-      type: Number,
-      default: 0,
-    },
-
-    goldAfter: {
-      type: Number,
-      default: 0,
-    },
-
-    // ==============================
-    // Receipt / TXID
-    // ==============================
-    transactionId: {
-      type: String,
-      required: true,
-      unique: true,
-      index: true,
-    },
-
-    receiptImage: {
-      type: String,
-      default: "",
-    },
-
-    txHash: {
-      type: String,
-      default: "",
-    },
-
-    // ==============================
-    // Status
-    // ==============================
-    status: {
-      type: String,
-      enum: [
-        "Pending",
-        "Completed",
-        "Rejected",
-        "Credit",
-        "Debit",
-      ],
-      default: "Pending",
-    },
-
-    // ==============================
-    // Admin Info
-    // ==============================
-    reason: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-
-    updatedBy: {
-      type: String,
-      default: "System",
-    },
-
-    // ==============================
-    // Extra
-    // ==============================
-    note: {
-      type: String,
-      default: "",
-    },
-  },
-  {
-    timestamps: true,
-    collection: "transactions",
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load transactions.",
+    });
   }
-);
+});
 
-module.exports =
-  mongoose.models.Transaction ||
-  mongoose.model("Transaction", transactionSchema);
+// ==========================================
+// CREATE TRANSACTION
+// ==========================================
+router.post("/", verifyToken, async (req, res) => {
+  try {
+    const { type, amount, asset, note } = req.body;
+
+    const transaction = await Transaction.create({
+      userId: req.user._id,
+      username: req.user.username,
+      type,
+      amount,
+      asset,
+      note,
+      status: "Pending",
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Transaction created.",
+      transaction,
+    });
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Transaction failed.",
+    });
+  }
+});
+
+module.exports = router;
