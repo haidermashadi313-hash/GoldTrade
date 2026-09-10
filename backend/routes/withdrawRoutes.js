@@ -4,68 +4,31 @@ const router = express.Router();
 const Withdraw = require("../models/Withdraw");
 const User = require("../models/User");
 const Transaction = require("../models/Transaction");
+const WalletTransaction = require("../models/WalletTransaction");
 
-// =============================
-// CREATE WITHDRAW REQUEST
-// =============================
-router.post("/", async (req, res) => {
+const { verifyToken } = require("../middleware/authMiddleware");
+
+// =======================================
+// GET ALL WITHDRAW REQUESTS (ADMIN)
+// =======================================
+router.get("/", verifyToken, async (req, res) => {
   try {
-    const { username, amount, method, accountNumber } = req.body;
-
-    const user = await User.findOne({ username });
-
-    if (!user) {
-      return res.status(404).json({
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
         success: false,
-        message: "User not found.",
+        message: "Admin only.",
       });
     }
 
-    // Balance Check
-    if (user.walletBalance < Number(amount)) {
-      return res.status(400).json({
-        success: false,
-        message: "Insufficient wallet balance.",
-      });
-    }
-
-    const withdraw = await Withdraw.create({
-      username,
-      amount: Number(amount),
-      method,
-      accountNumber,
-      status: "Pending",
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "Withdraw request submitted.",
-      data: withdraw,
-    });
-  } catch (err) {
-    console.log(err);
-
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-});
-
-// =============================
-// GET ALL WITHDRAW REQUESTS
-// =============================
-router.get("/", async (req, res) => {
-  try {
-    const withdraws = await Withdraw.find().sort({ createdAt: -1 });
+    const withdraws = await Withdraw.find()
+      .sort({ createdAt: -1 })
+      .populate("userId", "username email walletBalance");
 
     res.json({
       success: true,
-      data: withdraws,
+      withdraws,
     });
   } catch (err) {
-    console.log(err);
-
     res.status(500).json({
       success: false,
       message: err.message,
@@ -73,12 +36,19 @@ router.get("/", async (req, res) => {
   }
 });
 
-// =============================
-// APPROVE / REJECT WITHDRAW
-// =============================
-router.put("/:id", async (req, res) => {
+// =======================================
+// APPROVE WITHDRAW (DEBIT WALLET)
+// =======================================
+router.post("/approve/:id", verifyToken, async (req, res) => {
   try {
-    const { status } = req.body;
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin only.",
+      });
+    }
+
+    const { amount, reason } = req.body;
 
     const withdraw = await Withdraw.findById(req.params.id);
 
@@ -89,76 +59,106 @@ router.put("/:id", async (req, res) => {
       });
     }
 
-    // Prevent duplicate action
     if (withdraw.status !== "Pending") {
-      return res.json({
+      return res.status(400).json({
         success: false,
-        message: `Withdraw already ${withdraw.status}.`,
+        message: "Withdraw already processed.",
       });
     }
 
-    withdraw.status = status;
+    const user = await User.findById(withdraw.userId);
+
+    const debitAmount = Number(amount);
+
+    if (user.walletBalance < debitAmount) {
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient wallet balance.",
+      });
+    }
+
+    const previousBalance = user.walletBalance;
+    const newBalance = previousBalance - debitAmount;
+
+    user.walletBalance = newBalance;
+    user.totalWithdraw += debitAmount;
+
+    await user.save();
+
+    withdraw.status = "Approved";
+    withdraw.approvedAmount = debitAmount;
+    withdraw.approvedBy = req.user._id;
+    withdraw.reason = reason;
+    withdraw.approvedAt = new Date();
+
     await withdraw.save();
 
-    // =============================
-    // APPROVED
-    // =============================
-    if (status === "Approved") {
-      const user = await User.findOne({
-        username: withdraw.username,
-      });
+    await WalletTransaction.create({
+      user: user._id,
+      admin: req.user._id,
+      walletType: "PKR",
+      action: "debit",
+      amount: debitAmount,
+      previousBalance,
+      newBalance,
+      reason,
+    });
 
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found.",
-        });
-      }
-
-      if (user.walletBalance < withdraw.amount) {
-        return res.status(400).json({
-          success: false,
-          message: "Wallet balance is insufficient.",
-        });
-      }
-
-      user.walletBalance -= Number(withdraw.amount);
-      user.totalWithdraw += Number(withdraw.amount);
-
-      await user.save();
-
-      await Transaction.create({
-        username: withdraw.username,
-        type: "Withdraw",
-        amount: withdraw.amount,
-        method: withdraw.method,
-        transactionId: withdraw._id.toString(),
-        status: "Approved",
-      });
-    }
-
-    // =============================
-    // REJECTED
-    // =============================
-    if (status === "Rejected") {
-      await Transaction.create({
-        username: withdraw.username,
-        type: "Withdraw",
-        amount: withdraw.amount,
-        method: withdraw.method,
-        transactionId: withdraw._id.toString(),
-        status: "Rejected",
-      });
-    }
+    await Transaction.create({
+      userId: user._id,
+      username: user.username,
+      type: "Withdraw Debit",
+      amount: debitAmount,
+      status: "Completed",
+      description: reason,
+    });
 
     res.json({
       success: true,
-      message: `Withdraw ${status} successfully.`,
-      data: withdraw,
+      message: "Withdraw approved successfully.",
     });
-  } catch (err) {
-    console.log(err);
 
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
+
+// =======================================
+// REJECT WITHDRAW
+// =======================================
+router.post("/reject/:id", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin only.",
+      });
+    }
+
+    const withdraw = await Withdraw.findById(req.params.id);
+
+    if (!withdraw) {
+      return res.status(404).json({
+        success: false,
+        message: "Withdraw request not found.",
+      });
+    }
+
+    withdraw.status = "Rejected";
+    withdraw.rejectedBy = req.user._id;
+    withdraw.rejectedAt = new Date();
+
+    await withdraw.save();
+
+    res.json({
+      success: true,
+      message: "Withdraw rejected successfully.",
+    });
+
+  } catch (err) {
     res.status(500).json({
       success: false,
       message: err.message,
