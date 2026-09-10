@@ -1,3 +1,46 @@
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const path = require("path");
+const fs = require("fs");
+require("dotenv").config();
+
+const app = express();
+
+/* =========================================================
+   GOLDTRADE V4 FINAL - RENDER + VERCEL PRODUCTION SERVER
+========================================================= */
+
+// ==========================
+// ROUTES
+// ==========================
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+const walletRoutes = require("./routes/walletRoutes");
+const depositRoutes = require("./routes/depositRoutes");
+const withdrawRoutes = require("./routes/withdrawRoutes");
+const settingsRoutes = require("./routes/settingsRoutes");
+const transactionRoutes = require("./routes/transactionRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+const usdtRoutes = require("./routes/usdtRoutes");
+const goldRoutes = require("./routes/goldRoutes");
+
+// ==========================
+// UPLOAD FOLDERS
+// ==========================
+const uploadFolder = path.join(__dirname, "uploads");
+
+[
+  uploadFolder,
+  path.join(uploadFolder, "receipts"),
+  path.join(uploadFolder, "qr"),
+  path.join(uploadFolder, "settings"),
+].forEach((folder) => {
+  if (!fs.existsSync(folder)) {
+    fs.mkdirSync(folder, { recursive: true });
+  }
+});
+
 // ==========================
 // CORS
 // ==========================
@@ -17,7 +60,7 @@ app.use(
         return callback(null, true);
       }
 
-      console.log("⚠️ CORS:", origin);
+      console.log("⚠️ CORS Request:", origin);
       return callback(null, true);
     },
     credentials: true,
@@ -25,13 +68,13 @@ app.use(
 );
 
 // ==========================
-// Middleware
+// MIDDLEWARE
 // ==========================
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
 // ==========================
-// Static Uploads
+// STATIC FILES
 // ==========================
 app.use("/uploads", express.static(uploadFolder));
 
@@ -101,8 +144,7 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/usdt", usdtRoutes);
-app.use("/api/gold", goldRoutes);
-// ==========================
+app.use("/api/gold", goldRoutes);// ==========================
 // 404 HANDLER (LAST ROUTE)
 // ==========================
 app.use((req, res) => {
@@ -137,7 +179,7 @@ app.use((err, req, res, next) => {
 // ==========================
 // PORT
 // ==========================
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 5000;
 
 // ==========================
 // START SERVER
@@ -150,12 +192,12 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log("====================================");
 });
 
-// Keep Alive (Render)
+// Render Keep Alive
 server.keepAliveTimeout = 120000;
 server.headersTimeout = 121000;
 
 // ==========================
-// MongoDB Connection
+// MONGODB CONNECTION
 // ==========================
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -174,15 +216,16 @@ mongoose
   });
 
 // ==========================
-// Graceful Shutdown
+// GRACEFUL SHUTDOWN
 // ==========================
 process.on("SIGTERM", () => {
   console.log("🛑 SIGTERM received. Closing server...");
 
-  server.close(() => {
-    mongoose.connection.close(false).then(() => {
-      console.log("MongoDB Closed.");
-      process.exit(0);
-    });
+  server.close(async () => {
+    await mongoose.connection.close();
+    console.log("✅ MongoDB Closed");
+    process.exit(0);
   });
 });
+
+module.exports = app;
