@@ -2,34 +2,48 @@ const mongoose = require("mongoose");
 
 const depositSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
     username: {
       type: String,
       required: true,
     },
+
+    email: String,
 
     amount: {
       type: Number,
       required: true,
     },
 
-    method: {
+    network: {
+      type: String,
+      default: "USDT TRC20",
+    },
+
+    walletAddress: {
       type: String,
       required: true,
     },
 
-    transactionId: {
+    receipt: {
       type: String,
-      required: true,
-    },
-
-    receiptImage: {
-      type: String,
-      required: true,
+      default: "",
     },
 
     status: {
       type: String,
+      enum: ["Pending", "Approved", "Rejected"],
       default: "Pending",
+    },
+
+    adminNote: {
+      type: String,
+      default: "",
     },
   },
   {
@@ -37,6 +51,4 @@ const depositSchema = new mongoose.Schema(
   }
 );
 
-module.exports =
-  mongoose.models.Deposit ||
-  mongoose.model("Deposit", depositSchema);
+module.exports = mongoose.model("Deposit", depositSchema);
