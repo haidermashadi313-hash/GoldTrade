@@ -1,37 +1,30 @@
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
+
 const Deposit = require("../models/Deposit");
-const { verifyToken } = require("../middleware/authMiddleware");
+const User = require("../models/User");
 
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
-/* ===========================================
-   CREATE DEPOSIT REQUEST
-   POST /api/deposit/create
-=========================================== */
+// ===========================================
+// CREATE DEPOSIT
+// POST /api/deposit
+// ===========================================
 
-router.post("/create", verifyToken, async (req, res) => {
+router.post("/", verifyToken, async (req, res) => {
   try {
     const {
       amount,
-      currency,
-      method,
+      walletType,
       transactionId,
-      receiptImage,
+      screenshot,
     } = req.body;
 
-    // Validation
     if (!amount || Number(amount) <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Valid deposit amount is required.",
-      });
-    }
-
-    if (!transactionId) {
-      return res.status(400).json({
-        success: false,
-        message: "Transaction ID is required.",
+        message: "Deposit amount is required.",
       });
     }
 
@@ -44,69 +37,35 @@ router.post("/create", verifyToken, async (req, res) => {
       });
     }
 
-    if (user.status === "Blocked") {
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been blocked.",
-      });
-    }
-
-    if (user.walletFrozen) {
-      return res.status(403).json({
-        success: false,
-        message: "Your wallet has been frozen.",
-      });
-    }
-
-    // Duplicate Transaction Check
-    const existing = await Deposit.findOne({
-      transactionId: transactionId.trim().toUpperCase(),
-    });
-
-    if (existing) {
-      return res.status(409).json({
-        success: false,
-        message: "Transaction ID already submitted.",
-      });
-    }
-
-    // Create Deposit Request
     const deposit = await Deposit.create({
       userId: user._id,
-      username: user.username,
-      email: user.email,
-
       amount: Number(amount),
-      currency: currency || "PKR",
-      method,
-
-      transactionId: transactionId.trim().toUpperCase(),
-      receiptImage: receiptImage || "",
-
+      walletType: walletType || "USDT",
+      transactionId: transactionId || "",
+      screenshot: screenshot || "",
       status: "Pending",
-
-      ipAddress: req.ip,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: "Deposit request submitted successfully.",
+      message: "Deposit submitted successfully.",
       deposit,
     });
+
   } catch (err) {
     console.error("Deposit Create Error:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Unable to submit deposit request.",
+      message: "Server Error",
     });
   }
 });
 
-/* ===========================================
-   USER DEPOSIT HISTORY
-   GET /api/deposit/history
-=========================================== */
+// ===========================================
+// USER DEPOSIT HISTORY
+// GET /api/deposit/history
+// ===========================================
 
 router.get("/history", verifyToken, async (req, res) => {
   try {
@@ -116,30 +75,30 @@ router.get("/history", verifyToken, async (req, res) => {
 
     return res.json({
       success: true,
-      total: deposits.length,
       deposits,
     });
+
   } catch (err) {
-    console.error("Deposit History Error:", err);
+    console.error(err);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load deposit history.",
+      message: "Unable to load history.",
     });
   }
 });
 
-/* ===========================================
-   GET SINGLE DEPOSIT
-   GET /api/deposit/:id
-=========================================== */
+// ===========================================
+// GET SINGLE DEPOSIT
+// GET /api/deposit/:id
+// ===========================================
 
 router.get("/:id", verifyToken, async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid deposit ID.",
+        message: "Invalid Deposit ID.",
       });
     }
 
@@ -151,7 +110,7 @@ router.get("/:id", verifyToken, async (req, res) => {
     if (!deposit) {
       return res.status(404).json({
         success: false,
-        message: "Deposit request not found.",
+        message: "Deposit not found.",
       });
     }
 
@@ -159,30 +118,23 @@ router.get("/:id", verifyToken, async (req, res) => {
       success: true,
       deposit,
     });
+
   } catch (err) {
-    console.error("Get Deposit Error:", err);
+    console.error(err);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load deposit.",
+      message: "Server Error",
     });
   }
 });
-
-/* ===========================================
-   CANCEL PENDING DEPOSIT
-   DELETE /api/deposit/:id
-=========================================== */
+// ===========================================
+// CANCEL DEPOSIT
+// DELETE /api/deposit/:id
+// ===========================================
 
 router.delete("/:id", verifyToken, async (req, res) => {
   try {
-    
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid deposit ID.",
-      });
-    }
 
     const deposit = await Deposit.findOne({
       _id: req.params.id,
@@ -192,7 +144,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
     if (!deposit) {
       return res.status(404).json({
         success: false,
-        message: "Deposit request not found.",
+        message: "Deposit not found.",
       });
     }
 
@@ -203,23 +155,121 @@ router.delete("/:id", verifyToken, async (req, res) => {
       });
     }
 
-   
     deposit.status = "Cancelled";
-    deposit.cancelledAt = new Date();
+    await deposit.save();
+
+    return res.json({
+      success: true,
+      message: "Deposit cancelled successfully.",
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+});
+
+// ===========================================
+// ADMIN GET ALL DEPOSITS
+// GET /api/deposit/admin
+// ===========================================
+
+router.get("/admin", verifyToken, isAdmin, async (req, res) => {
+  try {
+
+    const deposits = await Deposit.find()
+      .populate("userId", "username email")
+      .sort({ createdAt: -1 });
+
+    return res.json({
+      success: true,
+      deposits,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load deposits.",
+    });
+  }
+});
+
+// ===========================================
+// ADMIN APPROVE
+// PUT /api/deposit/admin/:id/approve
+// ===========================================
+
+router.put("/admin/:id/approve", verifyToken, isAdmin, async (req, res) => {
+  try {
+
+    const deposit = await Deposit.findById(req.params.id);
+
+    if (!deposit) {
+      return res.status(404).json({
+        success: false,
+        message: "Deposit not found.",
+      });
+    }
+
+    deposit.status = "Approved";
+    deposit.approvedAmount = req.body.approvedAmount || deposit.amount;
 
     await deposit.save();
 
     return res.json({
       success: true,
-      message: "Deposit request cancelled successfully.",
+      message: "Deposit approved successfully.",
       deposit,
     });
+
   } catch (err) {
-    console.error("Cancel Deposit Error:", err);
+    console.error(err);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to cancel deposit request.",
+      message: "Server Error",
+    });
+  }
+});
+
+// ===========================================
+// ADMIN REJECT
+// PUT /api/deposit/admin/:id/reject
+// ===========================================
+
+router.put("/admin/:id/reject", verifyToken, isAdmin, async (req, res) => {
+  try {
+
+    const deposit = await Deposit.findById(req.params.id);
+
+    if (!deposit) {
+      return res.status(404).json({
+        success: false,
+        message: "Deposit not found.",
+      });
+    }
+
+    deposit.status = "Rejected";
+    await deposit.save();
+
+    return res.json({
+      success: true,
+      message: "Deposit rejected successfully.",
+      deposit,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
     });
   }
 });
