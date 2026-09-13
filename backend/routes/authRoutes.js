@@ -5,23 +5,31 @@ const User = require("../models/User");
 const authController = require("../controllers/authController");
 const { verifyToken } = require("../middleware/authMiddleware");
 
-// ==========================================
+// ==========================================================
 // AUTH ROUTES
-// ==========================================
+// ==========================================================
 
-// Register
+// Signup (Frontend GoldTrade)
+router.post("/signup", authController.register);
+
+// Register (Backward Compatibility)
 router.post("/register", authController.register);
 
 // Login
 router.post("/login", authController.login);
 
-// Profile (Controller)
+// ==========================================================
+// PROFILE
+// GET /api/auth/profile
+// ==========================================================
+
 router.get("/profile", verifyToken, authController.getProfile);
 
-// ==========================================
+// ==========================================================
 // CURRENT USER
 // GET /api/auth/me
-// ==========================================
+// ==========================================================
+
 router.get("/me", verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("-password");
@@ -47,9 +55,11 @@ router.get("/me", verifyToken, async (req, res) => {
   }
 });
 
-// ==========================================
+// ==========================================================
 // LOGOUT
-// ==========================================
+// POST /api/auth/logout
+// ==========================================================
+
 router.post("/logout", verifyToken, (req, res) => {
   return res.status(200).json({
     success: true,
