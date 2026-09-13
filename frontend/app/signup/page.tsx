@@ -62,7 +62,7 @@ export default function SignupPage() {
         }),
       });
 
-      let data = {};
+      let data: { message?: string } = {};
 
       try {
         data = await response.json();
