@@ -1,5 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
+
 const router = express.Router();
 
 const Deposit = require("../models/Deposit");
@@ -8,9 +9,9 @@ const Transaction = require("../models/Transaction");
 
 const { verifyToken } = require("../middleware/authMiddleware");
 
-// ======================================================
-// ADMIN MIDDLEWARE
-// ======================================================
+// =============================================
+// ADMIN ONLY MIDDLEWARE
+// =============================================
 
 const adminOnly = (req, res, next) => {
   if (!req.user || req.user.role !== "admin") {
@@ -23,131 +24,29 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
-// ======================================================
-// DASHBOARD STATS
-// GET /api/admin/deposits/stats
-// ======================================================
-
-router.get("/stats", async (req, res) => {
-  try {
-    const pending = await Deposit.countDocuments({ status: "Pending" });
-    const approved = await Deposit.countDocuments({ status: "Approved" });
-    const rejected = await Deposit.countDocuments({ status: "Rejected" });
-
-    const totalAmount = await Deposit.aggregate([
-      { $match: { status: "Approved" } },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: "$amount" },
-        },
-      },
-    ]);
-
-    res.json({
-      success: true,
-      stats: {
-        pending,
-        approved,
-        rejected,
-        totalAmount: totalAmount[0]?.total || 0,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      success: false,
-      message: "Unable to load dashboard stats.",
-    });
-  }
-});
-
-// ======================================================
-// PENDING DEPOSITS
-// GET /api/admin/deposits/pending
-// ======================================================
-
-router.get("/pending", async (req, res) => {
-  try {
-    const deposits = await Deposit.find({ status: "Pending" }).sort({
-      createdAt: -1,
-    });
-
-    res.json({
-      success: true,
-      total: deposits.length,
-      deposits,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      success: false,
-      message: "Unable to load pending deposits.",
-    });
-  }
-});
-
-// ======================================================
-// APPROVED DEPOSITS
-// GET /api/admin/deposits/approved
-// ======================================================
-
-router.get("/approved", async (req, res) => {
-  try {
-    const deposits = await Deposit.find({ status: "Approved" }).sort({
-      approvedAt: -1,
-    });
-
-    res.json({
-      success: true,
-      total: deposits.length,
-      deposits,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      success: false,
-      message: "Unable to load approved deposits.",
-    });
-  }
-});
-
-// ======================================================
-// REJECTED DEPOSITS
-// GET /api/admin/deposits/rejected
-// ======================================================
-
-router.get("/rejected", async (req, res) => {
-  try {
-    const deposits = await Deposit.find({ status: "Rejected" }).sort({
-      rejectedAt: -1,
-    });
-
-    res.json({
-      success: true,
-      total: deposits.length,
-      deposits,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      success: false,
-      message: "Unable to load rejected deposits.",
-    });
-  }
-});
-
-// ======================================================
+// =============================================
 // GET ALL DEPOSITS
 // GET /api/admin/deposits
-// ======================================================
+// Supports:
+// ?username=hashi
+// ?status=Pending
+// =============================================
 
 router.get("/", verifyToken, adminOnly, async (req, res) => {
   try {
-    const filter = {};
+    const { username, status } = req.query;
 
-    if (req.query.status) {
-      filter.status = req.query.status;
+    let filter = {};
+
+    if (status && status !== "All") {
+      filter.status = status;
+    }
+
+    if (username) {
+      filter.username = {
+        $regex: username,
+        $options: "i",
+      };
     }
 
     const deposits = await Deposit.find(filter).sort({
@@ -160,7 +59,8 @@ router.get("/", verifyToken, adminOnly, async (req, res) => {
       deposits,
     });
   } catch (err) {
-    console.error(err);
+    console.error("Load Deposits Error:", err);
+
     res.status(500).json({
       success: false,
       message: "Unable to load deposits.",
@@ -168,10 +68,63 @@ router.get("/", verifyToken, adminOnly, async (req, res) => {
   }
 });
 
-// ======================================================
+// =============================================
+// DEPOSIT STATS
+// GET /api/admin/deposits/stats
+// =============================================
+
+router.get("/stats", verifyToken, adminOnly, async (req, res) => {
+  try {
+    const pending = await Deposit.countDocuments({
+      status: "Pending",
+    });
+
+    const approved = await Deposit.countDocuments({
+      status: "Approved",
+    });
+
+    const rejected = await Deposit.countDocuments({
+      status: "Rejected",
+    });
+
+    const totalAmount = await Deposit.aggregate([
+      {
+        $match: {
+          status: "Approved",
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          amount: {
+            $sum: "$amount",
+          },
+        },
+      },
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        pending,
+        approved,
+        rejected,
+        totalAmount: totalAmount[0]?.amount || 0,
+      },
+    });
+  } catch (err) {
+    console.error("Deposit Stats Error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to load stats.",
+    });
+  }
+});
+
+// =============================================
 // GET SINGLE DEPOSIT
-// GET /api/admin/deposits/:id
-// ======================================================
+// =============================================
 
 router.get("/:id", verifyToken, adminOnly, async (req, res) => {
   try {
@@ -190,17 +143,18 @@ router.get("/:id", verifyToken, adminOnly, async (req, res) => {
     });
   } catch (err) {
     console.error(err);
+
     res.status(500).json({
       success: false,
       message: "Unable to load deposit.",
     });
   }
 });
-
-// ======================================================
+// =============================================
 // APPROVE DEPOSIT
 // PUT /api/admin/deposits/:id/approve
-// ======================================================
+// Wallet Credit + Transaction History
+// =============================================
 
 router.put("/:id/approve", verifyToken, adminOnly, async (req, res) => {
   const session = await mongoose.startSession();
@@ -226,7 +180,9 @@ router.put("/:id/approve", verifyToken, adminOnly, async (req, res) => {
       });
     }
 
-    const user = await User.findById(deposit.userId).session(session);
+    const user = await User.findOne({
+      username: deposit.username,
+    }).session(session);
 
     if (!user) {
       await session.abortTransaction();
@@ -236,26 +192,27 @@ router.put("/:id/approve", verifyToken, adminOnly, async (req, res) => {
       });
     }
 
+    // Wallet Credit
     user.walletBalance = (user.walletBalance || 0) + deposit.amount;
-    user.totalDeposit = (user.totalDeposit || 0) + deposit.amount;
-
     await user.save({ session });
 
+    // Deposit Update
     deposit.status = "Approved";
-    deposit.approvedAt = new Date();
-    deposit.approvedBy = req.user._id;
     deposit.adminNote = req.body.adminNote || "";
-
+    deposit.approvedBy = req.user._id;
+    deposit.approvedAt = new Date();
     await deposit.save({ session });
 
+    // Transaction History
     await Transaction.create(
       [
         {
+          userId: user._id,
           username: user.username,
-          type: "DEPOSIT_CREDIT",
-          amount: deposit.amount,
+          type: "Deposit",
           status: "Approved",
-          description: "Admin approved deposit.",
+          amount: deposit.amount,
+          description: "Deposit approved by admin.",
         },
       ],
       { session }
@@ -270,7 +227,8 @@ router.put("/:id/approve", verifyToken, adminOnly, async (req, res) => {
     });
   } catch (err) {
     await session.abortTransaction();
-    console.error(err);
+
+    console.error("Approve Deposit Error:", err);
 
     res.status(500).json({
       success: false,
@@ -281,10 +239,10 @@ router.put("/:id/approve", verifyToken, adminOnly, async (req, res) => {
   }
 });
 
-// ======================================================
+// =============================================
 // REJECT DEPOSIT
 // PUT /api/admin/deposits/:id/reject
-// ======================================================
+// =============================================
 
 router.put("/:id/reject", verifyToken, adminOnly, async (req, res) => {
   try {
@@ -305,9 +263,9 @@ router.put("/:id/reject", verifyToken, adminOnly, async (req, res) => {
     }
 
     deposit.status = "Rejected";
-    deposit.rejectedAt = new Date();
+    deposit.adminNote = req.body.adminNote || "";
     deposit.rejectedBy = req.user._id;
-    deposit.adminNote = req.body.adminNote || "Rejected by Admin";
+    deposit.rejectedAt = new Date();
 
     await deposit.save();
 
@@ -316,7 +274,7 @@ router.put("/:id/reject", verifyToken, adminOnly, async (req, res) => {
       message: "Deposit rejected successfully.",
     });
   } catch (err) {
-    console.error(err);
+    console.error("Reject Deposit Error:", err);
 
     res.status(500).json({
       success: false,
@@ -325,63 +283,33 @@ router.put("/:id/reject", verifyToken, adminOnly, async (req, res) => {
   }
 });
 
-// ======================================================
-// MANUAL WALLET CREDIT / DEDUCT
-// POST /api/admin/deposits/wallet-update
-// ======================================================
+// =============================================
+// RECENT DEPOSITS
+// GET /api/admin/deposits/recent
+// =============================================
 
-router.post("/wallet-update", verifyToken, adminOnly, async (req, res) => {
+router.get("/recent", verifyToken, adminOnly, async (req, res) => {
   try {
-    const { username, amount, action, reason } = req.body;
-
-    const user = await User.findOne({ username });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    const value = Number(amount);
-
-    if (action === "CREDIT") {
-      user.walletBalance = (user.walletBalance || 0) + value;
-    } else {
-      if ((user.walletBalance || 0) < value) {
-        return res.status(400).json({
-          success: false,
-          message: "Insufficient wallet balance.",
-        });
-      }
-
-      user.walletBalance -= value;
-    }
-
-    await user.save();
-
-        await Transaction.create({
-      username,
-      type: action,
-      amount: value,
-      status: "Completed",
-      description: reason || "Admin wallet update",
-    });
+    const deposits = await Deposit.find()
+      .sort({ createdAt: -1 })
+      .limit(10);
 
     res.json({
       success: true,
-      message: `Wallet ${action.toLowerCase()} successful.`,
-      walletBalance: user.walletBalance,
+      deposits,
     });
-
   } catch (err) {
-    console.error(err);
+    console.error("Recent Deposits Error:", err);
 
     res.status(500).json({
       success: false,
-      message: "Wallet update failed.",
+      message: "Unable to load recent deposits.",
     });
   }
 });
+
+// =============================================
+// EXPORT ROUTER
+// =============================================
 
 module.exports = router;

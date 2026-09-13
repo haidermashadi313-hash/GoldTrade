@@ -1,58 +1,76 @@
 const express = require("express");
+const mongoose = require("mongoose");
+
 const router = express.Router();
 
 const User = require("../models/User");
-const WalletTransaction = require("../models/WalletTransaction");
 const Transaction = require("../models/Transaction");
+
 const { verifyToken } = require("../middleware/authMiddleware");
 
-// ======================================================
-// GET ALL USERS WITH WALLET BALANCES
-// ======================================================
+// =============================================
+// ADMIN ONLY MIDDLEWARE
+// =============================================
 
-router.get("/users", verifyToken, async (req, res) => {
+const adminOnly = (req, res, next) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Admin access only.",
+    });
+  }
+
+  next();
+};
+
+// =============================================
+// GET ALL USERS WALLET
+// GET /api/admin/wallet
+// Search by username
+// =============================================
+
+router.get("/", verifyToken, adminOnly, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access only.",
-      });
+    const { username } = req.query;
+
+    const filter = {};
+
+    if (username) {
+      filter.username = {
+        $regex: username,
+        $options: "i",
+      };
     }
 
-    const users = await User.find()
-      .select(
-        "username email role status walletBalance usdtBalance goldBalance totalDeposit totalWithdraw createdAt"
-      )
-      .sort({ createdAt: -1 });
+    const users = await User.find(filter).select(
+      "username email walletBalance usdtBalance goldBalance createdAt"
+    );
 
     res.json({
       success: true,
+      total: users.length,
       users,
     });
   } catch (err) {
-    console.log(err);
+    console.error("Wallet Load Error:", err);
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Unable to load users.",
     });
   }
 });
 
-// ======================================================
+// =============================================
 // GET SINGLE USER WALLET
-// ======================================================
+// GET /api/admin/wallet/:id
+// =============================================
 
-router.get("/user/:id", verifyToken, async (req, res) => {
+router.get("/:id", verifyToken, adminOnly, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access only.",
-      });
-    }
-
-    const user = await User.findById(req.params.id).select("-password");
+    const user = await User.findById(req.params.id).select(
+      "username email walletBalance usdtBalance goldBalance"
+    );
 
     if (!user) {
       return res.status(404).json({
@@ -66,218 +84,230 @@ router.get("/user/:id", verifyToken, async (req, res) => {
       user,
     });
   } catch (err) {
+    console.error(err);
+
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Unable to load wallet.",
     });
   }
 });
+// =============================================
+// MANUAL WALLET UPDATE
+// PUT /api/admin/wallet/:id/update
+// Credit / Debit PKR, USDT & GOLD Wallet
+// =============================================
 
-// ======================================================
-// CREDIT / DEBIT WALLET
-// ======================================================
+router.put("/:id/update", verifyToken, adminOnly, async (req, res) => {
+  const session = await mongoose.startSession();
 
-router.post("/update", verifyToken, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
+    session.startTransaction();
+
+    const { walletType, action, amount, adminNote } = req.body;
+
+    const value = Number(amount);
+
+    if (!walletType || !action || !value || value <= 0) {
+      await session.abortTransaction();
+      return res.status(400).json({
         success: false,
-        message: "Admin access only.",
+        message: "Invalid request data.",
       });
     }
 
-    const {
-      userId,
-      walletType,
-      action,
-      amount,
-      reason,
-    } = req.body;
-
-    const user = await User.findById(userId);
+    const user = await User.findById(req.params.id).session(session);
 
     if (!user) {
+      await session.abortTransaction();
       return res.status(404).json({
         success: false,
         message: "User not found.",
       });
     }
 
-    const value = Number(amount);
+    let currentBalance = 0;
+    let transactionType = "";
 
-    if (!value || value <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid amount.",
-      });
-    }
-
-    let previousBalance = 0;
-    let newBalance = 0;
-
-    // Wallet selection
-    if (walletType === "PKR") {
-      previousBalance = Number(user.walletBalance || 0);
-    }
-
-    if (walletType === "USDT") {
-      previousBalance = Number(user.usdtBalance || 0);
-    }
-
-    if (walletType === "GOLD") {
-      previousBalance = Number(user.goldBalance || 0);
-    }
-
-    // Debit Validation
-    if (action === "debit" && value > previousBalance) {
-      return res.status(400).json({
-        success: false,
-        message: "Insufficient wallet balance.",
-      });
-    }
-
-    // Credit / Debit Logic
-    if (action === "credit") {
-      newBalance = previousBalance + value;
-    } else {
-      newBalance = previousBalance - value;
-    }    // ================= SAVE NEW BALANCE =================
-
+    // Wallet Selection
     switch (walletType) {
       case "PKR":
-        user.walletBalance = newBalance;
+        currentBalance = user.walletBalance || 0;
+
+        if (action === "credit") {
+          user.walletBalance += value;
+        } else {
+          if (currentBalance < value) {
+            await session.abortTransaction();
+            return res.status(400).json({
+              success: false,
+              message: "Insufficient PKR balance.",
+            });
+          }
+
+          user.walletBalance -= value;
+        }
+
+        transactionType = "Wallet PKR";
         break;
 
       case "USDT":
-        user.usdtBalance = newBalance;
+        currentBalance = user.usdtBalance || 0;
+
+        if (action === "credit") {
+          user.usdtBalance += value;
+        } else {
+          if (currentBalance < value) {
+            await session.abortTransaction();
+            return res.status(400).json({
+              success: false,
+              message: "Insufficient USDT balance.",
+            });
+          }
+
+          user.usdtBalance -= value;
+        }
+
+        transactionType = "Wallet USDT";
         break;
 
       case "GOLD":
-        user.goldBalance = newBalance;
+        currentBalance = user.goldBalance || 0;
+
+        if (action === "credit") {
+          user.goldBalance += value;
+        } else {
+          if (currentBalance < value) {
+            await session.abortTransaction();
+            return res.status(400).json({
+              success: false,
+              message: "Insufficient Gold balance.",
+            });
+          }
+
+          user.goldBalance -= value;
+        }
+
+        transactionType = "Wallet GOLD";
         break;
+
+      default:
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: "Invalid wallet type.",
+        });
     }
 
-    await user.save();
+    await user.save({ session });
 
-    // ================= WALLET HISTORY =================
+    // Save Transaction History
+    await Transaction.create(
+      [
+        {
+          userId: user._id,
+          username: user.username,
+          type: transactionType,
+          status: "Completed",
+          amount: value,
+          description: `Admin ${action} ${value} ${walletType}.`,
+          adminNote: adminNote || "",
+        },
+      ],
+      { session }
+    );
 
-    await WalletTransaction.create({
-      user: user._id,
-      admin: req.user._id,
-      walletType,
-      action,
-      amount: value,
-      previousBalance,
-      newBalance,
-      reason: reason || "Manual wallet update by Admin",
-    });
-
-    // ================= TRANSACTION HISTORY =================
-
-    await Transaction.create({
-      userId: user._id,
-      username: user.username,
-      type:
-        action === "credit"
-          ? `${walletType} Wallet Credit`
-          : `${walletType} Wallet Debit`,
-      amount: value,
-      status: "Completed",
-      description:
-        reason || `Manual ${action} by Admin (${walletType})`,
-    });
-
-    // ================= RESPONSE =================
+    await session.commitTransaction();
 
     res.json({
       success: true,
       message: `${walletType} wallet ${action} successful.`,
-      walletType,
-      action,
-      previousBalance,
-      newBalance,
-      user: {
-        username: user.username,
+      balances: {
         walletBalance: user.walletBalance,
         usdtBalance: user.usdtBalance,
         goldBalance: user.goldBalance,
       },
     });
-
   } catch (err) {
-    console.log(err);
+    await session.abortTransaction();
+
+    console.error("Wallet Update Error:", err);
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Unable to update wallet.",
     });
+  } finally {
+    session.endSession();
   }
 });
 
-// ======================================================
+// =============================================
 // WALLET TRANSACTION HISTORY
-// ======================================================
+// GET /api/admin/wallet/history
+// =============================================
 
-router.get("/history", verifyToken, async (req, res) => {
+router.get("/history", verifyToken, adminOnly, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access only.",
-      });
+    const { username } = req.query;
+
+    const filter = {};
+
+    if (username) {
+      filter.username = {
+        $regex: username,
+        $options: "i",
+      };
     }
 
-    const history = await WalletTransaction.find()
-      .populate("user", "username email")
-      .populate("admin", "username")
+    const transactions = await Transaction.find(filter)
       .sort({ createdAt: -1 })
       .limit(100);
 
     res.json({
       success: true,
-      history,
+      total: transactions.length,
+      transactions,
     });
   } catch (err) {
-    console.log(err);
+    console.error("Wallet History Error:", err);
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Unable to load wallet history.",
     });
   }
 });
 
-// ======================================================
-// USER WALLET HISTORY
-// ======================================================
+// =============================================
+// RECENT WALLET CHANGES
+// GET /api/admin/wallet/recent
+// =============================================
 
-router.get("/history/:userId", verifyToken, async (req, res) => {
+router.get("/recent", verifyToken, adminOnly, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access only.",
-      });
-    }
-
-    const history = await WalletTransaction.find({
-      user: req.params.userId,
+    const recent = await Transaction.find({
+      type: { $regex: "Wallet" },
     })
-      .populate("admin", "username")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(10);
 
     res.json({
       success: true,
-      history,
+      recent,
     });
   } catch (err) {
-    console.log(err);
+    console.error("Recent Wallet Error:", err);
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Unable to load recent wallet updates.",
     });
   }
 });
+
+// =============================================
+// EXPORT ROUTER
+// =============================================
 
 module.exports = router;
