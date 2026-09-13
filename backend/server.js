@@ -7,10 +7,29 @@ const cors = require("cors");
 const app = express();
 
 // ======================================================
-// MIDDLEWARE
+// CORS CONFIG (Vercel + Localhost)
 // ======================================================
 
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://frontend-cj9o6n761-flextrade-5000.vercel.app",
+  "https://infotradewithzoyanet.org",
+  "https://www.infotradewithzoyanet.org",
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS Not Allowed"));
+      }
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -21,7 +40,6 @@ app.use("/uploads", express.static("uploads"));
 // IMPORT ROUTES
 // ======================================================
 
-// User Routes
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const walletRoutes = require("./routes/walletRoutes");
@@ -62,13 +80,26 @@ mongoose
 app.get("/", (req, res) => {
   res.json({
     success: true,
-    message: "GoldTrade V17 Backend Running",
+    message: "GoldTrade V18 Backend Running 🚀",
   });
 });
 
 // ======================================================
-// STATUS ROUTE
+// HEALTH ROUTE
 // ======================================================
+
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "GoldTrade API Healthy",
+    mongodb:
+      mongoose.connection.readyState === 1
+        ? "Connected"
+        : "Disconnected",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
 
 app.get("/api/status", (req, res) => {
   res.json({
@@ -78,10 +109,9 @@ app.get("/api/status", (req, res) => {
         ? "Connected"
         : "Disconnected",
     uptime: process.uptime(),
-    version: "V17 Enterprise",
+    version: "V18 Enterprise",
   });
 });
-
 // ======================================================
 // ADMIN ROUTES
 // ======================================================
@@ -92,7 +122,7 @@ app.use("/api/admin/dashboard", adminDashboardRoutes);
 // Deposits
 app.use("/api/admin/deposits", adminDepositRoutes);
 
-// Withdraws
+// Withdrawals
 app.use("/api/admin/withdraws", adminWithdrawRoutes);
 
 // Users
@@ -104,12 +134,12 @@ app.use("/api/admin/wallet", adminWalletRoutes);
 // Other Admin APIs
 app.use("/api/admin", adminRoutes);
 
+// Payment Settings
 app.use("/api/admin/payment-settings", paymentSettingsRoutes);
 
 // ======================================================
 // USER API ROUTES
 // ======================================================
-
 
 // Authentication
 app.use("/api/auth", authRoutes);
@@ -138,20 +168,33 @@ app.use("/api/settings", settingsRoutes);
 // Transactions
 app.use("/api/transactions", transactionRoutes);
 
-// Gold
+// Gold (ONLY ONE TIME)
 app.use("/api/gold", goldRoutes);
 
 // ======================================================
-// 404 ROUTE
+// 404 API ROUTE
 // ======================================================
 
-app.use((req, res) => {
+app.use("/api/*", (req, res) => {
   res.status(404).json({
     success: false,
     message: "API Route Not Found",
     path: req.originalUrl,
     method: req.method,
     timestamp: new Date().toISOString(),
+  });
+});
+
+// ======================================================
+// GLOBAL ERROR HANDLER
+// ======================================================
+
+app.use((err, req, res, next) => {
+  console.error("Server Error:", err);
+
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error",
   });
 });
 
@@ -166,6 +209,6 @@ app.listen(PORT, () => {
   console.log("🚀 GOLDTRADE BACKEND RUNNING");
   console.log(`🌐 Server : http://localhost:${PORT}`);
   console.log(`📦 API    : http://localhost:${PORT}/api`);
-  console.log(`🪙 Gold   : http://localhost:${PORT}/api/gold`);
+  console.log(`❤️ Health : http://localhost:${PORT}/api/health`);
   console.log("========================================");
 });
