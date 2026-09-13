@@ -6,10 +6,37 @@ const Settings = require("../models/Settings");
 const GoldTrade = require("../models/GoldTrade");
 const Transaction = require("../models/Transaction");
 
-// ==============================================
+// =====================================================
+// GET LIVE GOLD PRICE
+// GET /api/gold/price
+// =====================================================
+router.get("/price", async (req, res) => {
+  try {
+    let settings = await Settings.findOne();
+
+    if (!settings) {
+      settings = await Settings.create({});
+    }
+
+    res.json({
+      success: true,
+      buyPrice: settings.buyGoldPrice,
+      sellPrice: settings.sellGoldPrice,
+      tradingEnabled: settings.goldTradingEnabled,
+      marketStatus: settings.marketStatus,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
+
+// =====================================================
 // GET USER GOLD HISTORY
 // GET /api/gold/history/:username
-// ==============================================
+// =====================================================
 router.get("/history/:username", async (req, res) => {
   try {
     const history = await GoldTrade.find({
@@ -18,7 +45,7 @@ router.get("/history/:username", async (req, res) => {
 
     res.json({
       success: true,
-      data: history,
+      transactions: history,
     });
   } catch (err) {
     res.status(500).json({
@@ -28,20 +55,20 @@ router.get("/history/:username", async (req, res) => {
   }
 });
 
-// ==============================================
+// =====================================================
 // BUY GOLD
 // POST /api/gold/buy
-// ==============================================
+// =====================================================
 router.post("/buy", async (req, res) => {
   try {
     const { username, grams } = req.body;
 
-    const goldGram = Number(grams);
+    const quantity = Number(grams);
 
-    if (!goldGram || goldGram <= 0) {
+    if (!username || quantity <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Invalid gold amount.",
+        message: "Username and valid grams are required.",
       });
     }
 
@@ -54,104 +81,100 @@ router.post("/buy", async (req, res) => {
       });
     }
 
-    const settings = await Settings.findOne();
+    let settings = await Settings.findOne();
 
     if (!settings) {
+      settings = await Settings.create({});
+    }
+
+    if (!settings.goldTradingEnabled) {
       return res.status(400).json({
         success: false,
-        message: "Gold settings not configured.",
+        message: "Gold trading is currently disabled.",
       });
     }
 
-    const buyPrice =
-      settings.buyGoldPrice ||
-      settings.goldPriceUSD * settings.usdToPkr;
+    const buyPrice = Number(settings.buyGoldPrice);
+    const totalCost = quantity * buyPrice;
 
-    const totalCost = goldGram * buyPrice;
-
-    if (user.walletBalance < totalCost) {
+    if ((user.walletBalance || 0) < totalCost) {
       return res.status(400).json({
         success: false,
-        message: "Insufficient PKR Wallet Balance.",
+        message: "Insufficient PKR wallet balance.",
       });
     }
 
-    const currentGold = user.goldBalance || 0;
-    const currentAverage = user.goldAveragePrice || 0;
+    const previousWallet = Number(user.walletBalance || 0);
+    const previousGold = Number(user.goldBalance || 0);
+    const previousAverage = Number(user.goldAveragePrice || 0);
 
-    const newAverage =
-      currentGold === 0
+    const averagePrice =
+      previousGold === 0
         ? buyPrice
         : (
-            currentGold * currentAverage +
-            goldGram * buyPrice
-          ) /
-          (currentGold + goldGram);
+            previousGold * previousAverage +
+            quantity * buyPrice
+          ) / (previousGold + quantity);
 
-    user.walletBalance -= totalCost;
-    user.goldBalance += goldGram;
-    user.goldAveragePrice = Number(newAverage.toFixed(2));
-    user.totalGoldBuy = (user.totalGoldBuy || 0) + goldGram;
+    user.walletBalance = previousWallet - totalCost;
+    user.goldBalance = previousGold + quantity;
+    user.goldAveragePrice = Number(averagePrice.toFixed(2));
+    user.totalGoldBuy = (user.totalGoldBuy || 0) + quantity;
 
     await user.save();
 
     await GoldTrade.create({
-      username,
+      user: user._id,
+      username: user.username,
       tradeType: "BUY",
-      grams: goldGram,
+      grams: quantity,
       pricePerGram: buyPrice,
       totalPKR: totalCost,
-      averagePrice: user.goldAveragePrice,
-      walletBefore: user.walletBalance + totalCost,
-      walletAfter: user.walletBalance,
-      goldBefore: currentGold,
-      goldAfter: user.goldBalance,
-      updatedBy: "System",
+      averageBuyPrice: user.goldAveragePrice,
+      profitLoss: 0,
       status: "Completed",
     });
 
     await Transaction.create({
-      username,
+      username: user.username,
       type: "Gold Buy",
       amount: totalCost,
-      method: "PKR Wallet",
       transactionId: `GB${Date.now()}`,
       status: "Completed",
-      reason: `${goldGram}g Gold Purchased`,
+      reason: `${quantity}g Gold Purchased`,
     });
 
     res.json({
       success: true,
-      message: "Gold Purchased Successfully.",
-      data: {
-        walletBalance: user.walletBalance,
-        goldBalance: user.goldBalance,
-        averagePrice: user.goldAveragePrice,
-        totalCost,
-      },
+      message: "Gold purchased successfully.",
+      walletBalance: user.walletBalance,
+      goldBalance: user.goldBalance,
+      averageBuyPrice: user.goldAveragePrice,
+      totalCost,
     });
   } catch (err) {
+    console.error(err);
+
     res.status(500).json({
       success: false,
       message: err.message,
     });
   }
 });
-
-// ==============================================
+// =====================================================
 // SELL GOLD
 // POST /api/gold/sell
-// ==============================================
+// =====================================================
 router.post("/sell", async (req, res) => {
   try {
     const { username, grams } = req.body;
 
-    const goldGram = Number(grams);
+    const quantity = Number(grams);
 
-    if (!goldGram || goldGram <= 0) {
+    if (!username || quantity <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Invalid gold amount.",
+        message: "Username and valid grams are required.",
       });
     }
 
@@ -164,83 +187,82 @@ router.post("/sell", async (req, res) => {
       });
     }
 
-    const settings = await Settings.findOne();
+    let settings = await Settings.findOne();
 
     if (!settings) {
+      settings = await Settings.create({});
+    }
+
+    if (!settings.goldTradingEnabled) {
       return res.status(400).json({
         success: false,
-        message: "Gold settings not configured.",
+        message: "Gold trading is currently disabled.",
       });
     }
 
-    const sellPrice =
-      settings.sellGoldPrice ||
-      settings.goldPriceUSD * settings.usdToPkr;
-
-    if (user.goldBalance < goldGram) {
+    if ((user.goldBalance || 0) < quantity) {
       return res.status(400).json({
         success: false,
-        message: "Not enough gold balance.",
+        message: "Insufficient gold balance.",
       });
     }
 
-    const receiveAmount = goldGram * sellPrice;
-    const buyValue = goldGram * user.goldAveragePrice;
-    const profit = receiveAmount - buyValue;
+    const sellPrice = Number(settings.sellGoldPrice);
+    const receiveAmount = quantity * sellPrice;
 
-    const previousWallet = user.walletBalance;
-    const previousGold = user.goldBalance;
+    const previousWallet = Number(user.walletBalance || 0);
+    const previousGold = Number(user.goldBalance || 0);
+    const averageBuyPrice = Number(user.goldAveragePrice || 0);
 
-    user.goldBalance -= goldGram;
-    user.walletBalance += receiveAmount;
+    const profitLoss = (sellPrice - averageBuyPrice) * quantity;
+
+    user.walletBalance = previousWallet + receiveAmount;
+    user.goldBalance = previousGold - quantity;
     user.goldProfitLoss =
-      (user.goldProfitLoss || 0) + profit;
+      Number(user.goldProfitLoss || 0) + profitLoss;
     user.totalGoldSell =
-      (user.totalGoldSell || 0) + goldGram;
+      Number(user.totalGoldSell || 0) + quantity;
 
     if (user.goldBalance <= 0) {
+      user.goldBalance = 0;
       user.goldAveragePrice = 0;
     }
 
     await user.save();
 
     await GoldTrade.create({
-      username,
+      user: user._id,
+      username: user.username,
       tradeType: "SELL",
-      grams: goldGram,
+      grams: quantity,
       pricePerGram: sellPrice,
       totalPKR: receiveAmount,
-      profit,
-      walletBefore: previousWallet,
-      walletAfter: user.walletBalance,
-      goldBefore: previousGold,
-      goldAfter: user.goldBalance,
-      updatedBy: "System",
+      averageBuyPrice,
+      profitLoss,
       status: "Completed",
     });
 
     await Transaction.create({
-      username,
+      username: user.username,
       type: "Gold Sell",
       amount: receiveAmount,
-      method: "PKR Wallet",
       transactionId: `GS${Date.now()}`,
       status: "Completed",
-      reason: `${goldGram}g Gold Sold`,
+      reason: `${quantity}g Gold Sold`,
     });
 
     res.json({
       success: true,
-      message: "Gold Sold Successfully.",
-      data: {
-        receiveAmount,
-        profit,
-        walletBalance: user.walletBalance,
-        goldBalance: user.goldBalance,
-        totalProfitLoss: user.goldProfitLoss,
-      },
+      message: "Gold sold successfully.",
+      walletBalance: user.walletBalance,
+      goldBalance: user.goldBalance,
+      averageBuyPrice: user.goldAveragePrice,
+      receiveAmount,
+      profitLoss,
     });
   } catch (err) {
+    console.error(err);
+
     res.status(500).json({
       success: false,
       message: err.message,
@@ -248,15 +270,15 @@ router.post("/sell", async (req, res) => {
   }
 });
 
-// ==============================================
+// =====================================================
 // GOLD PORTFOLIO
 // GET /api/gold/portfolio/:username
-// ==============================================
+// =====================================================
 router.get("/portfolio/:username", async (req, res) => {
   try {
-    const user = await User.findOne({
-      username: req.params.username,
-    });
+    const username = req.params.username;
+
+    const user = await User.findOne({ username });
 
     if (!user) {
       return res.status(404).json({
@@ -265,34 +287,42 @@ router.get("/portfolio/:username", async (req, res) => {
       });
     }
 
-    const settings = await Settings.findOne();
+    let settings = await Settings.findOne();
 
-    const sellPrice =
-      settings?.sellGoldPrice ||
-      settings.goldPriceUSD * settings.usdToPkr;
+    if (!settings) {
+      settings = await Settings.create({});
+    }
 
-    const portfolioValue =
-      user.goldBalance * sellPrice;
+    const currentPrice = Number(settings.sellGoldPrice);
 
-    const liveProfit =
-      (sellPrice - user.goldAveragePrice) *
-      user.goldBalance;
+    const goldBalance = Number(user.goldBalance || 0);
+    const averageBuyPrice = Number(user.goldAveragePrice || 0);
+
+    const totalInvested = goldBalance * averageBuyPrice;
+    const portfolioValue = goldBalance * currentPrice;
+    const liveProfit = portfolioValue - totalInvested;
+
+    const transactions = await GoldTrade.find({ username })
+      .sort({ createdAt: -1 })
+      .limit(10);
 
     res.json({
       success: true,
-      data: {
-        username: user.username,
-        walletBalance: user.walletBalance,
-        goldBalance: user.goldBalance,
-        averagePrice: user.goldAveragePrice,
-        portfolioValue,
-        liveProfit,
-        totalProfitLoss: user.goldProfitLoss,
-        buyPrice: settings.buyGoldPrice,
-        sellPrice,
-      },
+      goldBalance,
+      averageBuyPrice,
+      currentPrice,
+      walletBalance: Number(user.walletBalance || 0),
+      totalInvested,
+      portfolioValue,
+      liveProfit,
+      totalProfitLoss: Number(user.goldProfitLoss || 0),
+      totalGoldBuy: Number(user.totalGoldBuy || 0),
+      totalGoldSell: Number(user.totalGoldSell || 0),
+      transactions,
     });
   } catch (err) {
+    console.error(err);
+
     res.status(500).json({
       success: false,
       message: err.message,
@@ -300,15 +330,22 @@ router.get("/portfolio/:username", async (req, res) => {
   }
 });
 
-// ==============================================
+// =====================================================
 // ADMIN GOLD CREDIT / DEBIT
 // PUT /api/gold/admin/:id
-// ==============================================
+// =====================================================
 router.put("/admin/:id", async (req, res) => {
   try {
     const { amount, action, reason, updatedBy } = req.body;
 
     const grams = Number(amount);
+
+    if (grams <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid gold amount.",
+      });
+    }
 
     const user = await User.findById(req.params.id);
 
@@ -319,31 +356,37 @@ router.put("/admin/:id", async (req, res) => {
       });
     }
 
+    const previousGold = Number(user.goldBalance || 0);
+
     if (action === "credit") {
-      user.goldBalance += grams;
+      user.goldBalance = previousGold + grams;
     } else if (action === "debit") {
-      if (user.goldBalance < grams) {
+      if (previousGold < grams) {
         return res.status(400).json({
           success: false,
-          message: "Gold balance too low.",
+          message: "Gold balance is too low.",
         });
       }
 
-      user.goldBalance -= grams;
+      user.goldBalance = previousGold - grams;
+
+      if (user.goldBalance === 0) {
+        user.goldAveragePrice = 0;
+      }
     } else {
       return res.status(400).json({
         success: false,
-        message: "Invalid action.",
+        message: "Action must be credit or debit.",
       });
     }
 
     await user.save();
 
+    // Save Transaction
     await Transaction.create({
       username: user.username,
       type: "Admin Gold Wallet",
       amount: grams,
-      method: "Admin Manager",
       transactionId: `AG${Date.now()}`,
       status: action === "credit" ? "Credit" : "Debit",
       reason: reason || "Manual Gold Wallet Update",
@@ -352,8 +395,91 @@ router.put("/admin/:id", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Gold Wallet Updated Successfully.",
-      data: user,
+      message: "Gold wallet updated successfully.",
+      data: {
+        username: user.username,
+        goldBalance: user.goldBalance,
+        averageBuyPrice: user.goldAveragePrice,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
+
+// =====================================================
+// RESET GOLD SETTINGS (OPTIONAL ADMIN TOOL)
+// POST /api/gold/reset-settings
+// =====================================================
+router.post("/reset-settings", async (req, res) => {
+  try {
+    let settings = await Settings.findOne();
+
+    if (!settings) {
+      settings = await Settings.create({});
+    }
+
+    settings.buyGoldPrice = 31250;
+    settings.sellGoldPrice = 30980;
+    settings.goldTradingEnabled = true;
+    settings.marketStatus = "OPEN";
+
+    await settings.save();
+
+    res.json({
+      success: true,
+      message: "Gold settings reset successfully.",
+      settings,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
+
+// =====================================================
+// API HEALTH CHECK
+// GET /api/gold/test
+// =====================================================
+router.get("/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Gold Routes Working Successfully ✅",
+    timestamp: new Date().toISOString(),
+  });
+});
+// =====================================================
+// CREATE / RESET GOLD SETTINGS
+// GET /api/gold/reset-settings
+// =====================================================
+router.get("/reset-settings", async (req, res) => {
+  try {
+    let settings = await Settings.findOne();
+
+    if (!settings) {
+      settings = await Settings.create({});
+    }
+
+    settings.buyGoldPrice = 31250;
+    settings.sellGoldPrice = 30980;
+    settings.goldPriceUSD = 108.45;
+    settings.usdToPkr = 290;
+    settings.goldTradingEnabled = true;
+    settings.marketStatus = "OPEN";
+
+    await settings.save();
+
+    res.json({
+      success: true,
+      message: "Gold settings created successfully.",
+      settings,
     });
   } catch (err) {
     res.status(500).json({

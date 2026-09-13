@@ -6,31 +6,47 @@ const depositSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
 
     username: {
       type: String,
       required: true,
+      trim: true,
     },
 
-    email: String,
+    email: {
+      type: String,
+      required: true,
+      lowercase: true,
+    },
 
     amount: {
       type: Number,
       required: true,
+      min: 1,
     },
 
-    network: {
+    currency: {
       type: String,
-      default: "USDT TRC20",
+      enum: ["PKR", "USDT"],
+      default: "PKR",
     },
 
-    walletAddress: {
+    method: {
       type: String,
+      enum: ["Bank Transfer", "JazzCash", "Easypaisa", "USDT (TRC20)"],
       required: true,
     },
 
-    receipt: {
+    transactionId: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
+
+    receiptImage: {
       type: String,
       default: "",
     },
@@ -39,9 +55,32 @@ const depositSchema = new mongoose.Schema(
       type: String,
       enum: ["Pending", "Approved", "Rejected"],
       default: "Pending",
+      index: true,
     },
 
     adminNote: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
+
+    rejectedAt: {
+      type: Date,
+      default: null,
+    },
+
+    ipAddress: {
       type: String,
       default: "",
     },
@@ -50,5 +89,11 @@ const depositSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Prevent duplicate transaction IDs
+depositSchema.index({ transactionId: 1 }, { unique: true });
+
+// Latest deposits first
+depositSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("Deposit", depositSchema);

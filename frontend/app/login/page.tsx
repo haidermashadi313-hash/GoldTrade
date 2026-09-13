@@ -1,166 +1,197 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import {
-  Eye,
-  EyeOff,
-  Lock,
-  Mail,
-  ShieldCheck,
-  Loader2,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { RefreshCw } from "lucide-react";
+import { loginUser } from "@/lib/api";
 
-const API = "http://localhost:5000";
+// ==========================================
+// GOLDTRADE API
+// ==========================================
+const API =
+  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
 
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+// ==========================================
+// TYPES
+// ==========================================
+type User = {
+  _id: string;
+  username: string;
+  email: string;
+  walletBalance: number;
+  usdtBalance: number;
+  goldBalance: number;
+  goldAveragePrice: number;
+  goldProfitLoss: number;
+  totalDeposit: number;
+  totalWithdraw: number;
+};
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+export default function DashboardPage() {
+  const [loading, setLoading] = useState(true);
 
-  const login = async () => {
-    if (!email || !password) {
-      alert("Please enter email and password.");
-      return;
-    }
+  const [user, setUser] = useState<User>({
+    _id: "",
+    username: "",
+    email: "",
+    walletBalance: 0,
+    usdtBalance: 0,
+    goldBalance: 0,
+    goldAveragePrice: 0,
+    goldProfitLoss: 0,
+    totalDeposit: 0,
+    totalWithdraw: 0,
+  });
 
+  const [market, setMarket] = useState<any>({});
+  const [goldHistory, setGoldHistory] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [lastUpdate, setLastUpdate] = useState("");
+
+  // =====================================
+  // LOAD DASHBOARD
+  // =====================================
+  const loadDashboard = async () => {
     try {
       setLoading(true);
 
-      const res = await fetch(`${API}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      });
+      const token = localStorage.getItem("token");
+      const username = localStorage.getItem("username");
 
-      const data = await res.json();
-
-      if (!data.success) {
-        alert(data.message || "Invalid login credentials.");
+      if (!token || !username) {
+        window.location.replace("/login");
         return;
       }
 
-      // Save Login Session
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("username", data.user.username);
-      localStorage.setItem("role", data.user.role);
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
 
-      alert(`Welcome ${data.user.username} ✅`);
+      const [userRes, marketRes, goldRes, transactionRes] =
+        await Promise.all([
+          fetch(`${API}/api/users/${username}`, { headers }),
+          fetch(`${API}/api/settings/market`, { headers }),
+          fetch(`${API}/api/gold/history/${username}`, { headers }),
+          fetch(`${API}/api/transactions/${username}`, { headers }),
+        ]);
 
-      // Redirect by role
-      if (data.user.role === "admin") {
-        window.location.href = "/admin";
-      } else {
-        window.location.href = "/dashboard";
+      if (!userRes.ok) {
+        throw new Error(`Users API ${userRes.status}`);
       }
+
+      const userData = await userRes.json();
+      const marketData = marketRes.ok ? await marketRes.json() : {};
+      const goldData = goldRes.ok ? await goldRes.json() : {};
+      const transactionData = transactionRes.ok
+        ? await transactionRes.json()
+        : {};
+
+      if (userData.success) setUser(userData.data);
+      if (marketData.success) setMarket(marketData.data);
+      if (goldData.success) setGoldHistory(goldData.data);
+      if (transactionData.success) setTransactions(transactionData.data);
+
+      setLastUpdate(new Date().toLocaleTimeString());
     } catch (err) {
-      console.log(err);
-      alert("Unable to connect to server.");
+      console.error("Dashboard Error:", err);
+      alert("Failed to connect GoldTrade Server.");
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <main className="min-h-screen bg-black flex items-center justify-center px-5">
-      <div className="w-full max-w-md bg-zinc-900 border border-yellow-500 rounded-3xl p-8 shadow-2xl">
+  // =====================================
+  // PAGE LOAD
+  // =====================================
+  useEffect(() => {
+    loadDashboard();
 
-        {/* Logo */}
-        <div className="flex justify-center mb-4">
-          <ShieldCheck size={52} className="text-yellow-400" />
-        </div>
+    const interval = setInterval(loadDashboard, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
-        <h1 className="text-3xl font-bold text-yellow-400 text-center">
-          GoldTrade Login
-        </h1>
+  // =====================================
+  // LIVE VALUES
+  // =====================================
+  const portfolioValue = useMemo(() => {
+    return user.goldBalance * (market.sellGoldPrice || 0);
+  }, [user.goldBalance, market.sellGoldPrice]);
 
-        <p className="text-center text-gray-400 mt-2 mb-8">
-          Login to access your wallet and trading dashboard.
+  const totalAssets = useMemo(() => {
+    return (
+      user.walletBalance +
+      portfolioValue +
+      user.usdtBalance * (market.usdtRate || 0)
+    );
+  }, [user, market, portfolioValue]);
+
+  // =====================================
+  // LOADING SCREEN
+  // =====================================
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-black flex flex-col items-center justify-center text-yellow-400">
+        <RefreshCw className="animate-spin h-10 w-10 mb-4" />
+        <h2 className="text-2xl font-bold">
+          Loading GoldTrade Dashboard...
+        </h2>
+        <p className="text-gray-400 mt-2">
+          Connecting to GoldTrade Server...
         </p>
+      </main>
+    );
+  }
 
-        {/* Email */}
-        <div className="relative mb-5">
-          <Mail
-            size={18}
-            className="absolute left-4 top-4 text-gray-500"
-          />
+  // =====================================
+  // DASHBOARD UI
+  // =====================================
+  return (
+    <main className="min-h-screen bg-black text-white p-6">
+      <h1 className="text-3xl font-bold text-yellow-400 mb-6">
+        Welcome {user.username}
+      </h1>
 
-          <input
-            type="email"
-            placeholder="Email Address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-4 outline-none focus:border-yellow-500"
-          />
+      <div className="grid md:grid-cols-2 gap-5">
+        <div className="bg-zinc-900 rounded-2xl p-5 border border-yellow-500">
+          <p className="text-gray-400">Wallet Balance</p>
+          <h2 className="text-2xl font-bold text-green-400">
+            PKR {user.walletBalance}
+          </h2>
         </div>
 
-        {/* Password */}
-        <div className="relative mb-6">
-          <Lock
-            size={18}
-            className="absolute left-4 top-4 text-gray-500"
-          />
-
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-12 outline-none focus:border-yellow-500"
-          />
-
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-3 text-gray-400 hover:text-yellow-400"
-          >
-            {showPassword ? <EyeOff size={20}/> : <Eye size={20}/>}
-          </button>
+        <div className="bg-zinc-900 rounded-2xl p-5 border border-yellow-500">
+          <p className="text-gray-400">Gold Balance</p>
+          <h2 className="text-2xl font-bold text-yellow-400">
+            {user.goldBalance} g
+          </h2>
         </div>
 
-        {/* Login Button */}
-        <button
-          onClick={login}
-          disabled={loading}
-          className="w-full bg-yellow-500 hover:bg-yellow-400 text-black py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-60"
-        >
-          {loading ? (
-            <>
-              <Loader2 size={18} className="animate-spin" />
-              Logging in...
-            </>
-          ) : (
-            "Login"
-          )}
-        </button>
-
-        {/* Footer */}
-        <div className="mt-8 text-center space-y-3">
-          <p className="text-gray-400">
-            Don't have an account?
-          </p>
-
-          <Link
-            href="/signup"
-            className="text-yellow-400 font-bold hover:underline"
-          >
-            Create GoldTrade Account
-          </Link>
+        <div className="bg-zinc-900 rounded-2xl p-5 border border-yellow-500">
+          <p className="text-gray-400">USDT Balance</p>
+          <h2 className="text-2xl font-bold text-cyan-400">
+            {user.usdtBalance} USDT
+          </h2>
         </div>
 
-        <div className="mt-8 border-t border-zinc-700 pt-4 text-center">
-          <p className="text-xs text-gray-500">
-            GoldTrade Pakistan • Secure Gold & USDT TRC20 Platform
-          </p>
+        <div className="bg-zinc-900 rounded-2xl p-5 border border-yellow-500">
+          <p className="text-gray-400">Total Assets</p>
+          <h2 className="text-2xl font-bold text-white">
+            PKR {Math.round(totalAssets)}
+          </h2>
         </div>
+      </div>
 
+      <div className="mt-8 bg-zinc-900 rounded-2xl p-5 border border-yellow-500">
+        <h3 className="text-xl font-semibold text-yellow-400 mb-3">
+          Live Market
+        </h3>
+
+        <p>Gold Buy: PKR {market.buyGoldPrice || 0}</p>
+        <p>Gold Sell: PKR {market.sellGoldPrice || 0}</p>
+        <p>USDT Rate: PKR {market.usdtRate || 0}</p>
+        <p className="text-gray-400 mt-3">
+          Last Update: {lastUpdate}
+        </p>
       </div>
     </main>
   );

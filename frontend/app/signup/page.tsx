@@ -12,18 +12,21 @@ import {
   Loader2,
 } from "lucide-react";
 
-const API = "http://localhost:5000";
+// ===========================================
+// GOLDTRADE PRODUCTION API
+// ===========================================
+const API =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://goldtrade-api.onrender.com";
 
 export default function SignupPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-
   const [agree, setAgree] = useState(false);
 
   const signup = async () => {
@@ -37,6 +40,11 @@ export default function SignupPage() {
       return;
     }
 
+    if (password.length < 6) {
+      alert("Password must be at least 6 characters.");
+      return;
+    }
+
     if (!agree) {
       alert("Please accept Terms & Conditions.");
       return;
@@ -45,28 +53,30 @@ export default function SignupPage() {
     try {
       setLoading(true);
 
-      const res = await fetch(`${API}/api/auth/signup`, {
+      const response = await fetch(`${API}/api/auth/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify({
-          username,
-          email,
+          username: username.trim(),
+          email: email.trim().toLowerCase(),
           password,
         }),
       });
 
-      const data = await res.json();
+      const data = await response.json();
 
-      if (data.success) {
-        alert("Account Created Successfully 🎉");
+      if (response.ok && data.success) {
+        alert("🎉 Account Created Successfully!");
         window.location.href = "/login";
-      } else {
-        alert(data.message);
+        return;
       }
-    } catch (err) {
-      console.log(err);
+
+      alert(data.message || "Signup failed.");
+    } catch (error) {
+      console.error("Signup Error:", error);
       alert("Server Error. Please try again.");
     } finally {
       setLoading(false);
@@ -77,7 +87,6 @@ export default function SignupPage() {
     <main className="min-h-screen bg-black flex items-center justify-center px-5 py-10">
       <div className="w-full max-w-md bg-zinc-900 border border-yellow-500 rounded-3xl p-8 shadow-2xl">
 
-        {/* Logo */}
         <div className="flex justify-center mb-4">
           <ShieldCheck size={52} className="text-yellow-400" />
         </div>
@@ -90,51 +99,39 @@ export default function SignupPage() {
           Create your secure GoldTrade wallet account.
         </p>
 
-        {/* Username */}
         <div className="relative mb-4">
-          <User
-            size={18}
-            className="absolute left-4 top-4 text-gray-500"
-          />
+          <User size={18} className="absolute left-4 top-4 text-gray-500" />
 
           <input
             type="text"
             placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-4 outline-none focus:border-yellow-500"
+            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-4 outline-none focus:border-yellow-500 text-white"
           />
         </div>
 
-        {/* Email */}
         <div className="relative mb-4">
-          <Mail
-            size={18}
-            className="absolute left-4 top-4 text-gray-500"
-          />
+          <Mail size={18} className="absolute left-4 top-4 text-gray-500" />
 
           <input
             type="email"
             placeholder="Email Address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-4 outline-none focus:border-yellow-500"
+            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-4 outline-none focus:border-yellow-500 text-white"
           />
         </div>
 
-        {/* Password */}
         <div className="relative mb-4">
-          <Lock
-            size={18}
-            className="absolute left-4 top-4 text-gray-500"
-          />
+          <Lock size={18} className="absolute left-4 top-4 text-gray-500" />
 
           <input
             type={showPassword ? "text" : "password"}
             placeholder="Password (Minimum 6 Characters)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-12 outline-none focus:border-yellow-500"
+            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-12 outline-none focus:border-yellow-500 text-white"
           />
 
           <button
@@ -146,23 +143,18 @@ export default function SignupPage() {
           </button>
         </div>
 
-        {/* Confirm Password */}
         <div className="relative mb-5">
-          <Lock
-            size={18}
-            className="absolute left-4 top-4 text-gray-500"
-          />
+          <Lock size={18} className="absolute left-4 top-4 text-gray-500" />
 
           <input
             type={showPassword ? "text" : "password"}
             placeholder="Confirm Password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-4 outline-none focus:border-yellow-500"
+            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-4 outline-none focus:border-yellow-500 text-white"
           />
         </div>
 
-        {/* Terms */}
         <label className="flex items-start gap-3 mb-6 text-sm text-gray-300 cursor-pointer">
           <input
             type="checkbox"
@@ -180,7 +172,6 @@ export default function SignupPage() {
           </span>
         </label>
 
-        {/* Signup Button */}
         <button
           onClick={signup}
           disabled={loading}
@@ -196,7 +187,6 @@ export default function SignupPage() {
           )}
         </button>
 
-        {/* Login Link */}
         <div className="mt-8 text-center">
           <p className="text-gray-400">
             Already have an account?

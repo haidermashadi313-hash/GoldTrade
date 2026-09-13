@@ -1,522 +1,527 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import axios from "axios";
+import Link from "next/link";
 import {
-  Search,
-  Wallet,
-  Coins,
-  DollarSign,
+  ArrowLeft,
   RefreshCw,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  History,
-  UserCircle,
+  Wallet,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Eye,
+  Landmark,
+  Smartphone,
+  Search,
 } from "lucide-react";
 
-const API = "http://localhost:5000";
+const API =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-// ======================================
-// TYPES
-// ======================================
-
-interface UserWallet {
+interface WithdrawRequest {
   _id: string;
   username: string;
-  email: string;
-  role: string;
-  status: string;
-  walletBalance: number;
-  usdtBalance: number;
-  goldBalance: number;
+  amount: number;
+  currency: string;
+  paymentMethod: string;
+  bankName?: string;
+  accountTitle: string;
+  accountNumber: string;
+  iban?: string;
+  walletAddress?: string;
+  network?: string;
+  status: "Pending" | "Approved" | "Rejected";
+  adminNote?: string;
+  receiptImage?: string;
+  transactionId?: string;
+  createdAt: string;
 }
 
-export default function WalletManagerPage() {
+export default function AdminWithdrawPage() {
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [users, setUsers] = useState<UserWallet[]>([]);
-  const [selectedUser, setSelectedUser] = useState<UserWallet | null>(null);
+  const [withdraws, setWithdraws] = useState<WithdrawRequest[]>([]);
+  const [selectedReceipt, setSelectedReceipt] = useState("");
 
-  const [search, setSearch] = useState("");
+  // Per-request admin notes
+  const [adminNotes, setAdminNotes] = useState<
+    Record<string, string>
+  >({});
 
-  const [walletType, setWalletType] = useState("PKR");
-  const [action, setAction] = useState("credit");
-  const [amount, setAmount] = useState(0);
-  const [reason, setReason] = useState("");
+  // Search + Filter (Part 8 ready)
+  const [searchUsername, setSearchUsername] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
-  const adminName =
-    typeof window !== "undefined"
-      ? localStorage.getItem("username") || "Admin"
-      : "Admin";
-
-  // ======================================
-  // LOAD USERS
-  // ======================================
-
-  const loadUsers = async () => {
+  const fetchWithdraws = async () => {
     try {
-      setLoading(true);
+      setRefreshing(true);
 
-      const res = await fetch(`${API}/api/users`);
-      const data = await res.json();
+      const token = localStorage.getItem("token");
 
-      if (data.success) {
-        setUsers(data.data);
-      }
+      const res = await axios.get(
+        `${API}/api/admin/withdraw`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setWithdraws(res.data.withdraws || []);
     } catch (err) {
       console.log(err);
-      alert("Failed to load users.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
-    loadUsers();
+    fetchWithdraws();
   }, []);
 
-  // ======================================
-  // SEARCH USERS
-  // ======================================
+  // Dashboard Stats
+  const stats = useMemo(() => {
+    return {
+      pending: withdraws.filter(
+        (w) => w.status === "Pending"
+      ).length,
 
-  const filteredUsers = useMemo(() => {
-    if (!search) return users;
+      approved: withdraws.filter(
+        (w) => w.status === "Approved"
+      ).length,
 
-    return users.filter(
-      (u) =>
-        u.username.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [search, users]);
+      rejected: withdraws.filter(
+        (w) => w.status === "Rejected"
+      ).length,
 
-  // ======================================
-  // UPDATE WALLET
-  // ======================================
+      totalAmount: withdraws
+        .filter((w) => w.status === "Approved")
+        .reduce((sum, w) => sum + w.amount, 0),
+    };
+  }, [withdraws]);
 
-  const updateWallet = async () => {
-    if (!selectedUser) {
-      return alert("Select user first.");
-    }
+  const filteredWithdraws = useMemo(() => {
+    return withdraws.filter((item) => {
+      const usernameMatch = item.username
+        .toLowerCase()
+        .includes(searchUsername.toLowerCase());
 
-    if (amount <= 0) {
-      return alert("Enter valid amount.");
-    }
+      const statusMatch =
+        statusFilter === "ALL"
+          ? true
+          : item.status === statusFilter;
 
-    let endpoint = "pkr";
-
-    if (walletType === "USDT") endpoint = "usdt";
-    if (walletType === "GOLD") endpoint = "gold";
-
-    const res = await fetch(
-      `${API}/api/wallets/${endpoint}/${selectedUser._id}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount,
-          action,
-          reason,
-          updatedBy: adminName,
-        }),
-      }
-    );
-
-    const data = await res.json();
-
-    if (data.success) {
-      alert("Wallet Updated Successfully.");
-
-      setAmount(0);
-      setReason("");
-      loadUsers();
-
-      setSelectedUser(data.data);
-    } else {
-      alert(data.message);
-    }
-  };
+      return usernameMatch && statusMatch;
+    });
+  }, [withdraws, searchUsername, statusFilter]);
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black text-yellow-400 flex justify-center items-center">
-        <RefreshCw className="animate-spin mr-3" />
-        Loading Wallet Manager...
-      </main>
+      <div className="min-h-screen bg-black flex justify-center items-center text-yellow-400 text-2xl font-black">
+        Loading Withdraw Dashboard...
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen bg-[#050505] text-white p-6">
 
       {/* HEADER */}
 
-      <div className="sticky top-0 z-50 bg-zinc-950 border-b border-yellow-500">
+      <div className="flex justify-between items-center flex-wrap gap-4 mb-8">
 
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+        <Link
+          href="/admin/dashboard"
+          className="flex items-center gap-2 text-yellow-400"
+        >
+          <ArrowLeft size={20}/>
+          Admin Dashboard
+        </Link>
 
-          <div>
+        <button
+          onClick={fetchWithdraws}
+          className="bg-yellow-500 hover:bg-yellow-400 text-black px-5 py-3 rounded-xl flex items-center gap-2 font-bold"
+        >
+          <RefreshCw size={18}/>
+          {refreshing ? "Refreshing..." : "Refresh"}
+        </button>
 
-            <h1 className="text-3xl font-bold text-yellow-400">
-              Wallet Manager
-            </h1>
+      </div>
 
-            <p className="text-gray-400 text-sm">
-              PKR • TRC20 • Gold Wallet Control
-            </p>
+      <h1 className="text-4xl font-black text-yellow-400 mb-2">
+        Withdraw Approval Center
+      </h1>
 
-          </div>
+      <p className="text-gray-400 mb-8">
+        Manual withdrawal approval, rejection and wallet management.
+      </p>
 
-          <button
-            onClick={loadUsers}
-            className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded-xl flex items-center gap-2"
-          >
-            <RefreshCw size={18} />
-            Refresh
-          </button>
+      {/* DASHBOARD CARDS */}
 
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+
+        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-5">
+          <Clock className="text-yellow-400 mb-3"/>
+          <p className="text-gray-400 text-sm">Pending</p>
+
+          <h2 className="text-3xl font-black text-yellow-400">
+            {stats.pending}
+          </h2>
+        </div>
+
+        <div className="bg-zinc-900 border border-green-500 rounded-3xl p-5">
+          <CheckCircle className="text-green-400 mb-3"/>
+          <p className="text-gray-400 text-sm">Approved</p>
+
+          <h2 className="text-3xl font-black text-green-400">
+            {stats.approved}
+          </h2>
+        </div>
+
+        <div className="bg-zinc-900 border border-red-500 rounded-3xl p-5">
+          <XCircle className="text-red-400 mb-3"/>
+          <p className="text-gray-400 text-sm">Rejected</p>
+
+          <h2 className="text-3xl font-black text-red-400">
+            {stats.rejected}
+          </h2>
+        </div>
+
+        <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-5">
+          <Wallet className="text-cyan-400 mb-3"/>
+          <p className="text-gray-400 text-sm">
+            Total Approved Amount
+          </p>
+
+          <h2 className="text-3xl font-black text-cyan-400">
+            PKR {stats.totalAmount.toLocaleString()}
+          </h2>
         </div>
 
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      {/* SEARCH + STATUS FILTER */}
 
-        {/* SEARCH */}
+      <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-5 mb-8">
 
-        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-8">
+        <h2 className="text-xl font-black text-cyan-400 mb-5 flex items-center gap-2">
+          <Search size={20}/>
+          Search & Status Filter
+        </h2>
 
-          <label className="text-gray-400">
-            Search Username / Email
-          </label>
+        <div className="grid md:grid-cols-2 gap-4">
 
-          <div className="flex gap-3 mt-3">
+          <input
+            type="text"
+            placeholder="Search Username..."
+            value={searchUsername}
+            onChange={(e) => setSearchUsername(e.target.value)}
+            className="bg-black border border-zinc-700 rounded-xl p-3 outline-none focus:border-cyan-500"
+          />
 
-            <div className="relative flex-1">
-
-              <Search
-                className="absolute left-4 top-4 text-gray-500"
-                size={20}
-              />
-
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search user..."
-                className="w-full bg-black border border-gray-700 rounded-xl p-4 pl-12"
-              />
-
-            </div>
-
-          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-black border border-zinc-700 rounded-xl p-3 outline-none focus:border-cyan-500"
+          >
+            <option value="ALL">All Status</option>
+            <option value="Pending">Pending</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+          </select>
 
         </div>
 
-        {/* USERS LIST */}
+      </div>      {/* ================= WITHDRAW REQUESTS TABLE ================= */}
 
-        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
+      <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
 
-          <h2 className="text-xl font-bold text-yellow-400 mb-5">
-            Select User
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
+
+          <h2 className="text-3xl font-black text-yellow-400">
+            Withdrawal Requests
           </h2>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-
-            {filteredUsers.map((user) => (
-
-              <button
-                key={user._id}
-                onClick={() => setSelectedUser(user)}
-                className={`rounded-2xl p-4 border text-left transition ${
-                  selectedUser?._id === user._id
-                    ? "border-yellow-400 bg-yellow-500/10"
-                    : "border-zinc-700 bg-zinc-950 hover:border-yellow-600"
-                }`}
-              >
-
-                <div className="flex items-center gap-3 mb-3">
-
-                  <UserCircle className="text-yellow-400" />
-
-                  <div>
-
-                    <h3 className="font-bold text-yellow-300">
-                      {user.username}
-                    </h3>
-
-                    <p className="text-xs text-gray-400">
-                      {user.email}
-                    </p>
-
-                  </div>
-
-                </div>
-
-                <p className="text-green-400 text-sm">
-                  PKR {user.walletBalance.toLocaleString()}
-                </p>
-
-                <p className="text-cyan-400 text-sm">
-                  {user.usdtBalance.toFixed(2)} USDT
-                </p>
-
-                <p className="text-yellow-400 text-sm">
-                  {user.goldBalance.toFixed(2)} g Gold
-                </p>
-
-              </button>
-
-            ))}
-
-          </div>
+          <span className="bg-yellow-500 text-black px-4 py-2 rounded-full font-bold">
+            {filteredWithdraws.length} Requests
+          </span>
 
         </div>
 
-        {/* SELECTED USER */}
+        {filteredWithdraws.length === 0 ? (
 
-        {selectedUser && (
-          <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
+          <div className="py-16 text-center">
 
-            <div className="flex justify-between items-center mb-6">
+            <Clock className="mx-auto text-gray-600 mb-4" size={60}/>
 
-              <div>
+            <h3 className="text-2xl font-bold text-gray-400">
+              No Withdrawal Requests Found
+            </h3>
 
-                <h2 className="text-2xl font-bold text-yellow-400">
-                  {selectedUser.username}
-                </h2>
-
-                <p className="text-gray-400">
-                  {selectedUser.email}
-                </p>
-
-              </div>
-
-              <span
-                className={`px-4 py-2 rounded-full text-sm font-bold ${
-                  selectedUser.status === "Active"
-                    ? "bg-green-700 text-white"
-                    : "bg-red-700 text-white"
-                }`}
-              >
-                {selectedUser.status}
-              </span>
-
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-5 mb-8">
-
-              <WalletCard
-                title="PKR Wallet"
-                value={`PKR ${selectedUser.walletBalance.toLocaleString()}`}
-                color="green"
-                icon={<Wallet size={28} />}
-              />
-
-              <WalletCard
-                title="USDT Wallet"
-                value={`${selectedUser.usdtBalance.toFixed(2)} USDT`}
-                color="cyan"
-                icon={<DollarSign size={28} />}
-              />
-
-              <WalletCard
-                title="Gold Wallet"
-                value={`${selectedUser.goldBalance.toFixed(2)} g`}
-                color="yellow"
-                icon={<Coins size={28} />}
-              />
-
-            </div>
-
-            {/* WALLET TYPE */}
-
-            <div className="grid md:grid-cols-2 gap-6 mb-6">
-
-              <div>
-
-                <label className="text-gray-400">Wallet Type</label>
-
-                <select
-                  value={walletType}
-                  onChange={(e) => setWalletType(e.target.value)}
-                  className="w-full mt-2 bg-black border border-gray-700 rounded-xl p-4"
-                >
-                  <option value="PKR">PKR Wallet</option>
-                  <option value="USDT">TRC20 USDT Wallet</option>
-                  <option value="GOLD">Gold Wallet (Gram)</option>
-                </select>
-
-              </div>
-
-              <div>
-
-                <label className="text-gray-400">Action</label>
-
-                <select
-                  value={action}
-                  onChange={(e) => setAction(e.target.value)}
-                  className="w-full mt-2 bg-black border border-gray-700 rounded-xl p-4"
-                >
-                  <option value="credit">Credit</option>
-                  <option value="debit">Debit</option>
-                </select>
-
-              </div>
-
-            </div>
-
-            {/* AMOUNT */}
-
-            <label className="text-gray-400">
-              {walletType === "GOLD"
-                ? "Gold Amount (Gram)"
-                : "Amount"}
-            </label>
-
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-              className="w-full bg-black border border-gray-700 rounded-xl p-4 mt-2 mb-6"
-              placeholder="Enter Amount"
-            />
-
-            {/* REASON */}
-
-            <label className="text-gray-400">
-              Reason (Optional)
-            </label>
-
-            <textarea
-              rows={3}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full bg-black border border-gray-700 rounded-xl p-4 mt-2 mb-6"
-              placeholder="Example: Bonus / Manual Deposit / Correction"
-            />
-                        {/* UPDATE BUTTON */}
-
-            <button
-              onClick={updateWallet}
-              className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-3 ${
-                action === "credit"
-                  ? "bg-green-600 hover:bg-green-500"
-                  : "bg-red-600 hover:bg-red-500"
-              }`}
-            >
-              {action === "credit" ? (
-                <ArrowDownCircle size={22} />
-              ) : (
-                <ArrowUpCircle size={22} />
-              )}
-
-              {action === "credit"
-                ? `Credit ${walletType} Wallet`
-                : `Debit ${walletType} Wallet`}
-            </button>
-
-          </div>
-        )}
-
-        {/* ================= USERS WALLET TABLE ================= */}
-
-        <section className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
-
-          <div className="flex justify-between items-center mb-6">
-
-            <h2 className="text-2xl font-bold text-yellow-400 flex items-center gap-3">
-              <Wallet size={24}/>
-              Live Wallet Balances
-            </h2>
-
-            <button
-              onClick={loadUsers}
-              className="bg-yellow-500 text-black px-4 py-2 rounded-xl font-semibold flex items-center gap-2"
-            >
-              <RefreshCw size={18}/>
-              Refresh
-            </button>
+            <p className="text-gray-500 mt-2">
+              Pending withdrawal requests will appear here.
+            </p>
 
           </div>
 
-          <div className="overflow-x-auto">
+        ) : (
+
+          <div className="overflow-x-auto rounded-xl">
 
             <table className="w-full">
 
-              <thead className="border-b border-yellow-600 text-yellow-400">
-
-                <tr className="text-left">
-                  <th className="py-3">User</th>
-                  <th>PKR Wallet</th>
-                  <th>USDT Wallet</th>
-                  <th>Gold Wallet</th>
-                  <th>Status</th>
-                  <th>Role</th>
+              <thead className="bg-black text-yellow-400 uppercase text-sm">
+                <tr>
+                  <th className="px-4 py-4 text-left">User</th>
+                  <th className="px-4 py-4 text-left">Amount</th>
+                  <th className="px-4 py-4 text-left">Method</th>
+                  <th className="px-4 py-4 text-left">Account Details</th>
+                  <th className="px-4 py-4 text-left">Status</th>
+                  <th className="px-4 py-4 text-left">Date</th>
+                  <th className="px-4 py-4 text-center">Actions</th>
                 </tr>
-
               </thead>
 
               <tbody>
 
-                {filteredUsers.map((user) => (
+                {filteredWithdraws.map((item) => (
 
                   <tr
-                    key={user._id}
+                    key={item._id}
                     className="border-b border-zinc-800 hover:bg-zinc-800 transition"
                   >
 
-                    <td className="py-4">
+                    {/* USERNAME */}
 
-                      <div>
-                        <p className="font-semibold text-yellow-300">
-                          {user.username}
-                        </p>
+                    <td className="px-4 py-5 font-semibold text-white">
+                      {item.username}
+                    </td>
 
-                        <p className="text-xs text-gray-400">
-                          {user.email}
-                        </p>
-                      </div>
+                    {/* AMOUNT */}
+
+                    <td className="px-4 py-5 font-bold text-green-400">
+                      PKR {item.amount.toLocaleString()}
+                    </td>
+
+                    {/* PAYMENT METHOD */}
+
+                    <td className="px-4 py-5">
+                      <span className="bg-zinc-800 px-3 py-1 rounded-full text-sm">
+                        {item.paymentMethod.replace("_", " ")}
+                      </span>
+                    </td>
+
+                    {/* ACCOUNT DETAILS */}
+
+                    <td className="px-4 py-5 text-sm text-gray-300">
+
+                      {item.paymentMethod === "BANK" ? (
+
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Landmark size={15} className="text-cyan-400"/>
+                            {item.bankName}
+                          </div>
+
+                          <div>{item.accountTitle}</div>
+                          <div>{item.accountNumber}</div>
+
+                          {item.iban && (
+                            <div className="text-gray-500">
+                              IBAN: {item.iban}
+                            </div>
+                          )}
+                        </div>
+
+                      ) : item.paymentMethod === "USDT_TRC20" ? (
+
+                        <div className="space-y-1">
+                          <div>{item.network}</div>
+
+                          <div className="break-all text-cyan-400">
+                            {item.walletAddress}
+                          </div>
+                        </div>
+
+                      ) : (
+
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Smartphone size={15} className="text-cyan-400"/>
+                            {item.paymentMethod}
+                          </div>
+
+                          <div>{item.accountTitle}</div>
+                          <div>{item.accountNumber}</div>
+                        </div>
+
+                      )}
 
                     </td>
 
-                    <td className="text-green-400 font-bold">
-                      PKR {user.walletBalance.toLocaleString()}
-                    </td>
+                    {/* STATUS */}
 
-                    <td className="text-cyan-400 font-bold">
-                      {user.usdtBalance.toFixed(2)} USDT
-                    </td>
-
-                    <td className="text-yellow-400 font-bold">
-                      {user.goldBalance.toFixed(2)} g
-                    </td>
-
-                    <td>
+                    <td className="px-4 py-5">
 
                       <span
-                        className={`px-3 py-1 rounded-full text-sm font-bold ${
-                          user.status === "Active"
-                            ? "bg-green-700 text-white"
-                            : "bg-red-700 text-white"
+                        className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          item.status === "Approved"
+                            ? "bg-green-600 text-white"
+                            : item.status === "Rejected"
+                            ? "bg-red-600 text-white"
+                            : "bg-yellow-500 text-black"
                         }`}
                       >
-                        {user.status}
+                        {item.status}
                       </span>
 
                     </td>
 
-                    <td>
+                    {/* DATE */}
 
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-bold ${
-                          user.role === "admin"
-                            ? "bg-red-700 text-white"
-                            : user.role === "manager"
-                            ? "bg-blue-700 text-white"
-                            : "bg-green-700 text-white"
-                        }`}
-                      >
-                        {user.role.toUpperCase()}
-                      </span>
+                    <td className="px-4 py-5 text-gray-400 text-sm">
+                      {new Date(item.createdAt).toLocaleDateString("en-GB")}
+                      <br/>
+                      {new Date(item.createdAt).toLocaleTimeString("en-GB")}
+                    </td>
+
+                    {/* ACTIONS */}
+
+                    <td className="px-4 py-5">
+
+                      {item.status === "Pending" ? (
+
+                        <div className="flex flex-col gap-3">
+
+                          {/* Admin Note */}
+
+                          <textarea
+                            rows={2}
+                            placeholder="Admin Note..."
+                            value={adminNotes[item._id] || ""}
+                            onChange={(e) =>
+                              setAdminNotes((prev) => ({
+                                ...prev,
+                                [item._id]: e.target.value,
+                              }))
+                            }
+                            className="bg-black border border-zinc-700 rounded-lg px-3 py-2 text-sm resize-none"
+                          />
+
+                          {/* APPROVE */}
+
+                          <button
+                            onClick={async () => {
+                              try {
+                                const token =
+                                  localStorage.getItem("token");
+
+                                await axios.put(
+                                  `${API}/api/admin/withdraw/${item._id}/approve`,
+                                  {
+                                    adminNote:
+                                      adminNotes[item._id] || "",
+                                  },
+                                  {
+                                    headers: {
+                                      Authorization: `Bearer ${token}`,
+                                    },
+                                  }
+                                );
+
+                                alert("Withdrawal Approved Successfully.");
+
+                                fetchWithdraws();
+
+                              } catch (err) {
+                                console.log(err);
+                                alert("Approval Failed.");
+                              }
+                            }}
+                            className="bg-green-600 hover:bg-green-500 text-white rounded-lg py-2 flex items-center justify-center gap-2 font-bold"
+                          >
+                            <CheckCircle size={18}/>
+                            Approve
+                          </button>
+
+                          {/* REJECT */}
+
+                          <button
+                            onClick={async () => {
+                              try {
+                                const token =
+                                  localStorage.getItem("token");
+
+                                await axios.put(
+                                  `${API}/api/admin/withdraw/${item._id}/reject`,
+                                  {
+                                    adminNote:
+                                      adminNotes[item._id] || "",
+                                  },
+                                  {
+                                    headers: {
+                                      Authorization: `Bearer ${token}`,
+                                    },
+                                  }
+                                );
+
+                                alert("Withdrawal Rejected Successfully.");
+
+                                fetchWithdraws();
+
+                              } catch (err) {
+                                console.log(err);
+                                alert("Reject Failed.");
+                              }
+                            }}
+                            className="bg-red-600 hover:bg-red-500 text-white rounded-lg py-2 flex items-center justify-center gap-2 font-bold"
+                          >
+                            <XCircle size={18}/>
+                            Reject
+                          </button>
+
+                        </div>
+
+                      ) : (
+
+                        <div className="text-sm text-gray-400 space-y-2">
+
+                          <p>
+                            <span className="text-gray-500">
+                              Admin Note:
+                            </span>
+                          </p>
+
+                          <div
+                            className={`rounded-lg p-3 ${
+                              item.status === "Approved"
+                                ? "bg-green-900/30 border border-green-700"
+                                : "bg-red-900/30 border border-red-700"
+                            }`}
+                          >
+                            {item.adminNote || "No admin note."}
+                          </div>
+
+                          {item.receiptImage && (
+                            <button
+                              onClick={() =>
+                                setSelectedReceipt(
+                                  `${API}${item.receiptImage}`
+                                )
+                              }
+                              className="bg-cyan-500 hover:bg-cyan-400 text-black px-3 py-2 rounded-lg flex items-center gap-2 font-bold"
+                            >
+                              <Eye size={16}/>
+                              View Receipt
+                            </button>
+                          )}
+
+                        </div>
+
+                      )}
 
                     </td>
 
@@ -530,114 +535,51 @@ export default function WalletManagerPage() {
 
           </div>
 
-        </section>
-
-        {/* ================= QUICK ACTIONS ================= */}
-
-        <section className="grid md:grid-cols-3 gap-6 mb-12">
-
-          <QuickCard
-            title="Wallet History"
-            desc="View complete wallet credit/debit history."
-            href="/transactions"
-            icon={<History size={32}/>}
-            color="yellow"
-          />
-
-          <QuickCard
-            title="User Manager"
-            desc="Block users and change user roles."
-            href="/admin/users"
-            icon={<UserCircle size={32}/>}
-            color="cyan"
-          />
-
-          <QuickCard
-            title="Admin Dashboard"
-            desc="Return to GoldTrade admin dashboard."
-            href="/admin"
-            icon={<Wallet size={32}/>}
-            color="green"
-          />
-
-        </section>
+        )}
 
       </div>
+
+      {/* ================= RECEIPT VIEWER MODAL ================= */}
+
+      {selectedReceipt && (
+
+        <div className="fixed inset-0 bg-black/90 z-50 flex justify-center items-center p-6">
+
+          <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-5 max-w-3xl w-full">
+
+            <div className="flex justify-between items-center mb-5">
+
+              <h2 className="text-2xl font-black text-yellow-400">
+                Withdrawal Payment Receipt
+              </h2>
+
+              <button
+                onClick={() => setSelectedReceipt("")}
+                className="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-xl font-bold"
+              >
+                Close
+              </button>
+
+            </div>
+
+            <img
+              src={selectedReceipt}
+              alt="Withdrawal Receipt"
+              className="rounded-2xl w-full max-h-[650px] object-contain border border-zinc-700"
+            />
+
+          </div>
+
+        </div>
+
+      )}
+
+      {/* ================= FOOTER ================= */}
+
+      <div className="mt-12 border-t border-zinc-800 pt-6 text-center text-gray-500 text-sm">
+        GoldTrade V17 Enterprise • Admin Withdraw Approval Dashboard
+      </div>
+
     </main>
-  );
-}
-
-/* ==========================================================
-   REUSABLE COMPONENTS
-========================================================== */
-
-type WalletColor = "green" | "yellow" | "cyan";
-
-interface WalletCardProps {
-  title: string;
-  value: string;
-  color: WalletColor;
-  icon: React.ReactNode;
-}
-
-function WalletCard({
-  title,
-  value,
-  color,
-  icon,
-}: WalletCardProps) {
-  const border = {
-    green: "border-green-600 text-green-400",
-    yellow: "border-yellow-500 text-yellow-400",
-    cyan: "border-cyan-500 text-cyan-400",
-  };
-
-  return (
-    <div
-      className={`bg-zinc-950 rounded-3xl border ${border[color]} p-5`}
-    >
-      <div className="mb-4">{icon}</div>
-
-      <p className="text-gray-400 text-sm">{title}</p>
-
-      <h3 className="text-2xl font-bold mt-2 break-words">
-        {value}
-      </h3>
-    </div>
-  );
-}
-
-interface QuickCardProps {
-  title: string;
-  desc: string;
-  href: string;
-  icon: React.ReactNode;
-  color: WalletColor;
-}
-
-function QuickCard({
-  title,
-  desc,
-  href,
-  icon,
-  color,
-}: QuickCardProps) {
-  const border = {
-    green: "border-green-600 text-green-400",
-    yellow: "border-yellow-500 text-yellow-400",
-    cyan: "border-cyan-500 text-cyan-400",
-  };
-
-  return (
-    <button
-      onClick={() => (window.location.href = href)}
-      className={`bg-zinc-900 rounded-3xl border ${border[color]} p-6 text-left hover:bg-zinc-800 transition`}
-    >
-      <div className="mb-4">{icon}</div>
-
-      <h3 className="text-xl font-bold mb-2">{title}</h3>
-
-      <p className="text-gray-400 text-sm">{desc}</p>
-    </button>
   );
 }

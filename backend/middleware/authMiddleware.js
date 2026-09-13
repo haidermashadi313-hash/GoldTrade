@@ -1,47 +1,47 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
-const generateToken = (user) => {
-  return jwt.sign(
-    {
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: "30d" }
-  );
-};
-
 const verifyToken = async (req, res, next) => {
   try {
-    const bearer = req.headers.authorization;
+    const authHeader = req.headers.authorization;
 
-    if (!bearer || !bearer.startsWith("Bearer ")) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "Token missing.",
+        message: "Authorization token missing.",
       });
     }
 
-    const token = bearer.split(" ")[1];
+    const token = authHeader.split(" ")[1];
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded._id).select("-password");
+    // Support id, _id, or userId
+    const userId = decoded.id || decoded._id || decoded.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token payload.",
+      });
+    }
+
+    const user = await User.findById(userId);
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid user.",
+        message: "User not found.",
       });
     }
 
     req.user = user;
+    req.userId = user._id;
 
     next();
   } catch (err) {
+    console.error("JWT Verify Error:", err.message);
+
     return res.status(401).json({
       success: false,
       message: "Invalid or expired token.",
@@ -49,7 +49,4 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-module.exports = {
-  generateToken,
-  verifyToken,
-};
+module.exports = { verifyToken };

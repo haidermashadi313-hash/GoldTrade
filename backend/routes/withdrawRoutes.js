@@ -3,141 +3,125 @@ const router = express.Router();
 
 const Withdraw = require("../models/Withdraw");
 const User = require("../models/User");
-const Transaction = require("../models/Transaction");
-const WalletTransaction = require("../models/WalletTransaction");
-
 const { verifyToken } = require("../middleware/authMiddleware");
 
-// =======================================
-// GET ALL WITHDRAW REQUESTS (ADMIN)
-// =======================================
-router.get("/", verifyToken, async (req, res) => {
+/* ======================================================
+   USER CREATE WITHDRAW REQUEST
+   POST /api/withdraw/request
+====================================================== */
+
+router.post("/request", verifyToken, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin only.",
-      });
-    }
+    const {
+      amount,
+      paymentMethod,
+      bankName,
+      accountTitle,
+      accountNumber,
+      iban,
+      walletAddress,
+      network,
+    } = req.body;
 
-    const withdraws = await Withdraw.find()
-      .sort({ createdAt: -1 })
-      .populate("userId", "username email walletBalance");
+    const user = await User.findById(req.user._id);
 
-    res.json({
-      success: true,
-      withdraws,
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-});
-
-// =======================================
-// APPROVE WITHDRAW (DEBIT WALLET)
-// =======================================
-router.post("/approve/:id", verifyToken, async (req, res) => {
-  try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin only.",
-      });
-    }
-
-    const { amount, reason } = req.body;
-
-    const withdraw = await Withdraw.findById(req.params.id);
-
-    if (!withdraw) {
+    if (!user) {
       return res.status(404).json({
         success: false,
-        message: "Withdraw request not found.",
+        message: "User not found.",
       });
     }
 
-    if (withdraw.status !== "Pending") {
+    // Validation
+    if (!amount || Number(amount) <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Withdraw already processed.",
+        message: "Enter a valid withdraw amount.",
       });
     }
 
-    const user = await User.findById(withdraw.userId);
-
-    const debitAmount = Number(amount);
-
-    if (user.walletBalance < debitAmount) {
+    if (Number(amount) > (user.walletBalance || 0)) {
       return res.status(400).json({
         success: false,
         message: "Insufficient wallet balance.",
       });
     }
 
-    const previousBalance = user.walletBalance;
-    const newBalance = previousBalance - debitAmount;
+    if (!paymentMethod || !accountTitle || !accountNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment details are incomplete.",
+      });
+    }
 
-    user.walletBalance = newBalance;
-    user.totalWithdraw += debitAmount;
-
-    await user.save();
-
-    withdraw.status = "Approved";
-    withdraw.approvedAmount = debitAmount;
-    withdraw.approvedBy = req.user._id;
-    withdraw.reason = reason;
-    withdraw.approvedAt = new Date();
-
-    await withdraw.save();
-
-    await WalletTransaction.create({
-      user: user._id,
-      admin: req.user._id,
-      walletType: "PKR",
-      action: "debit",
-      amount: debitAmount,
-      previousBalance,
-      newBalance,
-      reason,
-    });
-
-    await Transaction.create({
+    const withdraw = await Withdraw.create({
       userId: user._id,
       username: user.username,
-      type: "Withdraw Debit",
-      amount: debitAmount,
-      status: "Completed",
-      description: reason,
+
+      amount: Number(amount),
+      currency: "PKR",
+
+      paymentMethod,
+      bankName: bankName || "",
+      accountTitle,
+      accountNumber,
+      iban: iban || "",
+      walletAddress: walletAddress || "",
+      network: network || "",
+
+      status: "Pending",
     });
 
-    res.json({
+    res.status(201).json({
       success: true,
-      message: "Withdraw approved successfully.",
+      message: "Withdraw request submitted successfully.",
+      withdraw,
     });
 
   } catch (err) {
+    console.error("Withdraw Request Error:", err);
+
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Unable to submit withdraw request.",
     });
   }
 });
 
-// =======================================
-// REJECT WITHDRAW
-// =======================================
-router.post("/reject/:id", verifyToken, async (req, res) => {
-  try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin only.",
-      });
-    }
+/* ======================================================
+   USER WITHDRAW HISTORY
+   GET /api/withdraw/history/:username
+====================================================== */
 
+router.get("/history/:username", verifyToken, async (req, res) => {
+  try {
+    const withdraws = await Withdraw.find({
+      username: req.params.username,
+    }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      total: withdraws.length,
+      withdraws,
+    });
+
+  } catch (err) {
+    console.error("Withdraw History Error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to load withdraw history.",
+    });
+  }
+});
+
+/* ======================================================
+   USER SINGLE WITHDRAW REQUEST
+   GET /api/withdraw/:id
+====================================================== */
+
+router.get("/:id", verifyToken, async (req, res) => {
+  try {
     const withdraw = await Withdraw.findById(req.params.id);
 
     if (!withdraw) {
@@ -147,21 +131,28 @@ router.post("/reject/:id", verifyToken, async (req, res) => {
       });
     }
 
-    withdraw.status = "Rejected";
-    withdraw.rejectedBy = req.user._id;
-    withdraw.rejectedAt = new Date();
-
-    await withdraw.save();
+    // User sirf apni request dekh sakta hai
+    if (
+      withdraw.userId.toString() !== req.user._id.toString() &&
+      req.user.role !== "admin"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied.",
+      });
+    }
 
     res.json({
       success: true,
-      message: "Withdraw rejected successfully.",
+      withdraw,
     });
 
   } catch (err) {
+    console.error("Single Withdraw Error:", err);
+
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Unable to load withdraw request.",
     });
   }
 });

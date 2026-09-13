@@ -2,22 +2,22 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
-    // =========================
-    // User Information
-    // =========================
+    // ==========================
+    // BASIC USER INFO
+    // ==========================
     username: {
       type: String,
-      unique: true,
       required: true,
       trim: true,
+      unique: true,
     },
 
     email: {
       type: String,
-      unique: true,
       required: true,
-      lowercase: true,
       trim: true,
+      lowercase: true,
+      unique: true,
     },
 
     password: {
@@ -25,63 +25,68 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
 
-    // =========================
-    // User Role
-    // =========================
+    phone: {
+      type: String,
+      default: "",
+    },
+
+    country: {
+      type: String,
+      default: "Pakistan",
+    },
+
+    // ==========================
+    // USER ROLE
+    // ==========================
     role: {
       type: String,
-      enum: ["user", "manager", "admin"],
+      enum: ["user", "admin"],
       default: "user",
     },
 
     status: {
       type: String,
-      enum: ["Active", "Blocked"],
+      enum: ["Active", "Blocked", "Suspended"],
       default: "Active",
     },
 
-    // =========================
-    // PKR Wallet
-    // =========================
+    // ==========================
+    // WALLET BALANCES
+    // ==========================
     walletBalance: {
       type: Number,
       default: 0,
       min: 0,
     },
 
-    // =========================
-    // TRC20 USDT Wallet
-    // =========================
     usdtBalance: {
       type: Number,
       default: 0,
       min: 0,
     },
 
-    // =========================
-    // Gold Wallet (Grams)
-    // =========================
     goldBalance: {
       type: Number,
       default: 0,
       min: 0,
     },
 
-    // Average Buy Price Per Gram
+    // ==========================
+    // GOLD ANALYTICS (Admin Use)
+    // ==========================
     goldAveragePrice: {
       type: Number,
       default: 0,
     },
 
-    // Running Profit / Loss
     goldProfitLoss: {
       type: Number,
       default: 0,
     },
 
-    // =========================
-    // Finance Summary
-    // =========================
+    // ==========================
+    // TOTALS
+    // ==========================
     totalDeposit: {
       type: Number,
       default: 0,
@@ -92,53 +97,101 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
 
-    totalGoldBuy: {
+    totalGoldPurchased: {
       type: Number,
       default: 0,
     },
 
-    totalGoldSell: {
+    totalGoldSold: {
       type: Number,
       default: 0,
     },
 
-    // =========================
-    // Referral System
-    // =========================
+    // ==========================
+    // REFERRAL SYSTEM
+    // ==========================
     referralCode: {
       type: String,
-      default: "",
+      unique: true,
+      sparse: true,
+      uppercase: true,
+      trim: true,
     },
 
     referredBy: {
       type: String,
       default: "",
+      uppercase: true,
     },
 
-    referralBonus: {
+    referralCount: {
       type: Number,
       default: 0,
     },
 
-    // =========================
-    // Admin Tracking
-    // =========================
-    lastWalletUpdateBy: {
-      type: String,
-      default: "",
+    pendingReferralBonus: {
+      type: Number,
+      default: 0,
     },
 
-    lastWalletUpdateAt: {
+    referralBonusEarned: {
+      type: Number,
+      default: 0,
+    },
+
+    // ==========================
+    // REWARD SYSTEM
+    // ==========================
+    cashbackEarned: {
+      type: Number,
+      default: 0,
+    },
+
+    luckyDrawEntries: {
+      type: Number,
+      default: 0,
+    },
+
+    rewardPoints: {
+      type: Number,
+      default: 0,
+    },
+
+    // ==========================
+    // VIP MEMBERSHIP
+    // ==========================
+    vipLevel: {
+      type: String,
+      enum: ["None", "Silver", "Gold", "Diamond"],
+      default: "None",
+    },
+
+    vipActivatedAt: {
       type: Date,
       default: null,
     },
 
-    // =========================
-    // Account Security
-    // =========================
+    // ==========================
+    // SECURITY
+    // ==========================
+    isKYCVerified: {
+      type: Boolean,
+      default: false,
+    },
+
+    isWalletFrozen: {
+      type: Boolean,
+      default: false,
+    },
+
     lastLogin: {
       type: Date,
       default: null,
+    },
+
+    profileImage: {
+      type: String,
+      default: "",
     },
   },
   {
@@ -146,5 +199,16 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-module.exports =
-  mongoose.models.User || mongoose.model("User", userSchema);
+// ==========================
+// INDEXES
+// ==========================
+userSchema.index({ email: 1 });
+userSchema.index({ username: 1 });
+userSchema.index({ referralCode: 1 });
+userSchema.index({ role: 1 });
+userSchema.index({ status: 1 });
+
+// ==========================
+// EXPORT
+// ==========================
+module.exports = mongoose.model("User", userSchema);

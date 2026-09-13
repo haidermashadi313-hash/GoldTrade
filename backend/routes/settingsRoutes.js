@@ -1,345 +1,308 @@
 const express = require("express");
 const router = express.Router();
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 
 const Settings = require("../models/Settings");
+const { verifyToken } = require("../middleware/authMiddleware");
 
-// ===============================================
-// Upload Folder
-// ===============================================
-const uploadFolder = path.join(__dirname, "../uploads/settings");
+/* ==========================================================
+   GET PUBLIC SETTINGS
+   User Dashboard
+   GET /api/settings/public
+========================================================== */
 
-if (!fs.existsSync(uploadFolder)) {
-  fs.mkdirSync(uploadFolder, { recursive: true });
-}
-
-// ===============================================
-// Multer Storage
-// ===============================================
-const storage = multer.diskStorage({
-  destination(req, file, cb) {
-    cb(null, uploadFolder);
-  },
-
-  filename(req, file, cb) {
-    cb(
-      null,
-      `trc20-qr-${Date.now()}${path.extname(file.originalname)}`
-    );
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
-  },
-});
-
-// ===============================================
-// Helper
-// ===============================================
-async function getSettings() {
-  let settings = await Settings.findOne();
-
-  if (!settings) {
-    settings = await Settings.create({});
-  }
-
-  return settings;
-}
-
-// ===============================================
-// GET SETTINGS
-// GET /api/settings
-// ===============================================
-router.get("/", async (req, res) => {
+router.get("/public", async (req, res) => {
   try {
-    const settings = await getSettings();
+    let settings = await Settings.findOne();
 
-    res.json({
-      success: true,
-      data: settings,
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-});
-
-// ===============================================
-// UPDATE SETTINGS
-// PUT /api/settings
-// ===============================================
-router.put("/", upload.single("qr"), async (req, res) => {
-  try {
-    const settings = await getSettings();
-
-    // ----------------------------
-    // Market
-    // ----------------------------
-    if (req.body.goldPriceUSD !== undefined)
-      settings.goldPriceUSD = Number(req.body.goldPriceUSD);
-
-    if (req.body.usdToPkr !== undefined)
-      settings.usdToPkr = Number(req.body.usdToPkr);
-
-    if (req.body.usdtRate !== undefined)
-      settings.usdtRate = Number(req.body.usdtRate);
-
-    if (req.body.goldSpread !== undefined)
-      settings.goldSpread = Number(req.body.goldSpread);
-
-    // ----------------------------
-    // Trading
-    // ----------------------------
-    if (req.body.goldTradingEnabled !== undefined)
-      settings.goldTradingEnabled =
-        req.body.goldTradingEnabled === "true" ||
-        req.body.goldTradingEnabled === true;
-
-    if (req.body.depositEnabled !== undefined)
-      settings.depositEnabled =
-        req.body.depositEnabled === "true" ||
-        req.body.depositEnabled === true;
-
-    if (req.body.withdrawEnabled !== undefined)
-      settings.withdrawEnabled =
-        req.body.withdrawEnabled === "true" ||
-        req.body.withdrawEnabled === true;
-
-    if (req.body.registrationEnabled !== undefined)
-      settings.registrationEnabled =
-        req.body.registrationEnabled === "true" ||
-        req.body.registrationEnabled === true;
-
-    if (req.body.loginEnabled !== undefined)
-      settings.loginEnabled =
-        req.body.loginEnabled === "true" ||
-        req.body.loginEnabled === true;
-
-    if (req.body.maintenanceMode !== undefined)
-      settings.maintenanceMode =
-        req.body.maintenanceMode === "true" ||
-        req.body.maintenanceMode === true;
-
-    // ----------------------------
-    // Limits
-    // ----------------------------
-    if (req.body.minimumDeposit !== undefined)
-      settings.minimumDeposit = Number(req.body.minimumDeposit);
-
-    if (req.body.maximumDeposit !== undefined)
-      settings.maximumDeposit = Number(req.body.maximumDeposit);
-
-    if (req.body.minimumWithdraw !== undefined)
-      settings.minimumWithdraw = Number(req.body.minimumWithdraw);
-
-    if (req.body.maximumWithdraw !== undefined)
-      settings.maximumWithdraw = Number(req.body.maximumWithdraw);
-
-    if (req.body.withdrawFeePercent !== undefined)
-      settings.withdrawFeePercent = Number(req.body.withdrawFeePercent);
-
-    if (req.body.minimumGoldBuyGram !== undefined)
-      settings.minimumGoldBuyGram = Number(req.body.minimumGoldBuyGram);
-
-    if (req.body.maximumGoldBuyGram !== undefined)
-      settings.maximumGoldBuyGram = Number(req.body.maximumGoldBuyGram);
-
-    if (req.body.minimumGoldSellGram !== undefined)
-      settings.minimumGoldSellGram = Number(req.body.minimumGoldSellGram);
-
-    if (req.body.maximumGoldSellGram !== undefined)
-      settings.maximumGoldSellGram = Number(req.body.maximumGoldSellGram);
-
-    // ----------------------------
-    // Referral
-    // ----------------------------
-    if (req.body.referralEnabled !== undefined)
-      settings.referralEnabled =
-        req.body.referralEnabled === "true" ||
-        req.body.referralEnabled === true;
-
-    if (req.body.referralBonusPKR !== undefined)
-      settings.referralBonusPKR = Number(req.body.referralBonusPKR);
-
-    // ----------------------------
-    // Wallet
-    // ----------------------------
-    if (req.body.trc20Wallet !== undefined)
-      settings.trc20Wallet = req.body.trc20Wallet;
-
-    if (req.file) {
-      settings.trc20Qr = `/uploads/settings/${req.file.filename}`;
+    if (!settings) {
+      settings = await Settings.create({});
     }
 
-    // ----------------------------
-    // Admin Info
-    // ----------------------------
-    settings.updatedBy = req.body.updatedBy || "Admin";
-    settings.note = req.body.note || "";
-
-    // ----------------------------
-    // AUTO CALCULATE GOLD PRICE (PER GRAM)
-    // ----------------------------
-    const ouncePricePKR =
-      settings.goldPriceUSD * settings.usdToPkr;
-
-    const gramPricePKR = ouncePricePKR / 31.1035;
-
-    settings.buyGoldPrice = Number(
-      (gramPricePKR * (1 + settings.goldSpread / 100)).toFixed(2)
-    );
-
-    settings.sellGoldPrice = Number(
-      (gramPricePKR * (1 - settings.goldSpread / 100)).toFixed(2)
-    );
-
-    await settings.save();
-
-    res.json({
+    return res.json({
       success: true,
-      message: "GoldTrade Settings Updated Successfully.",
-      data: settings,
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-});
-
-// ===============================================
-// MARKET DATA
-// GET /api/settings/market
-// ===============================================
-router.get("/market", async (req, res) => {
-  try {
-    const settings = await getSettings();
-
-    res.json({
-      success: true,
-      data: {
-        goldPriceUSD: settings.goldPriceUSD,
-        usdToPkr: settings.usdToPkr,
-        usdtRate: settings.usdtRate,
-
+      settings: {
         buyGoldPrice: settings.buyGoldPrice,
         sellGoldPrice: settings.sellGoldPrice,
-        goldSpread: settings.goldSpread,
-
         goldTradingEnabled: settings.goldTradingEnabled,
 
-        depositEnabled: settings.depositEnabled,
-        withdrawEnabled: settings.withdrawEnabled,
+        cashbackEnabled: settings.cashbackEnabled,
+        cashbackRate: settings.cashbackRate,
 
-        maintenanceMode: settings.maintenanceMode,
+        luckyDrawEnabled: settings.luckyDrawEnabled,
+        luckyDrawPrize: settings.luckyDrawPrize,
 
-        trc20Wallet: settings.trc20Wallet,
-        trc20Qr: settings.trc20Qr,
+        invitationCode: settings.invitationCode,
+
+        referralBonus: settings.referralBonus,
+
+        vipSilverAmount: settings.vipSilverAmount,
+        vipGoldAmount: settings.vipGoldAmount,
+        vipDiamondAmount: settings.vipDiamondAmount,
+
+        platformName: settings.platformName,
+        supportEmail: settings.supportEmail,
+        supportWhatsapp: settings.supportWhatsapp,
+        supportTelegram: settings.supportTelegram,
       },
     });
   } catch (err) {
-    res.status(500).json({
+    console.error(err);
+
+    return res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Unable to load settings.",
     });
   }
 });
 
-// ===============================================
-// QUICK TOGGLE APIs
-// ===============================================
+/* ==========================================================
+   GET ALL SETTINGS (ADMIN)
+   GET /api/settings/admin
+========================================================== */
 
-// Gold Trading ON/OFF
-router.put("/toggle/gold", async (req, res) => {
+router.get("/admin", verifyToken, async (req, res) => {
   try {
-    const settings = await getSettings();
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access only.",
+      });
+    }
 
-    settings.goldTradingEnabled =
-      !settings.goldTradingEnabled;
+    let settings = await Settings.findOne();
+
+    if (!settings) {
+      settings = await Settings.create({});
+    }
+
+    return res.json({
+      success: true,
+      settings,
+    });
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load admin settings.",
+    });
+  }
+});
+
+/* ==========================================================
+   UPDATE SETTINGS (ADMIN ONLY)
+   PUT /api/settings/admin
+========================================================== */
+
+router.put("/admin", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access only.",
+      });
+    }
+
+    let settings = await Settings.findOne();
+
+    if (!settings) {
+      settings = await Settings.create({});
+    }
+
+    const fields = [
+      "buyGoldPrice",
+      "sellGoldPrice",
+      "goldTradingEnabled",
+      "marketStatus",
+
+      "cashbackEnabled",
+      "cashbackRate",
+
+      "luckyDrawEnabled",
+      "luckyDrawPrize",
+      "luckyDrawDate",
+
+      "invitationCode",
+      "invitationEnabled",
+
+      "referralEnabled",
+      "referralBonus",
+
+      "vipEnabled",
+      "vipSilverAmount",
+      "vipGoldAmount",
+      "vipDiamondAmount",
+
+      "minimumDeposit",
+      "minimumWithdraw",
+      "depositEnabled",
+      "withdrawEnabled",
+
+      "supportEmail",
+      "supportWhatsapp",
+      "supportTelegram",
+
+      "maintenanceMode",
+    ];
+
+    fields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        settings[field] = req.body[field];
+      }
+    });
 
     await settings.save();
 
-    res.json({
+    return res.json({
       success: true,
+      message: "Settings updated successfully.",
+      settings,
+    });
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update settings.",
+    });
+  }
+});
+
+/* ==========================================================
+   UPDATE GOLD PRICE ONLY
+   PUT /api/settings/gold-price
+========================================================== */
+
+router.put("/gold-price", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access only.",
+      });
+    }
+
+    const { buyGoldPrice, sellGoldPrice } = req.body;
+
+    let settings = await Settings.findOne();
+
+    if (!settings) {
+      settings = await Settings.create({});
+    }
+
+    if (buyGoldPrice !== undefined)
+      settings.buyGoldPrice = Number(buyGoldPrice);
+
+    if (sellGoldPrice !== undefined)
+      settings.sellGoldPrice = Number(sellGoldPrice);
+
+    await settings.save();
+
+    return res.json({
+      success: true,
+      message: "Gold prices updated successfully.",
+      buyGoldPrice: settings.buyGoldPrice,
+      sellGoldPrice: settings.sellGoldPrice,
+    });
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update gold price.",
+    });
+  }
+});
+
+/* ==========================================================
+   TOGGLE MARKET OPEN / CLOSE
+   PUT /api/settings/market-status
+========================================================== */
+
+router.put("/market-status", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access only.",
+      });
+    }
+
+    const { goldTradingEnabled } = req.body;
+
+    let settings = await Settings.findOne();
+
+    if (!settings) {
+      settings = await Settings.create({});
+    }
+
+    settings.goldTradingEnabled = goldTradingEnabled;
+    settings.marketStatus = goldTradingEnabled ? "OPEN" : "CLOSED";
+
+    await settings.save();
+
+    return res.json({
+      success: true,
+      message: `Gold Market ${
+        goldTradingEnabled ? "Opened" : "Closed"
+      } Successfully.`,
       goldTradingEnabled: settings.goldTradingEnabled,
+      marketStatus: settings.marketStatus,
     });
   } catch (err) {
-    res.status(500).json({
+    console.error(err);
+
+    return res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Unable to update market status.",
     });
   }
 });
 
-// Deposit ON/OFF
-router.put("/toggle/deposit", async (req, res) => {
-  try {
-    const settings = await getSettings();
+/* ==========================================================
+   UPDATE INVITATION CODE (ADMIN ONLY)
+   PUT /api/settings/invitation-code
+========================================================== */
 
-    settings.depositEnabled = !settings.depositEnabled;
+router.put("/invitation-code", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access only.",
+      });
+    }
+
+    const { invitationCode } = req.body;
+
+    if (!invitationCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Invitation code is required.",
+      });
+    }
+
+    let settings = await Settings.findOne();
+
+    if (!settings) {
+      settings = await Settings.create({});
+    }
+
+    settings.invitationCode = invitationCode.toUpperCase().trim();
 
     await settings.save();
 
-    res.json({
+    return res.json({
       success: true,
-      depositEnabled: settings.depositEnabled,
+      message: "Invitation code updated successfully.",
+      invitationCode: settings.invitationCode,
     });
   } catch (err) {
-    res.status(500).json({
+    console.error(err);
+
+    return res.status(500).json({
       success: false,
-      message: err.message,
-    });
-  }
-});
-
-// Withdraw ON/OFF
-router.put("/toggle/withdraw", async (req, res) => {
-  try {
-    const settings = await getSettings();
-
-    settings.withdrawEnabled =
-      !settings.withdrawEnabled;
-
-    await settings.save();
-
-    res.json({
-      success: true,
-      withdrawEnabled: settings.withdrawEnabled,
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-});
-
-// Maintenance ON/OFF
-router.put("/toggle/maintenance", async (req, res) => {
-  try {
-    const settings = await getSettings();
-
-    settings.maintenanceMode =
-      !settings.maintenanceMode;
-
-    await settings.save();
-
-    res.json({
-      success: true,
-      maintenanceMode: settings.maintenanceMode,
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
+      message: "Unable to update invitation code.",
     });
   }
 });

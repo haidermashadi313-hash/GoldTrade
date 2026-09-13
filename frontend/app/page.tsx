@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+
+
+
 import {
   Wallet,
   Coins,
@@ -9,16 +12,19 @@ import {
   DollarSign,
   TrendingUp,
   ArrowUpCircle,
-  ArrowDownCircle,
   History,
 } from "lucide-react";
 
+
+
 // ==========================================
-// GOLDTRADE V4 FINAL API (RENDER + VERCEL)
+// GOLDTRADE V17 API CONFIG
 // ==========================================
-const API =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://goldtrade-api.onrender.com";
+
+  
+  const API =
+  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
+
 
 // ===============================
 // TYPES
@@ -64,8 +70,85 @@ interface Transaction {
   reason: string;
 }
 
+interface BalanceCardProps {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+  color?: string;
+}
+
+function BalanceCard({ title, value, icon, color = "text-white" }: BalanceCardProps) {
+  return (
+    <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-gray-400">{title}</span>
+        {icon}
+      </div>
+      <p className={`text-2xl font-bold ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+interface MarketCardProps {
+  buyPrice: number;
+  sellPrice: number;
+  usdtRate: number;
+  spread: number;
+}
+
+function MarketCard({ buyPrice, sellPrice, usdtRate, spread }: MarketCardProps) {
+  const format = (value: number) => `PKR ${value.toLocaleString()}`;
+
+  return (
+    <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6">
+      <h2 className="text-xl font-bold text-yellow-400 mb-4">Live Market</h2>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div><p className="text-gray-400 text-sm">Buy Price</p><p className="font-bold text-green-400">{format(buyPrice)}</p></div>
+        <div><p className="text-gray-400 text-sm">Sell Price</p><p className="font-bold text-red-400">{format(sellPrice)}</p></div>
+        <div><p className="text-gray-400 text-sm">Spread</p><p className="font-bold">{format(spread)}</p></div>
+        <div><p className="text-gray-400 text-sm">USDT Rate</p><p className="font-bold text-cyan-400">{format(usdtRate)}</p></div>
+      </div>
+    </div>
+  );
+}
+
+function QuickActions() {
+  return (
+    <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6">
+      <h2 className="text-xl font-bold text-yellow-400 mb-4">Quick Actions</h2>
+      <div className="flex flex-col gap-3">
+        <a href="/buy-gold" className="rounded-xl bg-green-600 hover:bg-green-500 px-4 py-3 text-center font-semibold">Buy Gold</a>
+        <a href="/sell-gold" className="rounded-xl bg-red-600 hover:bg-red-500 px-4 py-3 text-center font-semibold">Sell Gold</a>
+      </div>
+    </div>
+  );
+}
+
+function TransactionTable({ transactions }: { transactions: Transaction[] }) {
+  return (
+    <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 overflow-x-auto">
+      <h2 className="text-xl font-bold text-yellow-400 mb-4">Recent Transactions</h2>
+      {transactions.length === 0 ? (
+        <p className="text-gray-400">No transactions found.</p>
+      ) : (
+        <table className="w-full text-left">
+          <thead><tr className="border-b border-zinc-700 text-gray-400"><th className="py-3">Type</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody>{transactions.map((transaction) => (
+            <tr key={transaction._id} className="border-b border-zinc-800 last:border-0">
+              <td className="py-3">{transaction.type}</td>
+              <td>PKR {Number(transaction.amount).toLocaleString()}</td>
+              <td>{transaction.status}</td>
+              <td>{new Date(transaction.createdAt).toLocaleString()}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const [user, setUser] = useState<UserData>({
     _id: "",
@@ -95,52 +178,76 @@ export default function DashboardPage() {
   const [lastUpdate, setLastUpdate] = useState("");
 
   // =====================================
-  // LOAD DASHBOARD
+  // AUTH HELPERS
   // =====================================
+  const getToken = () => localStorage.getItem("token") || "";
   const loadDashboard = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const username = localStorage.getItem("username");
+    const username = localStorage.getItem("username");
+    const token = localStorage.getItem("token");
 
-      if (!username) {
-        window.location.href = "/login";
-        return;
-      }
-
-      const [userRes, marketRes, goldRes, transactionRes] =
-        await Promise.all([
-          fetch(`${API}/api/users/${username}`),
-          fetch(`${API}/api/settings/market`),
-          fetch(`${API}/api/gold/history/${username}`),
-          fetch(`${API}/api/transactions/${username}`),
-        ]);
-
-      const userData = await userRes.json();
-      const marketData = await marketRes.json();
-      const goldData = await goldRes.json();
-      const transactionData = await transactionRes.json();
-
-      if (userData.success) setUser(userData.data);
-      if (marketData.success) setMarket(marketData.data);
-      if (goldData.success) setGoldHistory(goldData.data);
-      if (transactionData.success) setTransactions(transactionData.data);
-
-      setLastUpdate(new Date().toLocaleTimeString());
-    } catch (error) {
-      console.error("Dashboard Error:", error);
-      alert("Failed to connect GoldTrade Server.");
-    } finally {
-      setLoading(false);
+    if (!username || !token) {
+      window.location.href = "/login";
+      return;
     }
-  };
 
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+
+    const [userRes, marketRes, goldRes, transactionRes] =
+      await Promise.all([
+        fetch(`${API}/api/users/${username}`, { headers }),
+        fetch(`${API}/api/settings/market`, { headers }),
+        fetch(`${API}/api/gold/history/${username}`, { headers }),
+        fetch(`${API}/api/transactions/${username}`, { headers }),
+      ]);
+
+    const userData = await userRes.json();
+    const marketData = await marketRes.json();
+    const goldData = await goldRes.json();
+    const transactionData = await transactionRes.json();
+
+    if (userData.success) setUser(userData.data);
+    if (marketData.success) setMarket(marketData.data);
+    if (goldData.success) setGoldHistory(goldData.data);
+    if (transactionData.success) setTransactions(transactionData.data);
+
+    setLastUpdate(new Date().toLocaleTimeString());
+
+  } catch (err) {
+    console.error("Dashboard Error:", err);
+    setLoading(false);
+  } finally {
+    setLoading(false);
+  }
+  };
+    // =====================================
+  // INITIAL LOAD
+  // =====================================
   useEffect(() => {
+    const token = getToken();
+
+    if (!token) {
+      window.location.replace("/login");
+      return;
+    }
+
     loadDashboard();
-    const interval = setInterval(loadDashboard, 15000);
+
+    const interval = setInterval(() => {
+      loadDashboard();
+    }, 15000);
+
     return () => clearInterval(interval);
   }, []);
 
+  // =====================================
+  // PORTFOLIO CALCULATIONS
+  // =====================================
   const portfolioValue = useMemo(() => {
     return user.goldBalance * market.sellGoldPrice;
   }, [user.goldBalance, market.sellGoldPrice]);
@@ -150,7 +257,7 @@ export default function DashboardPage() {
       (market.sellGoldPrice - user.goldAveragePrice) *
       user.goldBalance
     );
-  }, [market.sellGoldPrice, user]);
+  }, [market.sellGoldPrice, user.goldAveragePrice, user.goldBalance]);
 
   const totalAssets = useMemo(() => {
     return (
@@ -158,467 +265,217 @@ export default function DashboardPage() {
       portfolioValue +
       user.usdtBalance * market.usdtRate
     );
-  }, [portfolioValue, user, market]);
+  }, [user.walletBalance, portfolioValue, user.usdtBalance, market.usdtRate]);
 
+  // =====================================
+  // LOGOUT
+  // =====================================
   const logout = () => {
-    localStorage.clear();
-    window.location.href = "/login";
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
+    localStorage.removeItem("user");
+    localStorage.removeItem("email");
+    localStorage.removeItem("role");
+
+    window.location.replace("/login");
   };
 
+  // =====================================
+  // LOADING SCREEN
+  // =====================================
   if (loading) {
     return (
-      <main className="min-h-screen bg-black flex items-center justify-center text-yellow-400">
-        <RefreshCw className="animate-spin mr-3" />
-        Loading GoldTrade Dashboard...
+      <main className="min-h-screen bg-black flex flex-col items-center justify-center text-yellow-400">
+        <RefreshCw className="animate-spin h-10 w-10 mb-4" />
+
+        <h2 className="text-2xl font-bold">
+          Loading GoldTrade Dashboard...
+        </h2>
+
+        <p className="text-gray-400 mt-2">
+          Connecting to GoldTrade Server...
+        </p>
+
+        <button
+          onClick={loadDashboard}
+          className="mt-6 px-5 py-2 bg-yellow-500 text-black rounded-lg font-semibold hover:bg-yellow-400 transition"
+        >
+          Retry Connection
+        </button>
       </main>
     );
-  }
+  };
 
+  // =====================================
+  // MAIN PAGE START
+  // =====================================
   return (
-    <main className="min-h-screen bg-black text-white">
+  <main className="min-h-screen bg-black text-white p-5">
+    {/* Header */}
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+      <div>
+        <h1 className="text-3xl font-bold text-yellow-400">
+          GoldTrade Dashboard
+        </h1>
 
-      {/* ===========================
-          HEADER
-      ============================ */}
-      <div className="sticky top-0 z-50 bg-zinc-950 border-b border-yellow-500">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+        <p className="text-gray-400 mt-1">
+          Welcome back, <span className="text-yellow-400">{user.username}</span>
+        </p>
 
-          <div>
-            <h1 className="text-3xl font-bold text-yellow-400">
-              GoldTrade
-            </h1>
-
-            <p className="text-gray-400 text-sm">
-              Welcome back, {user.username}
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={loadDashboard}
-              className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded-xl flex items-center gap-2"
-            >
-              <RefreshCw size={18} />
-              Refresh
-            </button>
-
-            <button
-              onClick={logout}
-              className="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-xl flex items-center gap-2"
-            >
-              <LogOut size={18} />
-              Logout
-            </button>
-          </div>
-
-        </div>
+        <p className="text-xs text-gray-500 mt-1">
+          Last Update: {lastUpdate || "Loading..."}
+        </p>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-
-        {/* ===========================
-            LIVE GOLD MARKET
-        ============================ */}
-        <section className="bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-400 rounded-3xl p-8 text-black mb-10 shadow-lg">
-
-          <div className="flex justify-between items-center">
-
-            <div>
-              <p className="font-semibold tracking-widest">
-                LIVE GOLD MARKET
-              </p>
-
-              <h2 className="text-5xl font-bold mt-2">
-                ${market.goldPriceUSD.toFixed(2)}
-              </h2>
-
-              <p className="mt-3 text-lg">
-                USD/PKR : {market.usdToPkr}
-              </p>
-
-              <p className="text-sm mt-2">
-                Last Updated : {lastUpdate}
-              </p>
-            </div>
-
-            <Coins size={80} />
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-5 mt-8">
-
-            <div className="bg-green-700 rounded-2xl p-5 text-white">
-              <p className="text-sm">BUY GOLD</p>
-
-              <h3 className="text-3xl font-bold mt-2">
-                PKR {market.buyGoldPrice.toLocaleString()}
-              </h3>
-            </div>
-
-            <div className="bg-red-700 rounded-2xl p-5 text-white">
-              <p className="text-sm">SELL GOLD</p>
-
-              <h3 className="text-3xl font-bold mt-2">
-                PKR {market.sellGoldPrice.toLocaleString()}
-              </h3>
-            </div>
-
-            <div className="bg-zinc-900 rounded-2xl p-5 text-yellow-300">
-              <p className="text-sm">USDT RATE</p>
-
-              <h3 className="text-3xl font-bold mt-2">
-                PKR {market.usdtRate}
-              </h3>
-            </div>
-
-          </div>
-        </section>
-                {/* ===========================
-            WALLET CARDS
-        ============================ */}
-        <section className="grid md:grid-cols-4 gap-5 mb-10">
-
-          <DashboardCard
-            title="PKR Wallet"
-            value={`PKR ${user.walletBalance.toLocaleString()}`}
-            color="green"
-            icon={<Wallet size={28} />}
-          />
-
-          <DashboardCard
-            title="USDT Wallet"
-            value={`${user.usdtBalance.toFixed(2)} USDT`}
-            color="cyan"
-            icon={<DollarSign size={28} />}
-          />
-
-          <DashboardCard
-            title="Gold Holdings"
-            value={`${user.goldBalance.toFixed(2)} g`}
-            color="yellow"
-            icon={<Coins size={28} />}
-          />
-
-          <DashboardCard
-            title="Total Assets"
-            value={`PKR ${totalAssets.toLocaleString(undefined, {
-              maximumFractionDigits: 0,
-            })}`}
-            color="purple"
-            icon={<TrendingUp size={28} />}
-          />
-
-        </section>
-
-        {/* ===========================
-            PORTFOLIO
-        ============================ */}
-        <section className="grid md:grid-cols-3 gap-6 mb-10">
-
-          <div className="bg-zinc-900 rounded-3xl border border-yellow-500 p-6">
-            <p className="text-gray-400 mb-2">Portfolio Value</p>
-
-            <h2 className="text-4xl font-bold text-yellow-400">
-              PKR {portfolioValue.toLocaleString(undefined, {
-                maximumFractionDigits: 0,
-              })}
-            </h2>
-          </div>
-
-          <div className="bg-zinc-900 rounded-3xl border border-green-600 p-6">
-            <p className="text-gray-400 mb-2">Average Buy Price</p>
-
-            <h2 className="text-4xl font-bold text-green-400">
-              PKR {user.goldAveragePrice.toLocaleString()}
-            </h2>
-          </div>
-
-          <div
-            className={`rounded-3xl p-6 border ${
-              liveProfit >= 0
-                ? "bg-green-950 border-green-600"
-                : "bg-red-950 border-red-600"
-            }`}
-          >
-            <p className="text-gray-300 mb-2">Live Profit / Loss</p>
-
-            <h2
-              className={`text-4xl font-bold ${
-                liveProfit >= 0 ? "text-green-400" : "text-red-400"
-              }`}
-            >
-              PKR {liveProfit.toLocaleString(undefined, {
-                maximumFractionDigits: 0,
-              })}
-            </h2>
-
-            <div className="mt-3 flex items-center gap-2">
-              {liveProfit >= 0 ? (
-                <ArrowUpCircle className="text-green-400" />
-              ) : (
-                <ArrowDownCircle className="text-red-400" />
-              )}
-
-              <span>{liveProfit >= 0 ? "Profit" : "Loss"}</span>
-            </div>
-          </div>
-
-        </section>
-
-        {/* ===========================
-            QUICK ACTION BUTTONS
-        ============================ */}
-        <section className="grid md:grid-cols-4 gap-4 mb-10">
-
-          <button
-            onClick={() => (window.location.href = "/gold")}
-            className="bg-yellow-500 hover:bg-yellow-400 text-black rounded-2xl p-5 font-bold flex items-center justify-center gap-3"
-          >
-            <Coins size={24} />
-            Buy / Sell Gold
-          </button>
-
-          <button
-            onClick={() => (window.location.href = "/deposit")}
-            className="bg-green-600 hover:bg-green-500 rounded-2xl p-5 font-bold flex items-center justify-center gap-3"
-          >
-            <ArrowDownCircle size={24} />
-            Deposit
-          </button>
-
-          <button
-            onClick={() => (window.location.href = "/withdraw")}
-            className="bg-red-600 hover:bg-red-500 rounded-2xl p-5 font-bold flex items-center justify-center gap-3"
-          >
-            <ArrowUpCircle size={24} />
-            Withdraw
-          </button>
-
-          <button
-            onClick={() => (window.location.href = "/transactions")}
-            className="bg-blue-700 hover:bg-blue-600 rounded-2xl p-5 font-bold flex items-center justify-center gap-3"
-          >
-            <History size={24} />
-            History
-          </button>
-
-        </section>
-
-        {/* ===========================
-            GOLD TRADE HISTORY
-        ============================ */}
-        <section className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
-
-          <div className="flex justify-between items-center mb-5">
-            <h2 className="text-2xl font-bold text-yellow-400">
-              Recent Gold Trades
-            </h2>
-
-            <Coins className="text-yellow-400" />
-          </div>
-
-          {goldHistory.length === 0 ? (
-            <div className="text-center text-gray-500 py-8">
-              No Gold Trades Yet
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-
-                <thead className="border-b border-yellow-600 text-yellow-400">
-                  <tr className="text-left">
-                    <th className="py-3">Type</th>
-                    <th>Grams</th>
-                    <th>Price/Gram</th>
-                    <th>Total PKR</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {goldHistory.slice(0, 8).map((trade) => (
-                    <tr
-                      key={trade._id}
-                      className="border-b border-zinc-800 hover:bg-zinc-800"
-                    >
-                      <td className="py-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm font-bold ${
-                            trade.tradeType === "BUY"
-                              ? "bg-green-700 text-white"
-                              : "bg-red-700 text-white"
-                          }`}
-                        >
-                          {trade.tradeType}
-                        </span>
-                      </td>
-
-                      <td>{trade.grams} g</td>
-
-                      <td>PKR {trade.pricePerGram.toLocaleString()}</td>
-
-                      <td>PKR {trade.totalPKR.toLocaleString()}</td>
-
-                      <td>{new Date(trade.createdAt).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-
-              </table>
-            </div>
-          )}
-
-        </section>
-
-        {/* ===========================
-            TRANSACTION HISTORY
-        ============================ */}
-        <section className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
-
-          <div className="flex justify-between items-center mb-5">
-            <h2 className="text-2xl font-bold text-yellow-400">
-              Recent Transactions
-            </h2>
-
-            <History className="text-yellow-400" />
-          </div>
-
-          {transactions.length === 0 ? (
-            <div className="text-center text-gray-500 py-8">
-              No Transactions Available
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-
-                <thead className="border-b border-yellow-600 text-yellow-400">
-                  <tr className="text-left">
-                    <th className="py-3">Type</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Reason</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {transactions.slice(0, 10).map((tx) => (
-                    <tr
-                      key={tx._id}
-                      className="border-b border-zinc-800 hover:bg-zinc-800"
-                    >
-                      <td className="py-4">{tx.type}</td>
-
-                      <td>PKR {Number(tx.amount).toLocaleString()}</td>
-
-                      <td>
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm font-bold ${
-                            tx.status === "Completed" || tx.status === "Credit"
-                              ? "bg-green-700 text-white"
-                              : tx.status === "Pending"
-                              ? "bg-yellow-600 text-black"
-                              : "bg-red-700 text-white"
-                          }`}
-                        >
-                          {tx.status}
-                        </span>
-                      </td>
-
-                      <td className="max-w-[250px] truncate">
-                        {tx.reason || "-"}
-                      </td>
-
-                      <td>{new Date(tx.createdAt).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-
-              </table>
-            </div>
-          )}
-
-        </section>
-
-        {/* ===========================
-            ACCOUNT SUMMARY
-        ============================ */}
-        <section className="grid md:grid-cols-3 gap-6 mb-12">
-
-          <div className="bg-zinc-900 rounded-3xl border border-green-600 p-6">
-            <p className="text-gray-400">Total Deposit</p>
-
-            <h2 className="text-3xl font-bold text-green-400 mt-2">
-              PKR {user.totalDeposit.toLocaleString()}
-            </h2>
-          </div>
-
-          <div className="bg-zinc-900 rounded-3xl border border-red-600 p-6">
-            <p className="text-gray-400">Total Withdraw</p>
-
-            <h2 className="text-3xl font-bold text-red-400 mt-2">
-              PKR {user.totalWithdraw.toLocaleString()}
-            </h2>
-          </div>
-
-          <div className="bg-zinc-900 rounded-3xl border border-cyan-600 p-6">
-            <p className="text-gray-400">Total Gold Profit</p>
-
-            <h2
-              className={`text-3xl font-bold mt-2 ${
-                user.goldProfitLoss >= 0
-                  ? "text-green-400"
-                  : "text-red-400"
-              }`}
-            >
-              PKR {user.goldProfitLoss.toLocaleString()}
-            </h2>
-          </div>
-
-        </section>
-
-      </div>
-    </main>
-  );
-}
-/* ===========================================================
-   REUSABLE DASHBOARD CARD
-=========================================================== */
-
-type CardColor = "green" | "yellow" | "cyan" | "purple";
-
-interface DashboardCardProps {
-  title: string;
-  value: string;
-  color: CardColor;
-  icon: React.ReactNode;
-}
-
-function DashboardCard({
-  title,
-  value,
-  color,
-  icon,
-}: DashboardCardProps) {
-  const borderColor =
-    color === "green"
-      ? "border-green-600 text-green-400"
-      : color === "yellow"
-      ? "border-yellow-500 text-yellow-400"
-      : color === "cyan"
-      ? "border-cyan-500 text-cyan-400"
-      : "border-purple-500 text-purple-400";
-
-  return (
-    <div className={`bg-zinc-900 rounded-3xl border ${borderColor} p-5`}>
-      <div className="flex justify-between items-center mb-4">
-        {icon}
-      </div>
-
-      <p className="text-gray-400 text-sm">{title}</p>
-
-      <h3 className="text-2xl font-bold mt-2 break-words">
-        {value}
-      </h3>
+      <button
+        onClick={logout}
+        className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl font-semibold"
+      >
+        <LogOut size={18} />
+        Logout
+      </button>
     </div>
-  );
+
+    {/* Wallet Cards */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+      <BalanceCard
+        title="Wallet Balance"
+        value={`PKR ${Number(user.walletBalance).toLocaleString()}`}
+        icon={<Wallet className="text-yellow-400" size={28} />}
+      />
+
+      <BalanceCard
+        title="USDT Balance"
+        value={`${Number(user.usdtBalance).toFixed(2)} USDT`}
+        icon={<DollarSign className="text-green-400" size={28} />}
+        color="text-green-400"
+      />
+
+      <BalanceCard
+        title="Gold Balance"
+        value={`${Number(user.goldBalance).toFixed(3)} g`}
+        icon={<Coins className="text-yellow-400" size={28} />}
+      />
+
+      <BalanceCard
+        title="Portfolio Value"
+        value={`PKR ${Number(portfolioValue).toLocaleString()}`}
+        icon={<TrendingUp className="text-cyan-400" size={28} />}
+        color="text-cyan-400"
+      />
+    </div>
+
+    {/* Market + Quick Actions */}
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+      <div className="xl:col-span-2">
+        <MarketCard
+          buyPrice={Number(market.buyGoldPrice || 0)}
+          sellPrice={Number(market.sellGoldPrice || 0)}
+          usdtRate={Number(market.usdtRate || 0)}
+          spread={Number(market.sellGoldPrice || 0) - Number(market.buyGoldPrice || 0)}
+        />
+      </div>
+
+      <QuickActions />
+    </div>
+
+    {/* Profit & Assets */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6">
+        <div className="flex items-center gap-3 mb-3">
+          <TrendingUp className="text-green-400" />
+          <h2 className="text-yellow-400 text-xl font-bold">
+            Live Profit / Loss
+          </h2>
+        </div>
+
+        <p
+          className={`text-3xl font-bold ${
+            liveProfit >= 0 ? "text-green-400" : "text-red-400"
+          }`}
+        >
+          PKR {Number(liveProfit).toLocaleString()}
+        </p>
+
+        <p className="text-gray-400 mt-2">
+          Based on current live gold selling price.
+        </p>
+      </div>
+
+      <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6">
+        <div className="flex items-center gap-3 mb-3">
+          <Wallet className="text-cyan-400" />
+          <h2 className="text-yellow-400 text-xl font-bold">
+            Total Assets
+          </h2>
+        </div>
+
+        <p className="text-3xl font-bold text-cyan-400">
+          PKR {Number(totalAssets).toLocaleString()}
+        </p>
+
+        <p className="text-gray-400 mt-2">
+          Wallet + Gold + USDT combined value.
+        </p>
+      </div>
+    </div>
+
+    {/* Gold Summary */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+      <div className="bg-zinc-900 rounded-2xl border border-zinc-700 p-5">
+        <div className="flex items-center gap-2 text-yellow-400 mb-2">
+          <Coins size={20} />
+          Average Gold Price
+        </div>
+
+        <p className="text-2xl font-bold">
+          PKR {Number(user.goldAveragePrice).toLocaleString()}
+        </p>
+      </div>
+
+      <div className="bg-zinc-900 rounded-2xl border border-zinc-700 p-5">
+        <div className="flex items-center gap-2 text-green-400 mb-2">
+          <ArrowUpCircle size={20} />
+          Gold Profit
+        </div>
+
+        <p className="text-2xl font-bold text-green-400">
+          PKR {Number(user.goldProfitLoss || 0).toLocaleString()}
+        </p>
+      </div>
+
+      <div className="bg-zinc-900 rounded-2xl border border-zinc-700 p-5">
+        <div className="flex items-center gap-2 text-cyan-400 mb-2">
+          <History size={20} />
+          Total Deposits
+        </div>
+
+        <p className="text-2xl font-bold text-cyan-400">
+          PKR {Number(user.totalDeposit || 0).toLocaleString()}
+        </p>
+      </div>
+    </div>
+
+    {/* Recent Transactions */}
+    <div className="mb-8">
+      <TransactionTable transactions={transactions} />
+    </div>
+
+    {/* Refresh Button */}
+    <div className="flex justify-center">
+      <button
+        onClick={loadDashboard}
+        disabled={loading}
+        className="bg-yellow-500 hover:bg-yellow-400 text-black px-6 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50"
+      >
+        <RefreshCw
+          size={18}
+          className={loading ? "animate-spin" : ""}
+        />
+
+        {loading ? "Refreshing..." : "Refresh Dashboard"}
+      </button>
+   </div>
+  </main>
+);
 }
