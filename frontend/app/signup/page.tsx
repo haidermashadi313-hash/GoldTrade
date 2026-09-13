@@ -12,9 +12,9 @@ import {
   Loader2,
 } from "lucide-react";
 
-// ===========================================
-// GOLDTRADE PRODUCTION API
-// ===========================================
+// ===============================
+// GOLDTRADE API
+// ===============================
 const API =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://goldtrade-api.onrender.com";
@@ -31,33 +31,29 @@ export default function SignupPage() {
 
   const signup = async () => {
     if (!username || !email || !password || !confirmPassword) {
-      alert("Please fill all fields.");
-      return;
+      return alert("Please fill all fields.");
     }
 
     if (password !== confirmPassword) {
-      alert("Passwords do not match.");
-      return;
+      return alert("Passwords do not match.");
     }
 
     if (password.length < 6) {
-      alert("Password must be at least 6 characters.");
-      return;
+      return alert("Password must be at least 6 characters.");
     }
 
     if (!agree) {
-      alert("Please accept Terms & Conditions.");
-      return;
+      return alert("Please accept Terms & Conditions.");
     }
 
     try {
       setLoading(true);
 
+      // 👇 Backend signup endpoint
       const response = await fetch(`${API}/api/auth/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Accept: "application/json",
         },
         body: JSON.stringify({
           username: username.trim(),
@@ -66,18 +62,34 @@ export default function SignupPage() {
         }),
       });
 
-      const data = await response.json();
+      let data = {};
 
-      if (response.ok && data.success) {
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
+
+      console.log("Signup Status:", response.status);
+      console.log("Signup Response:", data);
+
+      if (response.ok) {
         alert("🎉 Account Created Successfully!");
         window.location.href = "/login";
         return;
       }
 
+      if (response.status === 404) {
+        alert(
+          "Signup API not found. Check backend route /api/auth/signup on Render."
+        );
+        return;
+      }
+
       alert(data.message || "Signup failed.");
-    } catch (error) {
-      console.error("Signup Error:", error);
-      alert("Server Error. Please try again.");
+    } catch (err) {
+      console.error("Signup Error:", err);
+      alert("Cannot connect to GoldTrade server.");
     } finally {
       setLoading(false);
     }
@@ -101,37 +113,34 @@ export default function SignupPage() {
 
         <div className="relative mb-4">
           <User size={18} className="absolute left-4 top-4 text-gray-500" />
-
           <input
             type="text"
             placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-4 outline-none focus:border-yellow-500 text-white"
+            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-4 text-white outline-none focus:border-yellow-500"
           />
         </div>
 
         <div className="relative mb-4">
           <Mail size={18} className="absolute left-4 top-4 text-gray-500" />
-
           <input
             type="email"
             placeholder="Email Address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-4 outline-none focus:border-yellow-500 text-white"
+            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-4 text-white outline-none focus:border-yellow-500"
           />
         </div>
 
         <div className="relative mb-4">
           <Lock size={18} className="absolute left-4 top-4 text-gray-500" />
-
           <input
             type={showPassword ? "text" : "password"}
-            placeholder="Password (Minimum 6 Characters)"
+            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-12 outline-none focus:border-yellow-500 text-white"
+            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-12 text-white outline-none focus:border-yellow-500"
           />
 
           <button
@@ -145,13 +154,12 @@ export default function SignupPage() {
 
         <div className="relative mb-5">
           <Lock size={18} className="absolute left-4 top-4 text-gray-500" />
-
           <input
             type={showPassword ? "text" : "password"}
             placeholder="Confirm Password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-4 outline-none focus:border-yellow-500 text-white"
+            className="w-full bg-black border border-gray-700 rounded-xl py-3 pl-11 pr-4 text-white outline-none focus:border-yellow-500"
           />
         </div>
 
@@ -165,9 +173,7 @@ export default function SignupPage() {
 
           <span>
             I agree to the{" "}
-            <span className="text-yellow-400">
-              GoldTrade Terms & Conditions
-            </span>{" "}
+            <span className="text-yellow-400">GoldTrade Terms & Conditions</span>{" "}
             and Privacy Policy.
           </span>
         </label>
@@ -188,9 +194,7 @@ export default function SignupPage() {
         </button>
 
         <div className="mt-8 text-center">
-          <p className="text-gray-400">
-            Already have an account?
-          </p>
+          <p className="text-gray-400">Already have an account?</p>
 
           <Link
             href="/login"
