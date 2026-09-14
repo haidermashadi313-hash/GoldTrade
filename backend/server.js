@@ -117,25 +117,25 @@ app.get("/api/status", (req, res) => {
 // ======================================================
 
 // Dashboard
-app.use("/api/admin/dashboard", adminDashboardRoutes);
+app.use("/api/gold/admin/dashboard", adminDashboardRoutes);
 
 // Deposits
-app.use("/api/admin/deposits", adminDepositRoutes);
+app.use("/api/gold/admin/deposits", adminDepositRoutes);
 
 // Withdrawals
-app.use("/api/admin/withdraws", adminWithdrawRoutes);
+app.use("/api/gold/admin/withdraws", adminWithdrawRoutes);
 
 // Users
-app.use("/api/admin/users", adminUserRoutes);
+app.use("/api/gold/admin/users", adminUserRoutes);
 
 // Wallet
-app.use("/api/admin/wallet", adminWalletRoutes);
+app.use("/api/gold/admin/wallet", adminWalletRoutes);
 
 // Other Admin APIs
 app.use("/api/admin", adminRoutes);
 
 // Payment Settings
-app.use("/api/admin/payment-settings", paymentSettingsRoutes);
+app.use("/api/gold/admin/payment-settings", paymentSettingsRoutes);
 
 // ======================================================
 // USER API ROUTES

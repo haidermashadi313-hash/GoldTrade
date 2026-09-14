@@ -48,67 +48,83 @@ export default function DashboardPage() {
   const [lastUpdate, setLastUpdate] = useState("");
 
   // =====================================
-  // LOAD DASHBOARD
-  // =====================================
-  const loadDashboard = async () => {
-    try {
-      setLoading(true);
+// LOAD DASHBOARD 
+// =====================================
 
-      const token = localStorage.getItem("token");
-      const username = localStorage.getItem("username");
+const loadDashboard = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const username = localStorage.getItem("username");
 
-      if (!token || !username) {
-        window.location.replace("/login");
-        return;
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      };
-
-      const [userRes, marketRes, goldRes, transactionRes] =
-        await Promise.all([
-          fetch(`${API}/api/users/${username}`, { headers }),
-          fetch(`${API}/api/settings/market`, { headers }),
-          fetch(`${API}/api/gold/history/${username}`, { headers }),
-          fetch(`${API}/api/transactions/${username}`, { headers }),
-        ]);
-
-      if (!userRes.ok) {
-        throw new Error(`Users API ${userRes.status}`);
-      }
-
-      const userData = await userRes.json();
-      const marketData = marketRes.ok ? await marketRes.json() : {};
-      const goldData = goldRes.ok ? await goldRes.json() : {};
-      const transactionData = transactionRes.ok
-        ? await transactionRes.json()
-        : {};
-
-      if (userData.success) setUser(userData.data);
-      if (marketData.success) setMarket(marketData.data);
-      if (goldData.success) setGoldHistory(goldData.data);
-      if (transactionData.success) setTransactions(transactionData.data);
-
-      setLastUpdate(new Date().toLocaleTimeString());
-    } catch (err) {
-      console.error("Dashboard Error:", err);
-      alert("Failed to connect GoldTrade Server.");
-    } finally {
+    // Login check
+    if (!token || !username) {
+      console.log("Token or Username missing.");
       setLoading(false);
+      return;
     }
-  };
 
-  // =====================================
-  // PAGE LOAD
-  // =====================================
-  useEffect(() => {
+    setLoading(true);
+
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+
+    const [userRes, marketRes, goldRes, transactionRes] =
+      await Promise.all([
+        fetch(`${API}/api/users/${username}`, { headers }),
+        fetch(`${API}/api/settings/market`, { headers }),
+        fetch(`${API}/api/gold/history/${username}`, { headers }),
+        fetch(`${API}/api/transactions/${username}`, { headers }),
+      ]);
+
+    // Agar token expire ho gaya ho
+    if (userRes.status === 401) {
+      localStorage.clear();
+      window.location.replace("/login");
+      return;
+    }
+
+    const userData = userRes.ok ? await userRes.json() : null;
+    const marketData = marketRes.ok ? await marketRes.json() : null;
+    const goldData = goldRes.ok ? await goldRes.json() : null;
+    const transactionData = transactionRes.ok
+      ? await transactionRes.json()
+      : null;
+
+    if (userData?.success) setUser(userData.data);
+    if (marketData?.success) setMarket(marketData.data);
+    if (goldData?.success) setGoldHistory(goldData.data || []);
+    if (transactionData?.success) setTransactions(transactionData.data || []);
+
+    setLastUpdate(new Date().toLocaleTimeString());
+
+  } catch (err) {
+    console.error("Dashboard Error:", err);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// =====================================
+// PAGE LOAD
+// =====================================
+
+useEffect(() => {
+  loadDashboard();
+}, []);
+
+// =====================================
+// AUTO REFRESH (Every 30 Seconds)
+// =====================================
+
+useEffect(() => {
+  const interval = setInterval(() => {
     loadDashboard();
+  }, 30000);
 
-    const interval = setInterval(loadDashboard, 15000);
-    return () => clearInterval(interval);
-  }, []);
+  return () => clearInterval(interval);
+}, []);
 
   // =====================================
   // LIVE VALUES

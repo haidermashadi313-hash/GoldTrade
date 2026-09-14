@@ -1,86 +1,28 @@
-const mongoose = require("mongoose");
-
-const walletTransactionSchema = new mongoose.Schema(
-  {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      index: true,
-    },
-
-    username: {
-      type: String,
-      required: true,
-    },
-
-    adminId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-
-    walletType: {
-      type: String,
-      enum: ["PKR", "USDT", "GOLD"],
-      required: true,
-    },
-
-    action: {
-      type: String,
-      enum: ["CREDIT", "DEBIT"],
-      required: true,
-    },
-
-    amount: {
-      type: Number,
-      required: true,
-      min: 0.01,
-    },
-
-    reason: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    balanceAfter: {
-      type: Number,
-      required: true,
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
-
-module.exports = mongoose.model(
-  "WalletTransaction",
-  walletTransactionSchema
-);const express = require("express");
+const express = require("express");
 const router = express.Router();
 
 const User = require("../models/User");
 const WalletTransaction = require("../models/WalletTransaction");
 const { verifyToken } = require("../middleware/authMiddleware");
 
-/* ================================
-   ADMIN AUTH CHECK
-================================ */
+/* ==========================================
+   ADMIN ONLY MIDDLEWARE
+========================================== */
 
 const adminOnly = (req, res, next) => {
-  if (req.user.role !== "admin") {
+  if (!req.user || req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
       message: "Admin access only.",
     });
   }
+
   next();
 };
 
-/* ================================
+/* ==========================================
    GET ALL USERS FOR WALLET MANAGER
-================================ */
+========================================== */
 
 router.get(
   "/users",
@@ -90,7 +32,7 @@ router.get(
     try {
       const users = await User.find()
         .select(
-          "username email role status walletBalance usdtBalance goldBalance"
+          "username email role status walletBalance usdtBalance goldBalance createdAt"
         )
         .sort({ createdAt: -1 });
 
@@ -99,7 +41,7 @@ router.get(
         users,
       });
     } catch (err) {
-      console.error(err);
+      console.error("LOAD USERS ERROR:", err);
 
       res.status(500).json({
         success: false,
@@ -109,9 +51,9 @@ router.get(
   }
 );
 
-/* ================================
+/* ==========================================
    CREDIT / DEBIT WALLET
-================================ */
+========================================== */
 
 router.post(
   "/update",
@@ -119,13 +61,32 @@ router.post(
   adminOnly,
   async (req, res) => {
     try {
-      const {
+      let {
         userId,
         walletType,
         action,
         amount,
         reason,
       } = req.body;
+
+      walletType = String(walletType).toUpperCase();
+      action = String(action).toUpperCase();
+
+      const value = Number(amount);
+
+      if (!reason || reason.trim() === "") {
+        return res.status(400).json({
+          success: false,
+          message: "Reason is required.",
+        });
+      }
+
+      if (isNaN(value) || value <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid amount.",
+        });
+      }
 
       const user = await User.findById(userId);
 
@@ -136,16 +97,7 @@ router.post(
         });
       }
 
-      const value = Number(amount);
-
-      if (value <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid amount.",
-        });
-      }
-
-      let balanceField = "";
+      let balanceField;
 
       switch (walletType) {
         case "PKR":
@@ -167,20 +119,24 @@ router.post(
           });
       }
 
-      if (action === "credit") {
-        user[balanceField] += value;
+      const beforeBalance = Number(user[balanceField] || 0);
+
+      if (action === "CREDIT") {
+        user[balanceField] = beforeBalance + value;
       }
 
-      if (action === "debit") {
-        if (user[balanceField] < value) {
+      if (action === "DEBIT") {
+        if (beforeBalance < value) {
           return res.status(400).json({
             success: false,
             message: "Insufficient wallet balance.",
           });
         }
 
-        user[balanceField] -= value;
+        user[balanceField] = beforeBalance - value;
       }
+
+      const afterBalance = Number(user[balanceField]);
 
       await user.save();
 
@@ -189,19 +145,21 @@ router.post(
         username: user.username,
         adminId: req.user._id,
         walletType,
-        action: action.toUpperCase(),
+        action,
         amount: value,
         reason,
-        balanceAfter: user[balanceField],
+        balanceBefore: beforeBalance,
+        balanceAfter: afterBalance,
       });
 
       res.json({
         success: true,
-        message: `${walletType} wallet ${action} successful.`,
-        balance: user[balanceField],
+        message: `${walletType} wallet ${action.toLowerCase()} successful.`,
+        balance: afterBalance,
+        user: user.username,
       });
     } catch (err) {
-      console.error(err);
+      console.error("WALLET UPDATE ERROR:", err);
 
       res.status(500).json({
         success: false,
@@ -211,9 +169,9 @@ router.post(
   }
 );
 
-/* ================================
-   WALLET TRANSACTION HISTORY
-================================ */
+/* ==========================================
+   WALLET HISTORY OF USER
+========================================== */
 
 router.get(
   "/history/:userId",
@@ -230,7 +188,7 @@ router.get(
         history,
       });
     } catch (err) {
-      console.error(err);
+      console.error("HISTORY ERROR:", err);
 
       res.status(500).json({
         success: false,
@@ -240,9 +198,9 @@ router.get(
   }
 );
 
-/* ================================
-   ALL WALLET LOGS (ADMIN)
-================================ */
+/* ==========================================
+   ALL WALLET LOGS
+========================================== */
 
 router.get(
   "/logs",
@@ -251,19 +209,20 @@ router.get(
   async (req, res) => {
     try {
       const logs = await WalletTransaction.find()
+        .populate("adminId", "username")
         .sort({ createdAt: -1 })
-        .limit(200);
+        .limit(500);
 
       res.json({
         success: true,
         logs,
       });
     } catch (err) {
-      console.error(err);
+      console.error("LOG ERROR:", err);
 
       res.status(500).json({
         success: false,
-        message: "Unable to load logs.",
+        message: "Unable to load wallet logs.",
       });
     }
   }

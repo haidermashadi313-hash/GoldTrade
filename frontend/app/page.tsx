@@ -175,56 +175,117 @@ export default function DashboardPage() {
 
   const [goldHistory, setGoldHistory] = useState<TradeHistory[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [dashboardData, setDashboardData] = useState<Record<string, unknown> | null>(null);
   const [lastUpdate, setLastUpdate] = useState("");
 
   // =====================================
-  // AUTH HELPERS
-  // =====================================
-  const getToken = () => localStorage.getItem("token") || "";
-  const loadDashboard = async () => {
+// AUTH HELPERS
+// =====================================
+const getToken = () => localStorage.getItem("token") || "";
+
+const loadDashboard = async () => {
+  setLoading(true);
+
   try {
-    setLoading(true);
-
     const username = localStorage.getItem("username");
-    const token = localStorage.getItem("token");
+    const token = getToken();
 
+    // Login check
     if (!username || !token) {
+      console.warn("No token found. Redirecting to login...");
       window.location.href = "/login";
       return;
     }
 
-    const headers = {
+    // Common headers
+    const headers: HeadersInit = {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     };
 
-    const [userRes, marketRes, goldRes, transactionRes] =
-      await Promise.all([
-        fetch(`${API}/api/users/${username}`, { headers }),
-        fetch(`${API}/api/settings/market`, { headers }),
-        fetch(`${API}/api/gold/history/${username}`, { headers }),
-        fetch(`${API}/api/transactions/${username}`, { headers }),
-      ]);
+    // ================================
+    // LOAD ALL DASHBOARD DATA
+    // ================================
+    const [
+      userRes,
+      marketRes,
+      goldRes,
+      transactionRes,
+      dashboardRes,
+    ] = await Promise.all([
+      fetch(`${API}/api/users/${username}`, {
+        method: "GET",
+        headers,
+      }),
 
+      fetch(`${API}/api/settings/market`, {
+        method: "GET",
+        headers,
+      }),
+
+      fetch(`${API}/api/gold/history/${username}`, {
+        method: "GET",
+        headers,
+      }),
+
+      fetch(`${API}/api/transactions/${username}`, {
+        method: "GET",
+        headers,
+      }),
+
+      fetch(`${API}/api/gold/admin/dashboard`, {
+        method: "GET",
+        headers,
+      }),
+    ]);
+
+    // Token expired
+    if (dashboardRes.status === 401 || userRes.status === 401) {
+      console.warn("Token expired or invalid.");
+      localStorage.removeItem("token");
+      localStorage.removeItem("username");
+      window.location.href = "/login";
+      return;
+    }
+
+    // ================================
+    // PARSE JSON
+    // ================================
     const userData = await userRes.json();
     const marketData = await marketRes.json();
     const goldData = await goldRes.json();
     const transactionData = await transactionRes.json();
+    const dashboardData = await dashboardRes.json();
 
+    console.log("Dashboard API Response:", dashboardData);
+
+    // ================================
+    // UPDATE STATE
+    // ================================
     if (userData.success) setUser(userData.data);
+
     if (marketData.success) setMarket(marketData.data);
+
     if (goldData.success) setGoldHistory(goldData.data);
+
     if (transactionData.success) setTransactions(transactionData.data);
 
+    // Dashboard statistics
+    if (dashboardData.success) {
+      setDashboardData(dashboardData.data);
+    } else {
+      console.error("Dashboard API Error:", dashboardData.message);
+    }
+
+    // Last update time
     setLastUpdate(new Date().toLocaleTimeString());
 
-  } catch (err) {
-    console.error("Dashboard Error:", err);
-    setLoading(false);
+  } catch (error) {
+    console.error("Dashboard Load Error:", error);
   } finally {
     setLoading(false);
   }
-  };
+};
     // =====================================
   // INITIAL LOAD
   // =====================================

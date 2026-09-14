@@ -27,7 +27,7 @@ const adminOnly = (req, res, next) => {
 
 // =============================================
 // ADMIN DASHBOARD STATS
-// GET /api/admin/dashboard
+// GET /api/gold/admin/dashboard
 // =============================================
 
 router.get("/dashboard", verifyToken, adminOnly, async (req, res) => {
@@ -111,7 +111,7 @@ router.get("/dashboard", verifyToken, adminOnly, async (req, res) => {
 
 // =============================================
 // RECENT ACTIVITY
-// GET /api/admin/dashboard/activity
+// GET /api/gold/admin/dashboard/activity
 // =============================================
 
 router.get(
@@ -159,7 +159,7 @@ router.get(
 
 // =============================================
 // ALL USERS SUMMARY
-// GET /api/admin/dashboard/users
+// GET /api/gold/admin/dashboard/users
 // =============================================
 
 router.get(

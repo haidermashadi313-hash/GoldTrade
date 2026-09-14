@@ -288,7 +288,7 @@ export default function AdminPage() {
 
   const checkAdminAccess = async () => {
     try {
-      const response = await fetch(`${API}/api/admin/auth/check`, {
+      const response = await fetch(`${API}/api/gold/admin/auth/check`, {
         headers: adminHeaders,
       });
 
@@ -316,7 +316,7 @@ export default function AdminPage() {
 
   const loadDashboardStats = async () => {
     try {
-      const response = await fetch(`${API}/api/admin/dashboard`, {
+      const response = await fetch(`${API}/api/gold/admin/dashboard`, {
         headers: adminHeaders,
       });
 
@@ -338,7 +338,7 @@ export default function AdminPage() {
 
   const loadUsers = async () => {
     try {
-      const response = await fetch(`${API}/api/admin/users`, {
+      const response = await fetch(`${API}/api/gold/admin/users`, {
         headers: adminHeaders,
       });
 
@@ -358,7 +358,7 @@ export default function AdminPage() {
 
   const loadDeposits = async () => {
     try {
-      const response = await fetch(`${API}/api/admin/deposits`, {
+      const response = await fetch(`${API}/api/gold/admin/deposits`, {
         headers: adminHeaders,
       });
 
@@ -378,7 +378,7 @@ export default function AdminPage() {
 
   const loadWithdrawals = async () => {
     try {
-      const response = await fetch(`${API}/api/admin/withdrawals`, {
+      const response = await fetch(`${API}/api/gold/admin/withdrawals`, {
         headers: adminHeaders,
       });
 
@@ -398,7 +398,7 @@ export default function AdminPage() {
 
   const loadActivityLogs = async () => {
     try {
-      const response = await fetch(`${API}/api/admin/activity`, {
+      const response = await fetch(`${API}/api/gold/admin/activity`, {
         headers: adminHeaders,
       });
 
