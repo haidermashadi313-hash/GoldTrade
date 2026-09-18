@@ -7,7 +7,7 @@ const router = express.Router();
 
 // ================= MODELS =================
 const User = require("../models/User");
-const wallet = require("../models/wallet");
+const wallet = require("../models/Wallet");
 const UsdtRequest = require("../models/UsdtRequest");
 const Transaction = require("../models/Transaction");
 

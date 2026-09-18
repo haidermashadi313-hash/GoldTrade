@@ -11,21 +11,21 @@ const walletSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Pkr wallet (MAIN FIELD)
+    // PKR Wallet
     PkrBalance: {
       type: Number,
       default: 0,
       min: 0,
     },
 
-    // GOLD wallet
+    // Gold Wallet
     goldBalance: {
       type: Number,
       default: 0,
       min: 0,
     },
 
-    // Usdt wallet
+    // USDT Wallet
     UsdtBalance: {
       type: Number,
       default: 0,
@@ -43,7 +43,7 @@ const walletSchema = new mongoose.Schema(
       default: 0,
     },
 
-    // wallet Status
+    // Wallet Status
     status: {
       type: String,
       enum: ["Active", "Suspended"],
@@ -56,6 +56,6 @@ const walletSchema = new mongoose.Schema(
   }
 );
 
+// Render / Hot Reload Safe Export
 module.exports =
-  mongoose.models.wallet ||
-  mongoose.model("wallet", walletSchema);
+  mongoose.models.Wallet || mongoose.model("Wallet", walletSchema);

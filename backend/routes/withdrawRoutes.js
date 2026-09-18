@@ -4,7 +4,7 @@ const express = require("express");
 const router = express.Router();
 
 const Withdraw = require("../models/Withdraw");
-const wallet = require("../models/wallet");
+const Wallet = require("../models/Wallet");
 const Transaction = require("../models/Transaction");
 
 const { verifyToken, isAdmin } = require("../middleware/Auth");

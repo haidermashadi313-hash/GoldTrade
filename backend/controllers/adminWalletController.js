@@ -1,5 +1,5 @@
 const User = require("../models/User");
-const walletTransaction = require("../models/walletTransaction");
+const walletTransaction = require("../models/WalletTransaction");
 
 // =======================================
 // GET ALL USERS FOR wallet MANAGER

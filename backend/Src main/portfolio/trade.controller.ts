@@ -11,7 +11,7 @@ import { Request, Response } from "express";
 // trade fields used by this controller. Keep the controller's model handles
 // runtime-compatible while avoiding incorrect compile-time schema inference.
 const TradeOrder: any = require("../models/TradeOrder");
-const wallet: any = require("../models/wallet");
+const wallet: any = require("../models/Wallet");
 const Portfolio: any = require("../models/Portfolio");
 const GoldPrice: any = require("../models/GoldPrice");
 const Transaction: any = require("../models/Transaction");

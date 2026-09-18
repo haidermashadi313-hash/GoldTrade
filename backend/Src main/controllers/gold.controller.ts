@@ -8,7 +8,7 @@
 import { Request, Response } from "express";
 import GoldPriceModel from "../models/GoldPrice";
 import TransactionModel from "../models/Transaction";
-import walletModel from "../models/wallet";
+import walletModel from "../models/Wallet";
 import PortfolioModel from "../models/Portfolio";
 import UserModel from "../models/User";
 

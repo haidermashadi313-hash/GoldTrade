@@ -6,7 +6,7 @@
 // ======================================================
 
 import { Request, Response } from "express";
-import wallet from "../models/wallet";
+import wallet from "../models/Wallet";
 import Transaction from "../models/Transaction";
 import { TransactionStatus } from "../models/Transaction";
 import Portfolio from "../models/Portfolio";

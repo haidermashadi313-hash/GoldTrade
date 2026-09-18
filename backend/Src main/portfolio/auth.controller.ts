@@ -1226,7 +1226,7 @@ export const getLoginhistory = async (
 // ======================================================
 
 // wallet, Portfolio, GoldVault aur Referral models ko file ke top imports me add karo.
-import wallet from "../models/wallet";
+import wallet from "../models/Wallet";
 import Portfolio from "../models/Portfolio";
 import GoldVault from "../models/GoldVault";
 import Transaction from "../models/Transaction";

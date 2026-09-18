@@ -9,8 +9,8 @@ const router = express.Router();
 
 // ================= MODELS =================
 const User = require("../models/User");
-const wallet = require("../models/wallet");
-const walletTransaction = require("../models/walletTransaction");
+const wallet = require("../models/Wallet");
+const walletTransaction = require("../models/WalletTransaction");
 
 // ================= MIDDLEWARE =================
 const verifyToken = require("../middleware/verifyToken");

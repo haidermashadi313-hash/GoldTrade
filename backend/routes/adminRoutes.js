@@ -3,7 +3,7 @@ const router = express.Router();
 
 const User = require("../models/User");
 const GoldTransaction = require("../models/GoldTransaction");
-const walletTransaction = require("../models/walletTransaction");
+const walletTransaction = require("../models/WalletTransaction");
 
 const { verifyToken } = require("../middleware/authMiddleware");
 
