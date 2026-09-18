@@ -26,7 +26,7 @@ async function createAdmin() {
       admin.status = "Active";
 
       // Keep balances if account already exists
-      admin.walletBalance = admin.walletBalance || 0;
+      admin.userData.walletBalance = admin.walletBalance || 0;
       admin.usdtBalance = admin.usdtBalance || 0;
       admin.goldBalance = admin.goldBalance || 0;
       admin.totalDeposit = admin.totalDeposit || 0;

@@ -25,84 +25,48 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
-// =============================================
-// ADMIN DASHBOARD STATS
+// =====================================================
+// ADMIN DASHBOARD SUMMARY
 // GET /api/gold/admin/dashboard
-// =============================================
+// =====================================================
 
-router.get("/dashboard", verifyToken, adminOnly, async (req, res) => {
+router.get("/", verifyToken, adminOnly, async (req, res) => {
   try {
-    const [
-      totalUsers,
-      pendingDeposits,
-      approvedDeposits,
-      pendingWithdraws,
-      approvedWithdraws,
-      totalDeposits,
-      totalWithdraws,
-      pendingUSDT,
-      completedTransactions,
-    ] = await Promise.all([
-      User.countDocuments(),
-      Deposit.countDocuments({ status: "Pending" }),
-      Deposit.countDocuments({ status: "Approved" }),
-      Withdraw.countDocuments({ status: "Pending" }),
-      Withdraw.countDocuments({ status: "Approved" }),
+    const User = require("../models/User");
+    const Deposit = require("../models/Deposit");
+    const Withdraw = require("../models/Withdraw");
+    const GoldTrade = require("../models/GoldTrade");
 
-      Deposit.aggregate([
-        { $match: { status: "Approved" } },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: "$amount" },
-          },
-        },
-      ]),
+    const totalUsers = await User.countDocuments();
 
-      Withdraw.aggregate([
-        { $match: { status: "Approved" } },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: "$amount" },
-          },
-        },
-      ]),
-
-      USDTTransaction.countDocuments({ status: "Pending" }),
-      Transaction.countDocuments(),
-    ]);
-
-    const latestTransactions = await Transaction.find()
-      .sort({ createdAt: -1 })
-      .limit(10);
-
-    res.json({
-      success: true,
-
-      stats: {
-        totalUsers,
-
-        pendingDeposits,
-        approvedDeposits,
-
-        pendingWithdraws,
-        approvedWithdraws,
-
-        pendingUSDT,
-
-        totalDepositAmount: totalDeposits[0]?.total || 0,
-        totalWithdrawAmount: totalWithdraws[0]?.total || 0,
-
-        completedTransactions,
-      },
-
-      latestTransactions,
+    const pendingDeposits = await Deposit.countDocuments({
+      status: "Pending",
     });
-  } catch (err) {
-    console.error("Admin Dashboard Error:", err);
 
-    res.status(500).json({
+    const pendingWithdrawals = await Withdraw.countDocuments({
+      status: "Pending",
+    });
+
+    const goldTradesToday = await GoldTrade.countDocuments();
+
+    const usdtVolume = 0;
+    const walletBalance = 0;
+
+    return res.status(200).json({
+      success: true,
+      dashboard: {
+        totalUsers,
+        pendingDeposits,
+        pendingWithdrawals,
+        goldTradesToday,
+        usdtVolume,
+        walletBalance,
+      },
+    });
+  } catch (error) {
+    console.error("ADMIN DASHBOARD ERROR:", error);
+
+    return res.status(500).json({
       success: false,
       message: "Unable to load dashboard.",
     });

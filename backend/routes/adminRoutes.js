@@ -10,7 +10,7 @@ const { verifyToken } = require("../middleware/authMiddleware");
 // =====================================
 // ADMIN MIDDLEWARE
 // =====================================
-const isAdmin = (req, res, next) => {
+const adminOnly = (req, res, next) => {
   if (!req.user || req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
@@ -25,7 +25,7 @@ const isAdmin = (req, res, next) => {
 // GET ALL USERS
 // GET /api/gold/admin/users
 // =====================================
-router.get("/users", verifyToken, isAdmin, async (req, res) => {
+router.get("/users", verifyToken, adminOnly, async (req, res) => {
   try {
     const users = await User.find({ isDeleted: false })
       .select("-password")
@@ -55,7 +55,7 @@ router.get("/users", verifyToken, isAdmin, async (req, res) => {
 // GET USER PROFILE
 // GET /api/gold/admin/profile/:id
 // =====================================
-router.get("/profile/:id", verifyToken, isAdmin, async (req, res) => {
+router.get("/profile/:id", verifyToken, adminOnly, async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select("-password");
 
@@ -98,7 +98,7 @@ router.get("/profile/:id", verifyToken, isAdmin, async (req, res) => {
 // BLOCK / UNBLOCK USER
 // PUT /api/gold/admin/block/:id
 // =====================================
-router.put("/block/:id", verifyToken, isAdmin, async (req, res) => {
+router.put("/block/:id", verifyToken, adminOnly, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -132,7 +132,7 @@ router.put("/block/:id", verifyToken, isAdmin, async (req, res) => {
 // FREEZE / UNFREEZE WALLET
 // PUT /api/gold/admin/freeze/:id
 // =====================================
-router.put("/freeze/:id", verifyToken, isAdmin, async (req, res) => {
+router.put("/freeze/:id", verifyToken, adminOnly, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -168,7 +168,7 @@ router.put("/freeze/:id", verifyToken, isAdmin, async (req, res) => {
 // SOFT DELETE USER
 // DELETE /api/gold/admin/delete/:id
 // =====================================
-router.delete("/delete/:id", verifyToken, isAdmin, async (req, res) => {
+router.delete("/delete/:id", verifyToken, adminOnly, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -203,7 +203,7 @@ router.delete("/delete/:id", verifyToken, isAdmin, async (req, res) => {
 // RESTORE USER
 // PUT /api/gold/admin/restore/:id
 // =====================================
-router.put("/restore/:id", verifyToken, isAdmin, async (req, res) => {
+router.put("/restore/:id", verifyToken, adminOnly, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -238,7 +238,7 @@ router.put("/restore/:id", verifyToken, isAdmin, async (req, res) => {
 // SEARCH USERS
 // GET /api/gold/admin/search?q=hashi
 // =====================================
-router.get("/search", verifyToken, isAdmin, async (req, res) => {
+router.get("/search", verifyToken, adminOnly, async (req, res) => {
   try {
     const keyword = req.query.q || "";
 
@@ -268,7 +268,7 @@ router.get("/search", verifyToken, isAdmin, async (req, res) => {
 // PUT /api/gold/admin/gold/settings
 // ==============================================
 
-router.put("/gold/settings", verifyToken, isAdmin, async (req, res) => {
+router.put("/gold/settings", verifyToken, adminOnly, async (req, res) => {
   try {
     let settings = await Settings.findOne();
 
@@ -305,7 +305,7 @@ router.put("/gold/settings", verifyToken, isAdmin, async (req, res) => {
 // PUT /api/gold/admin/gold/settings
 // =====================================================
 
-router.put("/gold/settings", verifyToken, isAdmin, async (req, res) => {
+router.put("/gold/settings", verifyToken, adminOnly, async (req, res) => {
   try {
     let settings = await Settings.findOne();
 
@@ -352,7 +352,7 @@ router.put("/gold/settings", verifyToken, isAdmin, async (req, res) => {
 const GoldTrade = require("../models/GoldTrade");
 const Transaction = require("../models/Transaction");
 
-router.put("/gold/wallet/:id", verifyToken, isAdmin, async (req, res) => {
+router.put("/gold/wallet/:id", verifyToken, adminOnly, async (req, res) => {
   try {
     const { amount, action, reason } = req.body;
 

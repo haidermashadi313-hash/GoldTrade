@@ -1,7 +1,12 @@
 const mongoose = require("mongoose");
 
+// =============================================
+// GOLDTRADE V18 - DEPOSIT MODEL (PRODUCTION)
+// =============================================
+
 const depositSchema = new mongoose.Schema(
   {
+    // ================= USER INFO =================
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -13,15 +18,18 @@ const depositSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      lowercase: true,
+      index: true,
     },
 
     email: {
       type: String,
-      required: true,
+      default: "",
       lowercase: true,
     },
 
-    amount: {
+    // ================= USER REQUEST =================
+    requestAmount: {
       type: Number,
       required: true,
       min: 1,
@@ -33,22 +41,54 @@ const depositSchema = new mongoose.Schema(
       default: "PKR",
     },
 
-    method: {
+    paymentMethod: {
       type: String,
-      enum: ["Bank Transfer", "JazzCash", "Easypaisa", "USDT (TRC20)"],
-      required: true,
+      enum: [
+        "Bank Transfer",
+        "JazzCash",
+        "EasyPaisa",
+        "Binance",
+        "USDT",
+        "ABA Bank",
+        "Other",
+      ],
+      default: "Bank Transfer",
+    },
+
+    senderName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    senderAccount: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
     transactionId: {
       type: String,
-      required: true,
+      default: "",
       trim: true,
-      uppercase: true,
     },
 
     receiptImage: {
       type: String,
       default: "",
+    },
+
+    note: {
+      type: String,
+      default: "",
+      maxlength: 300,
+    },
+
+    // ================= ADMIN APPROVAL =================
+    adminAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
 
     status: {
@@ -61,13 +101,12 @@ const depositSchema = new mongoose.Schema(
     adminNote: {
       type: String,
       default: "",
-      trim: true,
+      maxlength: 300,
     },
 
     approvedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
+      type: String,
+      default: "",
     },
 
     approvedAt: {
@@ -75,14 +114,16 @@ const depositSchema = new mongoose.Schema(
       default: null,
     },
 
-    rejectedAt: {
-      type: Date,
-      default: null,
+    // ================= WALLET CREDIT =================
+    walletUpdated: {
+      type: Boolean,
+      default: false,
     },
 
-    ipAddress: {
-      type: String,
-      default: "",
+    walletTransactionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "WalletTransaction",
+      default: null,
     },
   },
   {
@@ -90,10 +131,15 @@ const depositSchema = new mongoose.Schema(
   }
 );
 
-// Prevent duplicate transaction IDs
-depositSchema.index({ transactionId: 1 }, { unique: true });
+// =============================================
+// INDEXES
+// =============================================
 
-// Latest deposits first
-depositSchema.index({ createdAt: -1 });
+depositSchema.index({ username: 1, createdAt: -1 });
+depositSchema.index({ status: 1, createdAt: -1 });
+
+// =============================================
+// EXPORT MODEL
+// =============================================
 
 module.exports = mongoose.model("Deposit", depositSchema);

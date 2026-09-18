@@ -1,297 +1,245 @@
-const express = require("express");
-const mongoose = require("mongoose");
+// =======================================================
+// GoldTrade V18 - ADMIN USDT ROUTES (PART 1/4)
+// =======================================================
 
+const express = require("express");
 const router = express.Router();
 
-const USDTTransaction = require("../models/USDTTransaction");
+// ================= MODELS =================
 const User = require("../models/User");
+const Wallet = require("../models/Wallet");
+const UsdtRequest = require("../models/UsdtRequest");
 const Transaction = require("../models/Transaction");
 
-const { verifyToken } = require("../middleware/authMiddleware");
+// ================= MIDDLEWARE =================
+const verifyToken = require("../middleware/verifyToken");
+const isAdmin = require("../middleware/isAdmin");
 
-// =============================================
-// ADMIN ONLY MIDDLEWARE
-// =============================================
+// =======================================================
+// ALL ROUTES REQUIRE ADMIN LOGIN
+// =======================================================
+router.use(verifyToken);
+router.use(isAdmin);
 
-const adminOnly = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin access only.",
-    });
-  }
+// =======================================================
+// HEALTH CHECK
+// GET /api/admin/usdt/health
+// =======================================================
+router.get("/health", (req, res) => {
+  res.json({
+    success: true,
+    message: "Admin USDT API Working",
+    admin: req.user?.username || "Admin",
+  });
+});
 
-  next();
-};
+// =======================================================
+// GET ALL USDT REQUESTS
+// GET /api/admin/usdt/all
+// =======================================================
 
-// =============================================
-// GET ALL BUY / SELL REQUESTS
-// GET /api/gold/admin/usdt
-// ?username=hashi
-// ?status=Pending
-// ?type=BUY
-// =============================================
-
-router.get("/", verifyToken, adminOnly, async (req, res) => {
+router.get("/all", async (req, res) => {
   try {
-    const { username, status, type } = req.query;
+    const requests = await UsdtRequest.find()
+      .populate("userId", "username email")
+      .sort({ createdAt: -1 });
 
-    const filter = {};
-
-    if (username) {
-      filter.username = {
-        $regex: username,
-        $options: "i",
-      };
-    }
-
-    if (status && status !== "All") {
-      filter.status = status;
-    }
-
-    if (type && type !== "All") {
-      filter.transactionType = type;
-    }
-
-    const transactions = await USDTTransaction.find(filter).sort({
-      createdAt: -1,
-    });
-
-    res.json({
+    return res.json({
       success: true,
-      total: transactions.length,
-      transactions,
+      requests,
     });
   } catch (err) {
-    console.error("Load USDT Error:", err);
+    console.error("GET USDT REQUESTS ERROR:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Unable to load USDT requests.",
+      message: "Failed to load USDT requests.",
     });
   }
 });
 
-// =============================================
-// USDT DASHBOARD STATS
-// GET /api/gold/admin/usdt/stats
-// =============================================
+// =======================================================
+// GET USDT DASHBOARD STATS
+// GET /api/admin/usdt/stats
+// =======================================================
 
-router.get("/stats", verifyToken, adminOnly, async (req, res) => {
+router.get("/stats", async (req, res) => {
   try {
-    const pendingBuy = await USDTTransaction.countDocuments({
-      transactionType: "BUY",
-      status: "Pending",
-    });
+    const requests = await UsdtRequest.find();
 
-    const pendingSell = await USDTTransaction.countDocuments({
-      transactionType: "SELL",
-      status: "Pending",
-    });
+    const pending = requests.filter((r) => r.status === "Pending");
+    const approved = requests.filter((r) => r.status === "Approved");
+    const rejected = requests.filter((r) => r.status === "Rejected");
 
-    const approvedBuy = await USDTTransaction.aggregate([
-      {
-        $match: {
-          transactionType: "BUY",
-          status: "Approved",
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: "$usdtAmount" },
-        },
-      },
-    ]);
+    const pendingTotal = pending.reduce(
+      (sum, r) => sum + Number(r.amount || 0),
+      0
+    );
 
-    const approvedSell = await USDTTransaction.aggregate([
-      {
-        $match: {
-          transactionType: "SELL",
-          status: "Approved",
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: "$usdtAmount" },
-        },
-      },
-    ]);
+    const approvedTotal = approved.reduce(
+      (sum, r) => sum + Number(r.adminAmount || r.amount || 0),
+      0
+    );
 
-    res.json({
+    return res.json({
       success: true,
-
       stats: {
-        pendingBuy,
-        pendingSell,
-
-        buyVolume: approvedBuy[0]?.total || 0,
-        sellVolume: approvedSell[0]?.total || 0,
+        totalRequests: requests.length,
+        pendingRequests: pending.length,
+        approvedRequests: approved.length,
+        rejectedRequests: rejected.length,
+        pendingTotal,
+        approvedTotal,
       },
     });
   } catch (err) {
-    console.error("USDT Stats Error:", err);
+    console.error("USDT STATS ERROR:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Unable to load USDT stats.",
+      message: "Unable to load dashboard stats.",
     });
   }
 });
 
-// =============================================
-// GET SINGLE REQUEST
-// GET /api/gold/admin/usdt/:id
-// =============================================
+// ======================================================
+// APPROVE USDT REQUEST
+// PUT /api/admin/usdt/:id/approve
+// ======================================================
 
-router.get("/:id", verifyToken, adminOnly, async (req, res) => {
+router.put("/:id/approve", verifyToken, isAdmin, async (req, res) => {
   try {
-    const transaction = await USDTTransaction.findById(req.params.id);
+    const { adminAmount, adminNote } = req.body;
 
-    if (!transaction) {
+    const order = await UsdtOrder.findById(req.params.id);
+
+    if (!order) {
       return res.status(404).json({
         success: false,
         message: "USDT request not found.",
       });
     }
 
-    res.json({
-      success: true,
-      transaction,
-    });
-  } catch (err) {
-    console.error(err);
-
-    res.status(500).json({
-      success: false,
-      message: "Unable to load request.",
-    });
-  }
-});
-// =============================================
-// APPROVE BUY / SELL REQUEST
-// PUT /api/gold/admin/usdt/:id/approve
-// BUY  -> Credit USDT Balance
-// SELL -> Deduct USDT Balance
-// =============================================
-
-router.put("/:id/approve", verifyToken, adminOnly, async (req, res) => {
-  const session = await mongoose.startSession();
-
-  try {
-    session.startTransaction();
-
-    const request = await USDTTransaction.findById(req.params.id).session(session);
-
-    if (!request) {
-      await session.abortTransaction();
-      return res.status(404).json({
-        success: false,
-        message: "USDT request not found.",
-      });
-    }
-
-    if (request.status !== "Pending") {
-      await session.abortTransaction();
+    if (order.status !== "Pending") {
       return res.status(400).json({
         success: false,
         message: "Request already processed.",
       });
     }
 
-    const user = await User.findOne({
-      username: request.username,
-    }).session(session);
+    const user = await User.findOne({ username: order.username });
 
     if (!user) {
-      await session.abortTransaction();
       return res.status(404).json({
         success: false,
         message: "User not found.",
       });
     }
 
-    // BUY = Credit USDT
-    if (request.transactionType === "BUY") {
-      user.usdtBalance =
-        (user.usdtBalance || 0) + request.usdtAmount;
+    const wallet = await Wallet.findOne({ userId: user._id });
+
+    if (!wallet) {
+      return res.status(404).json({
+        success: false,
+        message: "Wallet not found.",
+      });
     }
 
-    // SELL = Deduct USDT
-    if (request.transactionType === "SELL") {
-      if ((user.usdtBalance || 0) < request.usdtAmount) {
-        await session.abortTransaction();
-        return res.status(400).json({
-          success: false,
-          message: "User has insufficient USDT balance.",
-        });
-      }
+    // Credit USDT
+    const creditAmount = Number(adminAmount || order.amount);
 
-      user.usdtBalance -= request.usdtAmount;
-    }
+    wallet.usdtBalance =
+      Number(wallet.usdtBalance || 0) + creditAmount;
 
-    await user.save({ session });
+    user.usdtBalance = wallet.usdtBalance;
 
-    request.status = "Approved";
-    request.adminNote = req.body.adminNote || "";
-    request.approvedBy = req.user._id;
-    request.approvedAt = new Date();
+    await wallet.save();
+    await user.save();
 
-    await request.save({ session });
+    // Update Order
+    order.status = "Approved";
+    order.adminAmount = creditAmount;
+    order.adminNote = adminNote || "Approved by Admin";
+    order.approvedAt = new Date();
 
-    await Transaction.create(
-      [
-        {
-          userId: user._id,
-          username: user.username,
-          type:
-            request.transactionType === "BUY"
-              ? "Buy USDT"
-              : "Sell USDT",
+    await order.save();
 
-          status: "Approved",
-
-          amount: request.usdtAmount,
-
-          description:
-            request.transactionType === "BUY"
-              ? "USDT credited by admin."
-              : "USDT deducted after sell approval.",
-        },
-      ],
-      { session }
-    );
-
-    await session.commitTransaction();
-
-    res.json({
+    return res.json({
       success: true,
-      message: `${request.transactionType} request approved successfully.`,
-      usdtBalance: user.usdtBalance,
+      message: "USDT request approved successfully.",
+      wallet: {
+        usdtBalance: wallet.usdtBalance,
+      },
     });
+
   } catch (err) {
-    await session.abortTransaction();
+    console.error("APPROVE USDT ERROR:", err);
 
-    console.error("Approve USDT Error:", err);
-
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Unable to approve request.",
+      message: "Approval failed.",
+      error: err.message,
     });
-  } finally {
-    session.endSession();
+  }
+});
+// ======================================================
+// REJECT USDT REQUEST
+// PUT /api/admin/usdt/:id/reject
+// ======================================================
+
+router.put("/:id/reject", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const { adminNote } = req.body;
+
+    const order = await UsdtOrder.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "USDT request not found.",
+      });
+    }
+
+    if (order.status !== "Pending") {
+      return res.status(400).json({
+        success: false,
+        message: "Request already processed.",
+      });
+    }
+
+    order.status = "Rejected";
+    order.adminNote = adminNote || "Rejected by Admin";
+    order.rejectedAt = new Date();
+
+    await order.save();
+
+    return res.json({
+      success: true,
+      message: "USDT request rejected successfully.",
+    });
+
+  } catch (err) {
+    console.error("REJECT USDT ERROR:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Reject failed.",
+      error: err.message,
+    });
   }
 });
 
-// =============================================
-// REJECT BUY / SELL REQUEST
-// PUT /api/gold/admin/usdt/:id/reject
-// =============================================
+// =======================================================
+// GET SINGLE USDT REQUEST
+// GET /api/admin/usdt/:id
+// =======================================================
 
-router.put("/:id/reject", verifyToken, adminOnly, async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    const request = await USDTTransaction.findById(req.params.id);
+    const request = await UsdtRequest.findById(req.params.id).populate(
+      "userId",
+      "username email"
+    );
 
     if (!request) {
       return res.status(404).json({
@@ -300,61 +248,22 @@ router.put("/:id/reject", verifyToken, adminOnly, async (req, res) => {
       });
     }
 
-    if (request.status !== "Pending") {
-      return res.status(400).json({
-        success: false,
-        message: "Request already processed.",
-      });
-    }
-
-    request.status = "Rejected";
-    request.adminNote = req.body.adminNote || "";
-    request.rejectedBy = req.user._id;
-    request.rejectedAt = new Date();
-
-    await request.save();
-
-    res.json({
+    return res.json({
       success: true,
-      message: `${request.transactionType} request rejected successfully.`,
+      request,
     });
   } catch (err) {
-    console.error("Reject USDT Error:", err);
+    console.error("GET SINGLE USDT ERROR:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Unable to reject request.",
+      message: "Failed to load request.",
     });
   }
 });
 
-// =============================================
-// RECENT BUY / SELL REQUESTS
-// GET /api/gold/admin/usdt/recent
-// =============================================
-
-router.get("/recent", verifyToken, adminOnly, async (req, res) => {
-  try {
-    const transactions = await USDTTransaction.find()
-      .sort({ createdAt: -1 })
-      .limit(10);
-
-    res.json({
-      success: true,
-      transactions,
-    });
-  } catch (err) {
-    console.error("Recent USDT Error:", err);
-
-    res.status(500).json({
-      success: false,
-      message: "Unable to load recent USDT requests.",
-    });
-  }
-});
-
-// =============================================
-// EXPORT ROUTER
-// =============================================
+// =======================================================
+// MODULE EXPORT
+// =======================================================
 
 module.exports = router;

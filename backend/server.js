@@ -5,6 +5,8 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 
 const app = express();
+const multer = require("multer");
+const path = require("path");
 
 // ======================================================
 // CORS CONFIG (Vercel + Localhost)
@@ -37,42 +39,54 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static("uploads"));
 
 // ======================================================
-// IMPORT ROUTES
+// IMPORT ROUTES (GoldTrade V18 Final)
 // ======================================================
 
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const walletRoutes = require("./routes/walletRoutes");
+
 const depositRoutes = require("./routes/depositRoutes");
 const withdrawRoutes = require("./routes/withdrawRoutes");
-const settingsRoutes = require("./routes/settingsRoutes");
-const marketRoutes = require("./routes/marketRoutes");
-const tradingRoutes = require("./routes/tradingRoutes");
-const transactionRoutes = require("./routes/transactionRoutes");
-const goldRoutes = require("./routes/goldRoutes");
-const paymentSettingsRoutes = require("./routes/paymentSettingsRoutes");
 
-// Admin Routes
+const goldRoutes = require("./routes/goldRoutes");
+const usdtRoutes = require("./routes/usdtRoutes");
+const tradingRoutes = require("./routes/tradingRoutes");
+
+const marketRoutes = require("./routes/marketRoutes");
+const settingsRoutes = require("./routes/settingsRoutes");
+const transactionRoutes = require("./routes/transactionRoutes");
+
+const paymentSettingsRoutes = require("./routes/paymentSettingsRoutes");
+const referralRoutes = require("./routes/referralRoutes");
+const historyRoutes = require("./routes/historyRoutes");
+
+// ================= ADMIN ROUTES =================
+const adminRoutes = require("./routes/adminRoutes");
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const adminDepositRoutes = require("./routes/adminDepositRoutes");
-const adminWithdrawRoutes = require("./routes/adminWithdrawRoutes");
-const adminUserRoutes = require("./routes/adminUserRoutes");
+const adminUsdtRoutes = require("./routes/adminUsdtRoutes");
 const adminWalletRoutes = require("./routes/adminWalletRoutes");
-const adminRoutes = require("./routes/adminRoutes");
+const adminUserRoutes = require("./routes/adminUserRoutes");
 
-// ======================================================
-// MONGODB CONNECTION
-// ======================================================
-
+// ==========================================
+// MongoDB Atlas Connection (GoldTrade V18)
+// ==========================================
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 15000,
+    connectTimeoutMS: 15000,
+    family: 4, // Force IPv4 (TLS issue fix)
+    retryWrites: true,
+  })
   .then(() => {
     console.log("✅ MongoDB Connected Successfully");
   })
   .catch((err) => {
-    console.error("❌ MongoDB Connection Error:", err.message);
+    console.error("❌ MongoDB Connection Failed");
+    console.error(err.message);
+    process.exit(1);
   });
-
 // ======================================================
 // ROOT ROUTE
 // ======================================================
@@ -112,64 +126,36 @@ app.get("/api/status", (req, res) => {
     version: "V18 Enterprise",
   });
 });
-// ======================================================
-// ADMIN ROUTES
-// ======================================================
-
-// Dashboard
-app.use("/api/gold/admin/dashboard", adminDashboardRoutes);
-
-// Deposits
-app.use("/api/gold/admin/deposits", adminDepositRoutes);
-
-// Withdrawals
-app.use("/api/gold/admin/withdraws", adminWithdrawRoutes);
-
-// Users
-app.use("/api/gold/admin/users", adminUserRoutes);
-
-// Wallet
-app.use("/api/gold/admin/wallet", adminWalletRoutes);
-
-// Other Admin APIs
-app.use("/api/admin", adminRoutes);
-
-// Payment Settings
-app.use("/api/gold/admin/payment-settings", paymentSettingsRoutes);
 
 // ======================================================
-// USER API ROUTES
+// PUBLIC API ROUTES
 // ======================================================
 
-// Authentication
 app.use("/api/auth", authRoutes);
-
-// Users
 app.use("/api/users", userRoutes);
-
-// Wallet
-app.use("/api/wallets", walletRoutes);
-
-// Deposit
+app.use("/api/wallet", walletRoutes);
 app.use("/api/deposit", depositRoutes);
-
-// Withdraw
-app.use("/api/withdraw", withdrawRoutes);
-
-// Trading
-app.use("/api/trading", tradingRoutes);
-
-// Market
-app.use("/api/market", marketRoutes);
-
-// Settings
-app.use("/api/settings", settingsRoutes);
-
-// Transactions
-app.use("/api/transactions", transactionRoutes);
-
-// Gold (ONLY ONE TIME)
+app.use("/api/admin/withdraws", withdrawRoutes);
+app.use("/api/usdt", usdtRoutes);
 app.use("/api/gold", goldRoutes);
+app.use("/api/trading", tradingRoutes);
+app.use("/api/market", marketRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/transactions", transactionRoutes);
+app.use("/api/payment-settings", paymentSettingsRoutes);
+app.use("/api/referrals", referralRoutes);
+app.use("/api/history", historyRoutes);
+
+// ======================================================
+// ADMIN API ROUTES
+// ======================================================
+
+app.use("/api/admin", adminRoutes);
+app.use("/api/admin/dashboard", adminDashboardRoutes);
+app.use("/api/admin/deposits", adminDepositRoutes);
+app.use("/api/admin/wallet", adminWalletRoutes);
+app.use("/api/admin/users", adminUserRoutes);
+app.use("/api/admin/usdt", adminUsdtRoutes);
 
 // ======================================================
 // 404 API ROUTE
@@ -184,7 +170,30 @@ app.use("/api/*", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+// ===========================================
+// TEMP FIX PKR WALLET (DELETE AFTER USE)
+// ===========================================
+const Wallet = require("./models/Wallet");
 
+app.get("/fix-pkr", async (req, res) => {
+  try {
+    const result = await Wallet.updateMany(
+      { pkrBalance: { $exists: false } },
+      { $set: { pkrBalance: 0 } }
+    );
+
+    res.json({
+      success: true,
+      repaired: result.modifiedCount,
+      matched: result.matchedCount,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
 // ======================================================
 // GLOBAL ERROR HANDLER
 // ======================================================

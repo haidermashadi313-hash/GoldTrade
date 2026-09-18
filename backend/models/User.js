@@ -2,9 +2,10 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
-    // ==========================
+    // =====================================================
     // BASIC USER INFO
-    // ==========================
+    // =====================================================
+
     username: {
       type: String,
       required: true,
@@ -35,9 +36,10 @@ const userSchema = new mongoose.Schema(
       default: "Pakistan",
     },
 
-    // ==========================
-    // USER ROLE
-    // ==========================
+    // =====================================================
+    // USER ROLE & STATUS
+    // =====================================================
+
     role: {
       type: String,
       enum: ["user", "admin"],
@@ -50,9 +52,10 @@ const userSchema = new mongoose.Schema(
       default: "Active",
     },
 
-    // ==========================
+    // =====================================================
     // WALLET BALANCES
-    // ==========================
+    // =====================================================
+
     walletBalance: {
       type: Number,
       default: 0,
@@ -71,9 +74,10 @@ const userSchema = new mongoose.Schema(
       min: 0,
     },
 
-    // ==========================
-    // GOLD ANALYTICS (Admin Use)
-    // ==========================
+    // =====================================================
+    // GOLD ANALYTICS
+    // =====================================================
+
     goldAveragePrice: {
       type: Number,
       default: 0,
@@ -84,9 +88,10 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
 
-    // ==========================
-    // TOTALS
-    // ==========================
+    // =====================================================
+    // TOTAL STATISTICS
+    // =====================================================
+
     totalDeposit: {
       type: Number,
       default: 0,
@@ -107,9 +112,10 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
 
-    // ==========================
+    // =====================================================
     // REFERRAL SYSTEM
-    // ==========================
+    // =====================================================
+
     referralCode: {
       type: String,
       unique: true,
@@ -139,9 +145,10 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
 
-    // ==========================
+    // =====================================================
     // REWARD SYSTEM
-    // ==========================
+    // =====================================================
+
     cashbackEarned: {
       type: Number,
       default: 0,
@@ -157,9 +164,10 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
 
-    // ==========================
+    // =====================================================
     // VIP MEMBERSHIP
-    // ==========================
+    // =====================================================
+
     vipLevel: {
       type: String,
       enum: ["None", "Silver", "Gold", "Diamond"],
@@ -171,9 +179,10 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ==========================
+    // =====================================================
     // SECURITY
-    // ==========================
+    // =====================================================
+
     isKYCVerified: {
       type: Boolean,
       default: false,
@@ -199,16 +208,18 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// ==========================
-// INDEXES
-// ==========================
-userSchema.index({ email: 1 });
-userSchema.index({ username: 1 });
-userSchema.index({ referralCode: 1 });
+// =====================================================
+// EXTRA INDEXES (Only Non-Unique Fields)
+// =====================================================
+
+// Email, Username & ReferralCode already have unique indexes.
+// Don't create duplicate indexes for them.
+
 userSchema.index({ role: 1 });
 userSchema.index({ status: 1 });
 
-// ==========================
-// EXPORT
-// ==========================
+// =====================================================
+// EXPORT MODEL
+// =====================================================
+
 module.exports = mongoose.model("User", userSchema);

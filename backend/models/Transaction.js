@@ -1,3 +1,5 @@
+"use strict";
+
 const mongoose = require("mongoose");
 
 const transactionSchema = new mongoose.Schema(
@@ -8,40 +10,56 @@ const transactionSchema = new mongoose.Schema(
       required: true,
     },
 
-    username: String,
+    username: {
+      type: String,
+      default: "",
+    },
 
-    type: {
+    transactionType: {
       type: String,
       enum: [
         "Deposit",
         "Withdraw",
-        "Buy Gold",
-        "Sell Gold",
-        "Buy USDT",
-        "Sell USDT",
+        "Gold Buy",
+        "Gold Sell",
+        "Wallet Credit",
+        "Wallet Debit",
+        "Referral Bonus",
+        "Cashback",
       ],
       required: true,
     },
 
-    amount: {
+    amountPKR: {
       type: Number,
       default: 0,
     },
 
-    asset: {
+    amountGold: {
+      type: Number,
+      default: 0,
+    },
+
+    amountUSDT: {
+      type: Number,
+      default: 0,
+    },
+
+    provider: {
       type: String,
-      default: "PKR",
+      default: "Wallet",
     },
 
     status: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected"],
+      enum: ["Pending", "Approved", "Rejected", "Completed"],
       default: "Pending",
     },
 
-    note: String,
-
-    receipt: String,
+    description: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,

@@ -1,9 +1,10 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
-// =====================================
-// VERIFY TOKEN
-// =====================================
+// =====================================================
+// VERIFY JWT TOKEN
+// =====================================================
+
 const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -19,7 +20,6 @@ const verifyToken = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Support id, _id, or userId
     const userId = decoded.id || decoded._id || decoded.userId;
 
     if (!userId) {
@@ -42,9 +42,8 @@ const verifyToken = async (req, res, next) => {
     req.userId = user._id;
 
     next();
-
-  } catch (err) {
-    console.error("JWT Verify Error:", err.message);
+  } catch (error) {
+    console.error("JWT Verify Error:", error.message);
 
     return res.status(401).json({
       success: false,
@@ -53,10 +52,11 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-// =====================================
-// ADMIN MIDDLEWARE
-// =====================================
-const isAdmin = (req, res, next) => {
+// =====================================================
+// ADMIN ONLY MIDDLEWARE
+// =====================================================
+
+const adminOnly = (req, res, next) => {
   if (!req.user || req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
@@ -67,10 +67,11 @@ const isAdmin = (req, res, next) => {
   next();
 };
 
-// =====================================
+// =====================================================
 // EXPORTS
-// =====================================
+// =====================================================
+
 module.exports = {
   verifyToken,
-  isAdmin,
+  adminOnly,
 };
