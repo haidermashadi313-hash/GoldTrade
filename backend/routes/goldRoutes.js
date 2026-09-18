@@ -9,7 +9,7 @@ const router = express.Router();
 // ================= Models =================
 const User = require("../models/User");
 const Settings = require("../models/Settings");
-const GoldTrade = require("../models/GoldTrade");
+const GoldTrade = require("../models/Goldtrade");
 const Transaction = require("../models/Transaction");
 
 // ================= Middleware =================

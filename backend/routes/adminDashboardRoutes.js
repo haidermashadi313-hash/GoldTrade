@@ -35,7 +35,7 @@ router.get("/", verifyToken, adminOnly, async (req, res) => {
     const User = require("../models/User");
     const Deposit = require("../models/Deposit");
     const Withdraw = require("../models/Withdraw");
-    const GoldTrade = require("../models/GoldTrade");
+    const GoldTrade = require("../models/Goldtrade");
 
     const totalUsers = await User.countDocuments();
 

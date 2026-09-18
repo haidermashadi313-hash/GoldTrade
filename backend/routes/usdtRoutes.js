@@ -16,8 +16,8 @@ const router = express.Router();
 // =====================================================
 
 const User = require("../models/User");
-const wallet = require("../models/wallet");
-const walletTransaction = require("../models/walletTransaction");
+const wallet = require("../models/Wallet");
+const walletTransaction = require("../models/WalletTransaction");
 const UsdtOrder = require("../models/UsdtOrder");
 const Transaction = require("../models/Transaction");
 

@@ -349,7 +349,7 @@ router.put("/gold/settings", verifyToken, adminOnly, async (req, res) => {
 // PUT /api/gold/admin/gold/wallet/:id
 // =====================================================
 
-const GoldTrade = require("../models/GoldTrade");
+const GoldTrade = require("../models/Goldtrade");
 const Transaction = require("../models/Transaction");
 
 router.put("/gold/wallet/:id", verifyToken, adminOnly, async (req, res) => {
