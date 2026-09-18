@@ -6,7 +6,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   CheckSquare,
-  Wallet,
+  wallet,
   Users,
   LogOut,
 } from "lucide-react";
@@ -40,8 +40,8 @@ export default function Sidebar() {
         </Link>
 
         <Link href="/wallet" className="flex items-center gap-3 p-3 rounded-xl hover:bg-yellow-500 hover:text-black transition">
-          <Wallet size={20} />
-          Wallet
+          <wallet size={20} />
+          wallet
         </Link>
 
         <Link href="/referral" className="flex items-center gap-3 p-3 rounded-xl hover:bg-yellow-500 hover:text-black transition">

@@ -8,7 +8,7 @@ import axios from "axios";
 // ==========================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 // ==========================================
 // TYPES
@@ -18,17 +18,17 @@ interface GoldPrice {
   buyPrice: number;
   sellPrice: number;
   goldPriceUSD: number;
-  usdToPkr: number;
+  UsdtoPkr: number;
   tradingEnabled: boolean;
   marketStatus: string;
 }
 
 interface GoldTransaction {
   _id: string;
-  tradeType: "BUY" | "SELL";
+  tradeType: "buy" | "sell";
   grams: number;
   pricePerGram: number;
-  totalPKR: number;
+  totalPkr: number;
   profitLoss: number;
   status: string;
   createdAt: string;
@@ -37,13 +37,13 @@ interface GoldTransaction {
 interface Portfolio {
   goldBalance: number;
   walletBalance: number;
-  averageBuyPrice: number;
+  averagebuyPrice: number;
   currentPrice: number;
   portfolioValue: number;
   liveProfit: number;
   totalProfitLoss: number;
-  totalGoldBuy: number;
-  totalGoldSell: number;
+  totalGoldbuy: number;
+  totalGoldsell: number;
   transactions: GoldTransaction[];
 }
 
@@ -64,7 +64,7 @@ const GoldPortfolioPage: React.FC = () => {
     buyPrice: 0,
     sellPrice: 0,
     goldPriceUSD: 0,
-    usdToPkr: 0,
+    UsdtoPkr: 0,
     tradingEnabled: true,
     marketStatus: "OPEN",
   });
@@ -76,13 +76,13 @@ const GoldPortfolioPage: React.FC = () => {
   const [portfolio, setPortfolio] = useState<Portfolio>({
     goldBalance: 0,
     walletBalance: 0,
-    averageBuyPrice: 0,
+    averagebuyPrice: 0,
     currentPrice: 0,
     portfolioValue: 0,
     liveProfit: 0,
     totalProfitLoss: 0,
-    totalGoldBuy: 0,
-    totalGoldSell: 0,
+    totalGoldbuy: 0,
+    totalGoldsell: 0,
     transactions: [],
   });
 
@@ -170,8 +170,8 @@ const GoldPortfolioPage: React.FC = () => {
   // ==========================================
 
   const totalInvestment = useMemo(() => {
-    return portfolio.goldBalance * portfolio.averageBuyPrice;
-  }, [portfolio.goldBalance, portfolio.averageBuyPrice]);
+    return portfolio.goldBalance * portfolio.averagebuyPrice;
+  }, [portfolio.goldBalance, portfolio.averagebuyPrice]);
 
   const currentPortfolioValue = useMemo(() => {
     return portfolio.goldBalance * goldPrice.sellPrice;
@@ -276,18 +276,18 @@ const GoldPortfolioPage: React.FC = () => {
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
 
         <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">Live Buy Price</p>
+          <p className="text-gray-400 text-sm">Live buy Price</p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            PKR {goldPrice.buyPrice.toLocaleString()}
+            Pkr {goldPrice.buyPrice.toLocaleString()}
           </h2>
         </div>
 
         <div className="bg-zinc-900 border border-red-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">Live Sell Price</p>
+          <p className="text-gray-400 text-sm">Live sell Price</p>
 
           <h2 className="text-3xl font-black text-red-400 mt-2">
-            PKR {goldPrice.sellPrice.toLocaleString()}
+            Pkr {goldPrice.sellPrice.toLocaleString()}
           </h2>
         </div>
 
@@ -322,10 +322,10 @@ const GoldPortfolioPage: React.FC = () => {
         </div>
 
         <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">Wallet Balance</p>
+          <p className="text-gray-400 text-sm">wallet Balance</p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            PKR {portfolio.walletBalance.toLocaleString()}
+            Pkr {portfolio.walletBalance.toLocaleString()}
           </h2>
         </div>
 
@@ -333,7 +333,7 @@ const GoldPortfolioPage: React.FC = () => {
           <p className="text-gray-400 text-sm">Portfolio Value</p>
 
           <h2 className="text-3xl font-black text-blue-400 mt-2">
-            PKR {currentPortfolioValue.toLocaleString()}
+            Pkr {currentPortfolioValue.toLocaleString()}
           </h2>
         </div>
 
@@ -347,7 +347,7 @@ const GoldPortfolioPage: React.FC = () => {
                 : "text-red-400"
             }`}
           >
-            PKR {unrealizedProfit.toLocaleString()}
+            Pkr {unrealizedProfit.toLocaleString()}
           </h2>
         </div>
 
@@ -368,11 +368,11 @@ const GoldPortfolioPage: React.FC = () => {
           <p className="text-gray-400 text-sm">Total Investment</p>
 
           <h2 className="text-3xl font-black text-blue-400 mt-2">
-            PKR {totalInvestment.toLocaleString()}
+            Pkr {totalInvestment.toLocaleString()}
           </h2>
 
           <p className="text-xs text-gray-500 mt-3">
-            Gold Balance × Average Buy Price
+            Gold Balance × Average buy Price
           </p>
         </div>
 
@@ -382,11 +382,11 @@ const GoldPortfolioPage: React.FC = () => {
           <p className="text-gray-400 text-sm">Current Gold Value</p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            PKR {currentPortfolioValue.toLocaleString()}
+            Pkr {currentPortfolioValue.toLocaleString()}
           </h2>
 
           <p className="text-xs text-gray-500 mt-3">
-            Gold Balance × Live Sell Price
+            Gold Balance × Live sell Price
           </p>
         </div>
 
@@ -396,11 +396,11 @@ const GoldPortfolioPage: React.FC = () => {
           <p className="text-gray-400 text-sm">Total Assets Value</p>
 
           <h2 className="text-3xl font-black text-purple-400 mt-2">
-            PKR {totalAssetsValue.toLocaleString()}
+            Pkr {totalAssetsValue.toLocaleString()}
           </h2>
 
           <p className="text-xs text-gray-500 mt-3">
-            Wallet + Gold Portfolio
+            wallet + Gold Portfolio
           </p>
         </div>
 
@@ -416,7 +416,7 @@ const GoldPortfolioPage: React.FC = () => {
                 : "text-red-400"
             }`}
           >
-            PKR {unrealizedProfit.toLocaleString()}
+            Pkr {unrealizedProfit.toLocaleString()}
           </h2>
 
           <p className="text-xs text-gray-500 mt-3">
@@ -456,11 +456,11 @@ const GoldPortfolioPage: React.FC = () => {
                 : "text-red-400"
             }`}
           >
-            PKR {portfolio.totalProfitLoss.toLocaleString()}
+            Pkr {portfolio.totalProfitLoss.toLocaleString()}
           </h2>
 
           <p className="text-xs text-gray-500 mt-3">
-            Completed Sell Transactions
+            Completed sell Transactions
           </p>
         </div>
 
@@ -480,21 +480,21 @@ const GoldPortfolioPage: React.FC = () => {
 
           <div className="bg-black rounded-2xl p-5 border border-zinc-700">
             <p className="text-gray-400 text-sm mb-2">
-              Live Buy Price
+              Live buy Price
             </p>
 
             <h3 className="text-2xl font-black text-green-400">
-              PKR {goldPrice.buyPrice.toLocaleString()}
+              Pkr {goldPrice.buyPrice.toLocaleString()}
             </h3>
           </div>
 
           <div className="bg-black rounded-2xl p-5 border border-zinc-700">
             <p className="text-gray-400 text-sm mb-2">
-              Live Sell Price
+              Live sell Price
             </p>
 
             <h3 className="text-2xl font-black text-red-400">
-              PKR {goldPrice.sellPrice.toLocaleString()}
+              Pkr {goldPrice.sellPrice.toLocaleString()}
             </h3>
           </div>
 
@@ -510,11 +510,11 @@ const GoldPortfolioPage: React.FC = () => {
 
           <div className="bg-black rounded-2xl p-5 border border-zinc-700">
             <p className="text-gray-400 text-sm mb-2">
-              USD → PKR Exchange Rate
+              USD → Pkr Exchange Rate
             </p>
 
             <h3 className="text-2xl font-black text-cyan-400">
-              {goldPrice.usdToPkr}
+              {goldPrice.UsdtoPkr}
             </h3>
           </div>
 
@@ -546,21 +546,21 @@ const GoldPortfolioPage: React.FC = () => {
 
           <div className="flex justify-between border-b border-zinc-800 pb-3">
             <span className="text-gray-400">
-              Average Buy Price
+              Average buy Price
             </span>
 
             <span className="text-green-400 font-bold">
-              PKR {portfolio.averageBuyPrice.toLocaleString()}
+              Pkr {portfolio.averagebuyPrice.toLocaleString()}
             </span>
           </div>
 
           <div className="flex justify-between border-b border-zinc-800 pb-3">
             <span className="text-gray-400">
-              Current Sell Price
+              Current sell Price
             </span>
 
             <span className="text-red-400 font-bold">
-              PKR {goldPrice.sellPrice.toLocaleString()}
+              Pkr {goldPrice.sellPrice.toLocaleString()}
             </span>
           </div>
 
@@ -586,7 +586,7 @@ const GoldPortfolioPage: React.FC = () => {
             </span>
 
             <span className="text-green-400 font-bold">
-              {portfolio.totalGoldBuy.toFixed(3)} g
+              {portfolio.totalGoldbuy.toFixed(3)} g
             </span>
           </div>
 
@@ -596,7 +596,7 @@ const GoldPortfolioPage: React.FC = () => {
             </span>
 
             <span className="text-red-400 font-bold">
-              {portfolio.totalGoldSell.toFixed(3)} g
+              {portfolio.totalGoldsell.toFixed(3)} g
             </span>
           </div>
 
@@ -631,7 +631,7 @@ const GoldPortfolioPage: React.FC = () => {
             </p>
 
             <p className="text-sm mt-2">
-              Your Buy & Sell history will appear here.
+              Your buy & sell history will appear here.
             </p>
           </div>
 
@@ -647,7 +647,7 @@ const GoldPortfolioPage: React.FC = () => {
                   <th className="py-3">Type</th>
                   <th className="py-3">Grams</th>
                   <th className="py-3">Price / Gram</th>
-                  <th className="py-3">Total PKR</th>
+                  <th className="py-3">Total Pkr</th>
                   <th className="py-3">Profit / Loss</th>
                   <th className="py-3">Status</th>
                   <th className="py-3">Date</th>
@@ -664,13 +664,13 @@ const GoldPortfolioPage: React.FC = () => {
                     className="border-b border-zinc-800 hover:bg-zinc-800 transition"
                   >
 
-                    {/* BUY / SELL */}
+                    {/* buy / sell */}
 
                     <td className="py-4">
 
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          trade.tradeType === "BUY"
+                          trade.tradeType === "buy"
                             ? "bg-green-600 text-white"
                             : "bg-red-600 text-white"
                         }`}
@@ -689,13 +689,13 @@ const GoldPortfolioPage: React.FC = () => {
                     {/* PRICE */}
 
                     <td className="py-4 text-cyan-400 font-semibold">
-                      PKR {trade.pricePerGram.toLocaleString()}
+                      Pkr {trade.pricePerGram.toLocaleString()}
                     </td>
 
                     {/* TOTAL */}
 
                     <td className="py-4 font-semibold">
-                      PKR {trade.totalPKR.toLocaleString()}
+                      Pkr {trade.totalPkr.toLocaleString()}
                     </td>
 
                     {/* PROFIT LOSS */}
@@ -709,7 +709,7 @@ const GoldPortfolioPage: React.FC = () => {
                             : "text-red-400"
                         }`}
                       >
-                        PKR {trade.profitLoss.toLocaleString()}
+                        Pkr {trade.profitLoss.toLocaleString()}
                       </span>
 
                     </td>
@@ -757,7 +757,7 @@ const GoldPortfolioPage: React.FC = () => {
           </p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            {portfolio.totalGoldBuy.toFixed(3)} g
+            {portfolio.totalGoldbuy.toFixed(3)} g
           </h2>
 
         </div>
@@ -769,7 +769,7 @@ const GoldPortfolioPage: React.FC = () => {
           </p>
 
           <h2 className="text-3xl font-black text-red-400 mt-2">
-            {portfolio.totalGoldSell.toFixed(3)} g
+            {portfolio.totalGoldsell.toFixed(3)} g
           </h2>
 
         </div>
@@ -781,7 +781,7 @@ const GoldPortfolioPage: React.FC = () => {
           </p>
 
           <h2 className="text-3xl font-black text-purple-400 mt-2">
-            PKR {totalAssetsValue.toLocaleString()}
+            Pkr {totalAssetsValue.toLocaleString()}
           </h2>
 
         </div>
@@ -799,7 +799,7 @@ const GoldPortfolioPage: React.FC = () => {
         </p>
 
         <p>
-          Live Portfolio • Buy & Sell History • Profit / Loss • JWT Protected
+          Live Portfolio • buy & sell history • Profit / Loss • JWT Protected
         </p>
 
         <p className="mt-2">

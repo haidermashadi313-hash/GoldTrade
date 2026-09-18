@@ -1,214 +1,270 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { RefreshCw } from "lucide-react";
-import { loginUser } from "@/lib/api";
+import { useState } from "react";
+import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 
-// ==========================================
-// GOLDTRADE API
-// ==========================================
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-// ==========================================
-// TYPES
-// ==========================================
-type User = {
-  _id: string;
-  username: string;
-  email: string;
-  walletBalance: number;
-  usdtBalance: number;
-  goldBalance: number;
-  goldAveragePrice: number;
-  goldProfitLoss: number;
-  totalDeposit: number;
-  totalWithdraw: number;
-};
+export default function LoginPage() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
-export default function DashboardPage() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const [user, setUser] = useState<User>({
-    _id: "",
-    username: "",
-    email: "",
-    walletBalance: 0,
-    usdtBalance: 0,
-    goldBalance: 0,
-    goldAveragePrice: 0,
-    goldProfitLoss: 0,
-    totalDeposit: 0,
-    totalWithdraw: 0,
-  });
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
+    // ==========================================
+  // LOGIN FUNCTION (GoldTrade V18 FINAL)
+  // ==========================================
+  const handleLogin = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
+    e.preventDefault();
 
-  const [market, setMarket] = useState<any>({});
-  const [goldHistory, setGoldHistory] = useState<any[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [lastUpdate, setLastUpdate] = useState("");
+    setMessage("");
 
-  // =====================================
-// LOAD DASHBOARD 
-// =====================================
-
-const loadDashboard = async () => {
-  try {
-    const token = localStorage.getItem("token");
-    const username = localStorage.getItem("username");
-
-    // Login check
-    if (!token || !username) {
-      console.log("Token or Username missing.");
-      setLoading(false);
+    if (!username.trim() || !password.trim()) {
+      setMessageType("error");
+      setMessage("Username and password are required.");
       return;
     }
 
     setLoading(true);
 
-    const headers = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    };
+    try {
+      const response = await fetch(`${API}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password.trim(),
+        }),
+      });
 
-    const [userRes, marketRes, goldRes, transactionRes] =
-      await Promise.all([
-        fetch(`${API}/api/users/${username}`, { headers }),
-        fetch(`${API}/api/settings/market`, { headers }),
-        fetch(`${API}/api/gold/history/${username}`, { headers }),
-        fetch(`${API}/api/transactions/${username}`, { headers }),
-      ]);
+      const data = await response.json();
 
-    // Agar token expire ho gaya ho
-    if (userRes.status === 401) {
-      localStorage.clear();
-      window.location.replace("/login");
-      return;
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Login failed.");
+      }
+
+      // ==========================================
+      // SUPPORT MULTIPLE JWT RESPONSE FORMATS
+      // ==========================================
+      const jwtToken =
+        data.token ||
+        data.accessToken ||
+        data.jwt ||
+        data.data?.token;
+
+      if (!jwtToken) {
+        throw new Error("JWT token not received from server.");
+      }
+
+      if (!data.user) {
+        throw new Error("User data not received from server.");
+      }
+
+      // ==========================================
+      // SAVE LOGIN DATA
+      // ==========================================
+      localStorage.setItem("token", jwtToken);
+      localStorage.setItem("username", data.user.username || "");
+      localStorage.setItem("email", data.user.email || "");
+      localStorage.setItem("userId", data.user._id || "");
+
+      // ⭐ IMPORTANT: SAVE USER ROLE
+      const userRole = String(
+        data.user.role || "user"
+      ).toLowerCase();
+
+      localStorage.setItem("role", userRole);
+
+      console.log("LOGIN SUCCESS:", {
+        username: data.user.username,
+        role: userRole,
+      });
+
+      setMessageType("success");
+      setMessage("Login successful. Redirecting...");
+
+      // ==========================================
+      // REDIRECT BY ROLE
+      // ==========================================
+      setTimeout(() => {
+        if (userRole === "admin") {
+          window.location.href = "/admin-dashboard";
+        } else {
+          window.location.href = "/dashboard";
+        }
+      }, 600);
+
+    } catch (err: any) {
+      console.error("LOGIN ERROR:", err);
+
+      setMessageType("error");
+      setMessage(err.message || "Login failed.");
+    } finally {
+      setLoading(false);
     }
-
-    const userData = userRes.ok ? await userRes.json() : null;
-    const marketData = marketRes.ok ? await marketRes.json() : null;
-    const goldData = goldRes.ok ? await goldRes.json() : null;
-    const transactionData = transactionRes.ok
-      ? await transactionRes.json()
-      : null;
-
-    if (userData?.success) setUser(userData.data);
-    if (marketData?.success) setMarket(marketData.data);
-    if (goldData?.success) setGoldHistory(goldData.data || []);
-    if (transactionData?.success) setTransactions(transactionData.data || []);
-
-    setLastUpdate(new Date().toLocaleTimeString());
-
-  } catch (err) {
-    console.error("Dashboard Error:", err);
-  } finally {
-    setLoading(false);
-  }
-};
-
-// =====================================
-// PAGE LOAD
-// =====================================
-
-useEffect(() => {
-  loadDashboard();
-}, []);
-
-// =====================================
-// AUTO REFRESH (Every 30 Seconds)
-// =====================================
-
-useEffect(() => {
-  const interval = setInterval(() => {
-    loadDashboard();
-  }, 30000);
-
-  return () => clearInterval(interval);
-}, []);
-
-  // =====================================
-  // LIVE VALUES
-  // =====================================
-  const portfolioValue = useMemo(() => {
-    return user.goldBalance * (market.sellGoldPrice || 0);
-  }, [user.goldBalance, market.sellGoldPrice]);
-
-  const totalAssets = useMemo(() => {
-    return (
-      user.walletBalance +
-      portfolioValue +
-      user.usdtBalance * (market.usdtRate || 0)
-    );
-  }, [user, market, portfolioValue]);
-
-  // =====================================
-  // LOADING SCREEN
-  // =====================================
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-black flex flex-col items-center justify-center text-yellow-400">
-        <RefreshCw className="animate-spin h-10 w-10 mb-4" />
-        <h2 className="text-2xl font-bold">
-          Loading GoldTrade Dashboard...
-        </h2>
-        <p className="text-gray-400 mt-2">
-          Connecting to GoldTrade Server...
-        </p>
-      </main>
-    );
-  }
-
-  // =====================================
-  // DASHBOARD UI
-  // =====================================
+  };
+    // ==========================================
+  // LOGIN PAGE UI
+  // ==========================================
   return (
-    <main className="min-h-screen bg-black text-white p-6">
-      <h1 className="text-3xl font-bold text-yellow-400 mb-6">
-        Welcome {user.username}
-      </h1>
+    <div className="min-h-screen bg-black flex items-center justify-center px-4">
 
-      <div className="grid md:grid-cols-2 gap-5">
-        <div className="bg-zinc-900 rounded-2xl p-5 border border-yellow-500">
-          <p className="text-gray-400">Wallet Balance</p>
-          <h2 className="text-2xl font-bold text-green-400">
-            PKR {user.walletBalance}
-          </h2>
+      <div className="w-full max-w-md bg-zinc-900 border border-yellow-500 rounded-3xl p-8 shadow-2xl">
+
+        {/* ================= LOGO ================= */}
+        <div className="flex flex-col items-center mb-8">
+
+          <ShieldCheck size={70} className="text-yellow-400 mb-4" />
+
+          <h1 className="text-4xl font-black text-yellow-400">
+            GoldTrade V18
+          </h1>
+
+          <p className="text-gray-400 mt-2 text-center">
+            Secure Trading Platform Login
+          </p>
+
         </div>
 
-        <div className="bg-zinc-900 rounded-2xl p-5 border border-yellow-500">
-          <p className="text-gray-400">Gold Balance</p>
-          <h2 className="text-2xl font-bold text-yellow-400">
-            {user.goldBalance} g
-          </h2>
+        {/* ================= MESSAGE ================= */}
+        {message && (
+          <div
+            className={`mb-6 rounded-xl px-4 py-3 text-center font-semibold ${
+              messageType === "success"
+                ? "bg-green-600/20 border border-green-500 text-green-400"
+                : "bg-red-600/20 border border-red-500 text-red-400"
+            }`}
+          >
+            {message}
+          </div>
+        )}
+
+        {/* ================= LOGIN FORM ================= */}
+        <form onSubmit={handleLogin} className="space-y-5">
+
+          {/* USERNAME */}
+          <div>
+
+            <label className="block text-yellow-400 font-semibold mb-2">
+              Username
+            </label>
+
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
+              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white outline-none focus:border-yellow-500"
+              autoComplete="username"
+            />
+
+          </div>
+
+          {/* PASSWORD */}
+          <div>
+
+            <label className="block text-yellow-400 font-semibold mb-2">
+              Password
+            </label>
+
+            <div className="relative">
+
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 pr-12 text-white outline-none focus:border-yellow-500"
+                autoComplete="current-password"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-yellow-400"
+              >
+                {showPassword ? (
+                  <EyeOff size={20} />
+                ) : (
+                  <Eye size={20} />
+                )}
+              </button>
+
+            </div>
+
+          </div>          {/* ================= LOGIN BUTTON ================= */}
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full py-3 rounded-xl font-bold text-lg transition-all ${
+              loading
+                ? "bg-yellow-700 cursor-not-allowed text-black"
+                : "bg-yellow-500 hover:bg-yellow-400 text-black"
+            }`}
+          >
+            {loading ? "Signing In..." : "Login to GoldTrade"}
+          </button>
+
+        </form>
+
+        {/* ================= DEMO ACCOUNTS ================= */}
+        <div className="mt-8 border border-zinc-700 rounded-2xl p-4 bg-black/40">
+
+          <h3 className="text-yellow-400 font-bold mb-3 text-center">
+            GoldTrade Demo Accounts
+          </h3>
+
+          <div className="space-y-3 text-sm">
+
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
+              <span className="text-gray-400">Admin Login</span>
+              <span className="text-green-400 font-semibold">hashi</span>
+            </div>
+
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
+              <span className="text-gray-400">Password</span>
+              <span className="text-white font-semibold">••••••••</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Role</span>
+              <span className="text-yellow-400 font-semibold">Administrator</span>
+            </div>
+
+          </div>
+
         </div>
 
-        <div className="bg-zinc-900 rounded-2xl p-5 border border-yellow-500">
-          <p className="text-gray-400">USDT Balance</p>
-          <h2 className="text-2xl font-bold text-cyan-400">
-            {user.usdtBalance} USDT
-          </h2>
+        {/* ================= SECURITY NOTE ================= */}
+        <div className="mt-6 bg-zinc-800 border border-cyan-600 rounded-xl p-4">
+
+          <p className="text-cyan-400 text-sm text-center">
+             GoldTrade V18 Secure Login
+          </p>
+
         </div>
 
-        <div className="bg-zinc-900 rounded-2xl p-5 border border-yellow-500">
-          <p className="text-gray-400">Total Assets</p>
-          <h2 className="text-2xl font-bold text-white">
-            PKR {Math.round(totalAssets)}
-          </h2>
-        </div>
-      </div>
+        {/* ================= FOOTER ================= */}
+        <div className="mt-8 text-center">
 
-      <div className="mt-8 bg-zinc-900 rounded-2xl p-5 border border-yellow-500">
-        <h3 className="text-xl font-semibold text-yellow-400 mb-3">
-          Live Market
-        </h3>
+          <p className="text-gray-500 text-sm">
+            © 2026 GoldTrade — Enterprise Trading Platform
+          </p>
 
-        <p>Gold Buy: PKR {market.buyGoldPrice || 0}</p>
-        <p>Gold Sell: PKR {market.sellGoldPrice || 0}</p>
-        <p>USDT Rate: PKR {market.usdtRate || 0}</p>
-        <p className="text-gray-400 mt-3">
-          Last Update: {lastUpdate}
-        </p>
-      </div>
-    </main>
+          <p className="text-gray-600 text-xs mt-2">
+            Pkr • Gold • Usdt wallet System
+          </p>
+
+        </div>      </div>
+
+    </div>
   );
 }

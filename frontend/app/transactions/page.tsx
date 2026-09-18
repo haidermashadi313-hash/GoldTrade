@@ -52,7 +52,7 @@ export default function TransactionsPage() {
 
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-black text-yellow-400">
-          Transaction History
+          Transaction history
         </h1>
 
         <button

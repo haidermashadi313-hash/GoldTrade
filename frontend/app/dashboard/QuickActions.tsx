@@ -1,12 +1,12 @@
 "use client";
 
-import { ArrowDownCircle, ArrowUpCircle, Coins, Wallet } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Coins, wallet } from "lucide-react";
 
 export default function QuickActions() {
   const actions = [
     {
       title: "Deposit",
-      icon: Wallet,
+      icon: wallet,
       link: "/deposit",
       color: "bg-green-600",
     },
@@ -17,13 +17,13 @@ export default function QuickActions() {
       color: "bg-red-600",
     },
     {
-      title: "Buy Gold",
+      title: "buy Gold",
       icon: Coins,
       link: "/gold",
       color: "bg-yellow-500 text-black",
     },
     {
-      title: "Sell Gold",
+      title: "sell Gold",
       icon: ArrowUpCircle,
       link: "/gold",
       color: "bg-blue-600",

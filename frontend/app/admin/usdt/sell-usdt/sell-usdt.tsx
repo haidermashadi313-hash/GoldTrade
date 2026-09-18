@@ -3,380 +3,1015 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  wallet,
+  DollarSign,
   ArrowLeft,
-  Wallet,
-  CircleDollarSign,
   RefreshCw,
-  Send,
+  Upload,
+  Copy,
   CheckCircle,
+  AlertCircle,
 } from "lucide-react";
+
+// ======================================================
+// API URL (GoldTrade V18)
+// ======================================================
 
 const API =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-interface WalletInfo {
-  walletBalance: number;
-  usdtBalance: number;
+// ======================================================
+// TYPES
+// ======================================================
+
+interface walletResponse {
+  success: boolean;
+  wallet?: {
+    walletBalance?: number;
+    PkrBalance?: number;
+    UsdtBalance?: number;
+    rate?: number;
+  };
+  rate?: number;
+  message?: string;
 }
 
-export default function SellUsdtPage() {
+interface sellResponse {
+  success: boolean;
+  message: string;
+  wallet?: {
+    walletBalance: number;
+    UsdtBalance: number;
+  };
+}
+
+// ======================================================
+// PAGE
+// ======================================================
+
+export default function sellUsdtPage() {
+  // User Info
   const [username, setUsername] = useState("");
-  const [wallet, setWallet] = useState<WalletInfo>({
-    walletBalance: 0,
-    usdtBalance: 0,
+  const [token, setToken] = useState("");
+
+  // wallet Balances
+  const [walletBalance, setwalletBalance] = useState(0);
+  const [UsdtBalance, setUsdtBalance] = useState(0);
+  const [rate, setRate] = useState(280);
+
+  // sell Form
+  const [UsdtAmount, setUsdtAmount] = useState("");
+  const [txHash, setTxHash] = useState("");
+  const [receipt, setReceipt] = useState<File | null>(null);
+
+  // UI
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] =
+    useState<"success" | "error">("success");
+
+  // ======================================================
+  // COMPANY wallet (TRC20 ONLY)
+  // ======================================================
+
+  const companywallet = {
+    network: "TRC20",
+    address: "TQ9xH8ExamplewalletAddress1234567890",
+  };
+
+  // ======================================================
+  // HEADERS
+  // ======================================================
+
+  const getHeaders = () => ({
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
   });
 
-  const [sellRate, setSellRate] = useState(281.2);
-  const [loading, setLoading] = useState(false);
-
-  const [usdtAmount, setUsdtAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("BANK");
-
-  const [accountTitle, setAccountTitle] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [bankName, setBankName] = useState("");
+  // ======================================================
+  // LOAD TOKEN
+  // ======================================================
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("username");
+    const jwt = localStorage.getItem("token");
+    const user = localStorage.getItem("username");
 
-    if (!token) {
+    if (!jwt || !user) {
       window.location.href = "/login";
       return;
     }
 
-    if (savedUser) {
-      setUsername(savedUser);
-      loadData(savedUser);
-    }
+    setToken(jwt);
+    setUsername(user);
   }, []);
 
-  const loadData = async (user: string) => {
-    try {
-      const [walletRes, rateRes] = await Promise.all([
-        fetch(`${API}/api/wallets/${user}`),
-        fetch(`${API}/api/usdt/rate`),
-      ]);
+  // ======================================================
+  // LOAD wallet + LIVE RATE
+  // ======================================================
 
-      if (walletRes.ok) {
-        const walletData = await walletRes.json();
-
-        setWallet({
-          walletBalance: walletData.walletBalance || 0,
-          usdtBalance: walletData.usdtBalance || 0,
-        });
-      }
-
-      if (rateRes.ok) {
-        const rateData = await rateRes.json();
-
-        if (rateData.success) {
-          setSellRate(rateData.rate.sellRate);
-        }
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
-  const pkrAmount = useMemo(() => {
-    return Number(usdtAmount || 0) * sellRate;
-  }, [usdtAmount, sellRate]);
-
-  const submitSellRequest = async () => {
-    if (!usdtAmount || !accountTitle || !accountNumber) {
-      alert("Please fill all required fields.");
-      return;
-    }
-
-    if (Number(usdtAmount) > wallet.usdtBalance) {
-      alert("Insufficient USDT Balance.");
-      return;
-    }
+  const loadwallet = async () => {
+    if (!username || !token) return;
 
     try {
       setLoading(true);
 
-      const res = await fetch(`${API}/api/usdt/sell`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username,
-          usdtAmount,
-          pkrAmount,
-          paymentMethod,
-          accountTitle,
-          accountNumber,
-          bankName,
-        }),
-      });
+      const response = await fetch(
+        `${API}/api/wallet/${username}`,
+        {
+          method: "GET",
+          headers: getHeaders(),
+          cache: "no-store",
+        }
+      );
 
-      const data = await res.json();
+      const result: walletResponse = await response.json();
 
-      if (data.success) {
-        alert("Sell USDT request submitted successfully.");
+      console.log("sell Usdt wallet:", result);
 
-        setUsdtAmount("");
-        setAccountTitle("");
-        setAccountNumber("");
-        setBankName("");
-      } else {
-        alert(data.message);
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || "Unable to load wallet."
+        );
       }
-    } catch (err) {
-      console.log(err);
-      alert("Server Error.");
+
+      setwalletBalance(
+        Number(
+          result.wallet?.walletBalance ??
+            result.wallet?.PkrBalance ??
+            0
+        )
+      );
+
+      setUsdtBalance(
+        Number(result.wallet?.UsdtBalance ?? 0)
+      );
+
+      setRate(
+        Number(result.rate ?? result.wallet?.rate ?? 280)
+      );
+    } catch (err: any) {
+      console.error("sell wallet ERROR:", err);
+
+      setwalletBalance(0);
+      setUsdtBalance(0);
+      setRate(280);
+
+      setMessageType("error");
+      setMessage(err.message || "Unable to load wallet.");
     } finally {
       setLoading(false);
     }
   };
 
+  // ======================================================
+  // INITIAL LOAD
+  // ======================================================
+
+  useEffect(() => {
+    if (username && token) {
+      loadwallet();
+    }
+  }, [username, token]);
+
+  // ======================================================
+  // AUTO REFRESH wallet
+  // ======================================================
+
+  useEffect(() => {
+    if (!username || !token) return;
+
+    const timer = setInterval(() => {
+      loadwallet();
+    }, 15000);
+
+    return () => clearInterval(timer);
+  }, [username, token]);
+
+  // ======================================================
+  // LIVE Pkr CALCULATION
+  // ======================================================
+
+  const totalPkr = useMemo(() => {
+    return Number(UsdtAmount || 0) * rate;
+  }, [UsdtAmount, rate]);
+
+  // ======================================================
+  // COPY COMPANY wallet ADDRESS
+  // ======================================================
+
+  const copywalletAddress = async () => {
+    try {
+      await navigator.clipboard.writeText(companywallet.address);
+
+      setMessageType("success");
+      setMessage("Company wallet address copied.");
+    } catch {
+      setMessageType("error");
+      setMessage("Unable to copy wallet address.");
+    }
+  };
+    // ======================================================
+  // REFRESH wallet BUTTON
+  // ======================================================
+
+  const refreshwallet = () => {
+    loadwallet();
+  };
+
+  // ======================================================
+  // sell Usdt FUNCTION (FINAL V18)
+  // ======================================================
+
+  const handlesellUsdt = async () => {
+    try {
+      setSubmitting(true);
+      setMessage("");
+
+      // -----------------------------
+      // Validation
+      // -----------------------------
+
+      if (!UsdtAmount || Number(UsdtAmount) <= 0) {
+        throw new Error("Enter a valid Usdt amount.");
+      }
+
+      if (Number(UsdtAmount) > UsdtBalance) {
+        throw new Error("Insufficient Usdt wallet balance.");
+      }
+
+      if (!receipt) {
+        throw new Error("Please upload payment receipt.");
+      }
+
+      // -----------------------------
+      // Prepare FormData
+      // -----------------------------
+
+      const formData = new FormData();
+
+      formData.append("username", username);
+      formData.append("UsdtAmount", UsdtAmount);
+      formData.append("PkrAmount", String(totalPkr));
+      formData.append("walletAddress", companywallet.address);
+      formData.append("network", companywallet.network);
+      formData.append("txHash", txHash.trim());
+
+      if (receipt) {
+        formData.append("receipt", receipt);
+      }
+
+      // -----------------------------
+      // API Call
+      // -----------------------------
+
+      const response = await fetch(`${API}/api/Usdt/sell`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: formData,
+      });
+
+      const result: sellResponse = await response.json();
+
+      console.log("sell Usdt RESPONSE:", result);
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || "Unable to submit sell request."
+        );
+      }
+
+      // -----------------------------
+      // Success
+      // -----------------------------
+
+      setMessageType("success");
+      setMessage(result.message || "Usdt sell Request Submitted.");
+
+      // Reset Form
+      setUsdtAmount("");
+      setTxHash("");
+      setReceipt(null);
+
+      // Refresh wallet
+      await loadwallet();
+
+    } catch (err: any) {
+      console.error("sell Usdt ERROR:", err);
+
+      setMessageType("error");
+      setMessage(err.message || "Usdt sell request failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ======================================================
+  // AUTO CLEAR MESSAGE
+  // ======================================================
+
+  useEffect(() => {
+    if (!message) return;
+
+    const timer = setTimeout(() => {
+      setMessage("");
+    }, 3500);
+
+    return () => clearTimeout(timer);
+  }, [message]);
+
+  // ======================================================
+  // RECEIPT FILE NAME
+  // ======================================================
+
+  const receiptFileName = useMemo(() => {
+    return receipt ? receipt.name : "";
+  }, [receipt]);
+    // ======================================================
+  // PAGE UI START (FINAL V18)
+  // ======================================================
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-cyan-400">
+        <RefreshCw className="animate-spin mr-3" size={28} />
+        Loading wallet...
+      </div>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-black text-white p-6">
+    <main className="min-h-screen bg-black text-white pb-16">
 
-      {/* Header */}
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
 
-      <div className="flex justify-between items-center flex-wrap gap-4 mb-8">
+      <div className="sticky top-0 z-50 bg-zinc-950 border-b border-cyan-600">
 
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2 text-yellow-400"
-        >
-          <ArrowLeft size={20}/>
-          Dashboard
-        </Link>
+        <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between flex-wrap gap-4">
 
-        <button
-          onClick={() => loadData(username)}
-          className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded-xl flex items-center gap-2"
-        >
-          <RefreshCw size={18}/>
-          Refresh
-        </button>
-
-      </div>
-
-      <h1 className="text-4xl font-black text-red-400 mb-2">
-        Sell USDT
-      </h1>
-
-      <p className="text-gray-400 mb-8">
-        Convert your USDT into PKR wallet after Admin approval.
-      </p>
-
-      {/* Wallet Cards */}
-
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
-
-        <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6">
-
-          <div className="flex items-center gap-3 mb-3">
-            <Wallet className="text-cyan-400"/>
-            <h2 className="font-bold text-xl text-cyan-400">
-              USDT Wallet
-            </h2>
-          </div>
-
-          <h1 className="text-4xl font-black">
-            {wallet.usdtBalance.toFixed(2)} USDT
-          </h1>
-
-        </div>
-
-        <div className="bg-gradient-to-r from-red-500 to-red-700 rounded-3xl p-6">
-
-          <div className="flex items-center gap-3 mb-3">
-            <CircleDollarSign size={30}/>
-            <h2 className="font-bold text-xl">
-              Live Sell Rate
-            </h2>
-          </div>
-
-          <h1 className="text-5xl font-black">
-            PKR {sellRate}
-          </h1>
-
-          <p className="opacity-80 mt-2">
-            1 USDT = PKR {sellRate}
-          </p>
-
-        </div>
-
-      </div>
-
-      {/* Sell Form */}
-
-      <div className="bg-zinc-900 border border-red-500 rounded-3xl p-6 space-y-5">
-
-        <div>
-          <label className="text-gray-400 text-sm">
-            Username
-          </label>
-
-          <input
-            value={username}
-            disabled
-            className="w-full bg-black border border-zinc-700 rounded-xl p-3 mt-2"
-          />
-        </div>
-
-        <div>
-          <label className="text-gray-400 text-sm">
-            USDT Amount
-          </label>
-
-          <input
-            type="number"
-            placeholder="100"
-            value={usdtAmount}
-            onChange={(e) => setUsdtAmount(e.target.value)}
-            className="w-full bg-black border border-zinc-700 rounded-xl p-3 mt-2"
-          />
-        </div>
-
-        {/* Calculator */}
-
-        <div className="bg-zinc-800 rounded-3xl border border-green-500 p-6">
-
-          <div className="flex items-center gap-3 mb-3">
-            <CircleDollarSign className="text-green-400"/>
-            <h2 className="font-bold text-green-400 text-xl">
-              You Will Receive
-            </h2>
-          </div>
-
-          <h1 className="text-5xl font-black text-green-400">
-            PKR {pkrAmount.toLocaleString()}
-          </h1>
-
-          <div className="mt-4 text-gray-400 space-y-2">
-
-            <div className="flex justify-between">
-              <span>Sell Rate</span>
-              <span>PKR {sellRate}</span>
-            </div>
-
-            <div className="flex justify-between">
-              <span>USDT Selling</span>
-              <span>{usdtAmount || 0} USDT</span>
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* Payment Method */}
-
-        <div>
-
-          <label className="text-gray-400 text-sm">
-            Receive Payment Via
-          </label>
-
-          <select
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            className="w-full bg-black border border-zinc-700 rounded-xl p-3 mt-2"
-          >
-            <option value="BANK">Bank Account</option>
-            <option value="EASYPAISA">EasyPaisa</option>
-            <option value="NAYAPAY">NayaPay</option>
-          </select>
-
-        </div>
-
-        {paymentMethod === "BANK" && (
           <div>
 
-            <label className="text-gray-400 text-sm">
-              Bank Name
-            </label>
+            <Link
+              href="/Usdt"
+              className="inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 text-sm font-medium"
+            >
+              <ArrowLeft size={16} />
+              Back to Usdt Dashboard
+            </Link>
 
-            <input
-              placeholder="Meezan Bank"
-              value={bankName}
-              onChange={(e) => setBankName(e.target.value)}
-              className="w-full bg-black border border-zinc-700 rounded-xl p-3 mt-2"
-            />
+            <h1 className="text-4xl font-black text-cyan-400 mt-2">
+              sell Usdt
+            </h1>
+
+            <p className="text-gray-400 mt-2">
+              sell your Usdt and receive Pkr in your GoldTrade wallet.
+            </p>
+
+          </div>
+
+          <button
+            onClick={refreshWallet}
+            className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-5 py-3 rounded-xl flex items-center gap-2"
+          >
+            <RefreshCw size={18} />
+            Refresh wallet
+          </button>
+
+        </div>
+
+      </div>
+
+      {/* ======================================================
+          PAGE BODY
+      ====================================================== */}
+
+      <div className="max-w-7xl mx-auto px-6 py-8">
+
+        {/* ======================================================
+            SUCCESS / ERROR MESSAGE
+        ====================================================== */}
+
+        {message && (
+          <div
+            className={`mb-8 rounded-2xl border px-5 py-4 flex items-center gap-3 ${
+              messageType === "success"
+                ? "bg-green-600/10 border-green-500 text-green-400"
+                : "bg-red-600/10 border-red-500 text-red-400"
+            }`}
+          >
+            {messageType === "success" ? (
+              <CheckCircle size={22} />
+            ) : (
+              <AlertCircle size={22} />
+            )}
+
+            <span className="font-semibold">{message}</span>
 
           </div>
         )}
 
-        <div>
+        {/* ======================================================
+            wallet SUMMARY CARDS
+        ====================================================== */}
 
-          <label className="text-gray-400 text-sm">
-            Account Title
-          </label>
+        <div className="grid lg:grid-cols-3 gap-5 mb-10">
+
+          {/* Pkr wallet */}
+
+          <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
+
+            <wallet className="text-yellow-400 mb-4" size={34} />
+
+            <p className="text-gray-400 text-sm">
+              Pkr wallet Balance
+            </p>
+
+            <h2 className="text-4xl font-black text-yellow-400 mt-3">
+              Pkr {walletBalance.toLocaleString()}
+            </h2>
+
+          </div>
+
+          {/* Usdt wallet */}
+
+          <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
+
+            <DollarSign className="text-green-400 mb-4" size={34} />
+
+            <p className="text-gray-400 text-sm">
+              Available Usdt Balance
+            </p>
+
+            <h2 className="text-4xl font-black text-green-400 mt-3">
+              {UsdtBalance.toLocaleString()} Usdt
+            </h2>
+
+          </div>
+
+          {/* Live sell Rate */}
+
+          <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6">
+
+            <DollarSign className="text-cyan-400 mb-4" size={34} />
+
+            <p className="text-gray-400 text-sm">
+              Live sell Rate
+            </p>
+
+            <h2 className="text-4xl font-black text-cyan-400 mt-3">
+              Pkr {rate.toLocaleString()}
+            </h2>
+
+            <p className="text-xs text-gray-500 mt-2">
+              You receive Pkr according to the current GoldTrade sell rate.
+            </p>
+
+          </div>
+
+        </div>
+
+        {/* ======================================================
+            sell Usdt FORM
+        ====================================================== */}
+
+        <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6 mb-8">
+
+          <h2 className="text-2xl font-bold text-green-400 mb-5">
+            Enter Usdt Amount
+          </h2>
+
+          <div className="relative">
+
+            <DollarSign
+              className="absolute left-4 top-4 text-green-400"
+              size={24}
+            />
+
+            <input
+              type="number"
+              min="1"
+              value={UsdtAmount}
+              onChange={(e) => setUsdtAmount(e.target.value)}
+              placeholder="Enter Usdt Amount to sell"
+              className="w-full bg-black border border-green-500 rounded-2xl py-4 pl-12 pr-5 text-2xl font-bold outline-none focus:border-green-400"
+            />
+
+          </div>
+
+          <p className="text-gray-500 text-sm mt-4">
+            Maximum sell Amount: {UsdtBalance.toLocaleString()} Usdt
+          </p>
+
+        </div>
+
+        {/* ======================================================
+            ORDER SUMMARY
+        ====================================================== */}
+
+        <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6 mb-8">
+
+          <h2 className="text-2xl font-bold text-cyan-400 mb-6">
+            sell Order Summary
+          </h2>
+
+          <div className="space-y-4 text-lg">
+
+            <div className="flex justify-between border-b border-zinc-700 pb-3">
+              <span className="text-gray-400">selling Usdt</span>
+
+              <span className="font-bold text-white">
+                {Number(UsdtAmount || 0).toLocaleString()} Usdt
+              </span>
+            </div>
+
+            <div className="flex justify-between border-b border-zinc-700 pb-3">
+              <span className="text-gray-400">sell Rate</span>
+
+              <span className="font-bold text-cyan-400">
+                Pkr {rate.toLocaleString()}
+              </span>
+            </div>
+
+            <div className="flex justify-between border-b border-zinc-700 pb-3">
+              <span className="text-gray-400">Current Usdt Balance</span>
+
+              <span className="font-bold text-green-400">
+                {UsdtBalance.toLocaleString()} Usdt
+              </span>
+            </div>
+
+            <div className="flex justify-between pt-3">
+
+              <span className="text-2xl font-bold text-yellow-400">
+                You Will Receive
+              </span>
+
+              <span className="text-3xl font-black text-yellow-400">
+                Pkr {totalPkr.toLocaleString()}
+              </span>
+
+            </div>
+
+          </div>
+
+        </div>        {/* ======================================================
+            COMPANY wallet ADDRESS (TRC20 ONLY)
+        ====================================================== */}
+
+        <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6 mb-8">
+
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+
+            <div>
+              <h2 className="text-2xl font-bold text-cyan-400">
+                Company Usdt wallet
+              </h2>
+
+              <p className="text-gray-400 mt-1">
+                Send your Usdt only to the official GoldTrade TRC20 wallet.
+              </p>
+            </div>
+
+            <span className="bg-cyan-500/20 text-cyan-400 px-4 py-2 rounded-full text-sm font-semibold">
+              TRC20 NETWORK
+            </span>
+
+          </div>
+
+          {/* wallet Address Card */}
+
+          <div className="bg-black border border-cyan-500 rounded-2xl p-5">
+
+            <p className="text-gray-400 text-sm mb-2">
+              Official Company wallet Address
+            </p>
+
+            <div className="bg-zinc-900 border border-cyan-700 rounded-xl p-4 mb-4">
+
+              <p className="text-cyan-300 text-lg font-bold break-all">
+                {companywallet.address}
+              </p>
+
+            </div>
+
+            <button
+              type="button"
+              onClick={copywalletAddress}
+              className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-4 py-3 rounded-xl flex items-center gap-2"
+            >
+              <Copy size={18} />
+              Copy wallet Address
+            </button>
+
+          </div>
+
+          {/* Network Info */}
+
+          <div className="mt-5 bg-cyan-500/10 border border-cyan-500 rounded-2xl p-4">
+
+            <div className="flex justify-between items-center mb-3">
+
+              <span className="text-gray-400">
+                Blockchain Network
+              </span>
+
+              <span className="text-cyan-400 font-bold">
+                TRC20
+              </span>
+
+            </div>
+
+            <div className="flex justify-between items-center">
+
+              <span className="text-gray-400">
+                wallet Owner
+              </span>
+
+              <span className="text-white font-semibold">
+                GoldTrade Official wallet
+              </span>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* ======================================================
+            TRANSACTION HASH
+        ====================================================== */}
+
+        <div className="bg-zinc-900 border border-purple-500 rounded-3xl p-6 mb-8">
+
+          <h2 className="text-2xl font-bold text-purple-400 mb-5">
+            Transaction Hash (Optional)
+          </h2>
+
+          <p className="text-gray-400 mb-4">
+            Paste your TRC20 transaction hash after sending Usdt.
+          </p>
 
           <input
-            placeholder="Your Account Name"
-            value={accountTitle}
-            onChange={(e) => setAccountTitle(e.target.value)}
-            className="w-full bg-black border border-zinc-700 rounded-xl p-3 mt-2"
+            type="text"
+            value={txHash}
+            onChange={(e) => setTxHash(e.target.value)}
+            placeholder="Paste TRC20 Transaction Hash"
+            className="w-full bg-black border border-purple-500 rounded-2xl p-4 text-white outline-none focus:border-purple-400"
           />
 
         </div>
 
-        <div>
+        {/* ======================================================
+            PAYMENT RECEIPT UPLOAD
+        ====================================================== */}
 
-          <label className="text-gray-400 text-sm">
-            Account / Mobile Number
+        <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6 mb-10">
+
+          <h2 className="text-2xl font-bold text-green-400 mb-5">
+            Upload Payment Receipt
+          </h2>
+
+          <p className="text-gray-400 mb-5">
+            Upload a screenshot of your TRC20 transfer receipt.
+          </p>
+
+          <label className="w-full cursor-pointer border-2 border-dashed border-green-500 rounded-2xl p-8 flex flex-col items-center justify-center hover:bg-green-500/5 transition">
+
+            <Upload size={48} className="text-green-400 mb-3" />
+
+            <span className="text-green-400 font-semibold">
+              Click Here To Upload Receipt
+            </span>
+
+            <span className="text-gray-500 text-sm mt-2">
+              JPG • JPEG • PNG • Max 5 MB
+            </span>
+
+            <input
+              type="file"
+              accept=".jpg,.jpeg,.png,image/png,image/jpeg"
+              onChange={(e) =>
+                setReceipt(e.target.files?.[0] || null)
+              }
+              className="hidden"
+            />
+
           </label>
 
-          <input
-            placeholder="03XXXXXXXXX / Bank Account Number"
-            value={accountNumber}
-            onChange={(e) => setAccountNumber(e.target.value)}
-            className="w-full bg-black border border-zinc-700 rounded-xl p-3 mt-2"
-          />
+          {/* Selected Receipt */}
+
+          {receipt && (
+            <div className="mt-5 bg-green-600/10 border border-green-500 rounded-2xl p-4">
+
+              <div className="flex items-center gap-3">
+
+                <CheckCircle size={22} className="text-green-400" />
+
+                <div>
+
+                  <p className="text-green-400 font-semibold">
+                    Receipt Uploaded Successfully
+                  </p>
+
+                  <p className="text-white text-sm break-all mt-1">
+                    {receiptFileName}
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
+        </div>        {/* ======================================================
+            Usdt BALANCE VALIDATION
+        ====================================================== */}
+
+        {Number(UsdtAmount || 0) > UsdtBalance && (
+          <div className="bg-red-600/10 border border-red-500 rounded-3xl p-5 mb-8">
+
+            <div className="flex items-center gap-3 mb-3">
+              <AlertCircle size={26} className="text-red-400" />
+
+              <h2 className="text-xl font-bold text-red-400">
+                Insufficient Usdt wallet Balance
+              </h2>
+            </div>
+
+            <p className="text-red-300">
+              Available Usdt Balance:{" "}
+              <span className="font-bold">
+                {UsdtBalance.toLocaleString()} Usdt
+              </span>
+            </p>
+
+            <p className="text-red-300 mt-2">
+              Requested sell Amount:{" "}
+              <span className="font-bold">
+                {Number(UsdtAmount || 0).toLocaleString()} Usdt
+              </span>
+            </p>
+
+          </div>
+        )}
+
+        {/* ======================================================
+            sell RULES
+        ====================================================== */}
+
+        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-8">
+
+          <h2 className="text-2xl font-bold text-yellow-400 mb-5">
+            sell Usdt Rules
+          </h2>
+
+          <ul className="space-y-3 text-gray-300 text-sm">
+
+            <li>• Send Usdt only to the official GoldTrade TRC20 wallet.</li>
+
+            <li>• Upload a valid payment receipt after sending Usdt.</li>
+
+            <li>• Transaction Hash is optional but recommended.</li>
+
+            <li>• Admin will verify the payment before approval.</li>
+
+            <li>• Approved requests will credit Pkr into your wallet.</li>
+
+            <li>• Rejected requests will not credit Pkr.</li>
+
+          </ul>
 
         </div>
 
-        {/* Submit */}
+        {/* ======================================================
+            PAYMENT SUMMARY
+        ====================================================== */}
+
+        <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6 mb-8">
+
+          <h2 className="text-2xl font-bold text-cyan-400 mb-6">
+            Payment Summary
+          </h2>
+
+          <div className="space-y-4">
+
+            <div className="flex justify-between">
+              <span className="text-gray-400">selling Usdt</span>
+
+              <span className="font-bold text-white">
+                {Number(UsdtAmount || 0).toLocaleString()} Usdt
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-gray-400">Current sell Rate</span>
+
+              <span className="font-bold text-cyan-400">
+                Pkr {rate.toLocaleString()}
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-gray-400">Available Usdt Balance</span>
+
+              <span className="font-bold text-green-400">
+                {UsdtBalance.toLocaleString()} Usdt
+              </span>
+            </div>
+
+            <div className="border-t border-zinc-700 pt-4 flex justify-between">
+
+              <span className="text-xl font-bold text-yellow-400">
+                You Will Receive
+              </span>
+
+              <span className="text-3xl font-black text-yellow-400">
+                Pkr {totalPkr.toLocaleString()}
+              </span>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* ======================================================
+            sell Usdt BUTTON
+        ====================================================== */}
 
         <button
-          onClick={submitSellRequest}
-          disabled={loading}
-          className="w-full bg-red-500 hover:bg-red-400 text-white font-black py-4 rounded-2xl text-xl flex items-center justify-center gap-3"
+          type="button"
+          onClick={handlesellUsdt}
+          disabled={
+            submitting ||
+            Number(UsdtAmount || 0) <= 0 ||
+            Number(UsdtAmount || 0) > UsdtBalance
+          }
+          className={`w-full rounded-3xl py-5 text-xl font-black transition flex items-center justify-center gap-3 ${
+            submitting
+              ? "bg-zinc-700 cursor-not-allowed"
+              : Number(UsdtAmount || 0) > UsdtBalance
+              ? "bg-red-600 cursor-not-allowed"
+              : "bg-cyan-500 hover:bg-cyan-400 text-black"
+          }`}
         >
-          <Send size={22}/>
-          {loading
-            ? "Submitting Request..."
-            : "Submit Sell USDT Request"}
+          {submitting ? (
+            <>
+              <RefreshCw size={24} className="animate-spin" />
+              Processing sell Request...
+            </>
+          ) : (
+            <>
+              <DollarSign size={24} />
+              sell Usdt NOW
+            </>
+          )}
         </button>
 
-      </div>
+        {/* ======================================================
+            SECURITY NOTICE
+        ====================================================== */}
 
-      {/* Information */}
+        <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6 mt-8">
 
-      <div className="mt-8 bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
+          <h2 className="text-2xl font-bold text-green-400 mb-5">
+            GoldTrade Security Notice
+          </h2>
 
-        <h2 className="text-yellow-400 text-2xl font-black mb-4">
-          Sell Process
-        </h2>
+          <div className="space-y-3 text-sm text-gray-300">
 
-        <div className="space-y-3 text-gray-300">
+            <p>• Send Usdt only through the TRC20 network.</p>
 
-          <div className="flex gap-3 items-start">
-            <CheckCircle className="text-green-400 mt-1"/>
-            <p>Enter the amount of USDT you want to sell.</p>
+            <p>• Double-check the company wallet address before sending.</p>
+
+            <p>• Upload a clear payment receipt for faster approval.</p>
+
+            <p>• Pkr wallet is credited only after admin approval.</p>
+
+            <p>• Fake receipts or incorrect transfers may result in rejection.</p>
+
           </div>
 
-          <div className="flex gap-3 items-start">
-            <CheckCircle className="text-green-400 mt-1"/>
-            <p>Select how you want to receive PKR.</p>
+        </div>        {/* ======================================================
+            SUPPORT INFORMATION
+        ====================================================== */}
+
+        <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6 mt-8 mb-8">
+
+          <h2 className="text-2xl font-bold text-cyan-400 mb-5">
+            Need Help?
+          </h2>
+
+          <div className="space-y-4 text-gray-300">
+
+            <div className="flex justify-between border-b border-zinc-700 pb-3">
+              <span>Network</span>
+              <span className="font-bold text-cyan-400">
+                TRC20 (Usdt)
+              </span>
+            </div>
+
+            <div className="flex justify-between border-b border-zinc-700 pb-3">
+              <span>Payment Verification</span>
+              <span className="font-bold text-green-400">
+                Manual Admin Approval
+              </span>
+            </div>
+
+            <div className="flex justify-between border-b border-zinc-700 pb-3">
+              <span>Estimated Processing Time</span>
+              <span className="font-bold text-yellow-400">
+                1–15 Minutes
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span>System Status</span>
+              <span className="font-bold text-green-400">
+                Online
+              </span>
+            </div>
+
           </div>
 
-          <div className="flex gap-3 items-start">
-            <CheckCircle className="text-green-400 mt-1"/>
-            <p>Your request will remain Pending until Admin approval.</p>
+        </div>
+
+        {/* ======================================================
+            FOOTER DASHBOARD
+        ====================================================== */}
+
+        <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6 mt-8">
+
+          <div className="grid md:grid-cols-3 gap-5">
+
+            {/* Pkr wallet */}
+
+            <div className="bg-black border border-yellow-700 rounded-2xl p-5 text-center">
+
+              <wallet size={32} className="mx-auto text-yellow-400 mb-3" />
+
+              <p className="text-gray-400 text-sm">
+                Pkr wallet Balance
+              </p>
+
+              <h3 className="text-2xl font-bold text-yellow-400 mt-2">
+                Pkr {walletBalance.toLocaleString()}
+              </h3>
+
+            </div>
+
+            {/* Usdt wallet */}
+
+            <div className="bg-black border border-green-700 rounded-2xl p-5 text-center">
+
+              <DollarSign size={32} className="mx-auto text-green-400 mb-3" />
+
+              <p className="text-gray-400 text-sm">
+                Available Usdt
+              </p>
+
+              <h3 className="text-2xl font-bold text-green-400 mt-2">
+                {UsdtBalance.toLocaleString()} Usdt
+              </h3>
+
+            </div>
+
+            {/* Live Rate */}
+
+            <div className="bg-black border border-cyan-700 rounded-2xl p-5 text-center">
+
+              <RefreshCw size={32} className="mx-auto text-cyan-400 mb-3" />
+
+              <p className="text-gray-400 text-sm">
+                Live sell Rate
+              </p>
+
+              <h3 className="text-2xl font-bold text-cyan-400 mt-2">
+                Pkr {rate.toLocaleString()}
+              </h3>
+
+            </div>
+
           </div>
 
-          <div className="flex gap-3 items-start">
-            <CheckCircle className="text-green-400 mt-1"/>
-            <p>After approval, PKR will be added to your GoldTrade Wallet.</p>
+          {/* Auto Refresh Status */}
+
+          <div className="border-t border-zinc-700 mt-6 pt-5 flex flex-col md:flex-row justify-between items-center gap-3">
+
+            <div className="text-sm text-gray-400">
+              GoldTrade V18 • Secure Usdt sell System
+            </div>
+
+            <div className="flex items-center gap-2 text-green-400 font-semibold">
+              <RefreshCw size={16} />
+              wallet Sync Active (Every 15 Seconds)
+            </div>
+
           </div>
 
         </div>

@@ -16,7 +16,7 @@ import {
   Camera,
   Save,
   RefreshCw,
-  Wallet,
+  wallet,
   Copy,
   CheckCircle2,
   Clock,
@@ -51,7 +51,7 @@ interface UserProfile {
   referralCode: string;
   walletBalance: number;
   goldBalance: number;
-  usdtBalance: number;
+  UsdtBalance: number;
   kycStatus: "NOT_SUBMITTED" | "PENDING" | "VERIFIED";
   profileImage?: string;
   createdAt: string;
@@ -91,7 +91,7 @@ export default function ProfilePage() {
     referralCode: "",
     walletBalance: 0,
     goldBalance: 0,
-    usdtBalance: 0,
+    UsdtBalance: 0,
     kycStatus: "NOT_SUBMITTED",
     profileImage: "",
     createdAt: "",
@@ -342,24 +342,24 @@ export default function ProfilePage() {
   };
 
   /* ==========================================================
-     WALLET TOTAL VALUE
+     wallet TOTAL VALUE
   ========================================================== */
 
   const totalPortfolio = useMemo(() => {
     return (
       profile.walletBalance +
-      profile.usdtBalance +
+      profile.UsdtBalance +
       profile.goldBalance * 25000
     );
   }, [
     profile.walletBalance,
     profile.goldBalance,
-    profile.usdtBalance,
+    profile.UsdtBalance,
   ]);// =====================================================
 // GOLDTRADE V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 3/10
-// PROFILE HEADER + USER CARD + WALLET SUMMARY + KYC STATUS
+// PROFILE HEADER + USER CARD + wallet SUMMARY + KYC STATUS
 // =====================================================
 
   if (loading) {
@@ -489,18 +489,18 @@ export default function ProfilePage() {
 
         </div>
 
-        {/* ================= WALLET SUMMARY ================= */}
+        {/* ================= wallet SUMMARY ================= */}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
 
           <div className="bg-zinc-900 border border-green-600 rounded-3xl p-6">
 
-            <Wallet className="text-green-400 mb-3" size={30} />
+            <wallet className="text-green-400 mb-3" size={30} />
 
-            <p className="text-gray-400 text-sm">PKR Wallet</p>
+            <p className="text-gray-400 text-sm">Pkr wallet</p>
 
             <h3 className="text-3xl font-black text-green-400 mt-2">
-              PKR {profile.walletBalance.toLocaleString()}
+              Pkr {profile.walletBalance.toLocaleString()}
             </h3>
 
           </div>
@@ -519,12 +519,12 @@ export default function ProfilePage() {
 
           <div className="bg-zinc-900 border border-cyan-600 rounded-3xl p-6">
 
-            <Wallet className="text-cyan-400 mb-3" size={30} />
+            <wallet className="text-cyan-400 mb-3" size={30} />
 
-            <p className="text-gray-400 text-sm">USDT Balance</p>
+            <p className="text-gray-400 text-sm">Usdt Balance</p>
 
             <h3 className="text-3xl font-black text-cyan-400 mt-2">
-              {profile.usdtBalance.toFixed(2)} USDT
+              {profile.UsdtBalance.toFixed(2)} Usdt
             </h3>
 
           </div>
@@ -536,7 +536,7 @@ export default function ProfilePage() {
             <p className="text-gray-400 text-sm">Portfolio Value</p>
 
             <h3 className="text-3xl font-black text-yellow-400 mt-2">
-              PKR {totalPortfolio.toLocaleString()}
+              Pkr {totalPortfolio.toLocaleString()}
             </h3>
 
           </div>
@@ -1146,7 +1146,7 @@ export default function ProfilePage() {
                 </p>
 
                 <h3 className="text-2xl font-black text-green-400 mt-2">
-                  PKR 500
+                  Pkr 500
                 </h3>
               </div>
 
@@ -1166,7 +1166,7 @@ export default function ProfilePage() {
                 </p>
 
                 <h3 className="text-2xl font-black text-cyan-400 mt-2">
-                  PKR 0
+                  Pkr 0
                 </h3>
               </div>
 
@@ -1180,31 +1180,31 @@ export default function ProfilePage() {
 // GOLDTRADE V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 6/10
-// WALLET PORTFOLIO + ACCOUNT STATISTICS + MEMBERSHIP
+// wallet PORTFOLIO + ACCOUNT STATISTICS + MEMBERSHIP
 // =====================================================
 
-        {/* ================= WALLET PORTFOLIO ================= */}
+        {/* ================= wallet PORTFOLIO ================= */}
 
         <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
 
           <div className="flex items-center gap-3 mb-8">
-            <Wallet className="text-yellow-400" size={28} />
+            <wallet className="text-yellow-400" size={28} />
             <h2 className="text-3xl font-black text-yellow-400">
-              Wallet Portfolio
+              wallet Portfolio
             </h2>
           </div>
 
           <div className="grid lg:grid-cols-2 gap-6">
 
             <div className="bg-black border border-green-600 rounded-2xl p-6">
-              <p className="text-gray-400 text-sm">Cash Wallet Balance</p>
+              <p className="text-gray-400 text-sm">Cash wallet Balance</p>
 
               <h3 className="text-4xl font-black text-green-400 mt-3">
-                PKR {profile.walletBalance.toLocaleString()}
+                Pkr {profile.walletBalance.toLocaleString()}
               </h3>
 
               <p className="text-green-300 text-sm mt-3">
-                Available for Gold Buy & Withdraw.
+                Available for Gold buy & Withdraw.
               </p>
             </div>
 
@@ -1221,14 +1221,14 @@ export default function ProfilePage() {
             </div>
 
             <div className="bg-black border border-cyan-600 rounded-2xl p-6">
-              <p className="text-gray-400 text-sm">USDT Balance</p>
+              <p className="text-gray-400 text-sm">Usdt Balance</p>
 
               <h3 className="text-4xl font-black text-cyan-400 mt-3">
-                {profile.usdtBalance.toFixed(2)} USDT
+                {profile.UsdtBalance.toFixed(2)} Usdt
               </h3>
 
               <p className="text-cyan-300 text-sm mt-3">
-                Crypto Wallet Balance.
+                Crypto wallet Balance.
               </p>
             </div>
 
@@ -1236,11 +1236,11 @@ export default function ProfilePage() {
               <p className="text-gray-400 text-sm">Total Portfolio Value</p>
 
               <h3 className="text-4xl font-black text-yellow-400 mt-3">
-                PKR {totalPortfolio.toLocaleString()}
+                Pkr {totalPortfolio.toLocaleString()}
               </h3>
 
               <p className="text-yellow-300 text-sm mt-3">
-                Wallet + Gold + USDT Combined Value.
+                wallet + Gold + Usdt Combined Value.
               </p>
             </div>
 
@@ -1264,7 +1264,7 @@ export default function ProfilePage() {
             <div>
 
               <div className="flex justify-between mb-2">
-                <span className="font-semibold text-green-400">PKR Wallet</span>
+                <span className="font-semibold text-green-400">Pkr wallet</span>
 
                 <span className="text-green-400 font-bold">
                   {totalPortfolio === 0
@@ -1323,12 +1323,12 @@ export default function ProfilePage() {
             <div>
 
               <div className="flex justify-between mb-2">
-                <span className="font-semibold text-cyan-400">USDT Wallet</span>
+                <span className="font-semibold text-cyan-400">Usdt wallet</span>
 
                 <span className="text-cyan-400 font-bold">
                   {totalPortfolio === 0
                     ? 0
-                    : ((profile.usdtBalance / totalPortfolio) * 100).toFixed(1)}
+                    : ((profile.UsdtBalance / totalPortfolio) * 100).toFixed(1)}
                   %
                 </span>
               </div>
@@ -1340,7 +1340,7 @@ export default function ProfilePage() {
                     width: `${
                       totalPortfolio === 0
                         ? 0
-                        : (profile.usdtBalance / totalPortfolio) * 100
+                        : (profile.UsdtBalance / totalPortfolio) * 100
                     }%`,
                   }}
                 />
@@ -1367,12 +1367,12 @@ export default function ProfilePage() {
 
             <div className="bg-black border border-green-600 rounded-2xl p-5 text-center">
 
-              <Wallet className="mx-auto text-green-400 mb-3" size={26} />
+              <wallet className="mx-auto text-green-400 mb-3" size={26} />
 
-              <p className="text-gray-400 text-sm">Wallet Balance</p>
+              <p className="text-gray-400 text-sm">wallet Balance</p>
 
               <h3 className="text-2xl font-black text-green-400 mt-2">
-                PKR {profile.walletBalance.toLocaleString()}
+                Pkr {profile.walletBalance.toLocaleString()}
               </h3>
 
             </div>
@@ -1454,7 +1454,7 @@ export default function ProfilePage() {
 
                 <li>• Manual Withdrawal Approval</li>
 
-                <li>• Gold Buy & Sell Trading</li>
+                <li>• Gold buy & sell Trading</li>
 
                 <li>• Referral Reward Program</li>
 
@@ -1567,7 +1567,7 @@ export default function ProfilePage() {
         <div className="bg-zinc-900 border border-green-600 rounded-3xl p-6 mb-10">
 
           <div className="flex items-center gap-3 mb-8">
-            <Wallet className="text-green-400" size={28} />
+            <wallet className="text-green-400" size={28} />
             <h2 className="text-3xl font-black text-green-400">
               Bank / Payment Information
             </h2>
@@ -2049,7 +2049,7 @@ export default function ProfilePage() {
               </h3>
 
               <p className="text-gray-400 text-sm mb-4">
-                Get help with Gold Buy, Sell orders, or pricing issues.
+                Get help with Gold buy, sell orders, or pricing issues.
               </p>
 
               <button className="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold">
@@ -2108,7 +2108,7 @@ export default function ProfilePage() {
               </label>
 
               <select className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none">
-                <option>PKR - Pakistani Rupee</option>
+                <option>Pkr - Pakistani Rupee</option>
                 <option>USD - US Dollar</option>
                 <option>AED - UAE Dirham</option>
                 <option>KHR - Cambodian Riel</option>
@@ -2163,7 +2163,7 @@ export default function ProfilePage() {
 
             {[
               {
-                title: "Hide Wallet Balance",
+                title: "Hide wallet Balance",
                 desc: "Hide wallet balance on dashboard until you tap to reveal it.",
               },
               {
@@ -2351,7 +2351,7 @@ export default function ProfilePage() {
               </p>
 
               <h3 className="text-4xl font-black text-yellow-400 mt-2">
-                PKR {totalPortfolio.toLocaleString()}
+                Pkr {totalPortfolio.toLocaleString()}
               </h3>
 
               <p className="text-green-400 text-sm mt-3">
@@ -2491,7 +2491,7 @@ export default function ProfilePage() {
               </p>
 
               <p className="text-white font-semibold mt-2">
-                Wallet • Security • KYC • Referral • Privacy
+                wallet • Security • KYC • Referral • Privacy
               </p>
 
             </div>

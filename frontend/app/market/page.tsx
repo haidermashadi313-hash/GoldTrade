@@ -10,7 +10,7 @@ import {
   Bitcoin,
   TrendingUp,
   Activity,
-  Wallet,
+  wallet,
   Clock,
   BarChart3,
   Calculator,
@@ -22,24 +22,24 @@ const API =
 
 interface MarketData {
   goldPriceUSD: number;
-  usdToPkr: number;
-  usdtRate: number;
+  UsdtoPkr: number;
+  UsdtRate: number;
   goldSpread: number;
   buyGoldPrice: number;
   sellGoldPrice: number;
-  trc20Wallet: string;
+  trc20wallet: string;
   trc20Qr: string;
 }
 
 export default function MarketPage() {
   const [market, setMarket] = useState<MarketData>({
     goldPriceUSD: 0,
-    usdToPkr: 0,
-    usdtRate: 0,
+    UsdtoPkr: 0,
+    UsdtRate: 0,
     goldSpread: 0,
     buyGoldPrice: 0,
     sellGoldPrice: 0,
-    trc20Wallet: "",
+    trc20wallet: "",
     trc20Qr: "",
   });
 
@@ -73,11 +73,11 @@ export default function MarketPage() {
   }, []);
 
   // Calculator
-  const goldBuyPKR =
-    gram * market.buyGoldPrice * market.usdToPkr;
+  const goldbuyPkr =
+    gram * market.buyGoldPrice * market.UsdtoPkr;
 
-  const goldSellPKR =
-    gram * market.sellGoldPrice * market.usdToPkr;
+  const goldsellPkr =
+    gram * market.sellGoldPrice * market.UsdtoPkr;
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -143,27 +143,27 @@ export default function MarketPage() {
             </p>
           </div>
 
-          {/* USD PKR */}
+          {/* USD Pkr */}
           <div className="rounded-3xl p-6 bg-gradient-to-br from-blue-500 to-blue-700 shadow-2xl">
             <DollarSign size={34}/>
             <p className="mt-3 text-sm text-blue-100">
-              USD / PKR
+              USD / Pkr
             </p>
 
             <h2 className="text-3xl font-black mt-2">
-              {market.usdToPkr.toFixed(2)}
+              {market.UsdtoPkr.toFixed(2)}
             </h2>
           </div>
 
-          {/* USDT */}
+          {/* Usdt */}
           <div className="rounded-3xl p-6 bg-gradient-to-br from-green-500 to-green-700 shadow-2xl">
             <Bitcoin size={34}/>
             <p className="mt-3 text-sm text-green-100">
-              TRC20 USDT Rate
+              TRC20 Usdt Rate
             </p>
 
             <h2 className="text-3xl font-black mt-2">
-              PKR {market.usdtRate.toFixed(2)}
+              Pkr {market.UsdtRate.toFixed(2)}
             </h2>
           </div>
 
@@ -186,7 +186,7 @@ export default function MarketPage() {
 
         </div>
 
-        {/* Buy Sell Cards */}
+        {/* buy sell Cards */}
         <div className="grid md:grid-cols-2 gap-6 mb-10">
 
           <div className="bg-zinc-900 border border-green-500 rounded-3xl p-8">
@@ -194,7 +194,7 @@ export default function MarketPage() {
             <TrendingUp className="text-green-400 mb-4" size={34}/>
 
             <p className="text-green-400 font-bold">
-              BUY GOLD
+              buy GOLD
             </p>
 
             <h2 className="text-4xl font-black text-white mt-3">
@@ -202,7 +202,7 @@ export default function MarketPage() {
             </h2>
 
             <p className="text-gray-400 mt-3">
-              GoldTrade Buy Price (Spread Included)
+              GoldTrade buy Price (Spread Included)
             </p>
 
           </div>
@@ -212,7 +212,7 @@ export default function MarketPage() {
             <TrendingUp className="text-red-400 rotate-180 mb-4" size={34}/>
 
             <p className="text-red-400 font-bold">
-              SELL GOLD
+              sell GOLD
             </p>
 
             <h2 className="text-4xl font-black text-white mt-3">
@@ -220,7 +220,7 @@ export default function MarketPage() {
             </h2>
 
             <p className="text-gray-400 mt-3">
-              GoldTrade Sell Price (Spread Included)
+              GoldTrade sell Price (Spread Included)
             </p>
 
           </div>
@@ -256,15 +256,15 @@ export default function MarketPage() {
             <div className="bg-black rounded-2xl border border-green-500 p-6">
 
               <p className="text-green-400">
-                Buy Gold Price
+                buy Gold Price
               </p>
 
               <h2 className="text-3xl font-black mt-3 text-white">
-                PKR {goldBuyPKR.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                Pkr {goldbuyPkr.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </h2>
 
               <p className="text-gray-500 mt-3">
-                {gram} Gram × Buy Rate
+                {gram} Gram × buy Rate
               </p>
 
             </div>
@@ -272,15 +272,15 @@ export default function MarketPage() {
             <div className="bg-black rounded-2xl border border-red-500 p-6">
 
               <p className="text-red-400">
-                Sell Gold Price
+                sell Gold Price
               </p>
 
               <h2 className="text-3xl font-black mt-3 text-white">
-                PKR {goldSellPKR.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                Pkr {goldsellPkr.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </h2>
 
               <p className="text-gray-500 mt-3">
-                {gram} Gram × Sell Rate
+                {gram} Gram × sell Rate
               </p>
 
             </div>
@@ -314,7 +314,7 @@ export default function MarketPage() {
 
               <div className="flex justify-between">
                 <span className="text-gray-400">
-                  Buy Difference
+                  buy Difference
                 </span>
 
                 <span className="text-green-400 font-bold">
@@ -324,7 +324,7 @@ export default function MarketPage() {
 
               <div className="flex justify-between">
                 <span className="text-gray-400">
-                  Sell Difference
+                  sell Difference
                 </span>
 
                 <span className="text-red-400 font-bold">
@@ -338,7 +338,7 @@ export default function MarketPage() {
                 </span>
 
                 <span className="text-yellow-400 font-bold">
-                  USD / PKR
+                  USD / Pkr
                 </span>
               </div>
 
@@ -346,17 +346,17 @@ export default function MarketPage() {
 
           </div>
 
-          {/* Wallet */}
+          {/* wallet */}
           <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-8">
 
-            <Wallet className="text-cyan-400 mb-4" size={34}/>
+            <wallet className="text-cyan-400 mb-4" size={34}/>
 
             <h3 className="text-2xl font-bold text-cyan-400 mb-5">
-              GoldTrade TRC20 Wallet
+              GoldTrade TRC20 wallet
             </h3>
 
             <div className="bg-black rounded-xl p-4 border border-cyan-500 break-all text-sm text-cyan-300">
-              {market.trc20Wallet || "Wallet Not Added Yet"}
+              {market.trc20wallet || "wallet Not Added Yet"}
             </div>
 
             {market.trc20Qr && (
@@ -368,7 +368,7 @@ export default function MarketPage() {
             )}
 
             <p className="text-gray-500 mt-5">
-              Deposit USDT only using TRC20 Network.
+              Deposit Usdt only using TRC20 Network.
             </p>
 
           </div>
@@ -403,17 +403,17 @@ export default function MarketPage() {
         <div className="grid md:grid-cols-3 gap-5">
 
           <Link
-            href="/buy-usdt"
+            href="/buy-Usdt"
             className="bg-green-600 hover:bg-green-500 rounded-3xl p-6 text-center font-bold text-xl"
           >
-            Buy TRC20 USDT
+            buy TRC20 Usdt
           </Link>
 
           <Link
-            href="/sell-usdt"
+            href="/sell-Usdt"
             className="bg-red-600 hover:bg-red-500 rounded-3xl p-6 text-center font-bold text-xl"
           >
-            Sell TRC20 USDT
+            sell TRC20 Usdt
           </Link>
 
           <Link

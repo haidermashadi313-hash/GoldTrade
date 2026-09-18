@@ -3,7 +3,7 @@
 
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 // Generic API Request
 export async function apiFetch(
@@ -54,7 +54,7 @@ export const getUser = (username: string) =>
 export const getMarket = () =>
   apiFetch("/api/settings/market");
 
-export const getGoldHistory = (username: string) =>
+export const getGoldhistory = (username: string) =>
   apiFetch(`/api/gold/history/${username}`);
 
 export const getTransactions = (username: string) =>

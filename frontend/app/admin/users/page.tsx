@@ -8,7 +8,7 @@ import {
   Search,
   RefreshCw,
   ShieldCheck,
-  Wallet,
+  wallet,
   Crown,
   Lock,
   Ban,
@@ -30,7 +30,7 @@ interface User {
   role: string;
 
   walletBalance: number;
-  usdtBalance: number;
+  UsdtBalance: number;
   goldBalance: number;
 
   cashbackEarned: number;
@@ -70,15 +70,15 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] =
     useState<User | null>(null);
 
-  const [walletType, setWalletType] = useState("PKR");
-  const [walletAction, setWalletAction] = useState("add");
-  const [walletAmount, setWalletAmount] = useState("");
-  const [walletReason, setWalletReason] = useState("");
+  const [walletType, setwalletType] = useState("Pkr");
+  const [walletAction, setwalletAction] = useState("add");
+  const [walletAmount, setwalletAmount] = useState("");
+  const [walletReason, setwalletReason] = useState("");
 
   const [vipLevel, setVipLevel] = useState<User["vipLevel"]>("Standard");
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyLoading, sethistoryLoading] = useState(false);
 
-  const [userHistory, setUserHistory] = useState({
+  const [userhistory, setUserhistory] = useState({
     trades: [],
     deposits: [],
     withdrawals: [],
@@ -86,239 +86,87 @@ export default function AdminUsersPage() {
     referrals: [],
   });
 
+  const loadUserhistory = async (userId: string) => {
+    try {
+      sethistoryLoading(true);
+
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const response = await fetch(
+        `${API}/api/admin/users/${userId}/history`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to load user history.");
+      }
+
+      setUserhistory({
+        trades: data.trades || [],
+        deposits: data.deposits || [],
+        withdrawals: data.withdrawals || [],
+        cashback: data.cashback || [],
+        referrals: data.referrals || [],
+      });
+    } catch (err) {
+      console.error("Load User history Error:", err);
+      setUserhistory({
+        trades: [],
+        deposits: [],
+        withdrawals: [],
+        cashback: [],
+        referrals: [],
+      });
+    } finally {
+      sethistoryLoading(false);
+    }
+  };
+
   /* ============================================
      LOAD USERS
   ============================================ */
 
   const loadUsers = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      if (!token) {
-        window.location.href = "/login";
-        return;
-      }
+    const token = localStorage.getItem("token");
 
-      if (role !== "admin") {
-        alert("Admin access only.");
-        window.location.href = "/dashboard";
-        return;
-      }
-
-      const response = await fetch(`${API}/api/gold/admin/users`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setUsers(data.users || []);
-      } else {
-        alert(data.message || "Unable to load users.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Server error while loading users.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateWallet = async () => {
-    if (!selectedUser) return;
-
-    const amount = Number(walletAmount);
-
-    if (!walletAmount || Number.isNaN(amount) || amount <= 0) {
-      alert("Please enter a valid amount.");
+    if (!token) {
+      alert("Admin token missing. Please login again.");
       return;
     }
 
-    if (!walletReason.trim()) {
-      alert("Please provide an admin reason.");
-      return;
+    const response = await fetch(`${API}/api/admin/users`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "API Route Not Found");
     }
 
-    try {
-      const response = await fetch(
-        `${API}/api/gold/admin/users/${selectedUser._id}/wallet`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            walletType,
-            action: walletAction,
-            amount,
-            reason: walletReason,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert("Wallet update successful.");
-        setWalletAmount("");
-        setWalletReason("");
-        await loadUsers();
-        setSelectedUser({ ...selectedUser });
-      } else {
-        alert(data.message || "Unable to update wallet.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Unable to update wallet.");
-    }
-  };
-
-  const toggleWalletFreeze = async () => {
-    if (!selectedUser) return;
-
-    const action = selectedUser.walletFrozen ? "unfreeze" : "freeze";
-
-    if (!confirm(`Are you sure you want to ${action} this wallet?`)) {
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `${API}/api/gold/admin/users/${selectedUser._id}/freeze`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert(`Wallet ${action}d successfully.`);
-        await loadUsers();
-        setSelectedUser({
-          ...selectedUser,
-          walletFrozen: !selectedUser.walletFrozen,
-        });
-      } else {
-        alert(data.message || "Unable to update wallet status.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Unable to update wallet status.");
-    }
-  };
-
-  const toggleUserBlock = async () => {
-    if (!selectedUser) return;
-
-    const action =
-      selectedUser.status === "Blocked" ? "unblock" : "block";
-
-    if (!confirm(`Are you sure you want to ${action} this user?`)) {
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `${API}/api/gold/admin/users/${selectedUser._id}/block`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert(`User ${action}ed successfully.`);
-        await loadUsers();
-        setSelectedUser({
-          ...selectedUser,
-          status:
-            selectedUser.status === "Blocked"
-              ? "Active"
-              : "Blocked",
-        });
-      } else {
-        alert(data.message || "Unable to update account status.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Unable to update account status.");
-    }
-  };
-
-  const loadUserHistory = async (userId: string) => {
-    try {
-      setHistoryLoading(true);
-
-      const response = await fetch(
-        `${API}/api/gold/admin/users/${userId}/history`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success) {
-        setUserHistory({
-          trades: data.trades || [],
-          deposits: data.deposits || [],
-          withdrawals: data.withdrawals || [],
-          cashback: data.cashback || [],
-          referrals: data.referrals || [],
-        });
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-
-  const updateVipLevel = async () => {
-    if (!selectedUser) return;
-
-    try {
-      const response = await fetch(
-        `${API}/api/gold/admin/users/${selectedUser._id}/vip`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ vipLevel }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert("VIP Level Updated Successfully.");
-        await loadUsers();
-        setSelectedUser({ ...selectedUser, vipLevel });
-      } else {
-        alert(data.message || "Unable to update VIP level.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Unable to update VIP level.");
-    }
-  };
+    setUsers(data.users || []);
+  } catch (err: any) {
+    console.error("Load Users Error:", err);
+    alert(err.message || "Unable to load users.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   /* ============================================
      PAGE LOAD
@@ -382,7 +230,7 @@ export default function AdminUsersPage() {
         (u) => u.status === "Blocked"
       ).length,
 
-      frozenWallets: users.filter(
+      frozenwallets: users.filter(
         (u) => u.walletFrozen
       ).length,
 
@@ -404,9 +252,68 @@ export default function AdminUsersPage() {
   useEffect(() => {
     if (selectedUser) {
       setVipLevel(selectedUser.vipLevel);
-      loadUserHistory(selectedUser._id);
+      loadUserhistory(selectedUser._id);
     }
   }, [selectedUser]);
+
+  const updatewallet = async () => {
+    if (!selectedUser) return;
+
+    const amount = Number(walletAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      alert("Please enter a valid positive amount.");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Admin token missing. Please login again.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API}/api/admin/users/${selectedUser._id}/wallet`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            walletType,
+            action: walletAction,
+            amount,
+            reason: walletReason.trim(),
+          }),
+        }
+      );
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to update wallet.");
+      }
+
+      const updatedUser = data.user || data.updatedUser;
+      if (updatedUser) {
+        setSelectedUser(updatedUser);
+        setUsers((currentUsers) =>
+          currentUsers.map((user) =>
+            user._id === updatedUser._id ? updatedUser : user
+          )
+        );
+      } else {
+        await loadUsers();
+      }
+
+      setwalletAmount("");
+      setwalletReason("");
+      alert("wallet updated successfully.");
+    } catch (err) {
+      console.error("Update wallet Error:", err);
+      alert(err instanceof Error ? err.message : "Unable to update wallet.");
+    }
+  };
 
   /* ============================================
      LOADING SCREEN
@@ -536,7 +443,7 @@ export default function AdminUsersPage() {
             </h2>
           </div>
 
-          {/* Frozen Wallets */}
+          {/* Frozen wallets */}
           <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-5">
             <div className="flex justify-between items-center mb-3">
               <Lock className="text-cyan-400" size={30}/>
@@ -545,16 +452,16 @@ export default function AdminUsersPage() {
               </span>
             </div>
 
-            <p className="text-gray-400 text-sm">Frozen Wallets</p>
+            <p className="text-gray-400 text-sm">Frozen wallets</p>
 
             <h2 className="text-4xl font-black text-cyan-400 mt-2">
-              {statistics.frozenWallets}
+              {statistics.frozenwallets}
             </h2>
           </div>
 
         </div>
 
-        {/* ================= VIP + WALLET ANALYTICS ================= */}
+        {/* ================= VIP + wallet ANALYTICS ================= */}
 
         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
 
@@ -574,19 +481,19 @@ export default function AdminUsersPage() {
             </h2>
           </div>
 
-          {/* Total PKR Wallet */}
+          {/* Total Pkr wallet */}
           <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5">
             <div className="flex justify-between items-center mb-3">
-              <Wallet className="text-green-400" size={30}/>
+              <wallet className="text-green-400" size={30}/>
               <span className="bg-green-600 px-2 py-1 rounded-full text-xs font-bold">
-                PKR
+                Pkr
               </span>
             </div>
 
-            <p className="text-gray-400 text-sm">Total Wallet Balance</p>
+            <p className="text-gray-400 text-sm">Total wallet Balance</p>
 
             <h2 className="text-2xl font-black text-green-400 mt-2">
-              PKR{" "}
+              Pkr{" "}
               {users
                 .reduce((sum, user) => sum + (user.walletBalance ?? 0), 0)
                 .toLocaleString()}
@@ -596,7 +503,7 @@ export default function AdminUsersPage() {
           {/* Total Gold Holdings */}
           <div className="bg-zinc-900 border border-orange-500 rounded-2xl p-5">
             <div className="flex justify-between items-center mb-3">
-              <Wallet className="text-orange-400" size={30}/>
+              <wallet className="text-orange-400" size={30}/>
               <span className="bg-orange-600 px-2 py-1 rounded-full text-xs font-bold">
                 GOLD
               </span>
@@ -612,22 +519,22 @@ export default function AdminUsersPage() {
             </h2>
           </div>
 
-          {/* Total USDT */}
+          {/* Total Usdt */}
           <div className="bg-zinc-900 border border-blue-500 rounded-2xl p-5">
             <div className="flex justify-between items-center mb-3">
-              <Wallet className="text-blue-400" size={30}/>
+              <wallet className="text-blue-400" size={30}/>
               <span className="bg-blue-600 px-2 py-1 rounded-full text-xs font-bold">
-                USDT
+                Usdt
               </span>
             </div>
 
-            <p className="text-gray-400 text-sm">Total USDT Holdings</p>
+            <p className="text-gray-400 text-sm">Total Usdt Holdings</p>
 
             <h2 className="text-2xl font-black text-blue-400 mt-2">
               {users
-                .reduce((sum, user) => sum + (user.usdtBalance ?? 0), 0)
+                .reduce((sum, user) => sum + (user.UsdtBalance ?? 0), 0)
                 .toFixed(2)}{" "}
-              USDT
+              Usdt
             </h2>
           </div>
 
@@ -649,7 +556,7 @@ export default function AdminUsersPage() {
             <div className="bg-black rounded-xl p-4 border border-zinc-700">
               <p className="text-gray-400 text-sm">Total Deposits</p>
               <h3 className="text-xl font-bold text-green-400 mt-2">
-                PKR{" "}
+                Pkr{" "}
                 {users
                   .reduce((sum, user) => sum + (user.totalDeposit ?? 0), 0)
                   .toLocaleString()}
@@ -659,7 +566,7 @@ export default function AdminUsersPage() {
             <div className="bg-black rounded-xl p-4 border border-zinc-700">
               <p className="text-gray-400 text-sm">Total Withdrawals</p>
               <h3 className="text-xl font-bold text-red-400 mt-2">
-                PKR{" "}
+                Pkr{" "}
                 {users
                   .reduce((sum, user) => sum + (user.totalWithdraw ?? 0), 0)
                   .toLocaleString()}
@@ -669,7 +576,7 @@ export default function AdminUsersPage() {
             <div className="bg-black rounded-xl p-4 border border-zinc-700">
               <p className="text-gray-400 text-sm">Cashback Paid</p>
               <h3 className="text-xl font-bold text-pink-400 mt-2">
-                PKR{" "}
+                Pkr{" "}
                 {users
                   .reduce((sum, user) => sum + (user.cashbackEarned ?? 0), 0)
                   .toLocaleString()}
@@ -679,7 +586,7 @@ export default function AdminUsersPage() {
             <div className="bg-black rounded-xl p-4 border border-zinc-700">
               <p className="text-gray-400 text-sm">Referral Bonus Paid</p>
               <h3 className="text-xl font-bold text-cyan-400 mt-2">
-                PKR{" "}
+                Pkr{" "}
                 {users
                   .reduce((sum, user) => sum + (user.referralBonus ?? 0), 0)
                   .toLocaleString()}
@@ -719,11 +626,11 @@ export default function AdminUsersPage() {
                 <tr className="text-left">
 
                   <th className="p-3">User</th>
-                  <th className="p-3">Wallet</th>
+                  <th className="p-3">wallet</th>
                   <th className="p-3">Gold</th>
                   <th className="p-3">VIP</th>
                   <th className="p-3">Status</th>
-                  <th className="p-3">Wallet Lock</th>
+                  <th className="p-3">wallet Lock</th>
                   <th className="p-3">Joined</th>
                   <th className="p-3 text-center">Action</th>
 
@@ -768,12 +675,12 @@ export default function AdminUsersPage() {
 
                       </td>
 
-                      {/* PKR WALLET */}
+                      {/* Pkr wallet */}
 
                       <td className="p-3">
 
                         <span className="font-bold text-green-400">
-                          PKR {(user.walletBalance ?? 0).toLocaleString()}
+                          Pkr {(user.walletBalance ?? 0).toLocaleString()}
                         </span>
 
                       </td>
@@ -828,7 +735,7 @@ export default function AdminUsersPage() {
 
                       </td>
 
-                      {/* WALLET FREEZE */}
+                      {/* wallet FREEZE */}
 
                       <td className="p-3">
 
@@ -991,8 +898,8 @@ export default function AdminUsersPage() {
                           }`}
                         >
                           {selectedUser.walletFrozen
-                            ? "Wallet Frozen"
-                            : "Wallet Active"}
+                            ? "wallet Frozen"
+                            : "wallet Active"}
                         </span>
 
                         <span
@@ -1017,12 +924,12 @@ export default function AdminUsersPage() {
 
                 </div>
 
-                {/* Wallet Overview */}
+                {/* wallet Overview */}
 
                 <div>
 
                   <h3 className="text-2xl font-black text-yellow-400 mb-4">
-                    Wallet Overview
+                    wallet Overview
                   </h3>
 
                   <div className="grid md:grid-cols-3 gap-5">
@@ -1030,11 +937,11 @@ export default function AdminUsersPage() {
                     <div className="bg-black border border-green-600 rounded-2xl p-5">
 
                       <p className="text-gray-400 text-sm">
-                        PKR Wallet
+                        Pkr wallet
                       </p>
 
                       <h2 className="text-3xl font-black text-green-400 mt-2">
-                        PKR {(selectedUser.walletBalance ?? 0).toLocaleString()}
+                        Pkr {(selectedUser.walletBalance ?? 0).toLocaleString()}
                       </h2>
 
                     </div>
@@ -1042,11 +949,11 @@ export default function AdminUsersPage() {
                     <div className="bg-black border border-blue-600 rounded-2xl p-5">
 
                       <p className="text-gray-400 text-sm">
-                        USDT Wallet
+                        Usdt wallet
                       </p>
 
                       <h2 className="text-3xl font-black text-blue-400 mt-2">
-                        {(selectedUser.usdtBalance ?? 0).toFixed(2)} USDT
+                        {(selectedUser.UsdtBalance ?? 0).toFixed(2)} Usdt
                       </h2>
 
                     </div>
@@ -1054,7 +961,7 @@ export default function AdminUsersPage() {
                     <div className="bg-black border border-yellow-600 rounded-2xl p-5">
 
                       <p className="text-gray-400 text-sm">
-                        Gold Wallet
+                        Gold wallet
                       </p>
 
                       <h2 className="text-3xl font-black text-yellow-400 mt-2">
@@ -1084,7 +991,7 @@ export default function AdminUsersPage() {
                       </p>
 
                       <h2 className="text-2xl font-black text-pink-400 mt-2">
-                        PKR {(selectedUser.cashbackEarned ?? 0).toLocaleString()}
+                        Pkr {(selectedUser.cashbackEarned ?? 0).toLocaleString()}
                       </h2>
 
                     </div>
@@ -1096,7 +1003,7 @@ export default function AdminUsersPage() {
                       </p>
 
                       <h2 className="text-2xl font-black text-cyan-400 mt-2">
-                        PKR {(selectedUser.referralBonus ?? 0).toLocaleString()}
+                        Pkr {(selectedUser.referralBonus ?? 0).toLocaleString()}
                       </h2>
 
                     </div>
@@ -1114,7 +1021,7 @@ export default function AdminUsersPage() {
                             : "text-red-400"
                         }`}
                       >
-                        PKR {(selectedUser.goldProfitLoss ?? 0).toLocaleString()}
+                        Pkr {(selectedUser.goldProfitLoss ?? 0).toLocaleString()}
                       </h2>
 
                     </div>
@@ -1124,31 +1031,31 @@ export default function AdminUsersPage() {
                 </div>
 
                 {/* Deposit / Withdraw Summary */}
-{/* ================= WALLET MANAGER ================= */}
+{/* ================= wallet MANAGER ================= */}
 
 <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
 
   <h3 className="text-2xl font-black text-green-400 mb-5">
-    Admin Wallet Manager
+    Admin wallet Manager
   </h3>
 
   <div className="grid md:grid-cols-2 gap-5">
 
-    {/* Wallet Type */}
+    {/* wallet Type */}
 
     <div>
       <label className="block text-sm text-gray-400 mb-2">
-        Wallet Type
+        wallet Type
       </label>
 
       <select
         value={walletType}
-        onChange={(e) => setWalletType(e.target.value)}
+        onChange={(e) => setwalletType(e.target.value)}
         className="w-full bg-black border border-zinc-700 rounded-xl p-3 text-white"
       >
-        <option value="PKR">PKR Wallet</option>
-        <option value="USDT">USDT Wallet</option>
-        <option value="GOLD">Gold Wallet</option>
+        <option value="Pkr">Pkr wallet</option>
+        <option value="Usdt">Usdt wallet</option>
+        <option value="GOLD">Gold wallet</option>
       </select>
     </div>
 
@@ -1156,12 +1063,12 @@ export default function AdminUsersPage() {
 
     <div>
       <label className="block text-sm text-gray-400 mb-2">
-        Wallet Action
+        wallet Action
       </label>
 
       <select
         value={walletAction}
-        onChange={(e) => setWalletAction(e.target.value)}
+        onChange={(e) => setwalletAction(e.target.value)}
         className="w-full bg-black border border-zinc-700 rounded-xl p-3 text-white"
       >
         <option value="add">➕ Add Balance</option>
@@ -1179,7 +1086,7 @@ export default function AdminUsersPage() {
       <input
         type="number"
         value={walletAmount}
-        onChange={(e) => setWalletAmount(e.target.value)}
+        onChange={(e) => setwalletAmount(e.target.value)}
         placeholder="Enter amount"
         className="w-full bg-black border border-zinc-700 rounded-xl p-3 text-white"
       />
@@ -1195,7 +1102,7 @@ export default function AdminUsersPage() {
       <input
         type="text"
         value={walletReason}
-        onChange={(e) => setWalletReason(e.target.value)}
+        onChange={(e) => setwalletReason(e.target.value)}
         placeholder="Example: Cashback adjustment"
         className="w-full bg-black border border-zinc-700 rounded-xl p-3 text-white"
       />
@@ -1208,16 +1115,16 @@ export default function AdminUsersPage() {
   <div className="flex gap-4 mt-6 flex-wrap">
 
     <button
-      onClick={updateWallet}
+      onClick={updatewallet}
       className="bg-green-600 hover:bg-green-500 px-6 py-3 rounded-xl font-bold"
     >
-      Save Wallet Update
+      Save wallet Update
     </button>
 
     <button
       onClick={() => {
-        setWalletAmount("");
-        setWalletReason("");
+        setwalletAmount("");
+        setwalletReason("");
       }}
       className="bg-zinc-700 hover:bg-zinc-600 px-6 py-3 rounded-xl font-bold"
     >
@@ -1242,7 +1149,7 @@ export default function AdminUsersPage() {
                       </p>
 
                       <h2 className="text-3xl font-black text-green-400 mt-2">
-                        PKR {(selectedUser.totalDeposit ?? 0).toLocaleString()}
+                        Pkr {(selectedUser.totalDeposit ?? 0).toLocaleString()}
                       </h2>
 
                     </div>
@@ -1254,7 +1161,7 @@ export default function AdminUsersPage() {
                       </p>
 
                       <h2 className="text-3xl font-black text-red-400 mt-2">
-                        PKR {(selectedUser.totalWithdraw ?? 0).toLocaleString()}
+                        Pkr {(selectedUser.totalWithdraw ?? 0).toLocaleString()}
                       </h2>
 
                     </div>
@@ -1298,7 +1205,7 @@ export default function AdminUsersPage() {
 
                     <div className="bg-black rounded-xl p-4 border border-zinc-700">
                       <p className="text-gray-400 text-sm">
-                        Wallet Status
+                        wallet Status
                       </p>
                       <h3 className="font-bold mt-1">
                         {selectedUser.walletFrozen
@@ -1355,7 +1262,7 @@ export default function AdminUsersPage() {
               href="/admin/deposits"
               className="bg-black border border-green-500 rounded-2xl p-5 hover:bg-zinc-800 transition"
             >
-              <Wallet className="text-green-400 mb-3" size={28}/>
+              <wallet className="text-green-400 mb-3" size={28}/>
               <h3 className="font-bold text-green-400">
                 Deposit Manager
               </h3>
@@ -1368,7 +1275,7 @@ export default function AdminUsersPage() {
               href="/admin/withdrawals"
               className="bg-black border border-red-500 rounded-2xl p-5 hover:bg-zinc-800 transition"
             >
-              <Wallet className="text-red-400 mb-3" size={28}/>
+              <wallet className="text-red-400 mb-3" size={28}/>
               <h3 className="font-bold text-red-400">
                 Withdrawal Manager
               </h3>
@@ -1416,11 +1323,11 @@ export default function AdminUsersPage() {
                   "Username",
                   "Email",
                   "VIP",
-                  "Wallet PKR",
-                  "USDT",
+                  "wallet Pkr",
+                  "Usdt",
                   "Gold Gram",
                   "Status",
-                  "Wallet Frozen",
+                  "wallet Frozen",
                 ];
 
                 const rows = users.map((u) => [
@@ -1428,7 +1335,7 @@ export default function AdminUsersPage() {
                   u.email,
                   u.vipLevel,
                   u.walletBalance,
-                  u.usdtBalance,
+                  u.UsdtBalance,
                   u.goldBalance,
                   u.status,
                   u.walletFrozen ? "Yes" : "No",
@@ -1532,9 +1439,9 @@ export default function AdminUsersPage() {
             </div>
 
             <div className="bg-black rounded-xl p-5 border border-cyan-600">
-              <p className="text-gray-400 text-sm">Frozen Wallets</p>
+              <p className="text-gray-400 text-sm">Frozen wallets</p>
               <h3 className="text-3xl font-black text-cyan-400 mt-2">
-                {statistics.frozenWallets}
+                {statistics.frozenwallets}
               </h3>
             </div>
 
@@ -1565,10 +1472,10 @@ export default function AdminUsersPage() {
 
               <ul className="space-y-2 text-sm text-gray-400">
                 <li>User Manager</li>
-                <li>Wallet Manager</li>
+                <li>wallet Manager</li>
                 <li>VIP Manager</li>
                 <li>Freeze / Block Control</li>
-                <li>Trading History Viewer</li>
+                <li>Trading history Viewer</li>
               </ul>
             </div>
 
@@ -1580,7 +1487,7 @@ export default function AdminUsersPage() {
               <ul className="space-y-2 text-sm text-gray-400">
                 <li>JWT Protected</li>
                 <li>Admin Role Protected</li>
-                <li>Wallet Audit Ready</li>
+                <li>wallet Audit Ready</li>
                 <li>Live User Refresh</li>
               </ul>
             </div>

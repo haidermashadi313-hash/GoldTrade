@@ -8,7 +8,7 @@ import axios from "axios";
 // ==========================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 // ==========================================
 // TYPES
@@ -16,17 +16,17 @@ const API =
 
 interface GoldTransaction {
   _id: string;
-  tradeType: "BUY" | "SELL";
+  tradeType: "buy" | "sell";
   grams: number;
   pricePerGram: number;
-  totalPKR: number;
-  averageBuyPrice: number;
+  totalPkr: number;
+  averagebuyPrice: number;
   profitLoss: number;
   status: string;
   createdAt: string;
 }
 
-const GoldHistoryPage = () => {
+const GoldhistoryPage = () => {
 
   // ==========================================
   // USER + TOKEN
@@ -50,7 +50,7 @@ const GoldHistoryPage = () => {
   // FILTER
   // ==========================================
 
-  const [filter, setFilter] = useState<"ALL" | "BUY" | "SELL">("ALL");
+  const [filter, setFilter] = useState<"ALL" | "buy" | "sell">("ALL");
 
   // ==========================================
   // LOAD USER
@@ -65,10 +65,10 @@ const GoldHistoryPage = () => {
   }, []);
 
   // ==========================================
-  // FETCH HISTORY
+  // FETCH history
   // ==========================================
 
-  const fetchHistory = async () => {
+  const fetchhistory = async () => {
     try {
       setLoading(true);
 
@@ -89,7 +89,7 @@ const GoldHistoryPage = () => {
 
     } catch (error: any) {
 
-      console.error("GOLD HISTORY ERROR:", error);
+      console.error("GOLD history ERROR:", error);
 
       setMessage(
         error.response?.data?.message ||
@@ -105,7 +105,7 @@ const GoldHistoryPage = () => {
 
   useEffect(() => {
     if (!token) return;
-    fetchHistory();
+    fetchhistory();
   }, [token]);
 
   // Auto Refresh
@@ -113,7 +113,7 @@ const GoldHistoryPage = () => {
   useEffect(() => {
     if (!token) return;
 
-    const interval = setInterval(fetchHistory, 30000);
+    const interval = setInterval(fetchhistory, 30000);
 
     return () => clearInterval(interval);
   }, [token]);
@@ -135,31 +135,31 @@ const GoldHistoryPage = () => {
   // ==========================================
 
   const stats = useMemo(() => {
-    const totalBuyGrams = transactions
-      .filter((t) => t.tradeType === "BUY")
+    const totalbuyGrams = transactions
+      .filter((t) => t.tradeType === "buy")
       .reduce((sum, t) => sum + Number(t.grams), 0);
 
-    const totalSellGrams = transactions
-      .filter((t) => t.tradeType === "SELL")
+    const totalsellGrams = transactions
+      .filter((t) => t.tradeType === "sell")
       .reduce((sum, t) => sum + Number(t.grams), 0);
 
-    const totalBuyValue = transactions
-      .filter((t) => t.tradeType === "BUY")
-      .reduce((sum, t) => sum + Number(t.totalPKR), 0);
+    const totalbuyValue = transactions
+      .filter((t) => t.tradeType === "buy")
+      .reduce((sum, t) => sum + Number(t.totalPkr), 0);
 
-    const totalSellValue = transactions
-      .filter((t) => t.tradeType === "SELL")
-      .reduce((sum, t) => sum + Number(t.totalPKR), 0);
+    const totalsellValue = transactions
+      .filter((t) => t.tradeType === "sell")
+      .reduce((sum, t) => sum + Number(t.totalPkr), 0);
 
     const realizedProfit = transactions
-      .filter((t) => t.tradeType === "SELL")
+      .filter((t) => t.tradeType === "sell")
       .reduce((sum, t) => sum + Number(t.profitLoss || 0), 0);
 
     return {
-      totalBuyGrams,
-      totalSellGrams,
-      totalBuyValue,
-      totalSellValue,
+      totalbuyGrams,
+      totalsellGrams,
+      totalbuyValue,
+      totalsellValue,
       realizedProfit,
       totalTrades: transactions.length,
     };
@@ -169,8 +169,8 @@ const GoldHistoryPage = () => {
   // REFRESH
   // ==========================================
 
-  const refreshHistory = async () => {
-    await fetchHistory();
+  const refreshhistory = async () => {
+    await fetchhistory();
   };
 
   // ==========================================
@@ -185,11 +185,11 @@ const GoldHistoryPage = () => {
           <div className="h-16 w-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
 
           <h2 className="text-yellow-400 text-3xl font-black">
-            GOLD HISTORY
+            GOLD history
           </h2>
 
           <p className="text-gray-400 mt-2">
-            Loading Transaction History...
+            Loading Transaction history...
           </p>
 
         </div>
@@ -210,7 +210,7 @@ const GoldHistoryPage = () => {
 
         <div>
           <h1 className="text-5xl font-black text-yellow-400">
-            GOLD HISTORY
+            GOLD history
           </h1>
 
           <p className="text-gray-400 mt-2">
@@ -219,7 +219,7 @@ const GoldHistoryPage = () => {
         </div>
 
         <button
-          onClick={refreshHistory}
+          onClick={refreshhistory}
           className="bg-yellow-500 hover:bg-yellow-400 text-black px-5 py-3 rounded-xl font-bold transition-all duration-300 hover:scale-105"
         >
           🔄 Refresh
@@ -241,7 +241,7 @@ const GoldHistoryPage = () => {
         </div>
       )}
 
-      {/* HISTORY SUMMARY */}
+      {/* history SUMMARY */}
 
       <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
 
@@ -257,7 +257,7 @@ const GoldHistoryPage = () => {
           <p className="text-gray-400 text-sm">Gold Bought</p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            {stats.totalBuyGrams.toFixed(3)} g
+            {stats.totalbuyGrams.toFixed(3)} g
           </h2>
         </div>
 
@@ -265,7 +265,7 @@ const GoldHistoryPage = () => {
           <p className="text-gray-400 text-sm">Gold Sold</p>
 
           <h2 className="text-3xl font-black text-red-400 mt-2">
-            {stats.totalSellGrams.toFixed(3)} g
+            {stats.totalsellGrams.toFixed(3)} g
           </h2>
         </div>
 
@@ -279,7 +279,7 @@ const GoldHistoryPage = () => {
                 : "text-red-400"
             }`}
           >
-            PKR {stats.realizedProfit.toLocaleString()}
+            Pkr {stats.realizedProfit.toLocaleString()}
           </h2>
         </div>
 
@@ -301,32 +301,32 @@ const GoldHistoryPage = () => {
         </button>
 
         <button
-          onClick={() => setFilter("BUY")}
+          onClick={() => setFilter("buy")}
           className={`px-5 py-3 rounded-xl font-bold transition ${
-            filter === "BUY"
+            filter === "buy"
               ? "bg-green-500 text-white"
               : "bg-zinc-800 text-white hover:bg-zinc-700"
           }`}
         >
-          BUY (
-          {transactions.filter((t) => t.tradeType === "BUY").length})
+          buy (
+          {transactions.filter((t) => t.tradeType === "buy").length})
         </button>
 
         <button
-          onClick={() => setFilter("SELL")}
+          onClick={() => setFilter("sell")}
           className={`px-5 py-3 rounded-xl font-bold transition ${
-            filter === "SELL"
+            filter === "sell"
               ? "bg-red-500 text-white"
               : "bg-zinc-800 text-white hover:bg-zinc-700"
           }`}
         >
-          SELL (
-          {transactions.filter((t) => t.tradeType === "SELL").length})
+          sell (
+          {transactions.filter((t) => t.tradeType === "sell").length})
         </button>
 
       </div>
             {/* ========================================== */}
-      {/* TRANSACTION HISTORY TABLE */}
+      {/* TRANSACTION history TABLE */}
       {/* ========================================== */}
 
       <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-8 mb-10">
@@ -334,7 +334,7 @@ const GoldHistoryPage = () => {
         <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
 
           <h2 className="text-3xl font-black text-yellow-400">
-            Gold Transaction History
+            Gold Transaction history
           </h2>
 
           <span className="bg-yellow-500 text-black px-4 py-2 rounded-full text-sm font-bold">
@@ -372,7 +372,7 @@ const GoldHistoryPage = () => {
                   <th className="py-4 px-4 text-left">Trade</th>
                   <th className="py-4 px-4 text-left">Gold (g)</th>
                   <th className="py-4 px-4 text-left">Price / Gram</th>
-                  <th className="py-4 px-4 text-left">Total PKR</th>
+                  <th className="py-4 px-4 text-left">Total Pkr</th>
                   <th className="py-4 px-4 text-left">Profit / Loss</th>
                   <th className="py-4 px-4 text-left">Status</th>
                   <th className="py-4 px-4 text-left">Date</th>
@@ -390,20 +390,20 @@ const GoldHistoryPage = () => {
                     className="border-b border-zinc-800 hover:bg-zinc-800 transition-all duration-300"
                   >
 
-                    {/* BUY / SELL */}
+                    {/* buy / sell */}
 
                     <td className="py-4 px-4">
 
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          trade.tradeType === "BUY"
+                          trade.tradeType === "buy"
                             ? "bg-green-600 text-white"
                             : "bg-red-600 text-white"
                         }`}
                       >
-                        {trade.tradeType === "BUY"
-                          ? "🟢 BUY"
-                          : "🔴 SELL"}
+                        {trade.tradeType === "buy"
+                          ? "🟢 buy"
+                          : "🔴 sell"}
                       </span>
 
                     </td>
@@ -417,20 +417,20 @@ const GoldHistoryPage = () => {
                     {/* PRICE */}
 
                     <td className="py-4 px-4 text-cyan-400 font-semibold">
-                      PKR {Number(trade.pricePerGram).toLocaleString()}
+                      Pkr {Number(trade.pricePerGram).toLocaleString()}
                     </td>
 
                     {/* TOTAL */}
 
                     <td className="py-4 px-4 text-white font-semibold">
-                      PKR {Number(trade.totalPKR).toLocaleString()}
+                      Pkr {Number(trade.totalPkr).toLocaleString()}
                     </td>
 
                     {/* PROFIT LOSS */}
 
                     <td className="py-4 px-4">
 
-                      {trade.tradeType === "BUY" ? (
+                      {trade.tradeType === "buy" ? (
 
                         <span className="text-gray-400 font-semibold">
                           --
@@ -445,7 +445,7 @@ const GoldHistoryPage = () => {
                               : "text-red-400"
                           }`}
                         >
-                          PKR {Number(trade.profitLoss).toLocaleString()}
+                          Pkr {Number(trade.profitLoss).toLocaleString()}
                         </span>
 
                       )}
@@ -503,11 +503,11 @@ const GoldHistoryPage = () => {
         <div className="bg-zinc-900 border border-green-600 rounded-3xl p-6">
 
           <p className="text-gray-400 text-sm">
-            Total Buy Value
+            Total buy Value
           </p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            PKR {stats.totalBuyValue.toLocaleString()}
+            Pkr {stats.totalbuyValue.toLocaleString()}
           </h2>
 
         </div>
@@ -515,11 +515,11 @@ const GoldHistoryPage = () => {
         <div className="bg-zinc-900 border border-red-600 rounded-3xl p-6">
 
           <p className="text-gray-400 text-sm">
-            Total Sell Value
+            Total sell Value
           </p>
 
           <h2 className="text-3xl font-black text-red-400 mt-2">
-            PKR {stats.totalSellValue.toLocaleString()}
+            Pkr {stats.totalsellValue.toLocaleString()}
           </h2>
 
         </div>
@@ -531,7 +531,7 @@ const GoldHistoryPage = () => {
           </p>
 
           <h2 className="text-3xl font-black text-yellow-400 mt-2">
-            {stats.totalBuyGrams.toFixed(3)} g
+            {stats.totalbuyGrams.toFixed(3)} g
           </h2>
 
         </div>
@@ -543,7 +543,7 @@ const GoldHistoryPage = () => {
           </p>
 
           <h2 className="text-3xl font-black text-cyan-400 mt-2">
-            {stats.totalSellGrams.toFixed(3)} g
+            {stats.totalsellGrams.toFixed(3)} g
           </h2>
 
         </div>
@@ -570,18 +570,18 @@ const GoldHistoryPage = () => {
           </div>
 
           <div className="flex justify-between border-b border-zinc-800 pb-3">
-            <span className="text-gray-400">Total Buy Value</span>
+            <span className="text-gray-400">Total buy Value</span>
 
             <span className="text-green-400 font-bold">
-              PKR {stats.totalBuyValue.toLocaleString()}
+              Pkr {stats.totalbuyValue.toLocaleString()}
             </span>
           </div>
 
           <div className="flex justify-between border-b border-zinc-800 pb-3">
-            <span className="text-gray-400">Total Sell Value</span>
+            <span className="text-gray-400">Total sell Value</span>
 
             <span className="text-red-400 font-bold">
-              PKR {stats.totalSellValue.toLocaleString()}
+              Pkr {stats.totalsellValue.toLocaleString()}
             </span>
           </div>
 
@@ -589,7 +589,7 @@ const GoldHistoryPage = () => {
             <span className="text-gray-400">Gold Purchased</span>
 
             <span className="text-green-400 font-bold">
-              {stats.totalBuyGrams.toFixed(3)} g
+              {stats.totalbuyGrams.toFixed(3)} g
             </span>
           </div>
 
@@ -597,7 +597,7 @@ const GoldHistoryPage = () => {
             <span className="text-gray-400">Gold Sold</span>
 
             <span className="text-red-400 font-bold">
-              {stats.totalSellGrams.toFixed(3)} g
+              {stats.totalsellGrams.toFixed(3)} g
             </span>
           </div>
 
@@ -613,7 +613,7 @@ const GoldHistoryPage = () => {
                   : "text-red-400"
               }`}
             >
-              PKR {stats.realizedProfit.toLocaleString()}
+              Pkr {stats.realizedProfit.toLocaleString()}
             </span>
           </div>
 
@@ -622,7 +622,7 @@ const GoldHistoryPage = () => {
       </div>
 
       {/* ========================================== */}
-      {/* QUICK HISTORY SUMMARY */}
+      {/* QUICK history SUMMARY */}
       {/* ========================================== */}
 
       <div className="grid md:grid-cols-3 gap-6 mb-10">
@@ -630,11 +630,11 @@ const GoldHistoryPage = () => {
         <div className="bg-zinc-900 border border-green-600 rounded-3xl p-6">
 
           <p className="text-gray-400 text-sm">
-            BUY Transactions
+            buy Transactions
           </p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            {transactions.filter((t) => t.tradeType === "BUY").length}
+            {transactions.filter((t) => t.tradeType === "buy").length}
           </h2>
 
         </div>
@@ -642,11 +642,11 @@ const GoldHistoryPage = () => {
         <div className="bg-zinc-900 border border-red-600 rounded-3xl p-6">
 
           <p className="text-gray-400 text-sm">
-            SELL Transactions
+            sell Transactions
           </p>
 
           <h2 className="text-3xl font-black text-red-400 mt-2">
-            {transactions.filter((t) => t.tradeType === "SELL").length}
+            {transactions.filter((t) => t.tradeType === "sell").length}
           </h2>
 
         </div>
@@ -672,11 +672,11 @@ const GoldHistoryPage = () => {
       <div className="mt-12 border-t border-zinc-800 pt-8 text-center text-gray-500 text-sm">
 
         <p className="font-semibold text-yellow-400 mb-2 text-lg">
-          GoldTrade Enterprise V18 History
+          GoldTrade Enterprise V18 history
         </p>
 
         <p>
-          Buy & Sell History • Profit/Loss • Live Analytics • JWT Protected
+          buy & sell history • Profit/Loss • Live Analytics • JWT Protected
         </p>
 
         <p className="mt-2">
@@ -686,11 +686,11 @@ const GoldHistoryPage = () => {
         <div className="mt-4 flex justify-center gap-6 flex-wrap text-xs">
 
           <span className="text-green-400">
-            🟢 BUY History
+            🟢 buy history
           </span>
 
           <span className="text-red-400">
-            🔴 SELL History
+            🔴 sell history
           </span>
 
           <span className="text-blue-400">
@@ -709,4 +709,4 @@ const GoldHistoryPage = () => {
   );
 };
 
-export default GoldHistoryPage;
+export default GoldhistoryPage;

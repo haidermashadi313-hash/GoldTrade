@@ -8,7 +8,7 @@ import axios from "axios";
 // ==========================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 // ==========================================
 // TYPES
@@ -18,7 +18,7 @@ interface GoldPrice {
   buyPrice: number;
   sellPrice: number;
   goldPriceUSD: number;
-  usdToPkr: number;
+  UsdtoPkr: number;
   tradingEnabled: boolean;
   marketStatus: string;
 }
@@ -26,16 +26,16 @@ interface GoldPrice {
 interface Portfolio {
   goldBalance: number;
   walletBalance: number;
-  averageBuyPrice: number;
+  averagebuyPrice: number;
   currentPrice: number;
   portfolioValue: number;
   liveProfit: number;
   totalProfitLoss: number;
-  totalGoldBuy: number;
-  totalGoldSell: number;
+  totalGoldbuy: number;
+  totalGoldsell: number;
 }
 
-const GoldBuyPage: React.FC = () => {
+const GoldbuyPage: React.FC = () => {
   // ==========================================
   // USER STATES
   // ==========================================
@@ -51,7 +51,7 @@ const GoldBuyPage: React.FC = () => {
     buyPrice: 0,
     sellPrice: 0,
     goldPriceUSD: 0,
-    usdToPkr: 0,
+    UsdtoPkr: 0,
     tradingEnabled: true,
     marketStatus: "OPEN",
   });
@@ -63,17 +63,17 @@ const GoldBuyPage: React.FC = () => {
   const [portfolio, setPortfolio] = useState<Portfolio>({
     goldBalance: 0,
     walletBalance: 0,
-    averageBuyPrice: 0,
+    averagebuyPrice: 0,
     currentPrice: 0,
     portfolioValue: 0,
     liveProfit: 0,
     totalProfitLoss: 0,
-    totalGoldBuy: 0,
-    totalGoldSell: 0,
+    totalGoldbuy: 0,
+    totalGoldsell: 0,
   });
 
   // ==========================================
-  // BUY STATES
+  // buy STATES
   // ==========================================
 
   const [grams, setGrams] = useState("");
@@ -85,7 +85,7 @@ const GoldBuyPage: React.FC = () => {
     "success"
   );
 
-  // Buy Confirmation Modal
+  // buy Confirmation Modal
   const [showConfirm, setShowConfirm] = useState(false);
 
   // ==========================================
@@ -142,7 +142,7 @@ const GoldBuyPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error(
-        "BUY PAGE ERROR:",
+        "buy PAGE ERROR:",
         error.response?.data || error.message
       );
 
@@ -195,7 +195,7 @@ const GoldBuyPage: React.FC = () => {
   }, [message]);
 
     // ==========================================
-  // LIVE BUY CALCULATIONS
+  // LIVE buy CALCULATIONS
   // ==========================================
 
   const buyValue = useMemo(() => {
@@ -206,7 +206,7 @@ const GoldBuyPage: React.FC = () => {
     return qty * goldPrice.buyPrice;
   }, [grams, goldPrice.buyPrice]);
 
-  const remainingWallet = useMemo(() => {
+  const remainingwallet = useMemo(() => {
     return Math.max(portfolio.walletBalance - buyValue, 0);
   }, [portfolio.walletBalance, buyValue]);
 
@@ -217,14 +217,14 @@ const GoldBuyPage: React.FC = () => {
   const newAveragePrice = useMemo(() => {
     const qty = Number(grams);
 
-    if (!qty || qty <= 0) return portfolio.averageBuyPrice;
+    if (!qty || qty <= 0) return portfolio.averagebuyPrice;
 
     if (portfolio.goldBalance === 0) {
       return goldPrice.buyPrice;
     }
 
     const totalCost =
-      portfolio.goldBalance * portfolio.averageBuyPrice +
+      portfolio.goldBalance * portfolio.averagebuyPrice +
       qty * goldPrice.buyPrice;
 
     const totalGold = portfolio.goldBalance + qty;
@@ -251,7 +251,7 @@ const GoldBuyPage: React.FC = () => {
   };
 
   // ==========================================
-  // OPEN BUY CONFIRMATION
+  // OPEN buy CONFIRMATION
   // ==========================================
 
   const openConfirmation = () => {
@@ -270,7 +270,7 @@ const GoldBuyPage: React.FC = () => {
     }
 
     if (buyValue > portfolio.walletBalance) {
-      setMessage("Insufficient PKR Wallet Balance.");
+      setMessage("Insufficient Pkr wallet Balance.");
       setMessageType("error");
       return;
     }
@@ -279,7 +279,7 @@ const GoldBuyPage: React.FC = () => {
   };
 
   // ==========================================
-  // BUY GOLD API
+  // buy GOLD API
   // ==========================================
 
   const buyGold = async () => {
@@ -314,7 +314,7 @@ const GoldBuyPage: React.FC = () => {
       }
 
     } catch (error: any) {
-      console.error("BUY GOLD ERROR:", error);
+      console.error("buy GOLD ERROR:", error);
 
       setMessage(
         error.response?.data?.message || "Gold purchase failed."
@@ -363,7 +363,7 @@ const GoldBuyPage: React.FC = () => {
           </h2>
 
           <p className="text-gray-400 mt-2">
-            Loading Buy Gold Page...
+            Loading buy Gold Page...
           </p>
         </div>
       </div>
@@ -381,11 +381,11 @@ const GoldBuyPage: React.FC = () => {
       <div className="flex justify-between items-center flex-wrap gap-4 mb-8">
         <div>
           <h1 className="text-4xl font-black text-green-400">
-            BUY GOLD
+            buy GOLD
           </h1>
 
           <p className="text-gray-400 mt-2">
-            Purchase Gold instantly using your PKR Wallet.
+            Purchase Gold instantly using your Pkr wallet.
           </p>
         </div>
 
@@ -415,18 +415,18 @@ const GoldBuyPage: React.FC = () => {
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
         <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">Buy Price</p>
+          <p className="text-gray-400 text-sm">buy Price</p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            PKR {goldPrice.buyPrice.toLocaleString()}
+            Pkr {goldPrice.buyPrice.toLocaleString()}
           </h2>
         </div>
 
         <div className="bg-zinc-900 border border-red-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">Sell Price</p>
+          <p className="text-gray-400 text-sm">sell Price</p>
 
           <h2 className="text-3xl font-black text-red-400 mt-2">
-            PKR {goldPrice.sellPrice.toLocaleString()}
+            Pkr {goldPrice.sellPrice.toLocaleString()}
           </h2>
         </div>
 
@@ -459,27 +459,27 @@ const GoldBuyPage: React.FC = () => {
         </div>
 
         <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">Wallet Balance</p>
+          <p className="text-gray-400 text-sm">wallet Balance</p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            PKR {portfolio.walletBalance.toLocaleString()}
+            Pkr {portfolio.walletBalance.toLocaleString()}
           </h2>
         </div>
 
         <div className="bg-zinc-900 border border-blue-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">Average Buy Price</p>
+          <p className="text-gray-400 text-sm">Average buy Price</p>
 
           <h2 className="text-3xl font-black text-blue-400 mt-2">
-            PKR {portfolio.averageBuyPrice.toLocaleString()}
+            Pkr {portfolio.averagebuyPrice.toLocaleString()}
           </h2>
         </div>
       </div>
 
-      {/* BUY PANEL */}
+      {/* buy PANEL */}
 
       <div className="bg-zinc-900 border border-green-500 rounded-3xl p-8 mb-10">
         <h2 className="text-3xl font-black text-green-400 mb-6">
-          Gold Buying Panel
+          Gold buying Panel
         </h2>
 
         <label className="block text-gray-300 mb-2">
@@ -524,10 +524,10 @@ const GoldBuyPage: React.FC = () => {
           </div>
 
           <div className="flex justify-between">
-            <span className="text-gray-400">Live Buy Price</span>
+            <span className="text-gray-400">Live buy Price</span>
 
             <span className="text-green-400 font-bold">
-              PKR {goldPrice.buyPrice.toLocaleString()}
+              Pkr {goldPrice.buyPrice.toLocaleString()}
             </span>
           </div>
 
@@ -535,20 +535,20 @@ const GoldBuyPage: React.FC = () => {
             <span>Total Purchase Cost</span>
 
             <span className="text-green-400 font-black">
-              PKR {buyValue.toLocaleString()}
+              Pkr {buyValue.toLocaleString()}
             </span>
           </div>
 
           <div className="flex justify-between text-lg">
-            <span>Wallet After Purchase</span>
+            <span>wallet After Purchase</span>
 
             <span className="text-yellow-400 font-black">
-              PKR {remainingWallet.toLocaleString()}
+              Pkr {remainingwallet.toLocaleString()}
             </span>
           </div>
 
           <div className="flex justify-between text-lg">
-            <span>Gold Balance After Buy</span>
+            <span>Gold Balance After buy</span>
 
             <span className="text-yellow-400 font-black">
               {newGoldBalance.toFixed(3)} g
@@ -556,10 +556,10 @@ const GoldBuyPage: React.FC = () => {
           </div>
 
           <div className="flex justify-between text-lg">
-            <span>New Average Buy Price</span>
+            <span>New Average buy Price</span>
 
             <span className="text-blue-400 font-black">
-              PKR {Math.round(newAveragePrice).toLocaleString()}
+              Pkr {Math.round(newAveragePrice).toLocaleString()}
             </span>
           </div>
         </div>
@@ -569,7 +569,7 @@ const GoldBuyPage: React.FC = () => {
           disabled={processing || !goldPrice.tradingEnabled}
           className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-black text-xl py-4 rounded-2xl transition-all duration-300"
         >
-          {processing ? "Processing..." : "BUY GOLD NOW"}
+          {processing ? "Processing..." : "buy GOLD NOW"}
         </button>
       </div>
 
@@ -592,13 +592,13 @@ const GoldBuyPage: React.FC = () => {
               <div className="flex justify-between">
                 <span>Price / Gram</span>
 
-                <span>PKR {goldPrice.buyPrice.toLocaleString()}</span>
+                <span>Pkr {goldPrice.buyPrice.toLocaleString()}</span>
               </div>
 
               <div className="flex justify-between text-green-400 font-bold text-lg">
                 <span>Total Cost</span>
 
-                <span>PKR {buyValue.toLocaleString()}</span>
+                <span>Pkr {buyValue.toLocaleString()}</span>
               </div>
             </div>
 
@@ -614,7 +614,7 @@ const GoldBuyPage: React.FC = () => {
                 onClick={buyGold}
                 className="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-xl font-bold"
               >
-                Confirm Buy
+                Confirm buy
               </button>
             </div>
           </div>
@@ -628,7 +628,7 @@ const GoldBuyPage: React.FC = () => {
           GoldTrade Enterprise V18
         </p>
 
-        <p>Buy Gold Module • Secure JWT • Live Gold Market</p>
+        <p>buy Gold Module • Secure JWT • Live Gold Market</p>
 
         <p className="mt-2">
           Powered by GoldTrade Enterprise Backend API
@@ -639,4 +639,4 @@ const GoldBuyPage: React.FC = () => {
   );
 };
 
-export default GoldBuyPage;
+export default GoldbuyPage;

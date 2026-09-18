@@ -13,7 +13,7 @@ import {
   Shield,
   Gift,
   Users,
-  Wallet,
+  wallet,
   Coins,
   TrendingUp,
   TrendingDown,
@@ -270,148 +270,170 @@ export default function AdminPage() {
     );
   }, [stats]);
 
-// ================= NEXT SECTION STARTS HERE =================// =====================================================
-// GOLDTRADE V17 ENTERPRISE
-// FILE: frontend/app/admin/page.tsx
-// SECTION 2/10
-// ADMIN AUTH + API FUNCTIONS + DASHBOARD DATA LOADING
-// =====================================================
+/* ==========================================================
+   ADMIN AUTHENTICATION
+========================================================== */
 
-  /* ==========================================================
-     ADMIN AUTHENTICATION
-  ========================================================== */
+const getAdminHeaders = () => {
+  const token = localStorage.getItem("token");
 
-  const adminHeaders = {
+  return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
   };
+};
 
-  const checkAdminAccess = async () => {
-    try {
-      const response = await fetch(`${API}/api/gold/admin/auth/check`, {
-        headers: adminHeaders,
-      });
+const checkAdminAccess = async () => {
+  try {
+    const response = await fetch(`${API}/api/gold/admin/auth/check`, {
+      method: "GET",
+      headers: getAdminHeaders(),
+    });
 
-      if (!response.ok) {
-        localStorage.removeItem("token");
-        window.location.href = "/login";
-        return;
-      }
-
-      const data = await response.json();
-
-      if (!data.success || data.role !== "SUPER_ADMIN") {
-        alert("Unauthorized Admin Access");
-        window.location.href = "/";
-      }
-    } catch (error) {
-      console.error("Admin Auth Error:", error);
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("username");
       window.location.href = "/login";
+      return;
     }
-  };
 
-  /* ==========================================================
-     LOAD DASHBOARD STATISTICS
-  ========================================================== */
+    const data = await response.json();
 
-  const loadDashboardStats = async () => {
-    try {
-      const response = await fetch(`${API}/api/gold/admin/dashboard`, {
-        headers: adminHeaders,
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setStats(data.stats);
-        setReferralStats(data.referrals);
-        setGoldControl(data.goldPrice);
-      }
-    } catch (error) {
-      console.error("Dashboard Stats Error:", error);
+    if (!data.success || data.role !== "SUPER_ADMIN") {
+      alert("Unauthorized Admin Access");
+      window.location.href = "/";
     }
-  };
+  } catch (error) {
+    console.error("Admin Auth Error:", error);
+    window.location.href = "/login";
+  }
+};
 
-  /* ==========================================================
-     LOAD USERS
-  ========================================================== */
+/* ==========================================================
+   LOAD DASHBOARD STATISTICS
+========================================================== */
 
-  const loadUsers = async () => {
-    try {
-      const response = await fetch(`${API}/api/gold/admin/users`, {
-        headers: adminHeaders,
-      });
+const loadDashboardStats = async () => {
+  try {
+    const response = await fetch(`${API}/api/gold/admin/dashboard`, {
+      method: "GET",
+      headers: getAdminHeaders(),
+    });
 
-      const data = await response.json();
-
-      if (data.success) {
-        setUsers(data.users);
-      }
-    } catch (error) {
-      console.error("Users Error:", error);
+    if (!response.ok) {
+      throw new Error(`Dashboard API Error: ${response.status}`);
     }
-  };
 
-  /* ==========================================================
-     LOAD DEPOSITS
-  ========================================================== */
+    const data = await response.json();
 
-  const loadDeposits = async () => {
-    try {
-      const response = await fetch(`${API}/api/gold/admin/deposits`, {
-        headers: adminHeaders,
-      });
+    console.log("Dashboard Stats:", data);
 
-      const data = await response.json();
-
-      if (data.success) {
-        setDepositRequests(data.deposits);
-      }
-    } catch (error) {
-      console.error("Deposits Error:", error);
+    if (data.success) {
+      setStats(data.stats);
+      setReferralStats(data.referrals);
+      setGoldControl(data.goldPrice);
     }
-  };
+  } catch (error) {
+    console.error("Dashboard Stats Error:", error);
+  }
+};
 
-  /* ==========================================================
-     LOAD WITHDRAWALS
-  ========================================================== */
+/* ==========================================================
+   LOAD USERS
+========================================================== */
 
-  const loadWithdrawals = async () => {
-    try {
-      const response = await fetch(`${API}/api/gold/admin/withdrawals`, {
-        headers: adminHeaders,
-      });
+const loadUsers = async () => {
+  try {
+    const response = await fetch(`${API}/api/gold/admin/users`, {
+      method: "GET",
+      headers: getAdminHeaders(),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (data.success) {
-        setWithdrawRequests(data.withdrawals);
-      }
-    } catch (error) {
-      console.error("Withdrawals Error:", error);
+    if (data.success) {
+      setUsers(data.users);
     }
-  };
+  } catch (error) {
+    console.error("Users Error:", error);
+  }
+};
 
-  /* ==========================================================
-     LOAD ACTIVITY LOGS
-  ========================================================== */
+/* ==========================================================
+   LOAD DEPOSITS
+========================================================== */
 
-  const loadActivityLogs = async () => {
-    try {
-      const response = await fetch(`${API}/api/gold/admin/activity`, {
-        headers: adminHeaders,
-      });
+const loadDeposits = async () => {
+  try {
+    const response = await fetch(`${API}/api/gold/admin/deposits`, {
+      method: "GET",
+      headers: getAdminHeaders(),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (data.success) {
-        setActivityLogs(data.logs);
-      }
-    } catch (error) {
-      console.error("Activity Logs Error:", error);
+    if (data.success) {
+      setDepositRequests(data.deposits);
     }
-  };
+  } catch (error) {
+    console.error("Deposits Error:", error);
+  }
+};
 
+/* ==========================================================
+   LOAD WITHDRAWALS
+========================================================== */
+
+const loadWithdrawals = async () => {
+  try {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      alert("Admin login required.");
+      return;
+    }
+
+    const response = await fetch(`${API}/api/admin/withdraws/all`, {
+      method: "GET",
+      headers: getAdminHeaders(),
+    });
+
+    const data = await response.json();
+
+    console.log("ADMIN WITHDRAW RESPONSE:", data);
+
+    if (response.ok && data.success) {
+      setWithdrawRequests(data.withdrawals || []);
+    } else {
+      console.error("Withdraw API Error:", data.message);
+      setWithdrawRequests([]);
+    }
+  } catch (error) {
+    console.error("Withdrawals Error:", error);
+    setWithdrawRequests([]);
+  }
+};
+
+/* ==========================================================
+   LOAD ACTIVITY LOGS
+========================================================== */
+
+const loadActivityLogs = async () => {
+  try {
+    const response = await fetch(`${API}/api/gold/admin/activity`, {
+      method: "GET",
+      headers: getAdminHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      setActivityLogs(data.logs);
+    }
+  } catch (error) {
+    console.error("Activity Logs Error:", error);
+  }
+};
   /* ==========================================================
      REFRESH COMPLETE DASHBOARD
   ========================================================== */
@@ -573,27 +595,27 @@ export default function AdminPage() {
 
             <div className="text-center">
 
-              <p className="text-gray-400 text-sm">Live Gold Buy Price</p>
+              <p className="text-gray-400 text-sm">Live Gold buy Price</p>
 
               <h3 className="text-3xl font-black text-yellow-400 mt-2">
-                PKR {goldControl.buyPrice.toLocaleString()}
+                Pkr {goldControl.buyPrice.toLocaleString()}
               </h3>
 
             </div>
 
             <div className="text-center">
 
-              <p className="text-gray-400 text-sm">Live Gold Sell Price</p>
+              <p className="text-gray-400 text-sm">Live Gold sell Price</p>
 
               <h3 className="text-3xl font-black text-green-400 mt-2">
-                PKR {goldControl.sellPrice.toLocaleString()}
+                Pkr {goldControl.sellPrice.toLocaleString()}
               </h3>
 
             </div>
 
             <div className="text-center">
 
-              <p className="text-gray-400 text-sm">USD / PKR Rate</p>
+              <p className="text-gray-400 text-sm">USD / Pkr Rate</p>
 
               <h3 className="text-3xl font-black text-cyan-400 mt-2">
                 {goldControl.usdRate}
@@ -684,7 +706,7 @@ export default function AdminPage() {
             <p className="text-gray-400 text-sm">Today's Revenue</p>
 
             <h3 className="text-3xl font-black text-green-400 mt-2">
-              PKR {stats.todayRevenue.toLocaleString()}
+              Pkr {stats.todayRevenue.toLocaleString()}
             </h3>
 
           </div>
@@ -696,7 +718,7 @@ export default function AdminPage() {
             <p className="text-gray-400 text-sm">Total Revenue</p>
 
             <h3 className="text-3xl font-black text-cyan-400 mt-2">
-              PKR {stats.totalRevenue.toLocaleString()}
+              Pkr {stats.totalRevenue.toLocaleString()}
             </h3>
 
           </div>
@@ -708,7 +730,7 @@ export default function AdminPage() {
             <p className="text-gray-400 text-sm">Total Deposits</p>
 
             <h3 className="text-3xl font-black text-blue-400 mt-2">
-              PKR {stats.totalDeposits.toLocaleString()}
+              Pkr {stats.totalDeposits.toLocaleString()}
             </h3>
 
           </div>
@@ -720,7 +742,7 @@ export default function AdminPage() {
             <p className="text-gray-400 text-sm">Total Withdrawals</p>
 
             <h3 className="text-3xl font-black text-red-400 mt-2">
-              PKR {stats.totalWithdrawals.toLocaleString()}
+              Pkr {stats.totalWithdrawals.toLocaleString()}
             </h3>
 
           </div>
@@ -842,7 +864,7 @@ export default function AdminPage() {
                 </span>
 
                 <span className="font-black text-yellow-400 text-xl">
-                  PKR {totalPendingAmount.toLocaleString()}
+                  Pkr {totalPendingAmount.toLocaleString()}
                 </span>
 
               </div>
@@ -854,7 +876,7 @@ export default function AdminPage() {
                 </span>
 
                 <span className="font-black text-yellow-400 text-xl">
-                  PKR {stats.liveGoldPrice.toLocaleString()}
+                  Pkr {stats.liveGoldPrice.toLocaleString()}
                 </span>
 
               </div>
@@ -892,7 +914,7 @@ export default function AdminPage() {
             </button>
 
             <button className="bg-red-600 hover:bg-red-500 rounded-2xl p-5 font-black flex flex-col items-center gap-3">
-              <Wallet size={30} />
+              <wallet size={30} />
               Review Withdrawals
             </button>
 
@@ -909,7 +931,7 @@ export default function AdminPage() {
 // GOLDTRADE V17 ENTERPRISE
 // FILE: frontend/app/admin/page.tsx
 // SECTION 4/10
-// USER MANAGEMENT + SEARCH + KYC + BLOCK/UNBLOCK + WALLET EDIT
+// USER MANAGEMENT + SEARCH + KYC + BLOCK/UNBLOCK + wallet EDIT
 // =====================================================
 
         {/* ================= USER MANAGEMENT HEADER ================= */}
@@ -1012,7 +1034,7 @@ export default function AdminPage() {
 
               <tr>
                 <th className="text-left py-4 px-3">User</th>
-                <th className="text-left py-4 px-3">Wallet</th>
+                <th className="text-left py-4 px-3">wallet</th>
                 <th className="text-left py-4 px-3">Gold</th>
                 <th className="text-left py-4 px-3">KYC</th>
                 <th className="text-left py-4 px-3">Status</th>
@@ -1052,7 +1074,7 @@ export default function AdminPage() {
                   </td>
 
                   <td className="py-4 px-3 text-green-400 font-bold">
-                    PKR {user.walletBalance.toLocaleString()}
+                    Pkr {user.walletBalance.toLocaleString()}
                   </td>
 
                   <td className="py-4 px-3 text-yellow-400 font-bold">
@@ -1178,7 +1200,7 @@ export default function AdminPage() {
                 </div>
 
                 <div className="bg-black border border-green-700 rounded-2xl p-5">
-                  <p className="text-gray-400 text-sm">Wallet Balance</p>
+                  <p className="text-gray-400 text-sm">wallet Balance</p>
 
                   <input
                     type="number"
@@ -1215,8 +1237,8 @@ export default function AdminPage() {
                 </button>
 
                 <button className="bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-black flex items-center justify-center gap-2">
-                  <Wallet size={20} />
-                  Update Wallet
+                  <wallet size={20} />
+                  Update wallet
                 </button>
 
                 <button className="bg-yellow-500 hover:bg-yellow-400 text-black py-3 rounded-xl font-black flex items-center justify-center gap-2">
@@ -1354,7 +1376,7 @@ export default function AdminPage() {
             <p className="text-gray-400 text-sm">Total Deposit Volume</p>
 
             <h3 className="text-3xl font-black text-blue-400 mt-2">
-              PKR {stats.totalDeposits.toLocaleString()}
+              Pkr {stats.totalDeposits.toLocaleString()}
             </h3>
 
           </div>
@@ -1405,7 +1427,7 @@ export default function AdminPage() {
                   </td>
 
                   <td className="py-4 px-3 text-green-400 font-black">
-                    PKR {deposit.amount.toLocaleString()}
+                    Pkr {deposit.amount.toLocaleString()}
                   </td>
 
                   <td className="py-4 px-3 text-gray-300">
@@ -1558,12 +1580,12 @@ export default function AdminPage() {
               },
               {
                 bank: "JazzCash",
-                title: "GoldTrade Wallet",
+                title: "GoldTrade wallet",
                 account: "03001234567",
               },
               {
                 bank: "EasyPaisa",
-                title: "GoldTrade Wallet",
+                title: "GoldTrade wallet",
                 account: "03111234567",
               },
             ].map((bank) => (
@@ -1613,7 +1635,7 @@ export default function AdminPage() {
             <div>
 
               <div className="flex items-center gap-3 mb-2">
-                <Wallet className="text-red-400" size={30} />
+                <wallet className="text-red-400" size={30} />
 
                 <h2 className="text-3xl font-black text-red-400">
                   Withdrawal Management
@@ -1719,7 +1741,7 @@ export default function AdminPage() {
             <p className="text-gray-400 text-sm">Total Withdrawal Volume</p>
 
             <h3 className="text-3xl font-black text-red-400 mt-2">
-              PKR {stats.totalWithdrawals.toLocaleString()}
+              Pkr {stats.totalWithdrawals.toLocaleString()}
             </h3>
 
           </div>
@@ -1770,7 +1792,7 @@ export default function AdminPage() {
                   </td>
 
                   <td className="py-4 px-3 text-red-400 font-black">
-                    PKR {withdrawal.amount.toLocaleString()}
+                    Pkr {withdrawal.amount.toLocaleString()}
                   </td>
 
                   <td className="py-4 px-3">
@@ -1996,7 +2018,7 @@ export default function AdminPage() {
                 <p className="text-gray-400 text-sm">Estimated Amount</p>
 
                 <h3 className="text-3xl font-black text-red-400 mt-2">
-                  PKR {stats.pendingWithdrawals.toLocaleString()}
+                  Pkr {stats.pendingWithdrawals.toLocaleString()}
                 </h3>
 
               </div>
@@ -2029,7 +2051,7 @@ export default function AdminPage() {
 
         </div>
 
-        {/* ================= PAYMENT HISTORY ================= */}
+        {/* ================= PAYMENT history ================= */}
 
         <div className="bg-zinc-900 border border-green-700 rounded-3xl p-6 mb-10">
 
@@ -2038,7 +2060,7 @@ export default function AdminPage() {
             <FileText className="text-green-400" size={28} />
 
             <h2 className="text-2xl font-black text-green-400">
-              Payment History
+              Payment history
             </h2>
 
           </div>
@@ -2048,19 +2070,19 @@ export default function AdminPage() {
             {[
               {
                 user: "Ali Khan",
-                amount: "PKR 120,000",
+                amount: "Pkr 120,000",
                 method: "Meezan Bank",
                 date: "Today • 06:20 PM",
               },
               {
                 user: "Ahmed Raza",
-                amount: "PKR 58,500",
+                amount: "Pkr 58,500",
                 method: "JazzCash",
                 date: "Today • 03:45 PM",
               },
               {
                 user: "Sara Noor",
-                amount: "PKR 250,000",
+                amount: "Pkr 250,000",
                 method: "HBL Bank",
                 date: "Yesterday • 09:10 PM",
               },
@@ -2124,7 +2146,7 @@ export default function AdminPage() {
               </div>
 
               <p className="text-gray-400">
-                Update Gold Buy/Sell prices instantly across Dashboard, Trading, Wallet and Mobile App.
+                Update Gold buy/sell prices instantly across Dashboard, Trading, wallet and Mobile App.
               </p>
 
             </div>
@@ -2146,10 +2168,10 @@ export default function AdminPage() {
 
             <TrendingUp className="text-yellow-400 mb-3" size={28} />
 
-            <p className="text-gray-400 text-sm">Live Buy Price</p>
+            <p className="text-gray-400 text-sm">Live buy Price</p>
 
             <h3 className="text-3xl font-black text-yellow-400 mt-2">
-              PKR {goldControl.buyPrice.toLocaleString()}
+              Pkr {goldControl.buyPrice.toLocaleString()}
             </h3>
 
           </div>
@@ -2158,10 +2180,10 @@ export default function AdminPage() {
 
             <TrendingDown className="text-green-400 mb-3" size={28} />
 
-            <p className="text-gray-400 text-sm">Live Sell Price</p>
+            <p className="text-gray-400 text-sm">Live sell Price</p>
 
             <h3 className="text-3xl font-black text-green-400 mt-2">
-              PKR {goldControl.sellPrice.toLocaleString()}
+              Pkr {goldControl.sellPrice.toLocaleString()}
             </h3>
 
           </div>
@@ -2170,7 +2192,7 @@ export default function AdminPage() {
 
             <Globe className="text-cyan-400 mb-3" size={28} />
 
-            <p className="text-gray-400 text-sm">USD / PKR Rate</p>
+            <p className="text-gray-400 text-sm">USD / Pkr Rate</p>
 
             <h3 className="text-3xl font-black text-cyan-400 mt-2">
               {goldControl.usdRate}
@@ -2211,7 +2233,7 @@ export default function AdminPage() {
             <div>
 
               <label className="block text-gray-400 text-sm mb-2">
-                Gold Buy Price (PKR)
+                Gold buy Price (Pkr)
               </label>
 
               <input
@@ -2231,7 +2253,7 @@ export default function AdminPage() {
             <div>
 
               <label className="block text-gray-400 text-sm mb-2">
-                Gold Sell Price (PKR)
+                Gold sell Price (Pkr)
               </label>
 
               <input
@@ -2251,7 +2273,7 @@ export default function AdminPage() {
             <div>
 
               <label className="block text-gray-400 text-sm mb-2">
-                USD / PKR Exchange Rate
+                USD / Pkr Exchange Rate
               </label>
 
               <input
@@ -2271,7 +2293,7 @@ export default function AdminPage() {
             <div>
 
               <label className="block text-gray-400 text-sm mb-2">
-                Market Spread (PKR)
+                Market Spread (Pkr)
               </label>
 
               <input
@@ -2311,7 +2333,7 @@ export default function AdminPage() {
             <div className="bg-black border border-zinc-700 rounded-2xl p-5">
 
               <label className="block text-gray-400 text-sm mb-2">
-                Buy Commission (%)
+                buy Commission (%)
               </label>
 
               <input
@@ -2326,7 +2348,7 @@ export default function AdminPage() {
             <div className="bg-black border border-zinc-700 rounded-2xl p-5">
 
               <label className="block text-gray-400 text-sm mb-2">
-                Sell Commission (%)
+                sell Commission (%)
               </label>
 
               <input
@@ -2341,7 +2363,7 @@ export default function AdminPage() {
             <div className="bg-black border border-zinc-700 rounded-2xl p-5">
 
               <label className="block text-gray-400 text-sm mb-2">
-                Minimum Trading Amount (PKR)
+                Minimum Trading Amount (Pkr)
               </label>
 
               <input
@@ -2355,7 +2377,7 @@ export default function AdminPage() {
             <div className="bg-black border border-zinc-700 rounded-2xl p-5">
 
               <label className="block text-gray-400 text-sm mb-2">
-                Maximum Trading Amount (PKR)
+                Maximum Trading Amount (Pkr)
               </label>
 
               <input
@@ -2392,12 +2414,12 @@ export default function AdminPage() {
 
             {[
               {
-                title: "Enable Buy Orders",
+                title: "Enable buy Orders",
                 description: "Allow all users to buy Gold instantly.",
                 enabled: true,
               },
               {
-                title: "Enable Sell Orders",
+                title: "Enable sell Orders",
                 description: "Allow all users to sell Gold instantly.",
                 enabled: true,
               },
@@ -2547,11 +2569,11 @@ export default function AdminPage() {
             </button>
 
             <button className="bg-orange-500 hover:bg-orange-400 text-black py-4 rounded-2xl font-black">
-              Pause Buy Orders
+              Pause buy Orders
             </button>
 
             <button className="bg-yellow-500 hover:bg-yellow-400 text-black py-4 rounded-2xl font-black">
-              Pause Sell Orders
+              Pause sell Orders
             </button>
 
             <button className="bg-green-600 hover:bg-green-500 py-4 rounded-2xl font-black md:col-span-3">
@@ -2597,7 +2619,7 @@ export default function AdminPage() {
               </p>
 
               <h3 className="text-3xl font-black text-green-400">
-                PKR {referralStats.paidReferralBonus.toLocaleString()}
+                Pkr {referralStats.paidReferralBonus.toLocaleString()}
               </h3>
 
             </div>
@@ -2619,7 +2641,7 @@ export default function AdminPage() {
             </p>
 
             <h3 className="text-3xl font-black text-green-400 mt-2">
-              PKR {referralStats.totalReferralBonus.toLocaleString()}
+              Pkr {referralStats.totalReferralBonus.toLocaleString()}
             </h3>
 
           </div>
@@ -2633,7 +2655,7 @@ export default function AdminPage() {
             </p>
 
             <h3 className="text-3xl font-black text-yellow-400 mt-2">
-              PKR {referralStats.pendingReferralBonus.toLocaleString()}
+              Pkr {referralStats.pendingReferralBonus.toLocaleString()}
             </h3>
 
           </div>
@@ -2647,7 +2669,7 @@ export default function AdminPage() {
             </p>
 
             <h3 className="text-3xl font-black text-purple-400 mt-2">
-              PKR {referralStats.paidReferralBonus.toLocaleString()}
+              Pkr {referralStats.paidReferralBonus.toLocaleString()}
             </h3>
 
           </div>
@@ -2673,7 +2695,7 @@ export default function AdminPage() {
             <div>
 
               <label className="block text-gray-400 text-sm mb-2">
-                Signup Referral Bonus (PKR)
+                Signup Referral Bonus (Pkr)
               </label>
 
               <input
@@ -2687,7 +2709,7 @@ export default function AdminPage() {
             <div>
 
               <label className="block text-gray-400 text-sm mb-2">
-                First Deposit Referral Bonus (PKR)
+                First Deposit Referral Bonus (Pkr)
               </label>
 
               <input
@@ -2716,7 +2738,7 @@ export default function AdminPage() {
             <div>
 
               <label className="block text-gray-400 text-sm mb-2">
-                Maximum Referral Reward (PKR)
+                Maximum Referral Reward (Pkr)
               </label>
 
               <input
@@ -2759,7 +2781,7 @@ export default function AdminPage() {
 
             <input
               type="number"
-              placeholder="Bonus Amount (PKR)"
+              placeholder="Bonus Amount (Pkr)"
               className="bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white outline-none"
             />
 
@@ -2802,7 +2824,7 @@ export default function AdminPage() {
                   </p>
 
                   <p className="text-gray-400 text-sm">
-                    PKR {promo.amount}
+                    Pkr {promo.amount}
                   </p>
 
                 </div>
@@ -2900,7 +2922,7 @@ export default function AdminPage() {
             <div className="bg-black border border-zinc-700 rounded-2xl p-5">
 
               <label className="block text-gray-400 text-sm mb-2">
-                Minimum Withdrawal Commission (PKR)
+                Minimum Withdrawal Commission (Pkr)
               </label>
 
               <input
@@ -2943,7 +2965,7 @@ export default function AdminPage() {
 
             <input
               type="number"
-              placeholder="Bonus Amount (PKR)"
+              placeholder="Bonus Amount (Pkr)"
               className="bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white"
             />
 
@@ -3026,7 +3048,7 @@ export default function AdminPage() {
                 </div>
 
                 <p className="font-black text-green-400">
-                  PKR {user.reward.toLocaleString()}
+                  Pkr {user.reward.toLocaleString()}
                 </p>
 
               </div>
@@ -3081,7 +3103,7 @@ export default function AdminPage() {
             <DollarSign className="text-green-400 mb-3" size={28} />
             <p className="text-gray-400 text-sm">Today's Revenue</p>
             <h3 className="text-3xl font-black text-green-400 mt-2">
-              PKR {stats.todayRevenue.toLocaleString()}
+              Pkr {stats.todayRevenue.toLocaleString()}
             </h3>
           </div>
 
@@ -3089,7 +3111,7 @@ export default function AdminPage() {
             <TrendingUp className="text-blue-400 mb-3" size={28} />
             <p className="text-gray-400 text-sm">Total Revenue</p>
             <h3 className="text-3xl font-black text-blue-400 mt-2">
-              PKR {stats.totalRevenue.toLocaleString()}
+              Pkr {stats.totalRevenue.toLocaleString()}
             </h3>
           </div>
 
@@ -3097,15 +3119,15 @@ export default function AdminPage() {
             <CreditCard className="text-yellow-400 mb-3" size={28} />
             <p className="text-gray-400 text-sm">Deposit Volume</p>
             <h3 className="text-3xl font-black text-yellow-400 mt-2">
-              PKR {stats.totalDeposits.toLocaleString()}
+              Pkr {stats.totalDeposits.toLocaleString()}
             </h3>
           </div>
 
           <div className="bg-zinc-900 border border-red-600 rounded-2xl p-5">
-            <Wallet className="text-red-400 mb-3" size={28} />
+            <wallet className="text-red-400 mb-3" size={28} />
             <p className="text-gray-400 text-sm">Withdrawal Volume</p>
             <h3 className="text-3xl font-black text-red-400 mt-2">
-              PKR {stats.totalWithdrawals.toLocaleString()}
+              Pkr {stats.totalWithdrawals.toLocaleString()}
             </h3>
           </div>
 
@@ -3134,12 +3156,12 @@ export default function AdminPage() {
             <tbody>
 
               {[
-                ["January", "PKR 8,400,000", "+6%"],
-                ["February", "PKR 9,200,000", "+9%"],
-                ["March", "PKR 10,150,000", "+10%"],
-                ["April", "PKR 11,000,000", "+8%"],
-                ["May", "PKR 12,400,000", "+12%"],
-                ["June", "PKR 13,850,000", "+11%"],
+                ["January", "Pkr 8,400,000", "+6%"],
+                ["February", "Pkr 9,200,000", "+9%"],
+                ["March", "Pkr 10,150,000", "+10%"],
+                ["April", "Pkr 11,000,000", "+8%"],
+                ["May", "Pkr 12,400,000", "+12%"],
+                ["June", "Pkr 13,850,000", "+11%"],
               ].map((row) => (
                 <tr key={row[0]} className="border-b border-zinc-800">
                   <td className="py-3">{row[0]}</td>
@@ -3367,7 +3389,7 @@ export default function AdminPage() {
 
             <button className="bg-cyan-600 hover:bg-cyan-500 rounded-2xl p-5 font-black flex items-center justify-center gap-3">
               <Download size={22} />
-              Export Trading History
+              Export Trading history
             </button>
 
             <button className="bg-orange-500 hover:bg-orange-400 text-black rounded-2xl p-5 font-black flex items-center justify-center gap-3">
@@ -3451,7 +3473,7 @@ export default function AdminPage() {
               </label>
 
               <select className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white">
-                <option>PKR</option>
+                <option>Pkr</option>
                 <option>USD</option>
                 <option>AED</option>
               </select>
@@ -3777,7 +3799,7 @@ export default function AdminPage() {
               </p>
 
               <p className="text-white font-semibold mt-2">
-                Users • Wallet • Trading • KYC • Reports • Security
+                Users • wallet • Trading • KYC • Reports • Security
               </p>
 
             </div>

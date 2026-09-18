@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 
 // ==============================================
@@ -8,7 +8,7 @@ import axios from "axios";
 // ==============================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 // ==============================================
 // TYPES
@@ -18,7 +18,7 @@ interface GoldSettings {
   buyPrice: number;
   sellPrice: number;
   goldPriceUSD: number;
-  usdToPkr: number;
+  UsdtoPkr: number;
   tradingEnabled: boolean;
   marketStatus: string;
 }
@@ -48,7 +48,7 @@ export default function AdminGoldDashboard() {
     buyPrice: 0,
     sellPrice: 0,
     goldPriceUSD: 0,
-    usdToPkr: 0,
+    UsdtoPkr: 0,
     tradingEnabled: true,
     marketStatus: "OPEN",
   });
@@ -61,11 +61,11 @@ export default function AdminGoldDashboard() {
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
 
   // ==============================================
-  // GOLD WALLET FORM
+  // GOLD wallet FORM
   // ==============================================
 
   const [goldAmount, setGoldAmount] = useState("");
-  const [walletReason, setWalletReason] = useState("");
+  const [walletReason, setwalletReason] = useState("");
 
   // ==============================================
   // UI STATES
@@ -87,9 +87,115 @@ export default function AdminGoldDashboard() {
     setToken(savedToken);
   }, []);
 
-  // =====================================================
-// FETCH LIVE GOLD SETTINGS (FINAL V18)
-// =====================================================
+  // ==============================================
+  // SEARCH USER
+  // ==============================================
+
+  const searchUser = async () => {
+    const username = searchUsername.trim();
+
+    if (!username) {
+      setMessage("Enter a username to search.");
+      setMessageType("error");
+      return;
+    }
+
+    try {
+      const res = await axios.get(`${API}/api/gold/admin/users/search`, {
+        params: { username },
+        headers: {
+          Authorization: `Bearer ${token || localStorage.getItem("token")}`,
+        },
+      });
+
+      if (res.data.success) {
+        setSelectedUser(res.data.data);
+        setMessage("");
+        return;
+      }
+
+      setSelectedUser(null);
+      setMessage(res.data.message || "User not found.");
+      setMessageType("error");
+    } catch (error: any) {
+      console.error("SEARCH USER ERROR:", error);
+      setSelectedUser(null);
+      setMessage(
+        error.response?.data?.message || "Unable to search user."
+      );
+      setMessageType("error");
+    }
+  };
+
+  // ==============================================
+  // TOGGLE MARKET
+  // ==============================================
+
+  const toggleMarket = async () => {
+    const nextTradingEnabled = !settings.tradingEnabled;
+    const nextMarketStatus = nextTradingEnabled ? "OPEN" : "CLOSED";
+
+    try {
+      setSaving(true);
+
+      await axios.put(
+        `${API}/api/gold/admin/gold/settings`,
+        {
+          buyGoldPrice: settings.buyPrice,
+          sellGoldPrice: settings.sellPrice,
+          goldPriceUSD: settings.goldPriceUSD,
+          UsdtoPkr: settings.UsdtoPkr,
+          goldTradingEnabled: nextTradingEnabled,
+          marketStatus: nextMarketStatus,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token || localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      setSettings((prev) => ({
+        ...prev,
+        tradingEnabled: nextTradingEnabled,
+        marketStatus: nextMarketStatus,
+      }));
+
+      setMessage(
+        nextTradingEnabled
+          ? "Market opened successfully."
+          : "Market closed successfully."
+      );
+      setMessageType("success");
+
+      await fetchSettings();
+    } catch (error: any) {
+      console.error("TOGGLE MARKET ERROR:", error);
+      setMessage(
+        error.response?.data?.message || "Unable to update market status."
+      );
+      setMessageType("error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ==============================================
+  // HANDLE SETTINGS INPUT
+  // ==============================================
+
+  const handleInput = (e: any) => {
+    const { name, value } = e.target;
+
+    setSettings((prev) => ({
+      ...prev,
+      [name]: Number(value),
+    }));
+  };
+
+ // ==============================================
+// FETCH GOLD SETTINGS (GOLDTRADE V18 FINAL)
+// ==============================================
 
 const fetchSettings = async () => {
   try {
@@ -97,27 +203,30 @@ const fetchSettings = async () => {
 
     const token = localStorage.getItem("token");
 
-    const { data } = await axios.get(`${API}/api/gold/price`, {
+    const res = await axios.get(`${API}/api/gold/price`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
 
-    if (data.success) {
+    if (res.data.success) {
+      const market = res.data.data;
+
       setSettings({
-        buyPrice: data.data.buyPrice,
-        sellPrice: data.data.sellPrice,
-        goldPriceUSD: data.data.goldPriceUSD,
-        usdToPkr: data.data.usdToPkr,
-        tradingEnabled: data.data.tradingEnabled,
-        marketStatus: data.data.marketStatus,
+        buyPrice: Number(market.buyPrice ?? 0),
+        sellPrice: Number(market.sellPrice ?? 0),
+        goldPriceUSD: Number(market.goldPriceUSD ?? 0),
+        UsdtoPkr: Number(market.UsdtoPkr ?? 0),
+        tradingEnabled: market.tradingEnabled ?? true,
+        marketStatus: market.marketStatus ?? "OPEN",
       });
 
       setMessage("");
     }
 
-  } catch (err) {
-    console.error("FETCH SETTINGS ERROR:", err);
+  } catch (error) {
+    console.error("FETCH SETTINGS ERROR:", error);
+
     setMessage("Unable to load Gold Settings.");
     setMessageType("error");
   } finally {
@@ -130,19 +239,23 @@ useEffect(() => {
 }, []);
 
   // ==============================================
-  // SEARCH USER
+  // SAVE GOLD MARKET SETTINGS
   // ==============================================
 
-  const searchUser = async () => {
-    if (!searchUsername) {
-      setMessage("Enter username first.");
-      setMessageType("error");
-      return;
-    }
-
+  const saveSettings = async () => {
     try {
-      const res = await axios.get(
-        `${API}/api/gold/admin/user/${searchUsername}`,
+      setSaving(true);
+
+      await axios.put(
+        `${API}/api/gold/admin/gold/settings`,
+        {
+          buyGoldPrice: settings.buyPrice,
+          sellGoldPrice: settings.sellPrice,
+          goldPriceUSD: settings.goldPriceUSD,
+          UsdtoPkr: settings.UsdtoPkr,
+          goldTradingEnabled: settings.tradingEnabled,
+          marketStatus: settings.marketStatus,
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -150,94 +263,31 @@ useEffect(() => {
         }
       );
 
-      if (res.data.success) {
-        setSelectedUser(res.data.user);
+      setMessage("Gold Market Settings Updated Successfully.");
+      setMessageType("success");
 
-        setMessage("User loaded successfully.");
-        setMessageType("success");
-      }
+      fetchSettings();
 
     } catch (error: any) {
-      console.error(error);
-
-      setSelectedUser(null);
+      console.error("SAVE SETTINGS ERROR:", error);
 
       setMessage(
-        error.response?.data?.message || "User not found."
+        error.response?.data?.message ||
+          "Unable to update Gold Settings."
       );
 
       setMessageType("error");
+
+    } finally {
+      setSaving(false);
     }
   };
-    // ==============================================
-  // INPUT CHANGE
-  // ==============================================
-
-  const handleInput = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const { name, value } = e.target;
-
-    setSettings((prev) => ({
-      ...prev,
-      [name]: Number(value),
-    }));
-  };
 
   // ==============================================
-  // TOGGLE MARKET STATUS
+  // CREDIT / DEBIT GOLD wallet
   // ==============================================
 
-  const toggleMarket = () => {
-    setSettings((prev) => ({
-      ...prev,
-      tradingEnabled: !prev.tradingEnabled,
-      marketStatus: prev.tradingEnabled ? "CLOSED" : "OPEN",
-    }));
-  };
-
- // =====================================================
-// SAVE MARKET SETTINGS (FINAL V18)
-// =====================================================
-
-const saveMarketSettings = async () => {
-  try {
-    const token = localStorage.getItem("token");
-
-    const { data } = await axios.put(
-      `${API}/api/gold/price`,
-      {
-        buyPrice: settings.buyPrice,
-        sellPrice: settings.sellPrice,
-        goldPriceUSD: settings.goldPriceUSD,
-        usdToPkr: settings.usdToPkr,
-        tradingEnabled: settings.tradingEnabled,
-        marketStatus: settings.marketStatus,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (data.success) {
-      setMessage("✅ Market Settings Saved Successfully");
-      setMessageType("success");
-      fetchSettings();
-    }
-
-  } catch (err) {
-    console.error("SAVE SETTINGS ERROR:", err);
-    setMessage("❌ Failed to save market settings.");
-    setMessageType("error");
-  }
-};
-  // ==============================================
-  // CREDIT / DEBIT GOLD WALLET
-  // ==============================================
-
-  const updateGoldWallet = async (
+  const updateGoldwallet = async (
     action: "credit" | "debit"
   ) => {
 
@@ -280,17 +330,17 @@ const saveMarketSettings = async () => {
         setMessageType("success");
 
         setGoldAmount("");
-        setWalletReason("");
+        setwalletReason("");
 
         await searchUser();
       }
 
     } catch (error: any) {
-      console.error("GOLD WALLET ERROR:", error);
+      console.error("GOLD wallet ERROR:", error);
 
       setMessage(
         error.response?.data?.message ||
-          "Unable to update Gold Wallet."
+          "Unable to update Gold wallet."
       );
 
       setMessageType("error");
@@ -402,18 +452,18 @@ const saveMarketSettings = async () => {
       <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
 
         <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">Live Buy Price</p>
+          <p className="text-gray-400 text-sm">Live buy Price</p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            PKR {settings.buyPrice.toLocaleString()}
+            Pkr {settings.buyPrice.toLocaleString()}
           </h2>
         </div>
 
         <div className="bg-zinc-900 border border-red-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">Live Sell Price</p>
+          <p className="text-gray-400 text-sm">Live sell Price</p>
 
           <h2 className="text-3xl font-black text-red-400 mt-2">
-            PKR {settings.sellPrice.toLocaleString()}
+            Pkr {settings.sellPrice.toLocaleString()}
           </h2>
         </div>
 
@@ -426,10 +476,10 @@ const saveMarketSettings = async () => {
         </div>
 
         <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">USD → PKR</p>
+          <p className="text-gray-400 text-sm">USD → Pkr</p>
 
           <h2 className="text-3xl font-black text-cyan-400 mt-2">
-            {settings.usdToPkr}
+            {settings.UsdtoPkr}
           </h2>
         </div>
 
@@ -486,11 +536,11 @@ const saveMarketSettings = async () => {
 
         <div className="grid md:grid-cols-2 gap-6">
 
-          {/* BUY PRICE */}
+          {/* buy PRICE */}
 
           <div>
             <label className="block text-sm text-gray-400 mb-2">
-              Buy Gold Price (PKR / Gram)
+              buy Gold Price (Pkr / Gram)
             </label>
 
             <input
@@ -502,11 +552,11 @@ const saveMarketSettings = async () => {
             />
           </div>
 
-          {/* SELL PRICE */}
+          {/* sell PRICE */}
 
           <div>
             <label className="block text-sm text-gray-400 mb-2">
-              Sell Gold Price (PKR / Gram)
+              sell Gold Price (Pkr / Gram)
             </label>
 
             <input
@@ -534,17 +584,17 @@ const saveMarketSettings = async () => {
             />
           </div>
 
-          {/* USD TO PKR */}
+          {/* USD TO Pkr */}
 
           <div>
             <label className="block text-sm text-gray-400 mb-2">
-              USD → PKR Exchange Rate
+              USD → Pkr Exchange Rate
             </label>
 
             <input
               type="number"
-              name="usdToPkr"
-              value={settings.usdToPkr}
+              name="UsdtoPkr"
+              value={settings.UsdtoPkr}
               onChange={handleInput}
               className="w-full bg-black border border-cyan-500 rounded-xl px-4 py-4 text-cyan-400 text-xl font-bold outline-none focus:border-cyan-400"
             />
@@ -555,7 +605,7 @@ const saveMarketSettings = async () => {
         {/* SAVE SETTINGS BUTTON */}
 
         <button
-          onClick={saveMarketSettings}
+          onClick={saveSettings}
           disabled={saving}
           className="w-full mt-8 bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black text-xl font-black py-4 rounded-2xl transition-all duration-300"
         >
@@ -566,13 +616,13 @@ const saveMarketSettings = async () => {
 
       </div>
             {/* ============================================== */}
-      {/* GOLD WALLET MANAGEMENT */}
+      {/* GOLD wallet MANAGEMENT */}
       {/* ============================================== */}
 
       <div className="bg-zinc-900 border border-blue-500 rounded-3xl p-8 mb-10">
 
         <h2 className="text-3xl font-black text-blue-400 mb-6">
-          Gold Wallet Management
+          Gold wallet Management
         </h2>
 
         {/* SEARCH USER */}
@@ -631,26 +681,26 @@ const saveMarketSettings = async () => {
               </div>
 
               <div className="bg-zinc-900 rounded-xl p-5 border border-green-500">
-                <p className="text-gray-400 text-sm">Wallet Balance</p>
+                <p className="text-gray-400 text-sm">wallet Balance</p>
 
                 <h4 className="text-green-400 font-bold text-xl mt-2">
-                  PKR{" "}
+                  Pkr{" "}
                   {Number(selectedUser.walletBalance).toLocaleString()}
                 </h4>
               </div>
 
             </div>
 
-            {/* AVERAGE BUY PRICE */}
+            {/* AVERAGE buy PRICE */}
 
             <div className="mt-6 bg-zinc-900 rounded-xl p-5 border border-blue-500">
 
               <p className="text-gray-400 text-sm">
-                Average Buy Price
+                Average buy Price
               </p>
 
               <h4 className="text-blue-400 font-bold text-2xl mt-2">
-                PKR{" "}
+                Pkr{" "}
                 {Number(
                   selectedUser.goldAveragePrice || 0
                 ).toLocaleString()}
@@ -661,7 +711,7 @@ const saveMarketSettings = async () => {
           </div>
         )}
 
-        {/* WALLET UPDATE FORM */}
+        {/* wallet UPDATE FORM */}
 
         <div className="grid md:grid-cols-2 gap-6">
 
@@ -689,7 +739,7 @@ const saveMarketSettings = async () => {
 
             <input
               value={walletReason}
-              onChange={(e) => setWalletReason(e.target.value)}
+              onChange={(e) => setwalletReason(e.target.value)}
               placeholder="Bonus / Adjustment / Reward"
               className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-4 text-white outline-none focus:border-blue-500"
             />
@@ -703,7 +753,7 @@ const saveMarketSettings = async () => {
         <div className="mt-8 bg-black border border-zinc-700 rounded-2xl p-6">
 
           <h3 className="text-2xl font-black text-cyan-400 mb-5">
-            Live Wallet Preview
+            Live wallet Preview
           </h3>
 
           <div className="grid md:grid-cols-3 gap-5">
@@ -763,19 +813,19 @@ const saveMarketSettings = async () => {
         <div className="grid md:grid-cols-2 gap-5 mt-8">
 
           <button
-            onClick={() => updateGoldWallet("credit")}
+            onClick={() => updateGoldwallet("credit")}
             disabled={saving || !selectedUser}
             className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-black text-lg py-4 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
           >
-            🟢 CREDIT GOLD WALLET
+            🟢 CREDIT GOLD wallet
           </button>
 
           <button
-            onClick={() => updateGoldWallet("debit")}
+            onClick={() => updateGoldwallet("debit")}
             disabled={saving || !selectedUser}
             className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-black text-lg py-4 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
           >
-            🔴 DEBIT GOLD WALLET
+            🔴 DEBIT GOLD wallet
           </button>
 
         </div>
@@ -905,7 +955,7 @@ const saveMarketSettings = async () => {
               setSearchUsername("");
               setSelectedUser(null);
               setGoldAmount("");
-              setWalletReason("");
+              setwalletReason("");
             }}
             className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-5 rounded-2xl transition-all duration-300 hover:scale-105"
           >
@@ -913,7 +963,7 @@ const saveMarketSettings = async () => {
           </button>
 
           <button
-            onClick={saveMarketSettings}
+            onClick={saveSettings}
             disabled={saving}
             className="bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black font-bold py-5 rounded-2xl transition-all duration-300 hover:scale-105"
           >
@@ -937,18 +987,18 @@ const saveMarketSettings = async () => {
         <div className="space-y-4">
 
           <div className="flex justify-between border-b border-zinc-800 pb-3">
-            <span className="text-gray-400">Buy Gold Price</span>
+            <span className="text-gray-400">buy Gold Price</span>
 
             <span className="text-green-400 font-bold">
-              PKR {settings.buyPrice.toLocaleString()}
+              Pkr {settings.buyPrice.toLocaleString()}
             </span>
           </div>
 
           <div className="flex justify-between border-b border-zinc-800 pb-3">
-            <span className="text-gray-400">Sell Gold Price</span>
+            <span className="text-gray-400">sell Gold Price</span>
 
             <span className="text-red-400 font-bold">
-              PKR {settings.sellPrice.toLocaleString()}
+              Pkr {settings.sellPrice.toLocaleString()}
             </span>
           </div>
 
@@ -964,11 +1014,11 @@ const saveMarketSettings = async () => {
 
           <div className="flex justify-between border-b border-zinc-800 pb-3">
             <span className="text-gray-400">
-              USD → PKR Rate
+              USD → Pkr Rate
             </span>
 
             <span className="text-cyan-400 font-bold">
-              {settings.usdToPkr}
+              {settings.UsdtoPkr}
             </span>
           </div>
 
@@ -1003,7 +1053,7 @@ const saveMarketSettings = async () => {
         </p>
 
         <p>
-          Live Gold Market • Wallet Management • Trading Control • Enterprise Security
+          Live Gold Market • wallet Management • Trading Control • Enterprise Security
         </p>
 
         <p className="mt-2">

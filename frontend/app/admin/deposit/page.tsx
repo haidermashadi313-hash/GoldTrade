@@ -1,717 +1,828 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
-  ArrowLeft,
-  Upload,
-  Copy,
-  CheckCircle,
-  Loader2,
-  ShieldCheck,
-  Wallet,
-  Clock,
   RefreshCw,
+  Search,
+  CheckCircle,
+  XCircle,
+  Clock,
+  DollarSign,
+  wallet,
+  User,
 } from "lucide-react";
 
-// ===========================================
-// GOLDTRADE PRODUCTION 
-// ===========================================
+// ======================================================
+// API CONFIG (V18 FINAL)
+// ======================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://goldtrade-api.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-// ===========================================
+// ======================================================
 // TYPES
-// ===========================================
+// ======================================================
 
-interface PaymentSettings {
-  usdtWallet: {
-    network: string;
-    walletAddress: string;
-    qrCode: string;
-  };
-
-  bank: {
-    bankName: string;
-    accountTitle: string;
-    accountNumber: string;
-    iban: string;
-    qrCode: string;
-  };
-
-  easyPaisa: {
-    accountTitle: string;
-    mobileNumber: string;
-    qrCode: string;
-  };
-
-  nayaPay: {
-    accountTitle: string;
-    mobileNumber: string;
-    qrCode: string;
-  };
-
-  usdtBuyRate: number;
-  usdtSellRate: number;
-}
-
-interface DepositHistory {
+interface DepositRequest {
   _id: string;
+
+  username: string;
+  fullName?: string;
+  email?: string;
+
   amount: number;
-  status: string;
-  walletType: string;
-  screenshot?: string;
+  currency?: "Pkr" | "Usdt";
+
+  paymentMethod?: string;
+  accountNumber?: string;
+
+  receiptImage?: string;
+  transactionId?: string;
+
+  status: "Pending" | "Approved" | "Rejected";
+
+  adminNote?: string;
   createdAt: string;
+  approvedAt?: string;
 }
 
-// ===========================================
-// COMPONENT
-// ===========================================
+// ======================================================
+// PAGE
+// ======================================================
 
-export default function DepositPage() {
-  // -------------------------------
-  // TOKEN
-  // -------------------------------
+export default function AdminDepositPage() {
+  // ================= AUTH =================
 
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("token") || ""
-      : "";
+  const [token, setToken] = useState("");
 
-  // -------------------------------
-  // STATES
-  // -------------------------------
+  // ================= LOADING =================
 
-  const [paymentSettings, setPaymentSettings] =
-    useState<PaymentSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [amount, setAmount] = useState("");
-  const [walletType, setWalletType] = useState("USDT");
+  // ================= DATA =================
 
-  const [selectedFile, setSelectedFile] =
-    useState<File | null>(null);
+  const [deposits, setDeposits] = useState<DepositRequest[]>([]);
+  const [filteredDeposits, setFilteredDeposits] = useState<
+    DepositRequest[]
+  >([]);
 
-  const [preview, setPreview] = useState("");
+  // ================= SEARCH =================
 
-  const [loading, setLoading] = useState(false);
-  const [pageLoading, setPageLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
-  const [depositHistory, setDepositHistory] =
-    useState<DepositHistory[]>([]);
+  // ================= DASHBOARD =================
 
-  // -------------------------------
-  // COPY WALLET ADDRESS
-  // -------------------------------
+  const [pendingAmount, setPendingAmount] = useState(0);
+  const [approvedAmount, setApprovedAmount] = useState(0);
+  const [rejectedCount, setRejectedCount] = useState(0);
 
-  const copyWallet = () => {
-    if (!paymentSettings?.usdtWallet.walletAddress) return;
+  // ================= ADMIN NOTES =================
 
-    navigator.clipboard.writeText(
-      paymentSettings.usdtWallet.walletAddress
-    );
+  const [adminNotes, setAdminNotes] = useState<
+    Record<string, string>
+  >({});
 
-    alert("Wallet Address Copied Successfully.");
-  };
+  // ================= MESSAGE =================
 
-  // -------------------------------
-  // FILE SELECT
-  // -------------------------------
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<
+    "success" | "error"
+  >("success");
 
-  const handleFile = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = e.target.files?.[0];
+  // ======================================================
+  // ADMIN HEADERS
+  // ======================================================
 
-    if (!file) return;
+  const getAdminHeaders = () => ({
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  });
 
-    setSelectedFile(file);
-    setPreview(URL.createObjectURL(file));
-  };
-
-  // -------------------------------
-  // LOAD PAYMENT SETTINGS
-  // -------------------------------
-
-  const loadPaymentSettings = async () => {
-    try {
-      const res = await fetch(
-        `${API}/api/gold/admin/payment-settings`
-      );
-
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        setPaymentSettings(data.settings);
-      }
-    } catch (err) {
-      console.error("Payment Settings Error:", err);
-    }
-  };
-
-  // -------------------------------
-  // LOAD USER DEPOSITS
-  // -------------------------------
-
-  const loadDeposits = async () => {
-    if (!token) return;
-
-    try {
-      const res = await fetch(`${API}/api/deposit`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        setDepositHistory(data.deposits || []);
-      }
-    } catch (err) {
-      console.error("Deposit History Error:", err);
-    }
-  };
-
-  // -------------------------------
-  // PAGE LOAD
-  // -------------------------------
+  // ======================================================
+  // LOAD TOKEN
+  // ======================================================
 
   useEffect(() => {
-    const init = async () => {
-      setPageLoading(true);
+    const jwt = localStorage.getItem("token");
 
-      await loadPaymentSettings();
-      await loadDeposits();
+    if (!jwt) {
+      window.location.href = "/login";
+      return;
+    }
 
-      setPageLoading(false);
-    };
-
-    init();
+    setToken(jwt);
   }, []);
-    // ==========================================
-  // SUBMIT DEPOSIT 
-  // ==========================================
+  // ======================================================
+// LOAD DEPOSIT REQUESTS (FINAL V18)
+// ======================================================
 
-  const submitDeposit = async () => {
-    // Validation
-    if (!token) {
-      alert("Please login first.");
-      return;
-    }
+const loadDeposits = async () => {
+  if (!token) return;
 
-    if (!amount || Number(amount) <= 0) {
-      alert("Please enter a valid deposit amount.");
-      return;
-    }
+  try {
+    setLoading(true);
+    setRefreshing(true);
+    setMessage("");
 
-    if (!selectedFile) {
-      alert("Please upload payment screenshot.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // Create FormData
-      const formData = new FormData();
-
-      formData.append("amount", amount);
-      formData.append("walletType", walletType);
-      formData.append("screenshot", selectedFile);
-
-      // API Request
-      const response = await fetch(`${API}/api/deposit`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      // Read JSON safely
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        alert("🎉 Deposit submitted successfully. Waiting for admin approval.");
-
-        // Reset Form
-        setAmount("");
-        setSelectedFile(null);
-        setPreview("");
-
-        // Refresh History
-        await loadDeposits();
-
-        return;
-      }
-
-      alert(data.message || "Deposit submission failed.");
-    } catch (err) {
-      console.error("Deposit Error:", err);
-      alert("Server Error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ==========================================
-  // STATUS COLOR
-  // ==========================================
-
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "approved":
-        return "text-green-400 bg-green-500/10 border-green-500";
-
-      case "rejected":
-        return "text-red-400 bg-red-500/10 border-red-500";
-
-      default:
-        return "text-yellow-400 bg-yellow-500/10 border-yellow-500";
-    }
-  };
-
-  // ==========================================
-  // FORMAT DATE
-  // ==========================================
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString("en-PK", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    const response = await fetch(`${API}/api/deposit`, {
+      method: "GET",
+      headers: getAdminHeaders(),
+      cache: "no-store",
     });
-  };
 
-  // ==========================================
-  // LOADING SCREEN
-  // ==========================================
+    const result = await response.json();
 
-  if (pageLoading) {
-    return (
-      <main className="min-h-screen bg-black flex items-center justify-center text-yellow-400">
-        <Loader2 className="animate-spin mr-3" size={24} />
-        Loading Deposit Center...
-      </main>
+    console.log("DEPOSIT RESPONSE:", result);
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Unable to load deposit requests.");
+    }
+
+    // Support different backend response names
+    const list: DepositRequest[] = Array.isArray(result.deposits)
+      ? result.deposits
+      : Array.isArray(result.requests)
+      ? result.requests
+      : Array.isArray(result.data)
+      ? result.data
+      : [];
+
+    // Save data
+    setDeposits(list);
+    setFilteredDeposits(list);
+
+    // ================= DASHBOARD TOTALS =================
+
+    const pending = list.filter((item) => item.status === "Pending");
+    const approved = list.filter((item) => item.status === "Approved");
+    const rejected = list.filter((item) => item.status === "Rejected");
+
+    setPendingAmount(
+      pending.reduce((sum, item) => sum + Number(item.amount || 0), 0)
     );
+
+    setApprovedAmount(
+      approved.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+    );
+
+    setRejectedCount(rejected.length);
+
+    // ================= DEFAULT ADMIN NOTES =================
+
+    const notes: Record<string, string> = {};
+
+    list.forEach((item) => {
+      notes[item._id] = item.adminNote || "";
+    });
+
+    setAdminNotes(notes);
+
+  } catch (err: any) {
+    console.error("LOAD DEPOSIT ERROR:", err);
+
+    setDeposits([]);
+    setFilteredDeposits([]);
+
+    setMessageType("error");
+    setMessage(err.message || "Failed to load deposits.");
+
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
   }
+};
+
+// ======================================================
+// INITIAL LOAD
+// ======================================================
+
+useEffect(() => {
+  if (token) {
+    loadDeposits();
+  }
+}, [token]);
+
+// ======================================================
+// AUTO REFRESH EVERY 15 SECONDS
+// ======================================================
+
+useEffect(() => {
+  if (!token) return;
+
+  const timer = setInterval(() => {
+    loadDeposits();
+  }, 15000);
+
+  return () => clearInterval(timer);
+}, [token]);
+
+// ======================================================
+// SEARCH FILTER
+// ======================================================
+
+useEffect(() => {
+  if (!search.trim()) {
+    setFilteredDeposits(deposits);
+    return;
+  }
+
+  const keyword = search.trim().toLowerCase();
+
+  const filtered = deposits.filter((item) => {
     return (
-    <main className="min-h-screen bg-black text-white">
-      {/* HEADER */}
+      (item.username || "").toLowerCase().includes(keyword) ||
+      (item.fullName || "").toLowerCase().includes(keyword) ||
+      (item.email || "").toLowerCase().includes(keyword)
+    );
+  });
 
-      <div className="sticky top-0 z-50 bg-zinc-950 border-b border-yellow-500">
-        <div className="max-w-6xl mx-auto px-5 py-5 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-black text-yellow-400">
-              Deposit USDT TRC20
-            </h1>
+  setFilteredDeposits(filtered);
+}, [search, deposits]);
 
-            <p className="text-gray-400 text-sm mt-1">
-              Deposit funds securely and upload your payment proof.
-            </p>
-          </div>
+// ======================================================
+// REFRESH BUTTON
+// ======================================================
 
-          <Link
-            href="/dashboard"
-            className="bg-zinc-900 border border-yellow-500 hover:bg-yellow-500 hover:text-black px-4 py-2 rounded-xl flex items-center gap-2 font-semibold"
-          >
-            <ArrowLeft size={18} />
-            Dashboard
-          </Link>
-        </div>
+const refreshData = () => {
+  loadDeposits();
+};
+// ======================================================
+// APPROVE DEPOSIT (FINAL V18)
+// ======================================================
+
+const handleApprove = async (deposit: DepositRequest) => {
+  try {
+    setRefreshing(true);
+    setMessage("");
+
+    const response = await fetch(
+      `${API}/api/deposit/${deposit._id}/approve`,
+      {
+        method: "PUT",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          adminNote:
+            adminNotes[deposit._id] || "Deposit approved by admin.",
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Unable to approve deposit.");
+    }
+
+    setMessageType("success");
+    setMessage(
+      `Pkr ${Number(deposit.amount).toLocaleString()} credited to ${deposit.username}.`
+    );
+
+    // Reload updated data
+    await loadDeposits();
+
+  } catch (err: any) {
+    console.error("APPROVE DEPOSIT ERROR:", err);
+
+    setMessageType("error");
+    setMessage(err.message || "Deposit approval failed.");
+
+  } finally {
+    setRefreshing(false);
+  }
+};
+
+// ======================================================
+// REJECT DEPOSIT (FINAL V18)
+// ======================================================
+
+const handleReject = async (deposit: DepositRequest) => {
+  try {
+    setRefreshing(true);
+    setMessage("");
+
+    const response = await fetch(
+      `${API}/api/deposit/${deposit._id}/reject`,
+      {
+        method: "PUT",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          adminNote:
+            adminNotes[deposit._id] || "Deposit rejected by admin.",
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Unable to reject deposit.");
+    }
+
+    setMessageType("success");
+    setMessage(`Deposit request rejected for ${deposit.username}.`);
+
+    await loadDeposits();
+
+  } catch (err: any) {
+    console.error("REJECT DEPOSIT ERROR:", err);
+
+    setMessageType("error");
+    setMessage(err.message || "Deposit rejection failed.");
+
+  } finally {
+    setRefreshing(false);
+  }
+};
+
+// ======================================================
+// AUTO CLEAR SUCCESS / ERROR MESSAGE
+// ======================================================
+
+useEffect(() => {
+  if (!message) return;
+
+  const timer = setTimeout(() => {
+    setMessage("");
+  }, 3000);
+
+  return () => clearTimeout(timer);
+}, [message]);
+// ======================================================
+// PAGE UI START (FINAL V18)
+// ======================================================
+
+return (
+  <div className="min-h-screen bg-black text-white p-6">
+
+
+    <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-5 mb-8">
+
+      <div>
+        <h1 className="text-4xl font-black text-yellow-400">
+          Admin Deposit Panel
+        </h1>
+
+        <p className="text-gray-400 mt-2">
+          GoldTrade V18 • Pkr Deposit Approval Management
+        </p>
+
+        <p className="text-sm text-gray-500 mt-1">
+          wallet Credit + Transaction history Synchronization Enabled
+        </p>
       </div>
 
-      <div className="max-w-6xl mx-auto px-5 py-8 grid lg:grid-cols-2 gap-8">
+      <button
+        onClick={refreshData}
+        disabled={refreshing}
+        className="bg-yellow-500 hover:bg-yellow-400 disabled:opacity-60 text-black font-bold px-5 py-3 rounded-xl flex items-center gap-2 transition"
+      >
+        <RefreshCw
+          size={18}
+          className={refreshing ? "animate-spin" : ""}
+        />
+        {refreshing ? "Refreshing..." : "Refresh Deposits"}
+      </button>
 
-        {/* LEFT SIDE */}
+    </div>
 
-        <div className="bg-zinc-900 rounded-3xl border border-yellow-500 p-6">
+    {/* ====================================================== */}
+    {/* SUCCESS / ERROR MESSAGE */}
+    {/* ====================================================== */}
 
-          <h2 className="text-2xl font-bold text-yellow-400 mb-6 flex items-center gap-3">
-            <Wallet size={24} />
-            Payment Details
-          </h2>
+    {message && (
+      <div
+        className={`mb-6 rounded-xl px-4 py-3 border font-semibold ${
+          messageType === "success"
+            ? "bg-green-500/10 border-green-500 text-green-400"
+            : "bg-red-500/10 border-red-500 text-red-400"
+        }`}
+      >
+        {message}
+      </div>
+    )}
 
-          {/* USDT WALLET */}
+    {/* ====================================================== */}
+    {/* DASHBOARD CARDS */}
+    {/* ====================================================== */}
 
-          <div className="bg-black rounded-2xl border border-green-500 p-5 mb-6">
-            <p className="text-green-400 text-sm mb-2">
-              USDT Network
-            </p>
+    <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
 
-            <h3 className="font-bold text-xl">
-              {paymentSettings?.usdtWallet.network || "TRC20"}
-            </h3>
+      {/* Pending Pkr */}
 
-            <p className="text-gray-400 text-sm mt-4">
-              Wallet Address
-            </p>
+      <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
 
-            <div className="mt-2 bg-zinc-900 border border-zinc-700 rounded-xl p-3 break-all font-mono text-sm text-white">
-              {paymentSettings?.usdtWallet.walletAddress ||
-                "Wallet not configured."}
-            </div>
+        <div className="flex justify-between items-center mb-4">
+          <Clock className="text-yellow-400" size={34} />
 
-            <button
-              onClick={copyWallet}
-              className="mt-4 bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded-xl font-semibold flex items-center gap-2"
-            >
-              <Copy size={18} />
-              Copy Wallet Address
-            </button>
-          </div>
-
-          {/* QR CODE */}
-
-          <div className="bg-black rounded-2xl border border-yellow-500 p-5">
-            <p className="text-gray-300 mb-4 font-semibold">
-              Scan QR Code
-            </p>
-
-            {paymentSettings?.usdtWallet.qrCode ? (
-              <img
-                src={paymentSettings.usdtWallet.qrCode}
-                alt="USDT QR Code"
-                className="w-60 h-60 object-contain rounded-xl mx-auto bg-white p-3"
-              />
-            ) : (
-              <div className="h-60 flex items-center justify-center text-gray-500 border border-dashed border-zinc-700 rounded-xl">
-                QR Code Not Uploaded
-              </div>
-            )}
-          </div>
-
-          {/* SECURITY */}
-
-          <div className="mt-6 bg-green-500/10 border border-green-500 rounded-2xl p-4">
-            <div className="flex gap-3 items-center text-green-400">
-              <ShieldCheck />
-              <span className="font-bold">
-                Secure Deposit Instructions
-              </span>
-            </div>
-
-            <ul className="text-sm text-gray-300 mt-3 space-y-2">
-              <li>• Send USDT only on TRC20 Network.</li>
-              <li>• Upload a clear payment screenshot.</li>
-              <li>• Deposits are manually verified by admin.</li>
-              <li>• Approval usually takes 5–30 minutes.</li>
-            </ul>
-          </div>
-
+          <span className="text-xs text-yellow-400 font-semibold uppercase">
+            Pending
+          </span>
         </div>
 
-        {/* RIGHT SIDE */}
+        <h2 className="text-3xl font-black text-yellow-400">
+          Pkr {pendingAmount.toLocaleString()}
+        </h2>
 
-        <div className="bg-zinc-900 rounded-3xl border border-yellow-500 p-6">
-
-          <h2 className="text-2xl font-bold text-yellow-400 mb-6">
-            Submit Deposit
-          </h2>
-
-          {/* Amount */}
-
-          <div className="mb-5">
-            <label className="block mb-2 text-gray-400">
-              Deposit Amount (PKR / USDT)
-            </label>
-
-            <input
-              type="number"
-              placeholder="Enter Deposit Amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full bg-black border border-yellow-500 rounded-xl p-4 outline-none focus:border-yellow-400"
-            />
-          </div>
-
-          {/* Wallet Type */}
-
-          <div className="mb-5">
-            <label className="block mb-2 text-gray-400">
-              Wallet Type
-            </label>
-
-            <select
-              value={walletType}
-              onChange={(e) => setWalletType(e.target.value)}
-              className="w-full bg-black border border-yellow-500 rounded-xl p-4 outline-none"
-            >
-              <option value="USDT">USDT Wallet</option>
-              <option value="PKR">PKR Wallet</option>
-              <option value="GOLD">Gold Wallet</option>
-            </select>
-          </div>
-
-          {/* Screenshot Upload */}
-
-          <div className="mb-6">
-
-            <label className="block mb-3 text-gray-400">
-              Upload Payment Screenshot
-            </label>
-
-            <label className="border-2 border-dashed border-yellow-500 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-zinc-800 transition">
-
-              <Upload className="text-yellow-400 mb-3" size={40} />
-
-              <span className="text-sm text-gray-300">
-                Click here to choose screenshot
-              </span>
-
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFile}
-                className="hidden"
-              />
-
-            </label>
-
-            {preview && (
-              <div className="mt-5">
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="rounded-2xl border border-yellow-500 w-full max-h-72 object-cover"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Submit */}
-
-          <button
-            onClick={submitDeposit}
-            disabled={loading}
-            className="w-full bg-yellow-500 hover:bg-yellow-400 text-black py-4 rounded-xl font-bold flex justify-center items-center gap-3 disabled:opacity-60"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="animate-spin" size={20} />
-                Submitting Deposit...
-              </>
-            ) : (
-              <>
-                <CheckCircle size={20} />
-                Submit Deposit
-              </>
-            )}
-          </button>
-
-          <p className="text-xs text-center text-gray-500 mt-4">
-            
-          </p>
-
-        </div>
+        <p className="text-gray-500 text-sm mt-2">
+          Pending Deposit Amount
+        </p>
 
       </div>
-            {/* ==========================================
-          DEPOSIT HISTORY
-      ========================================== */}
 
-      <div className="max-w-6xl mx-auto px-5 pb-10">
+      {/* Approved Pkr */}
 
-        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
+      <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
 
-          <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
+        <div className="flex justify-between items-center mb-4">
+          <CheckCircle className="text-green-400" size={34} />
 
-            <div>
-              <h2 className="text-2xl font-bold text-yellow-400 flex items-center gap-3">
-                <Clock size={24}/>
-                Deposit History
-              </h2>
+          <span className="text-xs text-green-400 font-semibold uppercase">
+            Approved
+          </span>
+        </div>
 
-              <p className="text-gray-400 text-sm mt-1">
-                Your recent deposit requests status.
-              </p>
-            </div>
+        <h2 className="text-3xl font-black text-green-400">
+          Pkr {approvedAmount.toLocaleString()}
+        </h2>
 
-            <button
-              onClick={loadDeposits}
-              className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded-xl font-semibold flex items-center gap-2"
-            >
-              <RefreshCw size={18}/>
-              Refresh
-            </button>
+        <p className="text-gray-500 text-sm mt-2">
+          Approved Deposit Amount
+        </p>
 
-          </div>
+      </div>
 
-          {/* EMPTY HISTORY */}
+      {/* Rejected */}
 
-          {depositHistory.length === 0 ? (
+      <div className="bg-zinc-900 border border-red-500 rounded-3xl p-6">
 
-            <div className="text-center py-14 border border-dashed border-zinc-700 rounded-2xl">
+        <div className="flex justify-between items-center mb-4">
+          <XCircle className="text-red-400" size={34} />
 
-              <Clock size={42} className="mx-auto text-gray-600 mb-4"/>
+          <span className="text-xs text-red-400 font-semibold uppercase">
+            Rejected
+          </span>
+        </div>
 
-              <p className="text-gray-500 text-lg">
-                No Deposit History Found
-              </p>
+        <h2 className="text-3xl font-black text-red-400">
+          {rejectedCount}
+        </h2>
 
-              <p className="text-gray-600 text-sm mt-2">
-                Submit your first deposit to see history here.
-              </p>
+        <p className="text-gray-500 text-sm mt-2">
+          Rejected Deposit Requests
+        </p>
 
-            </div>
+      </div>
 
-          ) : (
+      {/* Total Requests */}
 
-            <div className="space-y-5">
+      <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6">
 
-              {depositHistory.map((deposit) => (
+        <div className="flex justify-between items-center mb-4">
+          <wallet className="text-cyan-400" size={34} />
 
-                <div
+          <span className="text-xs text-cyan-400 font-semibold uppercase">
+            Total Requests
+          </span>
+        </div>
+
+        <h2 className="text-3xl font-black text-cyan-400">
+          {deposits.length}
+        </h2>
+
+        <p className="text-gray-500 text-sm mt-2">
+          Total Deposit Requests
+        </p>
+
+      </div>
+
+    </div>
+
+    {/* ====================================================== */}
+    {/* SEARCH BAR */}
+    {/* ====================================================== */}
+
+    <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-5 mb-8">
+
+      <div className="flex items-center gap-3">
+
+        <Search className="text-yellow-400" size={20} />
+
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search Username, Full Name or Email..."
+          className="flex-1 bg-transparent outline-none text-white placeholder:text-gray-500"
+        />
+
+      </div>
+
+      <div className="mt-3 text-xs text-gray-500">
+        Showing {filteredDeposits.length} of {deposits.length} deposit requests.
+      </div>
+
+    </div>
+
+    {/* ====================================================== */}
+    {/* DEPOSIT TABLE STARTS HERE (PART 5/6) */}
+    {/* ====================================================== */}
+
+    <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-5">
+
+      <h2 className="text-2xl font-black text-yellow-400 mb-6">
+        Pkr Deposit Requests
+      </h2>      {loading ? (
+        <div className="text-center py-12 text-gray-400">
+          <RefreshCw className="animate-spin mx-auto mb-3" size={28} />
+          Loading Deposit Requests...
+        </div>
+      ) : filteredDeposits.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          No Deposit Requests Found.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1500px] text-sm">
+            <thead className="border-b border-zinc-700 text-yellow-400">
+              <tr className="text-left">
+                <th className="py-3 px-2">User</th>
+                <th className="py-3 px-2">Amount</th>
+                <th className="py-3 px-2">Method</th>
+                <th className="py-3 px-2">Account</th>
+                <th className="py-3 px-2">Receipt</th>
+                <th className="py-3 px-2">Status</th>
+                <th className="py-3 px-2">Admin Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filteredDeposits.map((deposit) => (
+                <tr
                   key={deposit._id}
-                  className="bg-black border border-zinc-700 rounded-2xl p-5 hover:border-yellow-500 transition"
+                  className="border-b border-zinc-800 hover:bg-zinc-800/40 transition"
                 >
+                  {/* USER */}
+                  <td className="py-4 px-2">
+                    <div className="flex items-center gap-3">
+                      <User size={20} className="text-yellow-400" />
 
-                  <div className="flex justify-between items-start flex-wrap gap-4">
+                      <div>
+                        <p className="font-bold text-yellow-300">
+                          {deposit.username}
+                        </p>
 
-                    <div>
+                        {deposit.fullName && (
+                          <p className="text-xs text-gray-400">
+                            {deposit.fullName}
+                          </p>
+                        )}
 
-                      <p className="text-gray-400 text-sm">
-                        Deposit Amount
-                      </p>
+                        {deposit.email && (
+                          <p className="text-xs text-gray-500">
+                            {deposit.email}
+                          </p>
+                        )}
 
-                      <h3 className="text-3xl font-bold text-green-400 mt-1">
-                        PKR {Number(deposit.amount).toLocaleString()}
-                      </h3>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {new Date(deposit.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
 
-                      <p className="text-gray-500 text-sm mt-3">
-                        Wallet Type :{" "}
-                        <span className="text-yellow-400 font-semibold">
-                          {deposit.walletType || "USDT"}
-                        </span>
-                      </p>
-
-                      <p className="text-gray-500 text-sm mt-2">
-                        Date :{" "}
-                        <span className="text-white">
-                          {formatDate(deposit.createdAt)}
-                        </span>
-                      </p>
-
+                  {/* AMOUNT */}
+                  <td className="py-4 px-2">
+                    <div className="font-bold text-green-400 text-lg">
+                      Pkr {Number(deposit.amount).toLocaleString()}
                     </div>
 
-                    {/* STATUS */}
+                    <div className="text-xs text-gray-500">
+                      {deposit.currency || "Pkr"}
+                    </div>
+                  </td>
 
-                    <div>
+                  {/* PAYMENT METHOD */}
+                  <td className="py-4 px-2">
+                    <span className="bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full text-xs font-semibold">
+                      {deposit.paymentMethod || "Bank Transfer"}
+                    </span>
+                  </td>
 
-                      <span
-                        className={`px-4 py-2 rounded-full border text-sm font-bold ${getStatusColor(
-                          deposit.status
-                        )}`}
+                  {/* ACCOUNT NUMBER */}
+                  <td className="py-4 px-2">
+                    <div className="text-yellow-300 break-all max-w-[180px]">
+                      {deposit.accountNumber || "-"}
+                    </div>
+
+                    {deposit.transactionId && (
+                      <div className="text-xs text-gray-500 mt-2 break-all">
+                        TX: {deposit.transactionId}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* RECEIPT IMAGE */}
+                  <td className="py-4 px-2">
+                    {deposit.receiptImage ? (
+                      <a
+                        href={`${API}/uploads/deposits/${deposit.receiptImage}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-cyan-400 underline hover:text-cyan-300"
                       >
-                        {deposit.status.toUpperCase()}
+                        View Receipt
+                      </a>
+                    ) : (
+                      <span className="text-gray-500">No Receipt</span>
+                    )}
+                  </td>
+
+                  {/* STATUS */}
+                  <td className="py-4 px-2">
+                    {deposit.status === "Pending" && (
+                      <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold">
+                        Pending
                       </span>
+                    )}
 
-                    </div>
+                    {deposit.status === "Approved" && (
+                      <span className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold">
+                        Approved
+                      </span>
+                    )}
 
-                  </div>
+                    {deposit.status === "Rejected" && (
+                      <span className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-xs font-bold">
+                        Rejected
+                      </span>
+                    )}
+                  </td>
 
-                </div>
+                  {/* ADMIN ACTION */}
+                  <td className="py-4 px-2">
+                    {deposit.status === "Pending" ? (
+                      <div className="flex flex-col gap-3 w-60">
+                        {/* Admin Note */}
+                        <textarea
+                          rows={2}
+                          value={adminNotes[deposit._id] ?? ""}
+                          onChange={(e) =>
+                            setAdminNotes((prev) => ({
+                              ...prev,
+                              [deposit._id]: e.target.value,
+                            }))
+                          }
+                          placeholder="Admin note..."
+                          className="bg-black border border-zinc-700 rounded-lg px-3 py-2 text-white resize-none outline-none focus:border-yellow-500"
+                        />
 
+                        {/* Buttons */}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(deposit)}
+                            className="flex-1 bg-green-600 hover:bg-green-500 rounded-lg py-2 font-bold transition"
+                          >
+                            Approve
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleReject(deposit)}
+                            className="flex-1 bg-red-600 hover:bg-red-500 rounded-lg py-2 font-bold transition"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ) : deposit.status === "Approved" ? (
+                      <div className="text-green-400 text-xs font-semibold">
+                        ✅ Deposit Approved
+
+                        {deposit.approvedAt && (
+                          <div className="text-gray-500 mt-1">
+                            {new Date(deposit.approvedAt).toLocaleString()}
+                          </div>
+                        )}
+
+                        {deposit.adminNote && (
+                          <div className="text-gray-400 mt-2">
+                            {deposit.adminNote}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-red-400 text-xs font-semibold">
+                        ❌ Deposit Rejected
+
+                        {deposit.adminNote && (
+                          <div className="text-gray-400 mt-2">
+                            {deposit.adminNote}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      )}      {/* ====================================================== */}
+      {/* EMPTY STATE */}
+      {/* ====================================================== */}
 
-            </div>
+      {!loading && filteredDeposits.length === 0 && (
+        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-12 text-center mt-8">
+          <wallet size={60} className="mx-auto text-yellow-400 mb-5" />
 
-          )}
+          <h2 className="text-3xl font-black text-yellow-400 mb-3">
+            No Deposit Requests Found
+          </h2>
+
+          <p className="text-gray-500">
+            There are currently no pending, approved or rejected deposit requests.
+          </p>
+        </div>
+      )}
+
+      {/* ====================================================== */}
+      {/* FOOTER SUMMARY */}
+      {/* ====================================================== */}
+
+      <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mt-8">
+
+        <div className="grid md:grid-cols-4 gap-5">
+
+          {/* Total Requests */}
+
+          <div className="bg-black rounded-2xl p-4 border border-cyan-600 text-center">
+            <p className="text-gray-400 text-sm">Total Requests</p>
+
+            <h3 className="text-3xl font-bold text-cyan-400 mt-2">
+              {deposits.length}
+            </h3>
+          </div>
+
+          {/* Pending */}
+
+          <div className="bg-black rounded-2xl p-4 border border-yellow-600 text-center">
+            <p className="text-gray-400 text-sm">Pending Pkr</p>
+
+            <h3 className="text-3xl font-bold text-yellow-400 mt-2">
+              Pkr {pendingAmount.toLocaleString()}
+            </h3>
+          </div>
+
+          {/* Approved */}
+
+          <div className="bg-black rounded-2xl p-4 border border-green-600 text-center">
+            <p className="text-gray-400 text-sm">Approved Pkr</p>
+
+            <h3 className="text-3xl font-bold text-green-400 mt-2">
+              Pkr {approvedAmount.toLocaleString()}
+            </h3>
+          </div>
+
+          {/* Rejected */}
+
+          <div className="bg-black rounded-2xl p-4 border border-red-600 text-center">
+            <p className="text-gray-400 text-sm">Rejected Requests</p>
+
+            <h3 className="text-3xl font-bold text-red-400 mt-2">
+              {rejectedCount}
+            </h3>
+          </div>
 
         </div>
+
+        {/* ====================================================== */}
+        {/* SYSTEM STATUS */}
+        {/* ====================================================== */}
+
+        <div className="border-t border-zinc-700 mt-6 pt-5 flex flex-col md:flex-row justify-between items-center gap-3">
+
+          <div className="text-sm text-gray-400">
+            GoldTrade V18 • Admin Deposit Management System
+          </div>
+
+          <div className="flex items-center gap-2 text-green-400 font-semibold">
+            <RefreshCw
+              size={16}
+              className={refreshing ? "animate-spin" : ""}
+            />
+
+            Live wallet Synchronization Enabled
+          </div>
+
+        </div>
+
       </div>
 
-                          {/* ==========================================
-          LIVE STATUS
-      ========================================== */}
+    </div>
 
-      <div className="max-w-6xl mx-auto px-5 pb-10">
-        <div className="grid md:grid-cols-3 gap-5">
-
-          <div className="bg-zinc-900 border border-green-600 rounded-2xl p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <ShieldCheck className="text-green-400" />
-              <span className="font-bold text-green-400">
-                Deposit System
-              </span>
-            </div>
-
-            <p className="text-gray-300 text-sm">
-               verification enabled.
-            </p>
-
-            <p className="text-gray-500 text-xs mt-2">
-               deposit is reviewed before wallet credit.
-            </p>
-          </div>
-
-          <div className="bg-zinc-900 border border-cyan-600 rounded-2xl p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <Wallet className="text-cyan-400" />
-              <span className="font-bold text-cyan-400">
-                Wallet Credit
-              </span>
-            </div>
-
-            <p className="text-gray-300 text-sm">
-              USDT / PKR / Gold Wallet Supported.
-            </p>
-
-            <p className="text-gray-500 text-xs mt-2">
-              
-            </p>
-          </div>
-
-          <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <RefreshCw className="text-yellow-400" />
-              <span className="font-bold text-yellow-400">
-                Live Sync
-              </span>
-            </div>
-
-            <p className="text-gray-300 text-sm">
-              Deposit history updates automatically.
-            </p>
-
-            <p className="text-gray-500 text-xs mt-2">
-              Refreshes every 15 seconds.
-            </p>
-          </div>
-
-        </div>
-      </div>
-
-      {/* ==========================================
-          FOOTER
-      ========================================== */}
-
-      <footer className="border-t border-zinc-800 py-8 mt-10 bg-zinc-950">
-        <div className="max-w-6xl mx-auto px-5 text-center">
-
-          <h3 className="text-yellow-400 font-bold text-xl">
-            GoldTrade Pakistan
-          </h3>
-
-          <p className="text-gray-400 mt-2">
-            Secure Gold • USDT TRC20 • Wallet Deposit Platform
-          </p>
-
-          <p className="text-gray-600 text-sm mt-3">
-            
-          </p>
-
-          <p className="text-gray-700 text-xs mt-4">
-            © 2026 GoldTrade Pakistan — All Rights Reserved.
-          </p>
-
-        </div>
-      </footer>
-
-    </main>
+  </div>
   );
 }

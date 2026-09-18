@@ -396,4 +396,6 @@ router.get("/health", (req, res) => {
 // EXPORT ROUTER
 // =====================================================
 
-module.exports = router;
+module.exports =
+  mongoose.models.WalletTransaction ||
+  mongoose.model("WalletTransaction", walletTransactionSchema);

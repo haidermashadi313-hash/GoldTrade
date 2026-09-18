@@ -20,7 +20,7 @@ interface GoldPrice {
   buyPrice: number;
   sellPrice: number;
   goldPriceUSD: number;
-  usdToPkr: number;
+  UsdtoPkr: number;
   tradingEnabled: boolean;
   marketStatus: string;
   updatedAt?: string;
@@ -29,14 +29,14 @@ interface GoldPrice {
 interface Portfolio {
   walletBalance: number;
   goldBalance: number;
-  averageBuyPrice: number;
-  currentSellPrice: number;
+  averagebuyPrice: number;
+  currentsellPrice: number;
   totalInvested: number;
   currentValue: number;
   liveProfitLoss: number;
   totalProfitLoss: number;
-  totalGoldBuy: number;
-  totalGoldSell: number;
+  totalGoldbuy: number;
+  totalGoldsell: number;
 }
 
 export default function GoldDashboard() {
@@ -47,7 +47,7 @@ export default function GoldDashboard() {
     buyPrice: 0,
     sellPrice: 0,
     goldPriceUSD: 0,
-    usdToPkr: 0,
+    UsdtoPkr: 0,
     tradingEnabled: true,
     marketStatus: "OPEN",
   });
@@ -55,14 +55,14 @@ export default function GoldDashboard() {
   const [portfolio, setPortfolio] = useState<Portfolio>({
     walletBalance: 0,
     goldBalance: 0,
-    averageBuyPrice: 0,
-    currentSellPrice: 0,
+    averagebuyPrice: 0,
+    currentsellPrice: 0,
     totalInvested: 0,
     currentValue: 0,
     liveProfitLoss: 0,
     totalProfitLoss: 0,
-    totalGoldBuy: 0,
-    totalGoldSell: 0,
+    totalGoldbuy: 0,
+    totalGoldsell: 0,
   });
 
   // ==============================================
@@ -95,7 +95,7 @@ export default function GoldDashboard() {
           buyPrice: Number(data.buyPrice || 0),
           sellPrice: Number(data.sellPrice || 0),
           goldPriceUSD: Number(data.goldPriceUSD || 0),
-          usdToPkr: Number(data.usdToPkr || 0),
+          UsdtoPkr: Number(data.UsdtoPkr || 0),
           tradingEnabled: Boolean(data.tradingEnabled),
           marketStatus: data.marketStatus || "OPEN",
           updatedAt: data.updatedAt,
@@ -124,14 +124,14 @@ export default function GoldDashboard() {
         setPortfolio({
           walletBalance: Number(data.walletBalance || 0),
           goldBalance: Number(data.goldBalance || 0),
-          averageBuyPrice: Number(data.averageBuyPrice || 0),
-          currentSellPrice: Number(data.currentSellPrice || 0),
+          averagebuyPrice: Number(data.averagebuyPrice || 0),
+          currentsellPrice: Number(data.currentsellPrice || 0),
           totalInvested: Number(data.totalInvested || 0),
           currentValue: Number(data.currentValue || 0),
           liveProfitLoss: Number(data.liveProfitLoss || 0),
           totalProfitLoss: Number(data.totalProfitLoss || 0),
-          totalGoldBuy: Number(data.totalGoldBuy || 0),
-          totalGoldSell: Number(data.totalGoldSell || 0),
+          totalGoldbuy: Number(data.totalGoldbuy || 0),
+          totalGoldsell: Number(data.totalGoldsell || 0),
         });
       }
     } catch (error: any) {
@@ -193,7 +193,7 @@ export default function GoldDashboard() {
             </h2>
 
             <p className="text-gray-400 mt-1">
-              Enterprise Gold Market Dashboard • Auto Refresh Every 30 Seconds
+              Gold Market Dashboard • Auto Refresh Rates
             </p>
           </div>
 
@@ -201,39 +201,39 @@ export default function GoldDashboard() {
             onClick={fetchDashboard}
             className="bg-yellow-500 hover:bg-yellow-400 text-black px-5 py-3 rounded-xl font-bold transition-all duration-300 hover:scale-105"
           >
-            🔄 Refresh Live Data
+             Refresh Live Data
           </button>
         </div>
 
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {/* BUY PRICE */}
+          {/* buy PRICE */}
 
           <div className="bg-black rounded-2xl p-5 border border-green-600">
-            <p className="text-gray-400 text-sm mb-2">Current Buy Price</p>
+            <p className="text-gray-400 text-sm mb-2">Current buy Price</p>
 
             <h3 className="text-2xl font-black text-green-400">
-              PKR {goldPrice.buyPrice.toLocaleString()}
+              Pkr {goldPrice.buyPrice.toLocaleString()}
             </h3>
           </div>
 
-          {/* SELL PRICE */}
+          {/* sell PRICE */}
 
           <div className="bg-black rounded-2xl p-5 border border-red-600">
-            <p className="text-gray-400 text-sm mb-2">Current Sell Price</p>
+            <p className="text-gray-400 text-sm mb-2">Current sell Price</p>
 
             <h3 className="text-2xl font-black text-red-400">
-              PKR {goldPrice.sellPrice.toLocaleString()}
+              Pkr {goldPrice.sellPrice.toLocaleString()}
             </h3>
           </div>
 
-          {/* AVERAGE BUY PRICE */}
+          {/* AVERAGE buy PRICE */}
 
           <div className="bg-black rounded-2xl p-5 border border-blue-600">
-            <p className="text-gray-400 text-sm mb-2">Average Buy Price</p>
+            <p className="text-gray-400 text-sm mb-2">Average buy Price</p>
 
             <h3 className="text-2xl font-black text-blue-400">
-              PKR{" "}
-              {portfolio.averageBuyPrice.toLocaleString(undefined, {
+              Pkr{" "}
+              {portfolio.averagebuyPrice.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
@@ -252,13 +252,13 @@ export default function GoldDashboard() {
             <p className="text-gray-500 mt-2">International Gold Price</p>
           </div>
 
-          {/* USD TO PKR */}
+          {/* USD TO Pkr */}
 
           <div className="bg-black rounded-2xl p-5 border border-cyan-600">
-            <p className="text-gray-400 text-sm mb-2">USD → PKR Exchange Rate</p>
+            <p className="text-gray-400 text-sm mb-2">USD → Pkr Exchange Rate</p>
 
             <h3 className="text-2xl font-black text-cyan-400">
-              {goldPrice.usdToPkr}
+              {goldPrice.UsdtoPkr}
             </h3>
 
             <p className="text-gray-500 mt-2">Live Conversion Rate</p>
@@ -311,21 +311,21 @@ export default function GoldDashboard() {
       </h2>
 
       <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mb-10">
-        {/* TOTAL BUY */}
+        {/* TOTAL buy */}
         <div className="bg-zinc-900 border border-green-600 rounded-3xl p-6">
           <p className="text-gray-400 text-sm">Total Gold Bought</p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            {portfolio.totalGoldBuy.toFixed(3)} g
+            {portfolio.totalGoldbuy.toFixed(3)} g
           </h2>
         </div>
 
-        {/* TOTAL SELL */}
+        {/* TOTAL sell */}
         <div className="bg-zinc-900 border border-red-600 rounded-3xl p-6">
           <p className="text-gray-400 text-sm">Total Gold Sold</p>
 
           <h2 className="text-3xl font-black text-red-400 mt-2">
-            {portfolio.totalGoldSell.toFixed(3)} g
+            {portfolio.totalGoldsell.toFixed(3)} g
           </h2>
         </div>
 
@@ -334,7 +334,7 @@ export default function GoldDashboard() {
           <p className="text-gray-400 text-sm">Total Investment</p>
 
           <h2 className="text-3xl font-black text-blue-400 mt-2">
-            PKR {portfolio.totalInvested.toLocaleString()}
+            Pkr {portfolio.totalInvested.toLocaleString()}
           </h2>
         </div>
 
@@ -343,7 +343,7 @@ export default function GoldDashboard() {
           <p className="text-gray-400 text-sm">Current Portfolio Value</p>
 
           <h2 className="text-3xl font-black text-purple-400 mt-2">
-            PKR {portfolio.currentValue.toLocaleString()}
+            Pkr {portfolio.currentValue.toLocaleString()}
           </h2>
         </div>
       </div>
@@ -375,18 +375,18 @@ export default function GoldDashboard() {
           </div>
 
           <div className="flex justify-between border-b border-zinc-800 pb-3">
-            <span className="text-gray-400">Live Buy Price</span>
+            <span className="text-gray-400">Live buy Price</span>
 
             <span className="text-green-400 font-bold">
-              PKR {goldPrice.buyPrice.toLocaleString()}
+              Pkr {goldPrice.buyPrice.toLocaleString()}
             </span>
           </div>
 
           <div className="flex justify-between border-b border-zinc-800 pb-3">
-            <span className="text-gray-400">Live Sell Price</span>
+            <span className="text-gray-400">Live sell Price</span>
 
             <span className="text-red-400 font-bold">
-              PKR {goldPrice.sellPrice.toLocaleString()}
+              Pkr {goldPrice.sellPrice.toLocaleString()}
             </span>
           </div>
 
@@ -399,10 +399,10 @@ export default function GoldDashboard() {
           </div>
 
           <div className="flex justify-between border-b border-zinc-800 pb-3">
-            <span className="text-gray-400">USD → PKR</span>
+            <span className="text-gray-400">USD → Pkr</span>
 
             <span className="text-cyan-400 font-bold">
-              {goldPrice.usdToPkr}
+              {goldPrice.UsdtoPkr}
             </span>
           </div>
 
@@ -416,7 +416,7 @@ export default function GoldDashboard() {
                   : "text-red-400"
               }`}
             >
-              PKR {portfolio.totalProfitLoss.toLocaleString()}
+              Pkr {portfolio.totalProfitLoss.toLocaleString()}
             </span>
           </div>
         </div>
@@ -427,15 +427,15 @@ export default function GoldDashboard() {
 
       <div className="mt-12 border-t border-zinc-800 pt-6 text-center text-gray-500 text-sm">
         <p className="font-semibold text-yellow-400 mb-2 text-lg">
-          GoldTrade Enterprise V18 Dashboard
+          GoldTrade Enterprise Dashboard
         </p>
 
         <p>
-          Live Gold Trading • Portfolio • Buy & Sell • Transaction History
+          Live Gold Trading • Portfolio • buy & sell • Transaction history
         </p>
 
         <p className="mt-2">
-          Powered by GoldTrade Enterprise Backend API
+          Powered by GoldTrade Enterprise
         </p>
 
         <div className="mt-4 flex justify-center gap-6 flex-wrap text-xs">

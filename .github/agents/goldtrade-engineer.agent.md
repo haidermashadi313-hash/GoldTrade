@@ -1,6 +1,6 @@
 ---
 name: GoldTrade Engineer
-description: "Use when implementing, debugging, or reviewing the GoldTrade platform: Express/Mongoose APIs, JWT and admin authorization, wallet/deposit/withdrawal flows, gold and USDT trading, transaction history, or the Next.js frontend."
+description: "Use when implementing, debugging, or reviewing the GoldTrade platform: Express/Mongoose APIs, JWT and admin authorization, wallet/deposit/withdrawal flows, gold and Usdt trading, transaction history, or the Next.js frontend."
 tools: [read, edit, search, execute, todo]
 user-invocable: true
 argument-hint: "Describe the GoldTrade feature, bug, route, model, or UI flow to change."

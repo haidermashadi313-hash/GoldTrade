@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   TrendingUp,
   TrendingDown,
-  Wallet,
+  wallet,
   Coins,
   DollarSign,
   Activity,
@@ -23,10 +23,10 @@ const API =
    TYPES
 ========================================================== */
 
-interface WalletData {
+interface walletData {
   walletBalance: number;
   goldBalance: number;
-  usdtBalance: number;
+  UsdtBalance: number;
 }
 
 interface MarketData {
@@ -39,9 +39,9 @@ interface MarketData {
   change24h: number;
 }
 
-interface TradeHistory {
+interface Tradehistory {
   _id: string;
-  type: "BUY" | "SELL";
+  type: "buy" | "sell";
   quantity: number;
   price: number;
   total: number;
@@ -63,10 +63,10 @@ export default function TradingPage() {
 
   const [loading, setLoading] = useState(true);
 
-  const [wallet, setWallet] = useState<WalletData>({
+  const [wallet, setwallet] = useState<walletData>({
     walletBalance: 0,
     goldBalance: 0,
-    usdtBalance: 0,
+    UsdtBalance: 0,
   });
 
   const [market, setMarket] = useState<MarketData>({
@@ -79,18 +79,18 @@ export default function TradingPage() {
     change24h: 2.15,
   });
 
-  const [tradeHistory, setTradeHistory] =
-    useState<TradeHistory[]>([]);
+  const [tradehistory, setTradehistory] =
+    useState<Tradehistory[]>([]);
 
   const [quantity, setQuantity] = useState("");
   const [tradeLoading, setTradeLoading] = useState(false);
   const [confirmTrade, setConfirmTrade] = useState(false);
-  const [tradeType, setTradeType] = useState<"BUY" | "SELL">("BUY");
+  const [tradeType, setTradeType] = useState<"buy" | "sell">("buy");
 
   const [marketPrice, setMarketPrice] = useState(35000);
 
   /* ==========================================================
-     LOAD MARKET & WALLET
+     LOAD MARKET & wallet
   ========================================================== */
 
   const loadTradingDashboard = async () => {
@@ -104,7 +104,7 @@ export default function TradingPage() {
       const walletData = await walletRes.json();
 
       if (walletData.success) {
-        setWallet(walletData.wallet);
+        setwallet(walletData.wallet);
       }
 
       const marketRes = await fetch(`${API}/api/trading/market`);
@@ -123,7 +123,7 @@ export default function TradingPage() {
       const historyData = await historyRes.json();
 
       if (historyData.success) {
-        setTradeHistory(historyData.history);
+        setTradehistory(historyData.history);
       }
     } catch (error) {
       console.log(error);
@@ -148,7 +148,7 @@ export default function TradingPage() {
     return Number(quantity) * market.buyPrice;
   }, [quantity, market.buyPrice]);
 
-  const totalSell = useMemo(() => {
+  const totalsell = useMemo(() => {
     if (!quantity) return 0;
 
     return Number(quantity) * market.sellPrice;
@@ -158,7 +158,7 @@ export default function TradingPage() {
     return (
       wallet.walletBalance +
       wallet.goldBalance * market.livePrice +
-      wallet.usdtBalance * 285
+      wallet.UsdtBalance * 285
     );
   }, [wallet, market]);
 
@@ -188,20 +188,20 @@ export default function TradingPage() {
   const highestPoint = Math.max(...marketTrend.map((point) => point.price));
 
   /* ==========================================================
-     SEARCH HISTORY
+     SEARCH history
   ========================================================== */
 
-  const [historySearch, setHistorySearch] = useState("");
+  const [historySearch, sethistorySearch] = useState("");
 
-  const filteredHistory = useMemo(() => {
+  const filteredhistory = useMemo(() => {
     const search = historySearch.toLowerCase();
 
-    return tradeHistory.filter((trade) =>
+    return tradehistory.filter((trade) =>
       trade.type.toLowerCase().includes(search) ||
       trade.price.toString().includes(search) ||
       trade.quantity.toString().includes(search)
     );
-  }, [tradeHistory, historySearch]);
+  }, [tradehistory, historySearch]);
 
   /* ==========================================================
      PROFIT / LOSS CALCULATIONS
@@ -224,7 +224,7 @@ export default function TradingPage() {
   }, [wallet.goldBalance, market]);
 
   /* ==========================================================
-     BUY GOLD
+     buy GOLD
   ========================================================== */
 
   const buyGold = async () => {
@@ -261,7 +261,7 @@ export default function TradingPage() {
   };
 
   /* ==========================================================
-     SELL GOLD
+     sell GOLD
   ========================================================== */
 
   const sellGold = async () => {
@@ -300,7 +300,7 @@ export default function TradingPage() {
   const confirmTradeAction = async () => {
     setConfirmTrade(false);
 
-    if (tradeType === "BUY") {
+    if (tradeType === "buy") {
       await buyGold();
     } else {
       await sellGold();
@@ -337,7 +337,7 @@ export default function TradingPage() {
             </h1>
 
             <p className="text-gray-400 mt-2">
-              Buy • Sell • Live Gold Price
+              buy • sell • Live Gold Price
             </p>
 
           </div>
@@ -352,18 +352,18 @@ export default function TradingPage() {
 
         </div>
 
-        {/* ================= WALLET CARDS ================= */}
+        {/* ================= wallet CARDS ================= */}
 
         <div className="grid md:grid-cols-3 gap-5 mb-10">
 
           <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
 
-            <Wallet className="text-yellow-400 mb-3"/>
+            <wallet className="text-yellow-400 mb-3"/>
 
-            <p className="text-gray-400 text-sm">PKR Wallet</p>
+            <p className="text-gray-400 text-sm">Pkr wallet</p>
 
             <h2 className="text-3xl font-black text-yellow-400 mt-2">
-              PKR {wallet.walletBalance.toLocaleString()}
+              Pkr {wallet.walletBalance.toLocaleString()}
             </h2>
 
           </div>
@@ -384,10 +384,10 @@ export default function TradingPage() {
 
             <DollarSign className="text-cyan-400 mb-3"/>
 
-            <p className="text-gray-400 text-sm">USDT Balance</p>
+            <p className="text-gray-400 text-sm">Usdt Balance</p>
 
             <h2 className="text-3xl font-black text-cyan-400 mt-2">
-              {wallet.usdtBalance.toFixed(2)} USDT
+              {wallet.UsdtBalance.toFixed(2)} Usdt
             </h2>
 
           </div>
@@ -425,25 +425,25 @@ export default function TradingPage() {
               <p className="text-gray-400 text-sm">Live Price</p>
 
               <h3 className="text-3xl font-black text-yellow-400 mt-2">
-                PKR {market.livePrice.toLocaleString()}
+                Pkr {market.livePrice.toLocaleString()}
               </h3>
             </div>
 
             <div className="bg-black border border-green-600 rounded-2xl p-5 text-center">
               <ArrowUpRight className="mx-auto text-green-400 mb-2"/>
-              <p className="text-gray-400 text-sm">Buy Price</p>
+              <p className="text-gray-400 text-sm">buy Price</p>
 
               <h3 className="text-3xl font-black text-green-400 mt-2">
-                PKR {market.buyPrice.toLocaleString()}
+                Pkr {market.buyPrice.toLocaleString()}
               </h3>
             </div>
 
             <div className="bg-black border border-red-600 rounded-2xl p-5 text-center">
               <ArrowDownRight className="mx-auto text-red-400 mb-2"/>
-              <p className="text-gray-400 text-sm">Sell Price</p>
+              <p className="text-gray-400 text-sm">sell Price</p>
 
               <h3 className="text-3xl font-black text-red-400 mt-2">
-                PKR {market.sellPrice.toLocaleString()}
+                Pkr {market.sellPrice.toLocaleString()}
               </h3>
             </div>
 
@@ -471,7 +471,7 @@ export default function TradingPage() {
 
         </div>
 
-        {/* ================= BUY / SELL CALCULATOR ================= */}
+        {/* ================= buy / sell CALCULATOR ================= */}
 
         <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
 
@@ -480,7 +480,7 @@ export default function TradingPage() {
             <Calculator className="text-yellow-400"/>
 
             <h2 className="text-3xl font-black text-yellow-400">
-              Buy / Sell Calculator
+              buy / sell Calculator
             </h2>
 
           </div>
@@ -500,18 +500,18 @@ export default function TradingPage() {
           <div className="grid md:grid-cols-2 gap-5 mt-6">
 
             <div className="bg-black border border-green-600 rounded-2xl p-5">
-              <p className="text-gray-400 text-sm">Buy Total</p>
+              <p className="text-gray-400 text-sm">buy Total</p>
 
               <h3 className="text-3xl font-black text-green-400 mt-2">
-                PKR {totalCost.toLocaleString()}
+                Pkr {totalCost.toLocaleString()}
               </h3>
             </div>
 
             <div className="bg-black border border-red-600 rounded-2xl p-5">
-              <p className="text-gray-400 text-sm">Sell Total</p>
+              <p className="text-gray-400 text-sm">sell Total</p>
 
               <h3 className="text-3xl font-black text-red-400 mt-2">
-                PKR {totalSell.toLocaleString()}
+                Pkr {totalsell.toLocaleString()}
               </h3>
             </div>
 
@@ -524,7 +524,7 @@ export default function TradingPage() {
               onClick={buyGold}
               className="flex-1 bg-green-600 hover:bg-green-500 py-4 rounded-xl font-black text-lg"
             >
-              Buy Gold
+              buy Gold
             </button>
 
             <button
@@ -532,7 +532,7 @@ export default function TradingPage() {
               onClick={sellGold}
               className="flex-1 bg-red-600 hover:bg-red-500 py-4 rounded-xl font-black text-lg"
             >
-              Sell Gold
+              sell Gold
             </button>
 
           </div>
@@ -559,7 +559,7 @@ export default function TradingPage() {
               <p className="text-gray-400 text-sm">24H High</p>
 
               <h3 className="text-2xl font-black text-green-400 mt-2">
-                PKR {market.high24h.toLocaleString()}
+                Pkr {market.high24h.toLocaleString()}
               </h3>
             </div>
 
@@ -569,7 +569,7 @@ export default function TradingPage() {
               <p className="text-gray-400 text-sm">24H Low</p>
 
               <h3 className="text-2xl font-black text-red-400 mt-2">
-                PKR {market.low24h.toLocaleString()}
+                Pkr {market.low24h.toLocaleString()}
               </h3>
             </div>
 
@@ -586,7 +586,7 @@ export default function TradingPage() {
               <p className="text-gray-400 text-sm">Current Spread</p>
 
               <h3 className="text-2xl font-black text-yellow-400 mt-2">
-                PKR {(market.buyPrice - market.sellPrice).toLocaleString()}
+                Pkr {(market.buyPrice - market.sellPrice).toLocaleString()}
               </h3>
             </div>
 
@@ -659,7 +659,7 @@ export default function TradingPage() {
               <p className="text-gray-400 text-sm">Highest Today</p>
 
               <h3 className="text-2xl font-black text-green-400 mt-2">
-                PKR {highestPoint.toLocaleString()}
+                Pkr {highestPoint.toLocaleString()}
               </h3>
             </div>
 
@@ -667,7 +667,7 @@ export default function TradingPage() {
               <p className="text-gray-400 text-sm">Lowest Today</p>
 
               <h3 className="text-2xl font-black text-red-400 mt-2">
-                PKR {lowestPoint.toLocaleString()}
+                Pkr {lowestPoint.toLocaleString()}
               </h3>
             </div>
 
@@ -675,7 +675,7 @@ export default function TradingPage() {
               <p className="text-gray-400 text-sm">Current Market Price</p>
 
               <h3 className="text-2xl font-black text-cyan-400 mt-2">
-                PKR {market.livePrice.toLocaleString()}
+                Pkr {market.livePrice.toLocaleString()}
               </h3>
             </div>
 
@@ -683,7 +683,7 @@ export default function TradingPage() {
 
         </div>
 
-        {/* ================= BUY / SELL CONFIRMATION MODAL ================= */}
+        {/* ================= buy / sell CONFIRMATION MODAL ================= */}
 
         {confirmTrade && (
           <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-6">
@@ -691,7 +691,7 @@ export default function TradingPage() {
             <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-8 w-full max-w-md">
 
               <h2 className="text-3xl font-black text-yellow-400 mb-6 text-center">
-                Confirm {tradeType === "BUY" ? "Buy" : "Sell"} Gold
+                Confirm {tradeType === "buy" ? "buy" : "sell"} Gold
               </h2>
 
               <div className="space-y-4 mb-6">
@@ -705,8 +705,8 @@ export default function TradingPage() {
                   <span className="text-gray-400">Price / Gram</span>
 
                   <span className="font-bold text-yellow-400">
-                    PKR{" "}
-                    {tradeType === "BUY"
+                    Pkr{" "}
+                    {tradeType === "buy"
                       ? market.buyPrice.toLocaleString()
                       : market.sellPrice.toLocaleString()}
                   </span>
@@ -716,10 +716,10 @@ export default function TradingPage() {
                   <span className="text-gray-400">Total Amount</span>
 
                   <span className="font-black text-green-400 text-xl">
-                    PKR{" "}
-                    {tradeType === "BUY"
+                    Pkr{" "}
+                    {tradeType === "buy"
                       ? totalCost.toLocaleString()
-                      : totalSell.toLocaleString()}
+                      : totalsell.toLocaleString()}
                   </span>
                 </div>
 
@@ -738,14 +738,14 @@ export default function TradingPage() {
                   disabled={tradeLoading}
                   onClick={confirmTradeAction}
                   className={`flex-1 py-3 rounded-xl font-black ${
-                    tradeType === "BUY"
+                    tradeType === "buy"
                       ? "bg-green-600 hover:bg-green-500"
                       : "bg-red-600 hover:bg-red-500"
                   }`}
                 >
-                  {tradeType === "BUY"
-                    ? "Confirm Buy"
-                    : "Confirm Sell"}
+                  {tradeType === "buy"
+                    ? "Confirm buy"
+                    : "Confirm sell"}
                 </button>
 
               </div>
@@ -755,7 +755,7 @@ export default function TradingPage() {
           </div>
         )}
 
-        {/* ================= TRADING HISTORY ================= */}
+        {/* ================= TRADING history ================= */}
 
         <div className="bg-zinc-900 border border-blue-600 rounded-3xl p-6 mb-10">
 
@@ -763,16 +763,16 @@ export default function TradingPage() {
 
             <div>
               <h2 className="text-3xl font-black text-blue-400">
-                Trading History
+                Trading history
               </h2>
 
               <p className="text-gray-400">
-                Buy & Sell Transactions
+                buy & sell Transactions
               </p>
             </div>
 
             <span className="bg-blue-600 px-4 py-2 rounded-full font-bold">
-              {tradeHistory.length} Trades
+              {tradehistory.length} Trades
             </span>
 
           </div>
@@ -783,8 +783,8 @@ export default function TradingPage() {
 
             <input
               value={historySearch}
-              onChange={(e) => setHistorySearch(e.target.value)}
-              placeholder="Search Buy / Sell / Quantity..."
+              onChange={(e) => sethistorySearch(e.target.value)}
+              placeholder="Search buy / sell / Quantity..."
               className="w-full bg-black border border-blue-600 rounded-xl py-3 pl-12 pr-4 text-white"
             />
 
@@ -808,26 +808,26 @@ export default function TradingPage() {
 
               <tbody>
 
-                {filteredHistory.length === 0 ? (
+                {filteredhistory.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="text-center py-8 text-gray-500">
-                      No Trading History
+                      No Trading history
                     </td>
                   </tr>
                 ) : (
-                  filteredHistory.map((trade) => (
+                  filteredhistory.map((trade) => (
                     <tr
                       key={trade._id}
                       className="border-b border-zinc-800 hover:bg-black"
                     >
                       <td className="p-3">
-                        {trade.type === "BUY" ? (
+                        {trade.type === "buy" ? (
                           <span className="bg-green-600 px-3 py-1 rounded-full text-xs font-bold">
-                            BUY
+                            buy
                           </span>
                         ) : (
                           <span className="bg-red-600 px-3 py-1 rounded-full text-xs font-bold">
-                            SELL
+                            sell
                           </span>
                         )}
                       </td>
@@ -837,11 +837,11 @@ export default function TradingPage() {
                       </td>
 
                       <td className="p-3 text-yellow-400 font-bold">
-                        PKR {trade.price.toLocaleString()}
+                        Pkr {trade.price.toLocaleString()}
                       </td>
 
                       <td className="p-3 text-cyan-400 font-bold">
-                        PKR {trade.total.toLocaleString()}
+                        Pkr {trade.total.toLocaleString()}
                       </td>
 
                       <td className="p-3 text-gray-400 text-sm">
@@ -872,7 +872,7 @@ export default function TradingPage() {
             </p>
 
             <h3 className="text-3xl font-black text-green-400 mt-2">
-              PKR {profitLoss.currentGoldValue.toLocaleString()}
+              Pkr {profitLoss.currentGoldValue.toLocaleString()}
             </h3>
 
           </div>
@@ -886,7 +886,7 @@ export default function TradingPage() {
             </p>
 
             <h3 className="text-3xl font-black text-yellow-400 mt-2">
-              PKR {profitLoss.investedValue.toLocaleString()}
+              Pkr {profitLoss.investedValue.toLocaleString()}
             </h3>
 
           </div>
@@ -906,7 +906,7 @@ export default function TradingPage() {
                   : "text-red-400"
               }`}
             >
-              PKR {profitLoss.profit.toLocaleString()}
+              Pkr {profitLoss.profit.toLocaleString()}
             </h3>
 
             <p
@@ -933,7 +933,7 @@ export default function TradingPage() {
 
           <div className="space-y-4">
 
-            {tradeHistory.slice(0, 5).map((trade) => (
+            {tradehistory.slice(0, 5).map((trade) => (
               <div
                 key={trade._id}
                 className="bg-black border border-zinc-700 rounded-xl p-4 flex justify-between items-center"
@@ -941,7 +941,7 @@ export default function TradingPage() {
                 <div>
 
                   <p className="font-bold text-white">
-                    {trade.type === "BUY" ? "Bought Gold" : "Sold Gold"}
+                    {trade.type === "buy" ? "Bought Gold" : "Sold Gold"}
                   </p>
 
                   <p className="text-gray-500 text-sm">
@@ -954,12 +954,12 @@ export default function TradingPage() {
 
                   <p
                     className={`font-bold ${
-                      trade.type === "BUY"
+                      trade.type === "buy"
                         ? "text-green-400"
                         : "text-red-400"
                     }`}
                   >
-                    PKR {trade.total.toLocaleString()}
+                    Pkr {trade.total.toLocaleString()}
                   </p>
 
                   <p className="text-gray-500 text-xs">
@@ -987,21 +987,21 @@ export default function TradingPage() {
 
             <div className="bg-black border border-green-600 rounded-2xl p-5">
               <p className="text-gray-400 text-sm">
-                Best Buy Price Today
+                Best buy Price Today
               </p>
 
               <h3 className="text-2xl font-black text-green-400 mt-2">
-                PKR {market.buyPrice.toLocaleString()}
+                Pkr {market.buyPrice.toLocaleString()}
               </h3>
             </div>
 
             <div className="bg-black border border-red-600 rounded-2xl p-5">
               <p className="text-gray-400 text-sm">
-                Best Sell Price Today
+                Best sell Price Today
               </p>
 
               <h3 className="text-2xl font-black text-red-400 mt-2">
-                PKR {market.sellPrice.toLocaleString()}
+                Pkr {market.sellPrice.toLocaleString()}
               </h3>
             </div>
 
@@ -1011,7 +1011,7 @@ export default function TradingPage() {
               </p>
 
               <h3 className="text-2xl font-black text-cyan-400 mt-2">
-                PKR {market.high24h.toLocaleString()}
+                Pkr {market.high24h.toLocaleString()}
               </h3>
             </div>
 
@@ -1021,7 +1021,7 @@ export default function TradingPage() {
               </p>
 
               <h3 className="text-2xl font-black text-orange-400 mt-2">
-                PKR {market.low24h.toLocaleString()}
+                Pkr {market.low24h.toLocaleString()}
               </h3>
             </div>
 
@@ -1042,7 +1042,7 @@ export default function TradingPage() {
               </h3>
 
               <p className="text-gray-400 mt-2">
-                Buy • Sell • Live Gold Trading Platform
+                buy • sell • Live Gold Trading Platform
               </p>
 
             </div>

@@ -1,652 +1,614 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import {
-  ArrowLeft,
-  Upload,
-  Copy,
-  CheckCircle,
-  XCircle,
-  Loader2,
-  ShieldCheck,
-  Wallet,
-  RefreshCw,
-  Clock,
-} from "lucide-react";
+import { Upload, Wallet, RefreshCw, CheckCircle, Clock, XCircle } from "lucide-react";
 
-// ===========================================
-// GOLDTRADE PRODUCTION API
-// ===========================================
-
+// ==========================================
+// GOLDTRADE API V18
+// ==========================================
 const API =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://goldtrade-api.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-// ===========================================
+// ==========================================
 // TYPES
-// ===========================================
-
-interface PaymentSettings {
-  usdtWallet: {
-    network: string;
-    walletAddress: string;
-    qrCode: string;
-  };
-
-  bank: {
-    bankName: string;
-    accountTitle: string;
-    accountNumber: string;
-    iban: string;
-    qrCode: string;
-  };
-
-  easyPaisa: {
-    accountTitle: string;
-    mobileNumber: string;
-    qrCode: string;
-  };
-
-  nayaPay: {
-    accountTitle: string;
-    mobileNumber: string;
-    qrCode: string;
-  };
-
-  usdtBuyRate: number;
-  usdtSellRate: number;
-}
-
-interface DepositHistory {
+// ==========================================
+interface DepositItem {
   _id: string;
-  amount: number;
-  status: string;
-  walletType: string;
-  screenshot?: string;
+  requestAmount: number;
+  adminAmount: number;
+  currency: string;
+  paymentMethod: string;
+  senderName: string;
+  senderAccount: string;
+  transactionId: string;
+  receiptImage: string;
+  note: string;
+  status: "Pending" | "Approved" | "Rejected";
+  adminNote: string;
   createdAt: string;
 }
 
-// ===========================================
-// COMPONENT
-// ===========================================
-
 export default function DepositPage() {
-  // -------------------------------
-  // TOKEN
-  // -------------------------------
+  // ==========================================
+  // USER SESSION
+  // ==========================================
+  const [token, setToken] = useState("");
+  const [username, setUsername] = useState("");
 
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("token") || ""
-      : "";
+  // ==========================================
+  // FORM STATES
+  // ==========================================
+  const [requestAmount, setRequestAmount] = useState("");
+  const [currency, setCurrency] = useState("Pkr");
+  const [paymentMethod, setPaymentMethod] = useState("JazzCash");
 
-  // -------------------------------
-  // STATES
-  // -------------------------------
+  const [senderName, setSenderName] = useState("");
+  const [senderAccount, setSenderAccount] = useState("");
+  const [transactionId, setTransactionId] = useState("");
+  const [note, setNote] = useState("");
 
-  const [paymentSettings, setPaymentSettings] =
-    useState<PaymentSettings | null>(null);
+  const [receiptImage, setReceiptImage] = useState("");
 
-  const [amount, setAmount] = useState("");
-  const [walletType, setWalletType] = useState("USDT");
+  // ==========================================
+  // UI STATES
+  // ==========================================
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [loadinghistory, setLoadinghistory] = useState(true);
 
-  const [selectedFile, setSelectedFile] =
-    useState<File | null>(null);
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] =
+    useState<"success" | "error">("success");
 
-  const [preview, setPreview] = useState("");
+  const [history, sethistory] = useState<DepositItem[]>([]);
 
-  const [loading, setLoading] = useState(false);
-  const [pageLoading, setPageLoading] = useState(true);
+  // ==========================================
+  // LOAD USER SESSION
+  // ==========================================
+  useEffect(() => {
 
-  const [depositHistory, setDepositHistory] =
-    useState<DepositHistory[]>([]);
+    const savedToken = localStorage.getItem("token");
+    const savedUsername = localStorage.getItem("username");
 
-  // -------------------------------
-  // COPY WALLET ADDRESS
-  // -------------------------------
+    if (!savedToken || !savedUsername) {
+      window.location.href = "/login";
+      return;
+    }
 
-  const copyWallet = () => {
-    if (!paymentSettings?.usdtWallet.walletAddress) return;
+    setToken(savedToken);
+    setUsername(savedUsername);
 
-    navigator.clipboard.writeText(
-      paymentSettings.usdtWallet.walletAddress
-    );
+  }, []);
 
-    alert("Wallet Address Copied Successfully.");
-  };
+  // ==========================================
+  // FETCH DEPOSIT history
+  // ==========================================
+  const loadhistory = async () => {
 
-  // -------------------------------
-  // FILE SELECT
-  // -------------------------------
+    const jwt = localStorage.getItem("token");
 
-  const handleFile = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = e.target.files?.[0];
+    if (!jwt) return;
 
-    if (!file) return;
-
-    setSelectedFile(file);
-    setPreview(URL.createObjectURL(file));
-  };
-
-  // -------------------------------
-  // LOAD PAYMENT SETTINGS
-  // -------------------------------
-
-  const loadPaymentSettings = async () => {
     try {
-      const res = await fetch(
-        `${API}/api/gold/admin/payment-settings`
+
+      setLoadinghistory(true);
+
+      const response = await fetch(
+        `${API}/api/deposit/history`,
+        {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+          },
+        }
       );
 
-      const data = await res.json();
+      const data = await response.json();
 
-      if (res.ok && data.success) {
-        setPaymentSettings(data.settings);
+      if (data.success) {
+        sethistory(data.data || []);
       }
+
     } catch (err) {
-      console.error("Payment Settings Error:", err);
+      console.error("history Error:", err);
+    } finally {
+      setLoadinghistory(false);
     }
+
   };
-
-  // -------------------------------
-  // LOAD USER DEPOSITS
-  // -------------------------------
-
-  const loadDeposits = async () => {
-    if (!token) return;
-
-    try {
-      const res = await fetch(`${API}/api/deposit`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        setDepositHistory(data.deposits || []);
-      }
-    } catch (err) {
-      console.error("Deposit History Error:", err);
-    }
-  };
-
-  // -------------------------------
-  // PAGE LOAD
-  // -------------------------------
 
   useEffect(() => {
-    const init = async () => {
-      setPageLoading(true);
+    if (token) loadhistory();
+  }, [token]);
 
-      await loadPaymentSettings();
-      await loadDeposits();
-
-      setPageLoading(false);
-    };
-
-    init();
-  }, []);
-    // ==========================================
-  // SUBMIT DEPOSIT (PRODUCTION READY)
   // ==========================================
+  // CLOUDINARY RECEIPT UPLOAD
+  // ==========================================
+  const uploadReceipt = async (
+    file: File
+  ) => {
 
-  const submitDeposit = async () => {
-    // Validation
-    if (!token) {
-      alert("Please login first.");
+    try {
+
+      setUploading(true);
+      setMessage("");
+
+      const formData = new FormData();
+
+      formData.append("file", file);
+
+      formData.append(
+        "upload_preset",
+        "goldtrade_receipts"
+      );
+
+      const response = await fetch(
+        "https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/image/upload",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error?.message || "Upload failed."
+        );
+      }
+
+      setReceiptImage(data.secure_url);
+
+      setMessageType("success");
+      setMessage("Receipt uploaded successfully.");
+
+    } catch (err: any) {
+
+      setMessageType("error");
+      setMessage(err.message);
+
+    } finally {
+
+      setUploading(false);
+
+    }
+
+  };
+    // ==========================================
+  // SUBMIT DEPOSIT
+  // ==========================================
+  const handleDeposit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const jwt = localStorage.getItem("token");
+
+    if (!jwt) {
+      setMessageType("error");
+      setMessage("Please login again.");
       return;
     }
 
-    if (!amount || Number(amount) <= 0) {
-      alert("Please enter a valid deposit amount.");
-      return;
-    }
-
-    if (!selectedFile) {
-      alert("Please upload payment screenshot.");
+    if (!requestAmount || Number(requestAmount) <= 0) {
+      setMessageType("error");
+      setMessage("Enter a valid deposit amount.");
       return;
     }
 
     try {
-      setLoading(true);
+      setSubmitting(true);
+      setMessage("");
 
-      // Create FormData
-      const formData = new FormData();
-
-      formData.append("amount", amount);
-      formData.append("walletType", walletType);
-      formData.append("screenshot", selectedFile);
-
-      // API Request
       const response = await fetch(`${API}/api/deposit`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
         },
-        body: formData,
+        body: JSON.stringify({
+          requestAmount: Number(requestAmount),
+          currency,
+          paymentMethod,
+          senderName,
+          senderAccount,
+          transactionId,
+          receiptImage,
+          note,
+        }),
       });
 
-      // Read JSON safely
       const data = await response.json();
 
-      if (response.ok && data.success) {
-        alert("🎉 Deposit submitted successfully. Waiting for admin approval.");
-
-        // Reset Form
-        setAmount("");
-        setSelectedFile(null);
-        setPreview("");
-
-        // Refresh History
-        await loadDeposits();
-
-        return;
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Deposit failed.");
       }
 
-      alert(data.message || "Deposit submission failed.");
-    } catch (err) {
-      console.error("Deposit Error:", err);
-      alert("Server Error. Please try again.");
+      setMessageType("success");
+      setMessage("Deposit request submitted successfully.");
+
+      // Reset Form
+      setRequestAmount("");
+      setSenderName("");
+      setSenderAccount("");
+      setTransactionId("");
+      setReceiptImage("");
+      setNote("");
+
+      loadhistory();
+
+    } catch (err: any) {
+      setMessageType("error");
+      setMessage(err.message);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   // ==========================================
-  // STATUS COLOR
+  // PAGE UI START
   // ==========================================
+  return (
+    <main className="min-h-screen bg-black text-white p-6">
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "approved":
-        return "text-green-400 bg-green-500/10 border-green-500";
+      <div className="max-w-5xl mx-auto space-y-8">
 
-      case "rejected":
-        return "text-red-400 bg-red-500/10 border-red-500";
+        {/* HEADER */}
+        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 flex justify-between items-center flex-wrap gap-4">
 
-      default:
-        return "text-yellow-400 bg-yellow-500/10 border-yellow-500";
-    }
-  };
-
-  // ==========================================
-  // FORMAT DATE
-  // ==========================================
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString("en-PK", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  // ==========================================
-  // LOADING SCREEN
-  // ==========================================
-
-  if (pageLoading) {
-    return (
-      <main className="min-h-screen bg-black flex items-center justify-center text-yellow-400">
-        <Loader2 className="animate-spin mr-3" size={24} />
-        Loading Deposit Center...
-      </main>
-    );
-  }
-    return (
-    <main className="min-h-screen bg-black text-white">
-      {/* HEADER */}
-
-      <div className="sticky top-0 z-50 bg-zinc-950 border-b border-yellow-500">
-        <div className="max-w-6xl mx-auto px-5 py-5 flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-black text-yellow-400">
-              Deposit USDT TRC20
+            <h1 className="text-4xl font-black text-yellow-400">
+              Deposit wallet
             </h1>
 
-            <p className="text-gray-400 text-sm mt-1">
-              Deposit funds securely and upload your payment proof.
+            <p className="text-gray-400 mt-2">
+              Welcome, <span className="text-yellow-400">{username}</span>
             </p>
           </div>
 
-          <Link
-            href="/dashboard"
-            className="bg-zinc-900 border border-yellow-500 hover:bg-yellow-500 hover:text-black px-4 py-2 rounded-xl flex items-center gap-2 font-semibold"
+          <Wallet className="w-14 h-14 text-yellow-400" />
+
+        </div>
+
+        {/* MESSAGE */}
+        {message && (
+          <div
+            className={`rounded-2xl border p-4 ${
+              messageType === "success"
+                ? "border-green-500 bg-green-900/30 text-green-300"
+                : "border-red-500 bg-red-900/30 text-red-300"
+            }`}
           >
-            <ArrowLeft size={18} />
-            Dashboard
-          </Link>
-        </div>
-      </div>
+            {message}
+          </div>
+        )}
 
-      <div className="max-w-6xl mx-auto px-5 py-8 grid lg:grid-cols-2 gap-8">
+        {/* DEPOSIT FORM */}
+        <form
+          onSubmit={handleDeposit}
+          className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 space-y-5"
+        >
 
-        {/* LEFT SIDE */}
-
-        <div className="bg-zinc-900 rounded-3xl border border-yellow-500 p-6">
-
-          <h2 className="text-2xl font-bold text-yellow-400 mb-6 flex items-center gap-3">
-            <Wallet size={24} />
-            Payment Details
+          <h2 className="text-2xl font-bold text-yellow-400">
+            Submit Deposit Request
           </h2>
 
-          {/* USDT WALLET */}
+          {/* Currency */}
+          <div>
+            <label className="block mb-2 text-gray-300 font-semibold">
+              Currency
+            </label>
 
-          <div className="bg-black rounded-2xl border border-green-500 p-5 mb-6">
-            <p className="text-green-400 text-sm mb-2">
-              USDT Network
-            </p>
+            <div className="grid grid-cols-2 gap-3">
 
-            <h3 className="font-bold text-xl">
-              {paymentSettings?.usdtWallet.network || "TRC20"}
-            </h3>
+              <button
+                type="button"
+                onClick={() => setCurrency("Pkr")}
+                className={`rounded-xl py-3 font-bold ${
+                  currency === "Pkr"
+                    ? "bg-yellow-500 text-black"
+                    : "bg-zinc-800 border border-zinc-700"
+                }`}
+              >
+                Pkr wallet
+              </button>
 
-            <p className="text-gray-400 text-sm mt-4">
-              Wallet Address
-            </p>
+              <button
+                type="button"
+                onClick={() => setCurrency("Usdt")}
+                className={`rounded-xl py-3 font-bold ${
+                  currency === "Usdt"
+                    ? "bg-cyan-500 text-black"
+                    : "bg-zinc-800 border border-zinc-700"
+                }`}
+              >
+                Usdt wallet
+              </button>
 
-            <div className="mt-2 bg-zinc-900 border border-zinc-700 rounded-xl p-3 break-all font-mono text-sm text-white">
-              {paymentSettings?.usdtWallet.walletAddress ||
-                "Wallet not configured."}
             </div>
-
-            <button
-              onClick={copyWallet}
-              className="mt-4 bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded-xl font-semibold flex items-center gap-2"
-            >
-              <Copy size={18} />
-              Copy Wallet Address
-            </button>
           </div>
-
-          {/* QR CODE */}
-
-          <div className="bg-black rounded-2xl border border-yellow-500 p-5">
-            <p className="text-gray-300 mb-4 font-semibold">
-              Scan QR Code
-            </p>
-
-            {paymentSettings?.usdtWallet.qrCode ? (
-              <img
-                src={paymentSettings.usdtWallet.qrCode}
-                alt="USDT QR Code"
-                className="w-60 h-60 object-contain rounded-xl mx-auto bg-white p-3"
-              />
-            ) : (
-              <div className="h-60 flex items-center justify-center text-gray-500 border border-dashed border-zinc-700 rounded-xl">
-                QR Code Not Uploaded
-              </div>
-            )}
-          </div>
-
-          {/* SECURITY */}
-
-          <div className="mt-6 bg-green-500/10 border border-green-500 rounded-2xl p-4">
-            <div className="flex gap-3 items-center text-green-400">
-              <ShieldCheck />
-              <span className="font-bold">
-                
-              </span>
-            </div>
-
-            <ul className="text-sm text-gray-300 mt-3 space-y-2">
-              <li>• Send USDT only on TRC20 Network.</li>
-              <li>• Upload a clear payment screenshot.</li>
-              <li>• Deposits are manually verified by admin.</li>
-              <li>• Approval usually takes 5–30 minutes.</li>
-            </ul>
-          </div>
-
-        </div>
-
-        {/* RIGHT SIDE */}
-
-        <div className="bg-zinc-900 rounded-3xl border border-yellow-500 p-6">
-
-          <h2 className="text-2xl font-bold text-yellow-400 mb-6">
-            Submit Deposit
-          </h2>
 
           {/* Amount */}
-
-          <div className="mb-5">
-            <label className="block mb-2 text-gray-400">
-              Deposit Amount (PKR / USDT)
+          <div>
+            <label className="block mb-2 text-gray-300 font-semibold">
+              Deposit Amount
             </label>
 
             <input
               type="number"
-              placeholder="Enter Deposit Amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full bg-black border border-yellow-500 rounded-xl p-4 outline-none focus:border-yellow-400"
+              value={requestAmount}
+              onChange={(e) => setRequestAmount(e.target.value)}
+              placeholder="Enter Amount"
+              className="w-full rounded-xl bg-black border border-zinc-700 px-4 py-3 focus:border-yellow-500 outline-none"
             />
           </div>
 
-          {/* Wallet Type */}
-
-          <div className="mb-5">
-            <label className="block mb-2 text-gray-400">
-              Wallet Type
+          {/* Payment Method */}
+          <div>
+            <label className="block mb-2 text-gray-300 font-semibold">
+              Payment Method
             </label>
 
             <select
-              value={walletType}
-              onChange={(e) => setWalletType(e.target.value)}
-              className="w-full bg-black border border-yellow-500 rounded-xl p-4 outline-none"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className="w-full rounded-xl bg-black border border-zinc-700 px-4 py-3 focus:border-yellow-500 outline-none"
             >
-              <option value="USDT">USDT Wallet</option>
-              <option value="PKR">PKR Wallet</option>
-              <option value="GOLD">Gold Wallet</option>
+              <option>JazzCash</option>
+              <option>EasyPaisa</option>
+              <option>Bank Transfer</option>
+              <option>ABA Bank</option>
+              <option>Binance</option>
+              <option>Usdt</option>
+              <option>Other</option>
             </select>
           </div>
 
-          {/* Screenshot Upload */}
-
-          <div className="mb-6">
-
-            <label className="block mb-3 text-gray-400">
-              Upload Payment Screenshot
+          {/* Sender Name */}
+          <div>
+            <label className="block mb-2 text-gray-300 font-semibold">
+              Sender Name
             </label>
 
-            <label className="border-2 border-dashed border-yellow-500 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-zinc-800 transition">
+            <input
+              type="text"
+              value={senderName}
+              onChange={(e) => setSenderName(e.target.value)}
+              placeholder="Your Name"
+              className="w-full rounded-xl bg-black border border-zinc-700 px-4 py-3 focus:border-yellow-500 outline-none"
+            />
+          </div>
 
-              <Upload className="text-yellow-400 mb-3" size={40} />
+          {/* Sender Account */}
+          <div>
+            <label className="block mb-2 text-gray-300 font-semibold">
+              Sender Account / Phone
+            </label>
 
-              <span className="text-sm text-gray-300">
-                Click here to choose screenshot
+            <input
+              type="text"
+              value={senderAccount}
+              onChange={(e) => setSenderAccount(e.target.value)}
+              placeholder="03XXXXXXXXX"
+              className="w-full rounded-xl bg-black border border-zinc-700 px-4 py-3 focus:border-yellow-500 outline-none"
+            />
+          </div>
+
+          {/* Transaction ID */}
+          <div>
+            <label className="block mb-2 text-gray-300 font-semibold">
+              Transaction ID
+            </label>
+
+            <input
+              type="text"
+              value={transactionId}
+              onChange={(e) => setTransactionId(e.target.value)}
+              placeholder="Optional"
+              className="w-full rounded-xl bg-black border border-zinc-700 px-4 py-3 focus:border-yellow-500 outline-none"
+            />
+          </div>
+
+          {/* Note */}
+          <div>
+            <label className="block mb-2 text-gray-300 font-semibold">
+              Note
+            </label>
+
+            <textarea
+              rows={3}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Additional note..."
+              className="w-full rounded-xl bg-black border border-zinc-700 px-4 py-3 focus:border-yellow-500 outline-none resize-none"
+            />
+          </div>
+                    {/* Receipt Upload */}
+          <div>
+            <label className="block mb-2 text-gray-300 font-semibold">
+              Payment Receipt
+            </label>
+
+            <label className="flex items-center justify-center gap-3 cursor-pointer border-2 border-dashed border-yellow-500 rounded-2xl p-5 bg-black hover:bg-zinc-950 transition">
+
+              <Upload className="text-yellow-400 w-6 h-6" />
+
+              <span className="text-yellow-300 font-semibold">
+                {uploading
+                  ? "Uploading..."
+                  : receiptImage
+                  ? "Receipt Uploaded ✔"
+                  : "Upload Receipt Image"}
               </span>
 
               <input
                 type="file"
                 accept="image/*"
-                onChange={handleFile}
-                className="hidden"
+                hidden
+                onChange={(e) => {
+                  if (e.target.files?.[0]) {
+                    uploadReceipt(e.target.files[0]);
+                  }
+                }}
               />
-
             </label>
 
-            {preview && (
-              <div className="mt-5">
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="rounded-2xl border border-yellow-500 w-full max-h-72 object-cover"
-                />
-              </div>
+            {receiptImage && (
+              <img
+                src={receiptImage}
+                alt="Receipt"
+                className="mt-4 rounded-2xl border border-yellow-500 w-full max-h-72 object-cover"
+              />
             )}
           </div>
 
-          {/* Submit */}
-
+          {/* Submit Button */}
           <button
-            onClick={submitDeposit}
-            disabled={loading}
-            className="w-full bg-yellow-500 hover:bg-yellow-400 text-black py-4 rounded-xl font-bold flex justify-center items-center gap-3 disabled:opacity-60"
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-yellow-500 hover:bg-yellow-400 text-black py-4 rounded-2xl font-black text-lg transition flex justify-center items-center gap-3 disabled:bg-zinc-700 disabled:text-gray-400"
           >
-            {loading ? (
-              <>
-                <Loader2 className="animate-spin" size={20} />
-                Submitting Deposit...
-              </>
-            ) : (
-              <>
-                <CheckCircle size={20} />
-                Submit Deposit
-              </>
+            {submitting && (
+              <RefreshCw className="animate-spin w-5 h-5" />
             )}
+
+            {submitting
+              ? "Submitting Deposit..."
+              : "SUBMIT DEPOSIT REQUEST"}
           </button>
 
-          <p className="text-xs text-center text-gray-500 mt-4">
-            After submitting, your request will appear in Admin Deposit Center.
-          </p>
+        </form>
 
-        </div>
-
-      </div>      {/* ==========================================
-          DEPOSIT HISTORY
-      ========================================== */}
-
-      <div className="max-w-6xl mx-auto px-5 pb-10">
-
+        {/* Deposit history */}
         <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
 
           <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
 
-            <div>
-              <h2 className="text-2xl font-bold text-yellow-400 flex items-center gap-3">
-                <Clock size={24}/>
-                Deposit History
-              </h2>
-
-              <p className="text-gray-400 text-sm mt-1">
-                Your recent deposit requests and approval status.
-              </p>
-            </div>
+            <h2 className="text-2xl font-black text-yellow-400">
+              Deposit history
+            </h2>
 
             <button
-              onClick={loadDeposits}
-              className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded-xl font-semibold flex items-center gap-2"
+              onClick={loadhistory}
+              className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded-xl font-bold flex items-center gap-2"
             >
-              <RefreshCw size={18}/>
+              <RefreshCw className="w-4 h-4" />
               Refresh
             </button>
 
           </div>
 
-          {/* EMPTY HISTORY */}
+          {loadinghistory ? (
 
-          {depositHistory.length === 0 ? (
+            <div className="text-center text-gray-400 py-10">
+              Loading deposit history...
+            </div>
 
-            <div className="text-center py-14 border border-dashed border-zinc-700 rounded-2xl">
+          ) : history.length === 0 ? (
 
-              <Clock size={42} className="mx-auto text-gray-600 mb-4"/>
-
-              <p className="text-gray-500 text-lg">
-                No Deposit History Found
-              </p>
-
-              <p className="text-gray-600 text-sm mt-2">
-                Submit your first deposit to see history here.
-              </p>
-
+            <div className="text-center text-gray-500 py-10">
+              No deposit requests found.
             </div>
 
           ) : (
 
             <div className="space-y-5">
 
-              {depositHistory.map((deposit) => (
+              {history.map((deposit) => (
 
                 <div
                   key={deposit._id}
-                  className="bg-black border border-zinc-700 rounded-2xl p-5 hover:border-yellow-500 transition"
+                  className="bg-black border border-zinc-700 rounded-2xl p-5 space-y-3"
                 >
 
-                  <div className="flex justify-between items-start flex-wrap gap-4">
+                  <div className="flex justify-between items-center flex-wrap gap-3">
 
                     <div>
 
-                      <p className="text-gray-400 text-sm">
-                        Deposit Amount
-                      </p>
-
-                      <h3 className="text-3xl font-bold text-green-400 mt-1">
-                        PKR {Number(deposit.amount).toLocaleString()}
+                      <h3 className="text-xl font-bold text-yellow-400">
+                        {deposit.currency || "Pkr"}{" "}
+                        {Number(
+                          deposit.requestAmount ??
+                          0
+                        ).toLocaleString()}
                       </h3>
 
-                      <p className="text-gray-500 text-sm mt-3">
-                        Wallet Type :{" "}
-                        <span className="text-yellow-400 font-semibold">
-                          {deposit.walletType || "USDT"}
-                        </span>
-                      </p>
-
-                      <p className="text-gray-500 text-sm mt-2">
-                        Date :{" "}
-                        <span className="text-white">
-                          {formatDate(deposit.createdAt)}
-                        </span>
+                      <p className="text-sm text-gray-500">
+                        {new Date(deposit.createdAt).toLocaleString()}
                       </p>
 
                     </div>
 
-                    {/* STATUS */}
-
-                    <div>
-
-                      <span
-                        className={`px-4 py-2 rounded-full border text-sm font-bold ${getStatusColor(
-                          deposit.status
-                        )}`}
-                      >
-                        {deposit.status.toUpperCase()}
+                    {deposit.status === "Pending" && (
+                      <span className="bg-yellow-600/20 text-yellow-400 px-4 py-2 rounded-full flex items-center gap-2 text-sm font-semibold">
+                        <Clock size={16} />
+                        Pending
                       </span>
+                    )}
 
-                    </div>
+                    {deposit.status === "Approved" && (
+                      <span className="bg-green-600/20 text-green-400 px-4 py-2 rounded-full flex items-center gap-2 text-sm font-semibold">
+                        <CheckCircle size={16} />
+                        Approved
+                      </span>
+                    )}
+
+                    {deposit.status === "Rejected" && (
+                      <span className="bg-red-600/20 text-red-400 px-4 py-2 rounded-full flex items-center gap-2 text-sm font-semibold">
+                        <XCircle size={16} />
+                        Rejected
+                      </span>
+                    )}
 
                   </div>
 
-                  {/* SCREENSHOT */}
+                  <div className="grid md:grid-cols-2 gap-3 text-sm">
 
-                  {deposit.screenshot && (
+                    <p>
+                      <span className="text-gray-500">Payment Method:</span>{" "}
+                      {deposit.paymentMethod}
+                    </p>
 
-                    <div className="mt-5">
+                    <p>
+                      <span className="text-gray-500">Sender:</span>{" "}
+                      {deposit.senderName || "-"}
+                    </p>
 
-                      <p className="text-gray-400 text-sm mb-3">
-                        Uploaded Payment Screenshot
-                      </p>
+                    <p>
+                      <span className="text-gray-500">Account:</span>{" "}
+                      {deposit.senderAccount || "-"}
+                    </p>
 
-                      <img
-                        src={
-                          deposit.screenshot.startsWith("http")
-                            ? deposit.screenshot
-                            : `${API}/${deposit.screenshot}`
-                        }
-                        alt="Deposit Screenshot"
-                        className="rounded-xl border border-yellow-500 w-full max-h-60 object-cover cursor-pointer hover:opacity-90"
-                        onClick={() => {
-                          const screenshot = deposit.screenshot;
+                    <p>
+                      <span className="text-gray-500">Transaction ID:</span>{" "}
+                      {deposit.transactionId || "-"}
+                    </p>
 
-                          if (!screenshot) return;
+                  </div>
 
-                          setPreview(
-                            screenshot.startsWith("http")
-                              ? screenshot
-                              : `${API}/${screenshot}`
-                          );
-                        }}
-                      />
-
+                  {deposit.note && (
+                    <div className="text-sm text-gray-300">
+                      <span className="text-gray-500">Note:</span>{" "}
+                      {deposit.note}
                     </div>
+                  )}
 
+                  {deposit.adminAmount > 0 && (
+                    <div className="text-green-400 text-sm font-semibold">
+                      wallet Credited: {deposit.adminAmount.toLocaleString()} {deposit.currency}
+                    </div>
+                  )}
+
+                  {deposit.adminNote && (
+                    <div className="text-cyan-400 text-sm">
+                      Admin Note: {deposit.adminNote}
+                    </div>
+                  )}
+
+                  {deposit.receiptImage && (
+                    <img
+                      src={deposit.receiptImage}
+                      alt="Receipt"
+                      className="rounded-xl border border-yellow-500 max-h-60 object-cover w-full"
+                    />
                   )}
 
                 </div>
@@ -659,192 +621,18 @@ export default function DepositPage() {
 
         </div>
 
-        {/* ==========================================
-            STATUS SUMMARY
-        ========================================== */}
+        {/* Footer */}
+        <div className="text-center text-xs text-gray-500 border-t border-zinc-800 pt-6">
 
-        <div className="grid md:grid-cols-3 gap-5 mt-10">
+          <p>Deposit wallet</p>
 
-          {/* Pending */}
-
-          <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-5">
-
-            <div className="flex items-center gap-3 mb-3">
-              <Clock className="text-yellow-400"/>
-              <span className="font-bold text-yellow-400">
-                Pending Deposits
-              </span>
-            </div>
-
-            <h3 className="text-4xl font-black text-yellow-300">
-              {
-                depositHistory.filter(
-                  (d) => d.status.toLowerCase() === "pending"
-                ).length
-              }
-            </h3>
-
-          </div>
-
-          {/* Approved */}
-
-          <div className="bg-zinc-900 border border-green-600 rounded-2xl p-5">
-
-            <div className="flex items-center gap-3 mb-3">
-              <CheckCircle className="text-green-400"/>
-              <span className="font-bold text-green-400">
-                Approved Deposits
-              </span>
-            </div>
-
-            <h3 className="text-4xl font-black text-green-300">
-              {
-                depositHistory.filter(
-                  (d) => d.status.toLowerCase() === "approved"
-                ).length
-              }
-            </h3>
-
-          </div>
-
-          {/* Rejected */}
-
-          <div className="bg-zinc-900 border border-red-600 rounded-2xl p-5">
-
-            <div className="flex items-center gap-3 mb-3">
-              <XCircle className="text-red-400"/>
-              <span className="font-bold text-red-400">
-                Rejected Deposits
-              </span>
-            </div>
-
-            <h3 className="text-4xl font-black text-red-300">
-              {
-                depositHistory.filter(
-                  (d) => d.status.toLowerCase() === "rejected"
-                ).length
-              }
-            </h3>
-
-          </div>
+          <p className="mt-2 text-green-400">
+            JWT Authentication • GoldTrade Server.
+          </p>
 
         </div>
 
       </div>
-
-      {/* ==========================================
-          IMAGE PREVIEW MODAL
-      ========================================== */}
-
-      {preview && (
-
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-6">
-
-          <div className="relative max-w-5xl w-full">
-
-            <button
-              onClick={() => setPreview("")}
-              className="absolute -top-4 -right-4 bg-red-600 hover:bg-red-500 rounded-full p-3"
-            >
-              <XCircle size={28}/>
-            </button>
-
-            <img
-              src={preview}
-              alt="Deposit Preview"
-              className="w-full rounded-3xl border-2 border-yellow-500 max-h-[90vh] object-contain"
-            />
-
-          </div>
-
-        </div>
-
-      )}      {/* ==========================================
-          LIVE STATUS
-      ========================================== */}
-
-      <div className="max-w-6xl mx-auto px-5 pb-10">
-        <div className="grid md:grid-cols-3 gap-5">
-
-          <div className="bg-zinc-900 border border-green-600 rounded-2xl p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <ShieldCheck className="text-green-400" />
-              <span className="font-bold text-green-400">
-                Deposit System
-              </span>
-            </div>
-
-            <p className="text-gray-300 text-sm">
-              Manual verification enabled.
-            </p>
-
-            <p className="text-gray-500 text-xs mt-2">
-              Every deposit is reviewed before wallet credit.
-            </p>
-          </div>
-
-          <div className="bg-zinc-900 border border-cyan-600 rounded-2xl p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <Wallet className="text-cyan-400" />
-              <span className="font-bold text-cyan-400">
-                Wallet Credit
-              </span>
-            </div>
-
-            <p className="text-gray-300 text-sm">
-              USDT / PKR / Gold Wallet Supported.
-            </p>
-
-            <p className="text-gray-500 text-xs mt-2">
-              Admin credits wallet after approval.
-            </p>
-          </div>
-
-          <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <RefreshCw className="text-yellow-400" />
-              <span className="font-bold text-yellow-400">
-                Live Sync
-              </span>
-            </div>
-
-            <p className="text-gray-300 text-sm">
-              Deposit history updates automatically.
-            </p>
-
-            <p className="text-gray-500 text-xs mt-2">
-              Refreshes every 15 seconds.
-            </p>
-          </div>
-
-        </div>
-      </div>
-
-      {/* ==========================================
-          FOOTER
-      ========================================== */}
-
-      <footer className="border-t border-zinc-800 py-8 mt-10 bg-zinc-950">
-        <div className="max-w-6xl mx-auto px-5 text-center">
-
-          <h3 className="text-yellow-400 font-bold text-xl">
-            GoldTrade Pakistan
-          </h3>
-
-          <p className="text-gray-400 mt-2">
-            Secure Gold • USDT TRC20 • Wallet Deposit Platform
-          </p>
-
-          <p className="text-gray-600 text-sm mt-3">
-            All deposits are verified manually by GoldTrade Admin Team.
-          </p>
-
-          <p className="text-gray-700 text-xs mt-4">
-            © 2026 GoldTrade Pakistan — All Rights Reserved.
-          </p>
-
-        </div>
-      </footer>
 
     </main>
   );

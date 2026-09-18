@@ -12,17 +12,17 @@ const API =
 
 interface GoldTransaction {
   _id: string;
-  tradeType: "BUY" | "SELL";
+  tradeType: "buy" | "sell";
   grams: number;
   pricePerGram: number;
   
-  totalPKR: number;
+  totalPkr: number;
   profitLoss?: number;
   status: string;
   createdAt: string;
 }
 
-const GoldHistory: React.FC = () => {
+const Goldhistory: React.FC = () => {
   // ==========================================
   // STATES
   // ==========================================
@@ -49,10 +49,10 @@ const GoldHistory: React.FC = () => {
   }, []);
 
   // ==========================================
-  // FETCH GOLD HISTORY
+  // FETCH GOLD history
   // ==========================================
 
-  const fetchHistory = async () => {
+  const fetchhistory = async () => {
     if (!username) return;
 
     try {
@@ -68,7 +68,7 @@ const GoldHistory: React.FC = () => {
         setTransactions([]);
       }
     } catch (error) {
-      console.error("History Error:", error);
+      console.error("history Error:", error);
       setTransactions([]);
     } finally {
       setLoading(false);
@@ -77,13 +77,13 @@ const GoldHistory: React.FC = () => {
   };
 
   // ==========================================
-  // LOAD HISTORY WHEN USERNAME IS READY
+  // LOAD history WHEN USERNAME IS READY
   // ==========================================
 
   useEffect(() => {
     if (!username) return;
 
-    fetchHistory();
+    fetchhistory();
   }, [username]);
 
   // ==========================================
@@ -106,16 +106,16 @@ const GoldHistory: React.FC = () => {
   // SUMMARY
   // ==========================================
 
-  const totalBuy = filteredTransactions
-    .filter((tx) => tx.tradeType === "BUY")
+  const totalbuy = filteredTransactions
+    .filter((tx) => tx.tradeType === "buy")
     .reduce((sum, tx) => sum + tx.grams, 0);
 
-  const totalSell = filteredTransactions
-    .filter((tx) => tx.tradeType === "SELL")
+  const totalsell = filteredTransactions
+    .filter((tx) => tx.tradeType === "sell")
     .reduce((sum, tx) => sum + tx.grams, 0);
 
   const totalVolume = filteredTransactions.reduce(
-    (sum, tx) => sum + tx.totalPKR,
+    (sum, tx) => sum + tx.totalPkr,
     0
   );
 
@@ -131,7 +131,7 @@ const GoldHistory: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex justify-center items-center text-yellow-400 text-xl font-bold">
-        Loading Gold History...
+        Loading Gold history...
       </div>
     );
   }
@@ -148,16 +148,16 @@ const GoldHistory: React.FC = () => {
 
         <div>
           <h1 className="text-4xl font-black text-yellow-400">
-            GOLD HISTORY
+            GOLD history
           </h1>
 
           <p className="text-gray-400 mt-1">
-            Buy • Sell • Profit & Loss History
+            buy • sell • Profit & Loss history
           </p>
         </div>
 
         <button
-          onClick={fetchHistory}
+          onClick={fetchhistory}
           disabled={refreshing}
           className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-5 py-3 rounded-xl transition disabled:opacity-50"
         >
@@ -170,18 +170,18 @@ const GoldHistory: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
 
         <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">Total Buy</p>
+          <p className="text-gray-400 text-sm">Total buy</p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            {totalBuy.toFixed(3)} g
+            {totalbuy.toFixed(3)} g
           </h2>
         </div>
 
         <div className="bg-zinc-900 border border-red-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">Total Sell</p>
+          <p className="text-gray-400 text-sm">Total sell</p>
 
           <h2 className="text-3xl font-black text-red-400 mt-2">
-            {totalSell.toFixed(3)} g
+            {totalsell.toFixed(3)} g
           </h2>
         </div>
 
@@ -189,7 +189,7 @@ const GoldHistory: React.FC = () => {
           <p className="text-gray-400 text-sm">Trading Volume</p>
 
           <h2 className="text-3xl font-black text-blue-400 mt-2">
-            PKR {totalVolume.toLocaleString()}
+            Pkr {totalVolume.toLocaleString()}
           </h2>
         </div>
 
@@ -203,7 +203,7 @@ const GoldHistory: React.FC = () => {
                 : "text-red-400"
             }`}
           >
-            PKR {totalProfit.toFixed(2)}
+            Pkr {totalProfit.toFixed(2)}
           </h2>
         </div>
 
@@ -216,7 +216,7 @@ const GoldHistory: React.FC = () => {
 
           <input
             type="text"
-            placeholder="Search BUY / SELL / Status..."
+            placeholder="Search buy / sell / Status..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white outline-none focus:border-yellow-500"
@@ -228,8 +228,8 @@ const GoldHistory: React.FC = () => {
             className="bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white outline-none focus:border-yellow-500"
           >
             <option value="ALL">All Transactions</option>
-            <option value="BUY">BUY Only</option>
-            <option value="SELL">SELL Only</option>
+            <option value="buy">buy Only</option>
+            <option value="sell">sell Only</option>
           </select>
 
         </div>
@@ -245,7 +245,7 @@ const GoldHistory: React.FC = () => {
 
         <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
           <h2 className="text-3xl font-black text-yellow-400">
-            Gold Transaction History
+            Gold Transaction history
           </h2>
 
           <span className="text-sm text-gray-400">
@@ -263,7 +263,7 @@ const GoldHistory: React.FC = () => {
             </h3>
 
             <p className="text-gray-500 mt-2">
-              Buy or Sell Gold to see transaction history.
+              buy or sell Gold to see transaction history.
             </p>
 
           </div>
@@ -278,7 +278,7 @@ const GoldHistory: React.FC = () => {
                   <th className="px-4 py-4 text-left">Type</th>
                   <th className="px-4 py-4 text-left">Grams</th>
                   <th className="px-4 py-4 text-left">Price / Gram</th>
-                  <th className="px-4 py-4 text-left">Total PKR</th>
+                  <th className="px-4 py-4 text-left">Total Pkr</th>
                   <th className="px-4 py-4 text-left">Profit / Loss</th>
                   <th className="px-4 py-4 text-left">Status</th>
                   <th className="px-4 py-4 text-left">Date</th>
@@ -297,7 +297,7 @@ const GoldHistory: React.FC = () => {
                     <td className="px-4 py-4">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          tx.tradeType === "BUY"
+                          tx.tradeType === "buy"
                             ? "bg-green-600 text-white"
                             : "bg-red-600 text-white"
                         }`}
@@ -311,11 +311,11 @@ const GoldHistory: React.FC = () => {
                     </td>
 
                     <td className="px-4 py-4 text-blue-300">
-                      PKR {tx.pricePerGram.toLocaleString()}
+                      Pkr {tx.pricePerGram.toLocaleString()}
                     </td>
 
                     <td className="px-4 py-4 text-green-400 font-semibold">
-                      PKR {tx.totalPKR.toLocaleString()}
+                      Pkr {tx.totalPkr.toLocaleString()}
                     </td>
 
                     <td
@@ -325,7 +325,7 @@ const GoldHistory: React.FC = () => {
                           : "text-red-400"
                       }`}
                     >
-                      PKR {(tx.profitLoss || 0).toFixed(2)}
+                      Pkr {(tx.profitLoss || 0).toFixed(2)}
                     </td>
 
                     <td className="px-4 py-4">
@@ -354,11 +354,11 @@ const GoldHistory: React.FC = () => {
 
       {/* FOOTER */}
       <div className="mt-12 border-t border-zinc-800 pt-6 text-center text-gray-500 text-sm">
-        GoldTrade V17 Enterprise • Gold Trading History Dashboard
+        GoldTrade V17 Enterprise • Gold Trading history Dashboard
       </div>
 
     </div>
   );
 };
 
-export default GoldHistory;
+export default Goldhistory;

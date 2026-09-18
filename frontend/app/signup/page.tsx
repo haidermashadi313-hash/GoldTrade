@@ -206,7 +206,7 @@ export default function SignupPage() {
 
         <div className="mt-8 border-t border-zinc-700 pt-4 text-center">
           <p className="text-xs text-gray-500">
-            GoldTrade Pakistan • Secure Gold & USDT TRC20 Platform
+            GoldTrade Pakistan • Secure Gold & Usdt TRC20 Platform
           </p>
         </div>
 

@@ -126,10 +126,10 @@ const GoldChart: React.FC = () => {
       <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
 
         <div className="bg-black rounded-2xl p-5 border border-green-500">
-          <p className="text-gray-400 text-sm">BUY PRICE</p>
+          <p className="text-gray-400 text-sm">buy PRICE</p>
 
           <h3 className="text-3xl font-black text-green-400 mt-2">
-            PKR {market.buyPrice.toLocaleString()}
+            Pkr {market.buyPrice.toLocaleString()}
           </h3>
 
           <p className="text-xs text-gray-500 mt-2">
@@ -138,10 +138,10 @@ const GoldChart: React.FC = () => {
         </div>
 
         <div className="bg-black rounded-2xl p-5 border border-red-500">
-          <p className="text-gray-400 text-sm">SELL PRICE</p>
+          <p className="text-gray-400 text-sm">sell PRICE</p>
 
           <h3 className="text-3xl font-black text-red-400 mt-2">
-            PKR {market.sellPrice.toLocaleString()}
+            Pkr {market.sellPrice.toLocaleString()}
           </h3>
 
           <p className="text-xs text-gray-500 mt-2">
@@ -184,7 +184,7 @@ const GoldChart: React.FC = () => {
       <div className="bg-black rounded-3xl border border-zinc-700 p-5 mb-8">
 
         <h3 className="text-2xl font-black text-yellow-400 mb-5">
-          Gold Buy vs Sell Price (Live)
+          Gold buy vs sell Price (Live)
         </h3>
 
         <div className="w-full h-[380px]">
@@ -216,7 +216,7 @@ const GoldChart: React.FC = () => {
               <Line
                 type="monotone"
                 dataKey="buyPrice"
-                name="Buy Price"
+                name="buy Price"
                 stroke="#22c55e"
                 strokeWidth={3}
                 dot={{ r: 3 }}
@@ -226,7 +226,7 @@ const GoldChart: React.FC = () => {
               <Line
                 type="monotone"
                 dataKey="sellPrice"
-                name="Sell Price"
+                name="sell Price"
                 stroke="#ef4444"
                 strokeWidth={3}
                 dot={{ r: 3 }}
@@ -245,16 +245,16 @@ const GoldChart: React.FC = () => {
         <div className="bg-black rounded-3xl border border-green-500 p-6">
 
           <h3 className="text-2xl font-black text-green-400 mb-4">
-            Buy Market
+            buy Market
           </h3>
 
           <div className="space-y-4">
 
             <div className="flex justify-between">
-              <span className="text-gray-400">Current Buy Price</span>
+              <span className="text-gray-400">Current buy Price</span>
 
               <span className="text-green-400 font-bold text-xl">
-                PKR {market.buyPrice.toLocaleString()}
+                Pkr {market.buyPrice.toLocaleString()}
               </span>
             </div>
 
@@ -281,16 +281,16 @@ const GoldChart: React.FC = () => {
         <div className="bg-black rounded-3xl border border-red-500 p-6">
 
           <h3 className="text-2xl font-black text-red-400 mb-4">
-            Sell Market
+            sell Market
           </h3>
 
           <div className="space-y-4">
 
             <div className="flex justify-between">
-              <span className="text-gray-400">Current Sell Price</span>
+              <span className="text-gray-400">Current sell Price</span>
 
               <span className="text-red-400 font-bold text-xl">
-                PKR {market.sellPrice.toLocaleString()}
+                Pkr {market.sellPrice.toLocaleString()}
               </span>
             </div>
 
@@ -298,7 +298,7 @@ const GoldChart: React.FC = () => {
               <span className="text-gray-400">Spread</span>
 
               <span className="text-yellow-400 font-bold">
-                PKR {(market.buyPrice - market.sellPrice).toLocaleString()}
+                Pkr {(market.buyPrice - market.sellPrice).toLocaleString()}
               </span>
             </div>
 
@@ -330,31 +330,31 @@ const GoldChart: React.FC = () => {
 
           <div className="bg-black rounded-xl p-5">
             <p className="text-gray-400 text-sm mb-2">
-              Live Buy Price
+              Live buy Price
             </p>
 
             <h4 className="text-2xl font-black text-green-400">
-              PKR {market.buyPrice.toLocaleString()}
+              Pkr {market.buyPrice.toLocaleString()}
             </h4>
           </div>
 
           <div className="bg-black rounded-xl p-5">
             <p className="text-gray-400 text-sm mb-2">
-              Live Sell Price
+              Live sell Price
             </p>
 
             <h4 className="text-2xl font-black text-red-400">
-              PKR {market.sellPrice.toLocaleString()}
+              Pkr {market.sellPrice.toLocaleString()}
             </h4>
           </div>
 
           <div className="bg-black rounded-xl p-5">
             <p className="text-gray-400 text-sm mb-2">
-              Buy/Sell Difference
+              buy/sell Difference
             </p>
 
             <h4 className="text-2xl font-black text-yellow-400">
-              PKR {(market.buyPrice - market.sellPrice).toLocaleString()}
+              Pkr {(market.buyPrice - market.sellPrice).toLocaleString()}
             </h4>
           </div>
 

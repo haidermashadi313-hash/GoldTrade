@@ -1,1458 +1,1957 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Users,
   Wallet,
-  ArrowDownCircle,
   ArrowUpCircle,
+  ArrowDownCircle,
   Coins,
   DollarSign,
+  TrendingUp,
+  RefreshCw,
   ShieldCheck,
   Settings,
-  Bell,
+  Clock,
   Activity,
 } from "lucide-react";
 
+// ==========================================
+// API URL
+// ==========================================
 const API =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
+// ==========================================
+// TYPES
+// ==========================================
+interface DashboardStats {
+  totalUsers: number;
+  activeUsers: number;
+  totalDeposits: number;
+  totalWithdraws: number;
+  pendingDeposits: number;
+  pendingWithdraws: number;
+  walletBalance: number;
+  totalTransactions: number;
+}
+
+interface MarketSettings {
+  goldPriceUSD: number;
+  UsdtoPkr: number;
+  buyGoldPrice: number;
+  sellGoldPrice: number;
+  marketStatus: string;
+}
+
+interface DepositItem {
+  _id: string;
+  username: string;
+  requestAmount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+}
+
+interface WithdrawItem {
+  _id: string;
+  username: string;
+  requestAmount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+}
+
+interface walletTransaction {
+  _id: string;
+  username: string;
+  type: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+}
+
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({
+  // ==========================================
+  // AUTH
+  // ==========================================
+  const [token, setToken] = useState("");
+  const [adminName, setAdminName] = useState("");
+
+  // ==========================================
+  // UI
+  // ==========================================
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] =
+    useState<"success" | "error">("success");
+    
+
+  // ==========================================
+  // DASHBOARD STATS
+  // ==========================================
+  const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
+    activeUsers: 0,
+    totalDeposits: 0,
+    totalWithdraws: 0,
     pendingDeposits: 0,
-    pendingWithdrawals: 0,
-    goldTradesToday: 0,
+    pendingWithdraws: 0,
     walletBalance: 0,
-    usdtVolume: 0,
+    totalTransactions: 0,
   });
 
-  const [loading, setLoading] = useState(true);
+  // ==========================================
+  // MARKET SETTINGS (SAFE DEFAULTS)
+  // ==========================================
+  const [settings, setSettings] = useState<MarketSettings>({
+    goldPriceUSD: 0,
+    UsdtoPkr: 0,
+    buyGoldPrice: 0,
+    sellGoldPrice: 0,
+    marketStatus: "CLOSED",
+  });
+// ==========================================
+// MANUAL wallet MANAGER STATES
+// ==========================================
+const [walletUsername, setwalletUsername] = useState("");
+const [walletAmount, setwalletAmount] = useState("");
+const [walletNote, setwalletNote] = useState("");
+const [walletLoading, setwalletLoading] = useState(false);
+const [walletBalance, setwalletBalance] = useState(0);
 
-  const fetchDashboard = async () => {
+// ==========================================
+// HYDRATION SAFE STATES
+// ==========================================
+const [mounted, setMounted] = useState(false);
+
+const [currentTime, setCurrentTime] = useState("");
+
+const [currentDateTime, setCurrentDateTime] = useState("");
+
+// ================== YAHAN SE PASTE KARO ==================
+const API =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+const [walletUser, setwalletUser] = useState({
+  username: "",
+  walletBalance: 0,
+  totalDeposit: 0,
+  totalWithdraw: 0,
+  email: "",
+  role: "",
+});
+
+const [walletStats, setwalletStats] = useState({
+  totalUsers: 0,
+  totalPkrBalance: 0,
+  totalDeposits: 0,
+  totalWithdraws: 0,
+  totalTransactions: 0,
+});
+
+const [wallethistory, setwallethistory] = useState([]);
+// ================== YAHAN TAK PASTE KARO ==================
+
+  // ==========================================
+  // TABLE DATA
+  // ==========================================
+  const [pendingDeposits, setPendingDeposits] = useState<DepositItem[]>([]);
+  const [pendingWithdraws, setPendingWithdraws] = useState<WithdrawItem[]>([]);
+  const [transactions, setTransactions] = useState<walletTransaction[]>([]);
+    // ==========================================
+  // ADMIN AUTH CHECK
+  // ==========================================
+  useEffect(() => {
+    const jwt = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+    const username = localStorage.getItem("username");
+
+    if (!jwt) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (role !== "admin") {
+      window.location.href = "/dashboard";
+      return;
+    }
+
+    setToken(jwt);
+    setAdminName(username || "Administrator");
+  }, []);
+
+  // ==========================================
+  // LOAD MARKET SETTINGS
+  // ==========================================
+  const loadMarketSettings = async (jwt: string) => {
     try {
-      const res = await axios.get(`${API}/api/gold/admin/dashboard`);
+      const response = await fetch(`${API}/api/gold/price`, {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+        },
+        cache: "no-store",
+      });
 
-      if (res.data.success) {
-        setStats(res.data.stats);
-      }
-    } catch (error) {
-      console.error("Dashboard Error:", error);
-    } finally {
-      setLoading(false);
+      const result = await response.json();
+
+      if (!response.ok || !result.success) return;
+
+      setSettings({
+        goldPriceUSD: Number(result.data?.goldPriceUSD || 0),
+        UsdtoPkr: Number(result.data?.UsdtoPkr || 0),
+        buyGoldPrice: Number(result.data?.buyGoldPrice || 0),
+        sellGoldPrice: Number(result.data?.sellGoldPrice || 0),
+        marketStatus: result.data?.marketStatus || "CLOSED",
+      });
+    } catch (err) {
+      console.error("Market Settings Error:", err);
     }
   };
 
+  // ==========================================
+  // LOAD DASHBOARD STATS
+  // ==========================================
+  const loadDashboardStats = async (jwt: string) => {
+    try {
+      const response = await fetch(`${API}/api/admin/dashboard`, {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+        },
+        cache: "no-store",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) return;
+
+      const data = result.data || {};
+
+      setStats({
+        totalUsers: Number(data.totalUsers || 0),
+        activeUsers: Number(data.activeUsers || 0),
+        totalDeposits: Number(data.totalDeposits || 0),
+        totalWithdraws: Number(data.totalWithdraws || 0),
+        pendingDeposits: Number(data.pendingDeposits || 0),
+        pendingWithdraws: Number(data.pendingWithdraws || 0),
+        walletBalance: Number(data.walletBalance || 0),
+        totalTransactions: Number(data.totalTransactions || 0),
+      });
+    } catch (err) {
+      console.error("Dashboard Stats Error:", err);
+    }
+  };
+
+  // ==========================================
+  // LOAD PENDING DEPOSITS
+  // ==========================================
+  const loadPendingDeposits = async (jwt: string) => {
+    try {
+      const response = await fetch(`${API}/api/admin/deposits/pending`, {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) return;
+
+      setPendingDeposits(result.data || []);
+    } catch (err) {
+      console.error("Pending Deposits Error:", err);
+    }
+  };
+
+  // ==========================================
+  // LOAD PENDING WITHDRAWS
+  // ==========================================
+  const loadPendingWithdraws = async (jwt: string) => {
+    try {
+      const response = await fetch(`${API}/api/admin/withdraws/pending`, {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) return;
+
+      setPendingWithdraws(result.data || []);
+    } catch (err) {
+      console.error("Pending Withdraw Error:", err);
+    }
+  };
+
+  // ==========================================
+  // LOAD RECENT wallet TRANSACTIONS
+  // ==========================================
+  const loadTransactions = async (jwt: string) => {
+    try {
+      const response = await fetch(`${API}/api/wallet/history/all`, {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) return;
+
+      setTransactions(result.data || []);
+    } catch (err) {
+      console.error("wallet Transaction Error:", err);
+    }
+  };
+
+  // ==========================================
+  // LOAD COMPLETE DASHBOARD
+  // ==========================================
+  const loadDashboard = async () => {
+    const jwt = localStorage.getItem("token");
+
+    if (!jwt) return;
+
+    try {
+      setLoading(true);
+
+      await Promise.all([
+        loadDashboardStats(jwt),
+        loadMarketSettings(jwt),
+        loadPendingDeposits(jwt),
+        loadPendingWithdraws(jwt),
+        loadTransactions(jwt),
+      ]);
+    } catch (err) {
+      console.error("Dashboard Load Error:", err);
+
+      setMessageType("error");
+      setMessage("Unable to load dashboard.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // ==========================================
+  // AUTO LOAD
+  // ==========================================
   useEffect(() => {
-    fetchDashboard();
-  }, []);
+    if (token) {
+      loadDashboard();
+    }
+  }, [token]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <h1 className="text-yellow-400 text-3xl font-black">
-          Loading Admin Dashboard...
-        </h1>
-      </div>
-    );
-  }
+  // ==========================================
+  // REFRESH DASHBOARD
+  // ==========================================
+  const refreshDashboard = () => {
+    setRefreshing(true);
+    loadDashboard();
+  };
 
+  // ==========================================
+  // MANUAL wallet CREDIT / DEDUCT
+  // ==========================================
+  const updatewallet = async (type: "credit" | "deduct") => {
+    const jwt = localStorage.getItem("token");
+
+    if (!jwt) return;
+
+    if (!walletUsername.trim() || !walletAmount) {
+      alert("Username aur amount required hai.");
+      return;
+    }
+
+    try {
+      setwalletLoading(true);
+
+      const response = await fetch(`${API}/api/admin/wallet/update`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({
+          username: walletUsername.trim(),
+          amount: Number(walletAmount),
+          note: walletNote.trim(),
+          action: type,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "wallet update failed.");
+      }
+
+      alert(result.message);
+
+      setwalletBalance(Number(result.walletBalance ?? 0));
+      setwalletAmount("");
+      setwalletNote("");
+
+      await loadDashboard();
+    } catch (err: any) {
+      alert(err.message || "wallet update failed.");
+    } finally {
+      setwalletLoading(false);
+    }
+  };
+    // ==========================================
+  // ADMIN DASHBOARD UI START
+  // ==========================================
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex">
+    <div className="min-h-screen bg-black text-white p-6">
 
-      {/* ============================= */}
-      {/* LEFT SIDEBAR */}
-      {/* ============================= */}
+      {/* ==========================================
+          HEADER
+      ========================================== */}
+      <div className="flex justify-between items-center flex-wrap gap-5 mb-8">
 
-      <aside className="w-72 bg-black border-r border-zinc-800 p-6">
+        <div>
+          <h1 className="text-4xl font-black text-yellow-400">
+            GoldTrade V18 Admin Dashboard
+          </h1>
 
-        <h1 className="text-3xl font-black text-yellow-400 mb-10">
-          GOLDTRADE V17
-        </h1>
+          <p className="text-gray-400 mt-2">
+            Welcome back,
+            <span className="text-cyan-400 font-bold ml-2">
+              {adminName}
+            </span>
+          </p>
+        </div>
 
-        <p className="text-gray-500 mb-8 text-sm">
-          Enterprise Admin Panel
-        </p>
+        <div className="flex items-center gap-3 flex-wrap">
 
-        <nav className="space-y-3">
+          {/* Market Status */}
+          <div
+            className={`px-4 py-2 rounded-full font-bold text-sm ${
+              settings.marketStatus === "OPEN"
+                ? "bg-green-600 text-white"
+                : "bg-red-600 text-white"
+            }`}
+          >
+            Market : {settings.marketStatus}
+          </div>
 
-          <Link href="/admin/admin-dashboard">
-            <div className="bg-yellow-500 text-black rounded-xl px-4 py-3 font-bold">
-              📊 Dashboard
-            </div>
-          </Link>
+          {/* Refresh */}
+          <button
+            onClick={refreshDashboard}
+            disabled={refreshing}
+            className="bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black px-5 py-2 rounded-xl font-bold flex items-center gap-2 transition"
+          >
+            <RefreshCw
+              size={18}
+              className={refreshing ? "animate-spin" : ""}
+            />
+            Refresh
+          </button>
 
-          <Link href="/admin/users">
-            <div className="hover:bg-zinc-900 rounded-xl px-4 py-3">
-              👥 Users
-            </div>
-          </Link>
+        </div>
 
-          <Link href="/admin/deposits">
-            <div className="hover:bg-zinc-900 rounded-xl px-4 py-3">
-              💰 Deposit Management
-            </div>
-          </Link>
+      </div>
 
-          <Link href="/admin/withdrawals">
-            <div className="hover:bg-zinc-900 rounded-xl px-4 py-3">
-              🏧 Withdraw Management
-            </div>
-          </Link>
+      {/* ==========================================
+          MESSAGE BOX
+      ========================================== */}
+      {message && (
+        <div
+          className={`mb-6 rounded-xl px-4 py-3 font-semibold ${
+            messageType === "success"
+              ? "bg-green-600/20 border border-green-500 text-green-400"
+              : "bg-red-600/20 border border-red-500 text-red-400"
+          }`}
+        >
+          {message}
+        </div>
+      )}
 
-          <Link href="/admin/gold">
-            <div className="hover:bg-zinc-900 rounded-xl px-4 py-3">
-              🪙 Gold Management
-            </div>
-          </Link>
+      {/* ==========================================
+          QUICK ACTION CARDS
+      ========================================== */}
 
-          <Link href="/admin/usdt">
-            <div className="hover:bg-zinc-900 rounded-xl px-4 py-3">
-              ₮ USDT Exchange
-            </div>
-          </Link>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-5 mb-10">
 
-          <Link href="/admin/settings">
-            <div className="hover:bg-zinc-900 rounded-xl px-4 py-3">
-              ⚙ Payment Settings
-            </div>
-          </Link>
+        {/* USERS */}
+        <Link href="/admin/users">
+          <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-5 hover:border-cyan-400 hover:scale-[1.03] transition cursor-pointer">
 
-        </nav>
+            <Users size={38} className="text-cyan-400 mb-4" />
 
-      </aside>
+            <h3 className="font-bold text-lg text-white">
+              Users
+            </h3>
 
-      {/* ============================= */}
-      {/* MAIN CONTENT */}
-      {/* ============================= */}
+            <p className="text-gray-400 text-sm">
+              Manage registered users
+            </p>
 
-      <main className="flex-1 p-8">
+          </div>
+        </Link>
 
-        {/* Header */}
+        {/* DEPOSITS */}
+        <Link href="/admin/deposits">
+          <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5 hover:border-green-400 hover:scale-[1.03] transition cursor-pointer">
 
-        <div className="flex justify-between items-center flex-wrap gap-4 mb-10">
+            <ArrowUpCircle size={38} className="text-green-400 mb-4" />
+
+            <h3 className="font-bold text-lg text-white">
+              Deposits
+            </h3>
+
+            <p className="text-gray-400 text-sm">
+              Review pending deposits
+            </p>
+
+          </div>
+        </Link>
+
+        {/* WITHDRAWS */}
+        <Link href="/admin/withdraws">
+          <div className="bg-zinc-900 border border-red-500 rounded-2xl p-5 hover:border-red-400 hover:scale-[1.03] transition cursor-pointer">
+
+            <ArrowDownCircle size={38} className="text-red-400 mb-4" />
+
+            <h3 className="font-bold text-lg text-white">
+              Withdraws
+            </h3>
+
+            <p className="text-gray-400 text-sm">
+              Approve or reject withdrawals
+            </p>
+
+          </div>
+        </Link>
+
+        {/* wallet MANAGER */}
+        <Link href="/admin/wallet-manager">
+          <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-5 hover:border-yellow-400 hover:scale-[1.03] transition cursor-pointer">
+
+            <Wallet size={38} className="text-yellow-400 mb-4" />
+
+            <h3 className="font-bold text-lg text-white">
+              wallet Manager
+            </h3>
+
+            <p className="text-gray-400 text-sm">
+              Credit or deduct wallet balance
+            </p>
+
+          </div>
+        </Link>
+
+        {/* SETTINGS */}
+        <Link href="/admin/settings">
+          <div className="bg-zinc-900 border border-purple-500 rounded-2xl p-5 hover:border-purple-400 hover:scale-[1.03] transition cursor-pointer">
+
+            <Settings size={38} className="text-purple-400 mb-4" />
+
+            <h3 className="font-bold text-lg text-white">
+              Settings
+            </h3>
+
+            <p className="text-gray-400 text-sm">
+              Market and payment settings
+            </p>
+
+          </div>
+        </Link>
+
+      </div>      {/* ==========================================
+          DASHBOARD STATISTICS
+      ========================================== */}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+
+        {/* TOTAL USERS */}
+        <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-5">
+          <div className="flex justify-between items-center mb-4">
+            <Users size={32} className="text-cyan-400" />
+            <span className="text-cyan-400 text-sm font-semibold">
+              USERS
+            </span>
+          </div>
+
+          <h2 className="text-3xl font-black text-white">
+            {(stats.totalUsers ?? 0).toLocaleString()}
+          </h2>
+
+          <p className="text-gray-500 text-sm mt-2">
+            Active Users: {(stats.activeUsers ?? 0).toLocaleString()}
+          </p>
+        </div>
+
+        {/* TOTAL wallet */}
+        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-5">
+          <div className="flex justify-between items-center mb-4">
+            <Wallet size={32} className="text-yellow-400" />
+            <span className="text-yellow-400 text-sm font-semibold">
+              wallet
+            </span>
+          </div>
+
+          <h2 className="text-3xl font-black text-yellow-400">
+            Pkr {(stats.walletBalance ?? 0).toLocaleString()}
+          </h2>
+
+          <p className="text-gray-500 text-sm mt-2">
+            Platform wallet Balance
+          </p>
+        </div>
+
+        {/* TOTAL DEPOSITS */}
+        <div className="bg-zinc-900 border border-green-500 rounded-3xl p-5">
+          <div className="flex justify-between items-center mb-4">
+            <ArrowUpCircle size={32} className="text-green-400" />
+            <span className="text-green-400 text-sm font-semibold">
+              DEPOSITS
+            </span>
+          </div>
+
+          <h2 className="text-3xl font-black text-green-400">
+            Pkr {(stats.totalDeposits ?? 0).toLocaleString()}
+          </h2>
+
+          <p className="text-gray-500 text-sm mt-2">
+            Pending: {(stats.pendingDeposits ?? 0).toLocaleString()}
+          </p>
+        </div>
+
+        {/* TOTAL WITHDRAWS */}
+        <div className="bg-zinc-900 border border-red-500 rounded-3xl p-5">
+          <div className="flex justify-between items-center mb-4">
+            <ArrowDownCircle size={32} className="text-red-400" />
+            <span className="text-red-400 text-sm font-semibold">
+              WITHDRAWS
+            </span>
+          </div>
+
+          <h2 className="text-3xl font-black text-red-400">
+            Pkr {(stats.totalWithdraws ?? 0).toLocaleString()}
+          </h2>
+
+          <p className="text-gray-500 text-sm mt-2">
+            Pending: {(stats.pendingWithdraws ?? 0).toLocaleString()}
+          </p>
+        </div>
+
+      </div>
+
+      {/* ==========================================
+          SECOND ROW STATS
+      ========================================== */}
+
+      <div className="grid md:grid-cols-3 gap-5 mb-10">
+
+        {/* TRANSACTIONS */}
+        <div className="bg-zinc-900 border border-purple-500 rounded-3xl p-5">
+          <div className="flex justify-between items-center mb-4">
+            <Activity size={30} className="text-purple-400" />
+            <span className="text-purple-400 text-sm font-semibold">
+              TRANSACTIONS
+            </span>
+          </div>
+
+          <h2 className="text-3xl font-black text-purple-400">
+            {(stats.totalTransactions ?? 0).toLocaleString()}
+          </h2>
+
+          <p className="text-gray-500 text-sm mt-2">
+            wallet Transaction Records
+          </p>
+        </div>
+
+        {/* GOLD PRICE USD */}
+        <div className="bg-zinc-900 border border-amber-500 rounded-3xl p-5">
+          <div className="flex justify-between items-center mb-4">
+            <Coins size={30} className="text-amber-400" />
+            <span className="text-amber-400 text-sm font-semibold">
+              GOLD USD
+            </span>
+          </div>
+
+          <h2 className="text-3xl font-black text-amber-400">
+            ${Number(settings.goldPriceUSD ?? 0).toLocaleString()}
+          </h2>
+
+          <p className="text-gray-500 text-sm mt-2">
+            International Gold Price
+          </p>
+        </div>
+
+        {/* USD TO Pkr */}
+        <div className="bg-zinc-900 border border-blue-500 rounded-3xl p-5">
+          <div className="flex justify-between items-center mb-4">
+            <DollarSign size={30} className="text-blue-400" />
+            <span className="text-blue-400 text-sm font-semibold">
+              USD / Pkr
+            </span>
+          </div>
+
+          <h2 className="text-3xl font-black text-blue-400">
+            Pkr {Number(settings.UsdtoPkr ?? 0).toLocaleString()}
+          </h2>
+
+          <p className="text-gray-500 text-sm mt-2">
+            Live Exchange Rate
+          </p>
+        </div>
+
+      </div>      {/* ==========================================
+          LIVE GOLD MARKET PANEL
+      ========================================== */}
+
+      <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
+
+        <div className="flex justify-between items-center flex-wrap gap-3 mb-6">
 
           <div>
-            <h2 className="text-5xl font-black text-yellow-400">
-              ADMIN DASHBOARD
+            <h2 className="text-3xl font-black text-yellow-400">
+              Live Gold Market
             </h2>
 
-            <p className="text-gray-400 mt-2">
-              GoldTrade Enterprise Control Center
+            <p className="text-gray-400">
+              International Gold & Pkr Market Settings
             </p>
           </div>
 
-          <div className="flex gap-4">
+          <div
+            className={`px-5 py-2 rounded-full font-bold ${
+              settings.marketStatus === "OPEN"
+                ? "bg-green-600 text-white"
+                : "bg-red-600 text-white"
+            }`}
+          >
+            {settings.marketStatus === "OPEN"
+              ? "🟢 MARKET OPEN"
+              : "🔴 MARKET CLOSED"}
+          </div>
 
-            <button className="bg-zinc-900 border border-zinc-700 p-3 rounded-xl">
-              <Bell className="w-5 h-5 text-yellow-400" />
-            </button>
+        </div>
 
-            <button className="bg-zinc-900 border border-zinc-700 p-3 rounded-xl">
-              <Settings className="w-5 h-5 text-cyan-400" />
-            </button>
+        {/* ==========================================
+            GOLD MARKET CARDS
+        ========================================== */}
+
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
+
+          {/* buy PRICE */}
+          <div className="bg-black border border-green-500 rounded-2xl p-5">
+
+            <div className="flex justify-between items-center mb-4">
+              <TrendingUp size={30} className="text-green-400" />
+
+              <span className="text-green-400 font-bold text-sm">
+                buy GOLD
+              </span>
+            </div>
+
+            <h3 className="text-3xl font-black text-green-400">
+              Pkr {(settings.buyGoldPrice ?? 0).toLocaleString()}
+            </h3>
+
+            <p className="text-gray-500 text-sm mt-2">
+              Customer buy Price (Per Gram)
+            </p>
+
+          </div>
+
+          {/* sell PRICE */}
+          <div className="bg-black border border-red-500 rounded-2xl p-5">
+
+            <div className="flex justify-between items-center mb-4">
+              <TrendingUp size={30} className="text-red-400 rotate-180" />
+
+              <span className="text-red-400 font-bold text-sm">
+                sell GOLD
+              </span>
+            </div>
+
+            <h3 className="text-3xl font-black text-red-400">
+              Pkr {(settings.sellGoldPrice ?? 0).toLocaleString()}
+            </h3>
+
+            <p className="text-gray-500 text-sm mt-2">
+              Customer sell Price (Per Gram)
+            </p>
+
+          </div>
+
+          {/* GOLD USD */}
+          <div className="bg-black border border-amber-500 rounded-2xl p-5">
+
+            <div className="flex justify-between items-center mb-4">
+              <Coins size={30} className="text-amber-400" />
+
+              <span className="text-amber-400 font-bold text-sm">
+                GOLD USD
+              </span>
+            </div>
+
+            <h3 className="text-3xl font-black text-amber-400">
+              ${Number(settings.goldPriceUSD ?? 0).toLocaleString()}
+            </h3>
+
+            <p className="text-gray-500 text-sm mt-2">
+              International Spot Gold Price
+            </p>
+
+          </div>
+
+          {/* USD Pkr */}
+          <div className="bg-black border border-blue-500 rounded-2xl p-5">
+
+            <div className="flex justify-between items-center mb-4">
+              <DollarSign size={30} className="text-blue-400" />
+
+              <span className="text-blue-400 font-bold text-sm">
+                USD / Pkr
+              </span>
+            </div>
+
+            <h3 className="text-3xl font-black text-blue-400">
+              Pkr {Number(settings.UsdtoPkr ?? 0).toLocaleString()}
+            </h3>
+
+            <p className="text-gray-500 text-sm mt-2">
+              Live USD Exchange Rate
+            </p>
 
           </div>
 
         </div>
 
-        {/* Statistics Cards */}
+        {/* ==========================================
+            MARKET INFORMATION BAR
+        ========================================== */}
 
-        <div className="grid grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-4 mt-6">
 
-          <div className="bg-zinc-900 border border-blue-500 rounded-3xl p-6">
-            <Users className="text-blue-400 w-10 h-10 mb-4" />
+          <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700">
+            <p className="text-gray-400 text-sm">
+              Trading Status
+            </p>
 
-            <p className="text-gray-400">Total Users</p>
-
-            <h2 className="text-4xl font-black text-blue-400 mt-2">
-              0
-            </h2>
+            <h4
+              className={`text-xl font-bold mt-2 ${
+                settings.marketStatus === "OPEN"
+                  ? "text-green-400"
+                  : "text-red-400"
+              }`}
+            >
+              {settings.marketStatus}
+            </h4>
           </div>
 
-          <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
-            <ArrowDownCircle className="text-yellow-400 w-10 h-10 mb-4" />
+          <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700">
+            <p className="text-gray-400 text-sm">
+              Gold Spread
+            </p>
 
-            <p className="text-gray-400">Pending Deposits</p>
-
-            <h2 className="text-4xl font-black text-yellow-400 mt-2">
-              0
-            </h2>
+            <h4 className="text-xl font-bold text-yellow-400 mt-2">
+              Pkr{" "}
+              {(
+                (settings.buyGoldPrice ?? 0) -
+                (settings.sellGoldPrice ?? 0)
+              ).toLocaleString()}
+            </h4>
           </div>
 
-          <div className="bg-zinc-900 border border-red-500 rounded-3xl p-6">
-            <ArrowUpCircle className="text-red-400 w-10 h-10 mb-4" />
+          <div className="bg-zinc-800 rounded-xl p-4 border border-zinc-700">
+            <p className="text-gray-400 text-sm">
+              Last Refresh
+            </p>
 
-            <p className="text-gray-400">Pending Withdrawals</p>
-
-            <h2 className="text-4xl font-black text-red-400 mt-2">
-              0
-            </h2>
-          </div>
-
-          <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
-            <Coins className="text-green-400 w-10 h-10 mb-4" />
-
-            <p className="text-gray-400">Gold Trades Today</p>
-
-            <h2 className="text-4xl font-black text-green-400 mt-2">
-              0
-            </h2>
-          </div>
-
-          <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6">
-            <DollarSign className="text-cyan-400 w-10 h-10 mb-4" />
-
-            <p className="text-gray-400">USDT Exchange Volume</p>
-
-            <h2 className="text-4xl font-black text-cyan-400 mt-2">
-              0 USDT
-            </h2>
-          </div>
-
-          <div className="bg-zinc-900 border border-purple-500 rounded-3xl p-6">
-            <Wallet className="text-purple-400 w-10 h-10 mb-4" />
-
-            <p className="text-gray-400">Wallet Balance</p>
-
-            <h2 className="text-4xl font-black text-purple-400 mt-2">
-              PKR 0
-            </h2>
-          </div>
-
-        </div>  
-         {/* ============================================= */}
-         {/* QUICK MANAGEMENT MODULES */}
-         {/* ============================================= */}
-
-        <div className="mt-10">
-
-          <h2 className="text-3xl font-black text-yellow-400 mb-6">
-            Quick Management
-          </h2>
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-
-            {/* Deposit Management */}
-            <Link href="/admin/deposits">
-              <div className="bg-zinc-900 hover:bg-zinc-800 transition rounded-3xl border border-yellow-500 p-6 cursor-pointer">
-
-                <div className="text-5xl mb-4">💰</div>
-
-                <h3 className="text-2xl font-black text-yellow-400">
-                  Deposit Management
-                </h3>
-
-                <p className="text-gray-400 mt-2">
-                  Review pending deposits, approve or reject requests and verify receipts.
-                </p>
-
-              </div>
-            </Link>
-
-            {/* Withdraw Management */}
-            <Link href="/admin/withdrawals">
-              <div className="bg-zinc-900 hover:bg-zinc-800 transition rounded-3xl border border-red-500 p-6 cursor-pointer">
-
-                <div className="text-5xl mb-4">🏧</div>
-
-                <h3 className="text-2xl font-black text-red-400">
-                  Withdraw Management
-                </h3>
-
-                <p className="text-gray-400 mt-2">
-                  Approve or reject user withdrawal requests securely.
-                </p>
-
-              </div>
-            </Link>
-
-            {/* Gold Management */}
-            <Link href="/admin/gold">
-              <div className="bg-zinc-900 hover:bg-zinc-800 transition rounded-3xl border border-green-500 p-6 cursor-pointer">
-
-                <div className="text-5xl mb-4">🪙</div>
-
-                <h3 className="text-2xl font-black text-green-400">
-                  Gold Management
-                </h3>
-
-                <p className="text-gray-400 mt-2">
-                  Update buy price, sell price and trading status.
-                </p>
-
-              </div>
-            </Link>
-
-            {/* USDT Management */}
-            <Link href="/admin/usdt">
-              <div className="bg-zinc-900 hover:bg-zinc-800 transition rounded-3xl border border-cyan-500 p-6 cursor-pointer">
-
-                <div className="text-5xl mb-4">₮</div>
-
-                <h3 className="text-2xl font-black text-cyan-400">
-                  USDT Exchange
-                </h3>
-
-                <p className="text-gray-400 mt-2">
-                  Manage USDT exchange rate, wallets and exchange history.
-                </p>
-
-              </div>
-            </Link>
-
-            {/* User Management */}
-            <Link href="/admin/users">
-              <div className="bg-zinc-900 hover:bg-zinc-800 transition rounded-3xl border border-blue-500 p-6 cursor-pointer">
-
-                <div className="text-5xl mb-4">👥</div>
-
-                <h3 className="text-2xl font-black text-blue-400">
-                  User Management
-                </h3>
-
-                <p className="text-gray-400 mt-2">
-                  Search users, manage wallets and account status.
-                </p>
-
-              </div>
-            </Link>
-
-            {/* Payment Settings */}
-            <Link href="/admin/settings">
-              <div className="bg-zinc-900 hover:bg-zinc-800 transition rounded-3xl border border-purple-500 p-6 cursor-pointer">
-
-                <div className="text-5xl mb-4">⚙️</div>
-
-                <h3 className="text-2xl font-black text-purple-400">
-                  Payment Settings
-                </h3>
-
-                <p className="text-gray-400 mt-2">
-                  Configure Bank, EasyPaisa, NayaPay and USDT TRC20 payment methods.
-                </p>
-
-              </div>
-            </Link>
-
+            <h4 className="text-xl font-bold text-cyan-400 mt-2">
+              <span suppressHydrationWarning>
+  {mounted ? currentTime : "--:--:--"}
+</span>
+            </h4>
           </div>
 
         </div>
 
-        {/* ============================================= */}
-        {/* LIVE SYSTEM STATUS */}
-        {/* ============================================= */}
+      </div>      {/* ==========================================
+          OPERATIONS PANEL
+      ========================================== */}
 
-        <div className="mt-12 bg-zinc-900 border border-zinc-700 rounded-3xl p-8">
+      <div className="grid xl:grid-cols-2 gap-6 mb-10">
 
-          <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
+        {/* ==========================================
+            PENDING DEPOSITS
+        ========================================== */}
 
-            <h2 className="text-3xl font-black text-cyan-400">
-              Live System Status
-            </h2>
+        <div className="bg-zinc-900 border border-green-500 rounded-3xl p-5">
 
-            <div className="flex items-center gap-2 text-green-400 font-semibold">
-              <Activity className="w-5 h-5" />
-              ONLINE
-            </div>
+          <div className="flex justify-between items-center mb-5">
 
-          </div>
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-
-            <div className="bg-black rounded-2xl border border-zinc-700 p-5">
-              <p className="text-gray-500 text-sm">Backend API</p>
-
-              <h3 className="text-xl font-black text-green-400 mt-2">
-                Connected
-              </h3>
-            </div>
-
-            <div className="bg-black rounded-2xl border border-zinc-700 p-5">
-              <p className="text-gray-500 text-sm">MongoDB</p>
-
-              <h3 className="text-xl font-black text-green-400 mt-2">
-                Connected
-              </h3>
-            </div>
-
-            <div className="bg-black rounded-2xl border border-zinc-700 p-5">
-              <p className="text-gray-500 text-sm">Trading Engine</p>
-
-              <h3 className="text-xl font-black text-yellow-400 mt-2">
-                ACTIVE
-              </h3>
-            </div>
-
-            <div className="bg-black rounded-2xl border border-zinc-700 p-5">
-              <p className="text-gray-500 text-sm">Server</p>
-
-              <h3 className="text-xl font-black text-cyan-400 mt-2">
-                localhost:5000
-              </h3>
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* ============================================= */}
-        {/* PENDING DEPOSITS PREVIEW */}
-        {/* ============================================= */}
-
-        <div className="mt-12 bg-zinc-900 border border-yellow-500 rounded-3xl p-8">
-
-          <div className="flex justify-between items-center mb-6">
-
-            <h2 className="text-3xl font-black text-yellow-400">
+            <h2 className="text-2xl font-black text-green-400">
               Pending Deposits
             </h2>
 
             <Link href="/admin/deposits">
-              <button className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-4 py-2 rounded-lg transition">
-                View All
+              <button className="text-green-400 hover:text-green-300 text-sm font-semibold">
+                View All →
               </button>
             </Link>
 
           </div>
 
-          <div className="overflow-x-auto">
+          {pendingDeposits.length === 0 ? (
 
-            <table className="w-full">
+            <div className="text-center text-gray-500 py-8">
+              No pending deposits.
+            </div>
 
-              <thead className="bg-black text-yellow-400 uppercase text-sm">
-                <tr>
-                  <th className="px-4 py-3 text-left">Username</th>
-                  <th className="px-4 py-3 text-left">Method</th>
-                  <th className="px-4 py-3 text-left">Amount</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                </tr>
-              </thead>
+          ) : (
 
-              <tbody>
+            <div className="space-y-3">
 
-                <tr className="border-b border-zinc-700">
-                  <td className="px-4 py-4 text-gray-300">No pending deposits</td>
-                  <td className="px-4 py-4 text-gray-500">-</td>
-                  <td className="px-4 py-4 text-gray-500">PKR 0</td>
-                  <td className="px-4 py-4">
-                    <span className="bg-zinc-700 text-gray-300 px-3 py-1 rounded-full text-xs">
-                      Empty
+              {pendingDeposits.slice(0, 5).map((deposit) => (
+
+                <div
+                  key={deposit._id}
+                  className="bg-black border border-green-800 rounded-xl p-4 flex justify-between items-center"
+                >
+
+                  <div>
+
+                    <p className="font-bold text-white">
+                      {deposit.username}
+                    </p>
+
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(deposit.createdAt).toLocaleString()}
+                    </p>
+
+                  </div>
+
+                  <div className="text-right">
+
+                    <p className="font-bold text-green-400">
+                      {deposit.currency}{" "}
+                      {Number(deposit.requestAmount).toLocaleString()}
+                    </p>
+
+                    <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-semibold">
+                      {deposit.status}
                     </span>
-                  </td>
-                </tr>
 
-              </tbody>
+                  </div>
 
-            </table>
+                </div>
 
-          </div>
+              ))}
 
-        </div>        {/* ============================================= */}
-        {/* RECENT USERS */}
-        {/* ============================================= */}
+            </div>
 
-        <div className="mt-12 bg-zinc-900 border border-blue-500 rounded-3xl p-8">
-
-          <div className="flex justify-between items-center mb-6">
-
-            <h2 className="text-3xl font-black text-blue-400">
-              Recent Users
-            </h2>
-
-            <Link href="/admin/users">
-              <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold transition">
-                View All Users
-              </button>
-            </Link>
-
-          </div>
-
-          <div className="overflow-x-auto">
-
-            <table className="w-full">
-
-              <thead className="bg-black text-blue-400 uppercase text-sm">
-                <tr>
-                  <th className="px-4 py-3 text-left">Username</th>
-                  <th className="px-4 py-3 text-left">Wallet</th>
-                  <th className="px-4 py-3 text-left">Gold Balance</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                </tr>
-              </thead>
-
-              <tbody>
-
-                <tr className="border-b border-zinc-700 hover:bg-zinc-800">
-                  <td className="px-4 py-4 font-semibold text-white">
-                    hashi90
-                  </td>
-
-                  <td className="px-4 py-4 text-green-400">
-                    PKR 0
-                  </td>
-
-                  <td className="px-4 py-4 text-yellow-400">
-                    0.000 g
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <span className="bg-green-600 text-white px-3 py-1 rounded-full text-xs font-bold">
-                      ACTIVE
-                    </span>
-                  </td>
-                </tr>
-
-              </tbody>
-
-            </table>
-
-          </div>
+          )}
 
         </div>
 
-        {/* ============================================= */}
-        {/* RECENT GOLD TRADES */}
-        {/* ============================================= */}
+        {/* ==========================================
+            PENDING WITHDRAWS
+        ========================================== */}
 
-        <div className="mt-12 bg-zinc-900 border border-green-500 rounded-3xl p-8">
+        <div className="bg-zinc-900 border border-red-500 rounded-3xl p-5">
 
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-5">
 
-            <h2 className="text-3xl font-black text-green-400">
-              Recent Gold Trades
+            <h2 className="text-2xl font-black text-red-400">
+              Pending Withdraws
             </h2>
 
-            <Link href="/admin/gold">
-              <button className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold transition">
-                View All Trades
+            <Link href="/admin/withdraws">
+              <button className="text-red-400 hover:text-red-300 text-sm font-semibold">
+                View All →
               </button>
             </Link>
 
           </div>
 
-          <div className="overflow-x-auto">
+          {pendingWithdraws.length === 0 ? (
 
-            <table className="w-full">
+            <div className="text-center text-gray-500 py-8">
+              No pending withdraw requests.
+            </div>
 
-              <thead className="bg-black text-green-400 uppercase text-sm">
-                <tr>
-                  <th className="px-4 py-3 text-left">User</th>
-                  <th className="px-4 py-3 text-left">Type</th>
-                  <th className="px-4 py-3 text-left">Grams</th>
-                  <th className="px-4 py-3 text-left">Price</th>
-                  <th className="px-4 py-3 text-left">Amount</th>
-                </tr>
-              </thead>
+          ) : (
 
-              <tbody>
+            <div className="space-y-3">
 
-                <tr className="border-b border-zinc-700">
-                  <td className="px-4 py-4 text-gray-300">
-                    No Gold Trades Yet
-                  </td>
+              {pendingWithdraws.slice(0, 5).map((withdraw) => (
 
-                  <td className="px-4 py-4 text-gray-500">-</td>
-                  <td className="px-4 py-4 text-gray-500">0 g</td>
-                  <td className="px-4 py-4 text-gray-500">PKR 0</td>
-                  <td className="px-4 py-4 text-gray-500">PKR 0</td>
-                </tr>
+                <div
+                  key={withdraw._id}
+                  className="bg-black border border-red-800 rounded-xl p-4 flex justify-between items-center"
+                >
 
-              </tbody>
+                  <div>
 
-            </table>
+                    <p className="font-bold text-white">
+                      {withdraw.username}
+                    </p>
 
-          </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(withdraw.createdAt).toLocaleString()}
+                    </p>
+
+                  </div>
+
+                  <div className="text-right">
+
+                    <p className="font-bold text-red-400">
+                      {withdraw.currency}{" "}
+                      {Number(withdraw.requestAmount).toLocaleString()}
+                    </p>
+
+                    <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-semibold">
+                      {withdraw.status}
+                    </span>
+
+                  </div>
+
+                </div>
+
+              ))}
+
+            </div>
+
+          )}
 
         </div>
 
-        {/* ============================================= */}
-        {/* PENDING WITHDRAWALS */}
-        {/* ============================================= */}
+      </div>
 
-        <div className="mt-12 bg-zinc-900 border border-red-500 rounded-3xl p-8">
+      {/* ==========================================
+          QUICK OPERATIONS SUMMARY
+      ========================================== */}
 
-          <div className="flex justify-between items-center mb-6">
+      <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6 mb-10">
 
-            <h2 className="text-3xl font-black text-red-400">
-              Pending Withdrawals
-            </h2>
+        <div className="flex items-center gap-3 mb-6">
 
-            <Link href="/admin/withdrawals">
-              <button className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-bold transition">
-                View All
-              </button>
-            </Link>
+          <Activity size={28} className="text-cyan-400" />
 
-          </div>
-
-          <div className="overflow-x-auto">
-
-            <table className="w-full">
-
-              <thead className="bg-black text-red-400 uppercase text-sm">
-                <tr>
-                  <th className="px-4 py-3 text-left">Username</th>
-                  <th className="px-4 py-3 text-left">Method</th>
-                  <th className="px-4 py-3 text-left">Amount</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                </tr>
-              </thead>
-
-              <tbody>
-
-                <tr className="border-b border-zinc-700">
-                  <td className="px-4 py-4 text-gray-300">
-                    No Withdrawal Requests
-                  </td>
-
-                  <td className="px-4 py-4 text-gray-500">-</td>
-                  <td className="px-4 py-4 text-gray-500">PKR 0</td>
-                  <td className="px-4 py-4">
-                    <span className="bg-zinc-700 text-gray-300 px-3 py-1 rounded-full text-xs">
-                      Empty
-                    </span>
-                  </td>
-                </tr>
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-        </div>        {/* ============================================= */}
-        {/* FINANCE OVERVIEW */}
-        {/* ============================================= */}
-
-        <div className="mt-12">
-
-          <h2 className="text-3xl font-black text-yellow-400 mb-6">
-            Finance Overview
+          <h2 className="text-2xl font-black text-cyan-400">
+            Operations Summary
           </h2>
 
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+        </div>
 
-            {/* Total Deposits */}
-            <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
-              <div className="text-4xl mb-3">💰</div>
+        <div className="grid md:grid-cols-4 gap-5">
 
-              <p className="text-gray-400 text-sm">
-                Total Deposits
-              </p>
+          <div className="bg-black rounded-xl p-5 border border-green-700">
 
-              <h3 className="text-3xl font-black text-green-400 mt-2">
-                PKR 0
-              </h3>
+            <p className="text-gray-400 text-sm">
+              Pending Deposits
+            </p>
 
-              <p className="text-xs text-gray-500 mt-2">
-                Approved deposits only.
-              </p>
-            </div>
-
-            {/* Total Withdraw */}
-            <div className="bg-zinc-900 border border-red-500 rounded-3xl p-6">
-              <div className="text-4xl mb-3">🏧</div>
-
-              <p className="text-gray-400 text-sm">
-                Total Withdrawals
-              </p>
-
-              <h3 className="text-3xl font-black text-red-400 mt-2">
-                PKR 0
-              </h3>
-
-              <p className="text-xs text-gray-500 mt-2">
-                Completed withdrawals.
-              </p>
-            </div>
-
-            {/* Gold Holdings */}
-            <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
-              <div className="text-4xl mb-3">🪙</div>
-
-              <p className="text-gray-400 text-sm">
-                Platform Gold Holdings
-              </p>
-
-              <h3 className="text-3xl font-black text-yellow-400 mt-2">
-                0.000 g
-              </h3>
-
-              <p className="text-xs text-gray-500 mt-2">
-                Total user gold balance.
-              </p>
-            </div>
-
-            {/* USDT Holdings */}
-            <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6">
-              <div className="text-4xl mb-3">₮</div>
-
-              <p className="text-gray-400 text-sm">
-                Platform USDT Balance
-              </p>
-
-              <h3 className="text-3xl font-black text-cyan-400 mt-2">
-                0 USDT
-              </h3>
-
-              <p className="text-xs text-gray-500 mt-2">
-                Company USDT Wallet Balance.
-              </p>
-            </div>
+            <h3 className="text-3xl font-black text-green-400 mt-2">
+              {pendingDeposits.length}
+            </h3>
 
           </div>
 
-        </div>
+          <div className="bg-black rounded-xl p-5 border border-red-700">
 
-        {/* ============================================= */}
-        {/* LIVE ACTIVITY FEED */}
-        {/* ============================================= */}
+            <p className="text-gray-400 text-sm">
+              Pending Withdraws
+            </p>
 
-        <div className="mt-12 bg-zinc-900 border border-cyan-500 rounded-3xl p-8">
+            <h3 className="text-3xl font-black text-red-400 mt-2">
+              {pendingWithdraws.length}
+            </h3>
 
-          <div className="flex justify-between items-center mb-6">
+          </div>
 
-            <h2 className="text-3xl font-black text-cyan-400">
-              Live Activity Feed
-            </h2>
+          <div className="bg-black rounded-xl p-5 border border-yellow-700">
 
-            <span className="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full">
+            <p className="text-gray-400 text-sm">
+              Total Operations
+            </p>
+
+            <h3 className="text-3xl font-black text-yellow-400 mt-2">
+              {pendingDeposits.length + pendingWithdraws.length}
+            </h3>
+
+          </div>
+
+          <div className="bg-black rounded-xl p-5 border border-cyan-700">
+
+            <p className="text-gray-400 text-sm">
+              System Status
+            </p>
+
+            <h3 className="text-xl font-black text-cyan-400 mt-2">
               LIVE
-            </span>
-
-          </div>
-
-          <div className="space-y-4">
-
-            <div className="flex items-center justify-between bg-black rounded-xl p-4 border border-zinc-700">
-
-              <div>
-                <p className="text-white font-semibold">
-                  User Registration
-                </p>
-
-                <p className="text-gray-500 text-sm">
-                  New users will appear here.
-                </p>
-              </div>
-
-              <span className="text-green-400 text-sm">
-                Waiting...
-              </span>
-
-            </div>
-
-            <div className="flex items-center justify-between bg-black rounded-xl p-4 border border-zinc-700">
-
-              <div>
-                <p className="text-white font-semibold">
-                  Deposit Activity
-                </p>
-
-                <p className="text-gray-500 text-sm">
-                  Pending / Approved deposit updates.
-                </p>
-              </div>
-
-              <span className="text-yellow-400 text-sm">
-                Waiting...
-              </span>
-
-            </div>
-
-            <div className="flex items-center justify-between bg-black rounded-xl p-4 border border-zinc-700">
-
-              <div>
-                <p className="text-white font-semibold">
-                  Gold Trading Activity
-                </p>
-
-                <p className="text-gray-500 text-sm">
-                  BUY / SELL trades will appear here.
-                </p>
-              </div>
-
-              <span className="text-blue-400 text-sm">
-                Waiting...
-              </span>
-
-            </div>
-
-            <div className="flex items-center justify-between bg-black rounded-xl p-4 border border-zinc-700">
-
-              <div>
-                <p className="text-white font-semibold">
-                  Withdraw Activity
-                </p>
-
-                <p className="text-gray-500 text-sm">
-                  Withdraw approvals will appear here.
-                </p>
-              </div>
-
-              <span className="text-red-400 text-sm">
-                Waiting...
-              </span>
-
-            </div>
+            </h3>
 
           </div>
 
         </div>
 
-        {/* ============================================= */}
-        {/* SYSTEM HEALTH MONITOR */}
-        {/* ============================================= */}
+      </div>      {/* ==========================================
+          RECENT wallet TRANSACTIONS
+      ========================================== */}
 
-        <div className="mt-12 bg-zinc-900 border border-green-500 rounded-3xl p-8">
+      <div className="bg-zinc-900 border border-purple-500 rounded-3xl p-6 mb-10">
 
-          <h2 className="text-3xl font-black text-green-400 mb-6">
-            System Health Monitor
-          </h2>
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
 
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
+          <div className="flex items-center gap-3">
+            <Activity size={28} className="text-purple-400" />
 
-            <div className="bg-black rounded-2xl border border-zinc-700 p-5">
-              <p className="text-gray-500 text-sm">
-                Backend API
-              </p>
-
-              <h3 className="text-xl font-black text-green-400 mt-2">
-                ONLINE
-              </h3>
-
-              <div className="w-full bg-zinc-800 rounded-full h-2 mt-4">
-                <div className="bg-green-500 h-2 rounded-full w-full"></div>
-              </div>
-
-            </div>
-
-            <div className="bg-black rounded-2xl border border-zinc-700 p-5">
-              <p className="text-gray-500 text-sm">
-                MongoDB
-              </p>
-
-              <h3 className="text-xl font-black text-green-400 mt-2">
-                CONNECTED
-              </h3>
-
-              <div className="w-full bg-zinc-800 rounded-full h-2 mt-4">
-                <div className="bg-green-500 h-2 rounded-full w-full"></div>
-              </div>
-
-            </div>
-
-            <div className="bg-black rounded-2xl border border-zinc-700 p-5">
-              <p className="text-gray-500 text-sm">
-                Gold Trading Engine
-              </p>
-
-              <h3 className="text-xl font-black text-yellow-400 mt-2">
-                ACTIVE
-              </h3>
-
-              <div className="w-full bg-zinc-800 rounded-full h-2 mt-4">
-                <div className="bg-yellow-400 h-2 rounded-full w-full"></div>
-              </div>
-
-            </div>
-
-            <div className="bg-black rounded-2xl border border-zinc-700 p-5">
-              <p className="text-gray-500 text-sm">
-                Wallet Service
-              </p>
-
-              <h3 className="text-xl font-black text-cyan-400 mt-2">
-                RUNNING
-              </h3>
-
-              <div className="w-full bg-zinc-800 rounded-full h-2 mt-4">
-                <div className="bg-cyan-400 h-2 rounded-full w-full"></div>
-              </div>
-
-            </div>
-
+            <h2 className="text-2xl font-black text-purple-400">
+              Recent wallet Transactions
+            </h2>
           </div>
+
+          <Link href="/admin/wallet-history">
+            <button className="text-purple-400 hover:text-purple-300 text-sm font-semibold">
+              View Full history →
+            </button>
+          </Link>
 
         </div>
 
-        {/* ============================================= */}
-        {/* SECURITY STATUS */}
-        {/* ============================================= */}
+        {/* Empty State */}
+        {transactions.length === 0 ? (
 
-        <div className="mt-12 bg-zinc-900 border border-purple-500 rounded-3xl p-8">
+          <div className="text-center py-10 text-gray-500">
+            No wallet transactions found.
+          </div>
 
-          <div className="flex items-center gap-4 mb-6">
+        ) : (
 
-            <div className="bg-purple-600 rounded-full p-4">
-              <ShieldCheck className="w-10 h-10 text-white" />
-            </div>
+          <div className="overflow-x-auto">
 
-            <div>
-              <h2 className="text-3xl font-black text-purple-400">
-                Security Status
-              </h2>
+            <table className="w-full min-w-[950px] text-sm">
 
-              <p className="text-gray-400">
-                Enterprise security monitoring.
-              </p>
-            </div>
+              <thead className="border-b border-zinc-700 text-purple-300">
+
+                <tr className="text-left">
+
+                  <th className="py-3 px-2">User</th>
+                  <th className="py-3 px-2">Type</th>
+                  <th className="py-3 px-2">Amount</th>
+                  <th className="py-3 px-2">Status</th>
+                  <th className="py-3 px-2">Date & Time</th>
+
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                {transactions.slice(0, 10).map((tx) => (
+
+                  <tr
+                    key={tx._id}
+                    className="border-b border-zinc-800 hover:bg-zinc-800/40"
+                  >
+
+                    {/* Username */}
+                    <td className="py-4 px-2">
+                      <div className="font-semibold text-cyan-400">
+                        {tx.username}
+                      </div>
+                    </td>
+
+                    {/* Transaction Type */}
+                    <td className="py-4 px-2">
+
+                      {tx.type === "Deposit" && (
+                        <span className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold">
+                          Deposit
+                        </span>
+                      )}
+
+                      {tx.type === "Withdraw" && (
+                        <span className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-xs font-bold">
+                          Withdraw
+                        </span>
+                      )}
+
+                      {tx.type === "Adjustment" && (
+                        <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold">
+                          Adjustment
+                        </span>
+                      )}
+
+                    </td>
+
+                    {/* Amount */}
+                    <td className="py-4 px-2">
+
+                      <span
+                        className={`font-bold ${
+                          tx.type === "Withdraw"
+                            ? "text-red-400"
+                            : "text-green-400"
+                        }`}
+                      >
+                        Pkr {Number(tx.amount ?? 0).toLocaleString()}
+                      </span>
+
+                    </td>
+
+                    {/* Status */}
+                    <td className="py-4 px-2">
+
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          tx.status === "Completed"
+                            ? "bg-green-500/20 text-green-400"
+                            : tx.status === "Pending"
+                            ? "bg-yellow-500/20 text-yellow-400"
+                            : "bg-red-500/20 text-red-400"
+                        }`}
+                      >
+                        {tx.status}
+                      </span>
+
+                    </td>
+
+                    {/* Date */}
+                    <td className="py-4 px-2 text-gray-400">
+
+                      {new Date(tx.createdAt).toLocaleString()}
+
+                    </td>
+
+                  </tr>
+
+                ))}
+
+              </tbody>
+
+            </table>
 
           </div>
 
-          <div className="grid md:grid-cols-2 gap-5">
+        )}
 
-            <div className="bg-black rounded-xl p-5 border border-zinc-700 flex justify-between items-center">
-              <span>JWT Authentication</span>
+      </div>
 
-              <span className="text-green-400 font-bold">
-                ENABLED
-              </span>
-            </div>
+      {/* ==========================================
+          TRANSACTION SUMMARY BAR
+      ========================================== */}
 
-            <div className="bg-black rounded-xl p-5 border border-zinc-700 flex justify-between items-center">
-              <span>Password Encryption</span>
+      <div className="grid md:grid-cols-4 gap-5 mb-10">
 
-              <span className="text-green-400 font-bold">
-                ENABLED
-              </span>
-            </div>
+        {/* Total Records */}
+        <div className="bg-zinc-900 border border-purple-500 rounded-2xl p-5">
 
-            <div className="bg-black rounded-xl p-5 border border-zinc-700 flex justify-between items-center">
-              <span>Admin Route Protection</span>
-
-              <span className="text-green-400 font-bold">
-                ACTIVE
-              </span>
-            </div>
-
-            <div className="bg-black rounded-xl p-5 border border-zinc-700 flex justify-between items-center">
-              <span>Database Connection</span>
-
-              <span className="text-green-400 font-bold">
-                SECURE
-              </span>
-            </div>
-
-          </div>
-
-        </div>        {/* ============================================= */}
-        {/* PAYMENT SETTINGS PREVIEW */}
-        {/* ============================================= */}
-
-        <div className="mt-12 bg-zinc-900 border border-yellow-500 rounded-3xl p-8">
-
-          <div className="flex justify-between items-center mb-8 flex-wrap gap-3">
-
-            <div>
-              <h2 className="text-3xl font-black text-yellow-400">
-                Company Payment Settings
-              </h2>
-
-              <p className="text-gray-400 mt-2">
-                Payment methods visible to users.
-              </p>
-            </div>
-
-            <Link href="/admin/settings">
-              <button className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-5 py-3 rounded-xl transition">
-                Manage Payment Settings
-              </button>
-            </Link>
-
-          </div>
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
-
-            {/* BANK */}
-
-            <div className="bg-black border border-green-500 rounded-2xl p-5">
-
-              <div className="text-4xl mb-4">🏦</div>
-
-              <h3 className="text-xl font-black text-green-400">
-                Bank Transfer
-              </h3>
-
-              <p className="text-gray-400 text-sm mt-3">
-                Meezan Bank
-              </p>
-
-              <p className="text-gray-500 text-xs mt-1">
-                GoldTrade Pvt Ltd
-              </p>
-
-              <span className="mt-4 inline-block bg-green-600 text-white text-xs px-3 py-1 rounded-full">
-                ACTIVE
-              </span>
-
-            </div>
-
-            {/* EASYPAISA */}
-
-            <div className="bg-black border border-green-400 rounded-2xl p-5">
-
-              <div className="text-4xl mb-4">📱</div>
-
-              <h3 className="text-xl font-black text-green-400">
-                EasyPaisa
-              </h3>
-
-              <p className="text-gray-400 text-sm mt-3">
-                0300-1234567
-              </p>
-
-              <p className="text-gray-500 text-xs mt-1">
-                Company Wallet
-              </p>
-
-              <span className="mt-4 inline-block bg-green-600 text-white text-xs px-3 py-1 rounded-full">
-                ACTIVE
-              </span>
-
-            </div>
-
-            {/* NAYAPAY */}
-
-            <div className="bg-black border border-cyan-500 rounded-2xl p-5">
-
-              <div className="text-4xl mb-4">💙</div>
-
-              <h3 className="text-xl font-black text-cyan-400">
-                NayaPay
-              </h3>
-
-              <p className="text-gray-400 text-sm mt-3">
-                0300-9876543
-              </p>
-
-              <p className="text-gray-500 text-xs mt-1">
-                Company Wallet
-              </p>
-
-              <span className="mt-4 inline-block bg-cyan-500 text-black text-xs px-3 py-1 rounded-full">
-                ACTIVE
-              </span>
-
-            </div>
-
-            {/* USDT */}
-
-            <div className="bg-black border border-teal-500 rounded-2xl p-5">
-
-              <div className="text-4xl mb-4">₮</div>
-
-              <h3 className="text-xl font-black text-teal-400">
-                USDT TRC20
-              </h3>
-
-              <p className="text-gray-400 text-xs break-all mt-3">
-                TQ8nxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-              </p>
-
-              <p className="text-gray-500 text-xs mt-2">
-                Tron Network Wallet
-              </p>
-
-              <span className="mt-4 inline-block bg-teal-600 text-white text-xs px-3 py-1 rounded-full">
-                ACTIVE
-              </span>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* ============================================= */}
-        {/* GOLD MARKET CONTROL PANEL */}
-        {/* ============================================= */}
-
-        <div className="mt-12 bg-zinc-900 border border-green-500 rounded-3xl p-8">
-
-          <div className="flex justify-between items-center mb-8 flex-wrap gap-3">
-
-            <div>
-              <h2 className="text-3xl font-black text-green-400">
-                Gold Market Control
-              </h2>
-
-              <p className="text-gray-400 mt-2">
-                Admin controls Buy & Sell Gold prices.
-              </p>
-            </div>
-
-            <Link href="/admin/gold">
-              <button className="bg-green-600 hover:bg-green-500 text-white px-5 py-3 rounded-xl font-bold transition">
-                Open Gold Manager
-              </button>
-            </Link>
-
-          </div>
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
-
-            <div className="bg-black rounded-2xl border border-green-500 p-5">
-              <p className="text-gray-500 text-sm">Buy Gold Price</p>
-
-              <h3 className="text-3xl font-black text-green-400 mt-2">
-                PKR 31,250
-              </h3>
-            </div>
-
-            <div className="bg-black rounded-2xl border border-red-500 p-5">
-              <p className="text-gray-500 text-sm">Sell Gold Price</p>
-
-              <h3 className="text-3xl font-black text-red-400 mt-2">
-                PKR 30,980
-              </h3>
-            </div>
-
-            <div className="bg-black rounded-2xl border border-yellow-500 p-5">
-              <p className="text-gray-500 text-sm">Market Status</p>
-
-              <h3 className="text-3xl font-black text-yellow-400 mt-2">
-                OPEN
-              </h3>
-            </div>
-
-            <div className="bg-black rounded-2xl border border-cyan-500 p-5">
-              <p className="text-gray-500 text-sm">Trading Engine</p>
-
-              <h3 className="text-3xl font-black text-cyan-400 mt-2">
-                ENABLED
-              </h3>
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* ============================================= */}
-        {/* USDT EXCHANGE CONTROL */}
-        {/* ============================================= */}
-
-        <div className="mt-12 bg-zinc-900 border border-cyan-500 rounded-3xl p-8">
-
-          <div className="flex justify-between items-center mb-8 flex-wrap gap-3">
-
-            <div>
-              <h2 className="text-3xl font-black text-cyan-400">
-                USDT Exchange Control
-              </h2>
-
-              <p className="text-gray-400 mt-2">
-                Manage live USDT exchange rate and wallet.
-              </p>
-            </div>
-
-            <Link href="/admin/usdt">
-              <button className="bg-cyan-500 hover:bg-cyan-400 text-black px-5 py-3 rounded-xl font-bold transition">
-                Open USDT Manager
-              </button>
-            </Link>
-
-          </div>
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
-
-            <div className="bg-black rounded-2xl border border-cyan-500 p-5">
-              <p className="text-gray-500 text-sm">USDT Rate</p>
-
-              <h3 className="text-3xl font-black text-cyan-400 mt-2">
-                PKR 285
-              </h3>
-            </div>
-
-            <div className="bg-black rounded-2xl border border-teal-500 p-5">
-              <p className="text-gray-500 text-sm">Network</p>
-
-              <h3 className="text-3xl font-black text-teal-400 mt-2">
-                TRC20
-              </h3>
-            </div>
-
-            <div className="bg-black rounded-2xl border border-green-500 p-5">
-              <p className="text-gray-500 text-sm">Wallet Status</p>
-
-              <h3 className="text-3xl font-black text-green-400 mt-2">
-                ACTIVE
-              </h3>
-            </div>
-
-            <div className="bg-black rounded-2xl border border-purple-500 p-5">
-              <p className="text-gray-500 text-sm">Exchange</p>
-
-              <h3 className="text-3xl font-black text-purple-400 mt-2">
-                ENABLED
-              </h3>
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* ============================================= */}
-        {/* QR CODE MANAGEMENT PREVIEW */}
-        {/* ============================================= */}
-
-        <div className="mt-12 bg-zinc-900 border border-purple-500 rounded-3xl p-8">
-
-          <div className="flex justify-between items-center mb-8 flex-wrap gap-3">
-
-            <div>
-              <h2 className="text-3xl font-black text-purple-400">
-                QR Code Management
-              </h2>
-
-              <p className="text-gray-400 mt-2">
-                Upload QR codes for all payment methods.
-              </p>
-            </div>
-
-            <Link href="/admin/settings">
-              <button className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-3 rounded-xl font-bold transition">
-                Upload QR Codes
-              </button>
-            </Link>
-
-          </div>
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
-
-            {["Bank QR","EasyPaisa QR","NayaPay QR","USDT QR"].map((item) => (
-              <div
-                key={item}
-                className="bg-black border border-zinc-700 rounded-2xl p-5 text-center"
-              >
-                <div className="w-full h-40 rounded-xl border-2 border-dashed border-zinc-600 flex items-center justify-center text-gray-500 text-sm mb-4">
-                  QR Preview
-                </div>
-
-                <p className="font-bold text-white">{item}</p>
-
-                <button className="mt-4 w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg font-semibold transition">
-                  Upload QR
-                </button>
-              </div>
-            ))}
-
-          </div>
-
-        </div>        {/* ============================================= */}
-        {/* ANALYTICS DASHBOARD */}
-        {/* ============================================= */}
-
-        <div className="mt-12 bg-zinc-900 border border-blue-500 rounded-3xl p-8">
-
-          <div className="flex justify-between items-center mb-8 flex-wrap gap-3">
-
-            <div>
-              <h2 className="text-3xl font-black text-blue-400">
-                Platform Analytics
-              </h2>
-
-              <p className="text-gray-400 mt-2">
-                Enterprise activity overview.
-              </p>
-            </div>
-
-            <span className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-bold">
-              LIVE ANALYTICS
-            </span>
-
-          </div>
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
-
-            <div className="bg-black rounded-2xl border border-blue-500 p-5">
-              <p className="text-gray-500 text-sm">Today's New Users</p>
-              <h3 className="text-4xl font-black text-blue-400 mt-3">0</h3>
-            </div>
-
-            <div className="bg-black rounded-2xl border border-green-500 p-5">
-              <p className="text-gray-500 text-sm">Today's Deposits</p>
-              <h3 className="text-4xl font-black text-green-400 mt-3">PKR 0</h3>
-            </div>
-
-            <div className="bg-black rounded-2xl border border-yellow-500 p-5">
-              <p className="text-gray-500 text-sm">Today's Gold Trades</p>
-              <h3 className="text-4xl font-black text-yellow-400 mt-3">0</h3>
-            </div>
-
-            <div className="bg-black rounded-2xl border border-cyan-500 p-5">
-              <p className="text-gray-500 text-sm">Today's USDT Exchange</p>
-              <h3 className="text-4xl font-black text-cyan-400 mt-3">0 USDT</h3>
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* ============================================= */}
-        {/* RECENT ADMIN ACTIVITY */}
-        {/* ============================================= */}
-
-        <div className="mt-12 bg-zinc-900 border border-orange-500 rounded-3xl p-8">
-
-          <h2 className="text-3xl font-black text-orange-400 mb-6">
-            Recent Admin Activity
-          </h2>
-
-          <div className="space-y-4">
-
-            {[
-              "System started successfully.",
-              "MongoDB connection established.",
-              "Gold trading engine is active.",
-              "Deposit approval module is ready.",
-              "USDT exchange module connected."
-            ].map((item, index) => (
-              <div
-                key={index}
-                className="bg-black border border-zinc-700 rounded-xl p-4 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-green-400"></div>
-
-                  <span className="text-gray-300">{item}</span>
-                </div>
-
-                <span className="text-xs text-gray-500">Just Now</span>
-              </div>
-            ))}
-
-          </div>
-
-        </div>
-
-        {/* ============================================= */}
-        {/* ENTERPRISE CONTROL CENTER */}
-        {/* ============================================= */}
-
-        <div className="mt-12 bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 rounded-3xl p-8 text-black">
-
-          <h2 className="text-4xl font-black mb-4">
-            GoldTrade V17 Enterprise
-          </h2>
-
-          <p className="font-semibold text-lg mb-6">
-            Complete control center for Gold Trading, Wallets, Deposits,
-            Withdrawals, USDT Exchange and User Management.
+          <p className="text-gray-400 text-sm">
+            Total Records
           </p>
 
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <h3 className="text-3xl font-black text-purple-400 mt-2">
+            {transactions.length}
+          </h3>
 
-            {[
-              "Deposit Approval",
-              "Withdraw Approval",
-              "Gold Price Control",
-              "USDT Wallet Control",
-              "Payment Settings",
-              "User Wallet Manager",
-              "Referral Manager",
-              "Cashback Manager"
-            ].map((module, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-xl p-4 text-black font-bold text-center shadow-lg"
-              >
-                {module}
+        </div>
+
+        {/* Deposits */}
+        <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5">
+
+          <p className="text-gray-400 text-sm">
+            Deposit Records
+          </p>
+
+          <h3 className="text-3xl font-black text-green-400 mt-2">
+            {transactions.filter((tx) => tx.type === "Deposit").length}
+          </h3>
+
+        </div>
+
+        {/* Withdraws */}
+        <div className="bg-zinc-900 border border-red-500 rounded-2xl p-5">
+
+          <p className="text-gray-400 text-sm">
+            Withdraw Records
+          </p>
+
+          <h3 className="text-3xl font-black text-red-400 mt-2">
+            {transactions.filter((tx) => tx.type === "Withdraw").length}
+          </h3>
+
+        </div>
+
+        {/* Adjustments */}
+        <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-5">
+
+          <p className="text-gray-400 text-sm">
+            Manual Adjustments
+          </p>
+
+          <h3 className="text-3xl font-black text-yellow-400 mt-2">
+            {transactions.filter((tx) => tx.type === "Adjustment").length}
+          </h3>
+
+        </div>
+
+      </div>      {/* ==========================================
+          SYSTEM HEALTH & wallet ANALYTICS
+      ========================================== */}
+
+      <div className="grid xl:grid-cols-2 gap-6 mb-10">
+
+        {/* ==========================================
+            wallet ANALYTICS
+        ========================================== */}
+
+        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
+
+          <div className="flex items-center gap-3 mb-6">
+            <Wallet size={28} className="text-yellow-400" />
+
+            <h2 className="text-2xl font-black text-yellow-400">
+              wallet Analytics
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+
+            {/* Total wallet */}
+            <div className="bg-black border border-yellow-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-gray-400 text-sm">
+                  Total Pkr wallet
+                </p>
+
+                <h3 className="text-2xl font-black text-yellow-400">
+                  Pkr {(stats.walletBalance ?? 0).toLocaleString()}
+                </h3>
               </div>
-            ))}
+
+              <Wallet size={34} className="text-yellow-400" />
+            </div>
+
+            {/* Deposits */}
+            <div className="bg-black border border-green-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-gray-400 text-sm">
+                  Total Deposits
+                </p>
+
+                <h3 className="text-2xl font-black text-green-400">
+                  Pkr {(stats.totalDeposits ?? 0).toLocaleString()}
+                </h3>
+              </div>
+
+              <ArrowUpCircle size={34} className="text-green-400" />
+            </div>
+
+            {/* Withdraws */}
+            <div className="bg-black border border-red-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-gray-400 text-sm">
+                  Total Withdraws
+                </p>
+
+                <h3 className="text-2xl font-black text-red-400">
+                  Pkr {(stats.totalWithdraws ?? 0).toLocaleString()}
+                </h3>
+              </div>
+
+              <ArrowDownCircle size={34} className="text-red-400" />
+            </div>
+
+            {/* Pending Operations */}
+            <div className="bg-black border border-cyan-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-gray-400 text-sm">
+                  Pending Operations
+                </p>
+
+                <h3 className="text-2xl font-black text-cyan-400">
+                  {(stats.pendingDeposits ?? 0) +
+                    (stats.pendingWithdraws ?? 0)}
+                </h3>
+              </div>
+
+              <Clock size={34} className="text-cyan-400" />
+            </div>
 
           </div>
 
         </div>
 
-        {/* ============================================= */}
-        {/* QUICK ACTION BUTTONS */}
-        {/* ============================================= */}
+        {/* ==========================================
+            SYSTEM HEALTH
+        ========================================== */}
 
-        <div className="mt-12">
+        <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
 
-          <h2 className="text-3xl font-black text-yellow-400 mb-6">
-            Admin Quick Actions
+          <div className="flex items-center gap-3 mb-6">
+            <ShieldCheck size={28} className="text-green-400" />
+
+            <h2 className="text-2xl font-black text-green-400">
+              System Health
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+
+            {/* API */}
+            <div className="bg-black border border-green-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-gray-400 text-sm">
+                  Backend API
+                </p>
+
+                <h3 className="text-green-400 font-bold">
+                  Connected
+                </h3>
+              </div>
+
+              <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse"></div>
+            </div>
+
+            {/* Database */}
+            <div className="bg-black border border-blue-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-gray-400 text-sm">
+                  MongoDB Database
+                </p>
+
+                <h3 className="text-blue-400 font-bold">
+                  Online
+                </h3>
+              </div>
+
+              <div className="h-3 w-3 rounded-full bg-blue-500 animate-pulse"></div>
+            </div>
+
+            {/* JWT */}
+            <div className="bg-black border border-yellow-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-gray-400 text-sm">
+                  JWT Authentication
+                </p>
+
+                <h3 className="text-yellow-400 font-bold">
+                  Active
+                </h3>
+              </div>
+
+              <div className="h-3 w-3 rounded-full bg-yellow-500 animate-pulse"></div>
+            </div>
+
+            {/* Trading */}
+            <div className="bg-black border border-purple-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-gray-400 text-sm">
+                  Gold Trading Engine
+                </p>
+
+                <h3
+                  className={`font-bold ${
+                    settings.marketStatus === "OPEN"
+                      ? "text-green-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {settings.marketStatus === "OPEN"
+                    ? "Running"
+                    : "Stopped"}
+                </h3>
+              </div>
+
+              <div
+                className={`h-3 w-3 rounded-full ${
+                  settings.marketStatus === "OPEN"
+                    ? "bg-green-500 animate-pulse"
+                    : "bg-red-500"
+                }`}
+              ></div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+      {/* ==========================================
+          GOLD MARKET ANALYTICS
+      ========================================== */}
+
+      <div className="bg-zinc-900 border border-amber-500 rounded-3xl p-6 mb-10">
+
+        <div className="flex items-center gap-3 mb-6">
+          <Coins size={28} className="text-amber-400" />
+
+          <h2 className="text-2xl font-black text-amber-400">
+            Gold Market Analytics
           </h2>
+        </div>
 
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
 
-            <button className="bg-green-600 hover:bg-green-500 rounded-2xl p-5 font-black text-xl transition">
-              Approve Deposits
-            </button>
+          {/* Gold USD */}
+          <div className="bg-black rounded-xl border border-amber-700 p-5">
 
-            <button className="bg-red-600 hover:bg-red-500 rounded-2xl p-5 font-black text-xl transition">
-              Approve Withdrawals
-            </button>
+            <p className="text-gray-400 text-sm">
+              Gold USD Price
+            </p>
 
-            <button className="bg-blue-600 hover:bg-blue-500 rounded-2xl p-5 font-black text-xl transition">
-              Update Gold Prices
-            </button>
+            <h3 className="text-2xl font-black text-amber-400 mt-2">
+              ${Number(settings.goldPriceUSD ?? 0).toLocaleString()}
+            </h3>
 
-            <button className="bg-cyan-600 hover:bg-cyan-500 rounded-2xl p-5 font-black text-xl transition">
-              Update USDT Rate
-            </button>
+          </div>
+
+          {/* USD Pkr */}
+          <div className="bg-black rounded-xl border border-blue-700 p-5">
+
+            <p className="text-gray-400 text-sm">
+              USD / Pkr
+            </p>
+
+            <h3 className="text-2xl font-black text-blue-400 mt-2">
+              Pkr {Number(settings.UsdtoPkr ?? 0).toLocaleString()}
+            </h3>
+
+          </div>
+
+          {/* buy */}
+          <div className="bg-black rounded-xl border border-green-700 p-5">
+
+            <p className="text-gray-400 text-sm">
+              buy Gold
+            </p>
+
+            <h3 className="text-2xl font-black text-green-400 mt-2">
+              Pkr {(settings.buyGoldPrice ?? 0).toLocaleString()}
+            </h3>
+
+          </div>
+
+          {/* sell */}
+          <div className="bg-black rounded-xl border border-red-700 p-5">
+
+            <p className="text-gray-400 text-sm">
+              sell Gold
+            </p>
+
+            <h3 className="text-2xl font-black text-red-400 mt-2">
+              Pkr {(settings.sellGoldPrice ?? 0).toLocaleString()}
+            </h3>
 
           </div>
 
         </div>
 
-        {/* ============================================= */}
-        {/* FOOTER */}
-        {/* ============================================= */}
+        {/* Spread */}
+        <div className="mt-6 bg-black border border-yellow-700 rounded-xl p-5 flex justify-between items-center flex-wrap gap-3">
 
-        <footer className="mt-16 border-t border-zinc-800 pt-8 pb-6">
+          <div>
+            <p className="text-gray-400 text-sm">
+              Gold Trading Spread
+            </p>
 
-          <div className="grid md:grid-cols-3 gap-6">
+            <h3 className="text-3xl font-black text-yellow-400 mt-1">
+              Pkr{" "}
+              {(
+                (settings.buyGoldPrice ?? 0) -
+                (settings.sellGoldPrice ?? 0)
+              ).toLocaleString()}
+            </h3>
+          </div>
+
+          <div className="text-right">
+            <p className="text-gray-400 text-sm">
+              Market Status
+            </p>
+
+            <span
+              className={`px-5 py-2 rounded-full font-bold ${
+                settings.marketStatus === "OPEN"
+                  ? "bg-green-600 text-white"
+                  : "bg-red-600 text-white"
+              }`}
+            >
+              {settings.marketStatus}
+            </span>
+          </div>
+
+        </div>
+
+      </div>      {/* ==========================================
+          ADMIN CONTROL CENTER
+      ========================================== */}
+
+      <div className="grid xl:grid-cols-2 gap-6 mb-10">
+
+        {/* ==========================================
+            QUICK SYSTEM CONTROLS
+        ========================================== */}
+
+        <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6">
+
+          <div className="flex items-center gap-3 mb-6">
+            <Settings size={28} className="text-cyan-400" />
+            <h2 className="text-2xl font-black text-cyan-400">
+              Quick System Controls
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+
+            <Link href="/admin/users">
+              <button className="w-full bg-cyan-600 hover:bg-cyan-500 rounded-xl p-4 text-white font-bold transition">
+                👥 Manage Users
+              </button>
+            </Link>
+
+            <Link href="/admin/deposits">
+              <button className="w-full bg-green-600 hover:bg-green-500 rounded-xl p-4 text-white font-bold transition">
+                💳 Deposit Panel
+              </button>
+            </Link>
+
+            <Link href="/admin/withdraws">
+              <button className="w-full bg-red-600 hover:bg-red-500 rounded-xl p-4 text-white font-bold transition">
+                💸 Withdraw Panel
+              </button>
+            </Link>
+
+            <Link href="/admin/wallet-manager">
+              <button className="w-full bg-yellow-600 hover:bg-yellow-500 rounded-xl p-4 text-white font-bold transition">
+                💰 wallet Manager
+              </button>
+            </Link>
+
+            <Link href="/admin/settings">
+              <button className="w-full bg-purple-600 hover:bg-purple-500 rounded-xl p-4 text-white font-bold transition">
+                ⚙️ Gold Settings
+              </button>
+            </Link>
+
+            <Link href="/admin/payment-settings">
+              <button className="w-full bg-blue-600 hover:bg-blue-500 rounded-xl p-4 text-white font-bold transition">
+                🏦 Payment Settings
+              </button>
+            </Link>
+
+            <Link href="/admin/Usdt">
+              <button className="w-full bg-emerald-600 hover:bg-emerald-500 rounded-xl p-4 text-white font-bold transition">
+                🪙 Usdt Settings
+              </button>
+            </Link>
+
+            <Link href="/admin/history">
+              <button className="w-full bg-orange-600 hover:bg-orange-500 rounded-xl p-4 text-white font-bold transition">
+                📜 history Center
+              </button>
+            </Link>
+
+          </div>
+
+        </div>
+
+        {/* ==========================================
+            ADMIN ACTIVITY CENTER
+        ========================================== */}
+
+        <div className="bg-zinc-900 border border-purple-500 rounded-3xl p-6">
+
+          <div className="flex items-center gap-3 mb-6">
+            <Activity size={28} className="text-purple-400" />
+            <h2 className="text-2xl font-black text-purple-400">
+              Admin Activity Center
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+
+            <div className="bg-black border border-green-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-white font-semibold">
+                  Dashboard Loaded Successfully
+                </p>
+                <p className="text-xs text-gray-500">
+                  GoldTrade backend connected.
+                </p>
+              </div>
+
+              <span className="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-bold">
+                LIVE
+              </span>
+            </div>
+
+            <div className="bg-black border border-yellow-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-white font-semibold">
+                  Market Status
+                </p>
+                <p className="text-xs text-gray-500">
+                  Gold trading engine state.
+                </p>
+              </div>
+
+              <span
+                className={`text-xs px-3 py-1 rounded-full font-bold ${
+                  settings.marketStatus === "OPEN"
+                    ? "bg-green-600 text-white"
+                    : "bg-red-600 text-white"
+                }`}
+              >
+                {settings.marketStatus}
+              </span>
+            </div>
+
+            <div className="bg-black border border-cyan-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-white font-semibold">
+                  Pending Deposits
+                </p>
+                <p className="text-xs text-gray-500">
+                  Waiting for admin approval.
+                </p>
+              </div>
+
+              <span className="bg-cyan-500 text-black text-xs px-3 py-1 rounded-full font-bold">
+                {pendingDeposits.length}
+              </span>
+            </div>
+
+            <div className="bg-black border border-red-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-white font-semibold">
+                  Pending Withdraws
+                </p>
+                <p className="text-xs text-gray-500">
+                  Waiting for wallet deduction.
+                </p>
+              </div>
+
+              <span className="bg-red-500 text-white text-xs px-3 py-1 rounded-full font-bold">
+                {pendingWithdraws.length}
+              </span>
+            </div>
+
+            <div className="bg-black border border-yellow-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-white font-semibold">
+                  Logged In Admin
+                </p>
+                <p className="text-xs text-gray-500">
+                  Current administrator session.
+                </p>
+              </div>
+
+              <span className="bg-yellow-500 text-black text-xs px-3 py-1 rounded-full font-bold">
+                {adminName}
+              </span>
+            </div>
+
+            <div className="bg-black border border-blue-700 rounded-xl p-4 flex justify-between items-center">
+              <div>
+                <p className="text-white font-semibold">
+                  Last Dashboard Refresh
+                </p>
+                <p className="text-xs text-gray-500">
+                  System synchronization time.
+                </p>
+              </div>
+
+              <span className="bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-bold">
+                <span suppressHydrationWarning>
+               {mounted ? currentTime : "--:--:--"}
+              </span>
+              </span>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* ==========================================
+          ADMIN SECURITY PANEL
+      ========================================== */}
+
+      <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
+
+        <div className="flex items-center gap-3 mb-6">
+          <ShieldCheck size={28} className="text-yellow-400" />
+          <h2 className="text-2xl font-black text-yellow-400">
+            Security & Session Information
+          </h2>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-5">
+
+          <div className="bg-black rounded-xl border border-yellow-700 p-5">
+            <p className="text-gray-400 text-sm">Logged In User</p>
+
+            <h3 className="text-xl font-bold text-yellow-400 mt-2">
+              {adminName}
+            </h3>
+          </div>
+
+          <div className="bg-black rounded-xl border border-green-700 p-5">
+            <p className="text-gray-400 text-sm">Role</p>
+
+            <h3 className="text-xl font-bold text-green-400 mt-2">
+              Administrator
+            </h3>
+          </div>
+
+          <div className="bg-black rounded-xl border border-cyan-700 p-5">
+            <p className="text-gray-400 text-sm">Session</p>
+
+            <h3 className="text-xl font-bold text-cyan-400 mt-2">
+              Active
+            </h3>
+          </div>
+
+        </div>
+
+        {/* Logout Button */}
+
+        <button
+          onClick={() => {
+            localStorage.clear();
+            window.location.href = "/login";
+          }}
+          className="mt-6 w-full bg-red-600 hover:bg-red-500 rounded-xl py-3 text-white font-bold transition"
+        >
+          Logout Administrator
+        </button>
+
+      </div>      {/* ==========================================
+          GOLDTRADE SYSTEM FOOTER
+      ========================================== */}
+
+      <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-8">
+
+        <div className="flex items-center gap-3 mb-6">
+          <ShieldCheck size={30} className="text-yellow-400" />
+
+          <h2 className="text-2xl font-black text-yellow-400">
+            GoldTrade V18 Enterprise Platform
+          </h2>
+        </div>
+
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
+
+          {/* VERSION */}
+          <div className="bg-black border border-yellow-700 rounded-xl p-4">
+            <p className="text-gray-400 text-sm">Version</p>
+
+            <h3 className="text-xl font-bold text-yellow-400 mt-2">
+              V18 Enterprise
+            </h3>
+          </div>
+
+          {/* API */}
+          <div className="bg-black border border-green-700 rounded-xl p-4">
+            <p className="text-gray-400 text-sm">Backend API</p>
+
+            <h3 className="text-xl font-bold text-green-400 mt-2">
+              Connected
+            </h3>
+          </div>
+
+          {/* DATABASE */}
+          <div className="bg-black border border-blue-700 rounded-xl p-4">
+            <p className="text-gray-400 text-sm">Database</p>
+
+            <h3 className="text-xl font-bold text-blue-400 mt-2">
+              MongoDB Atlas
+            </h3>
+          </div>
+
+          {/* STATUS */}
+          <div className="bg-black border border-purple-700 rounded-xl p-4">
+            <p className="text-gray-400 text-sm">Trading Engine</p>
+
+            <h3
+              className={`text-xl font-bold mt-2 ${
+                settings.marketStatus === "OPEN"
+                  ? "text-green-400"
+                  : "text-red-400"
+              }`}
+            >
+              {settings.marketStatus}
+            </h3>
+          </div>
+
+        </div>
+
+        {/* Footer Info */}
+        <div className="border-t border-zinc-700 mt-8 pt-6">
+
+          <div className="grid md:grid-cols-3 gap-5">
 
             <div>
-              <h3 className="text-yellow-400 font-black text-xl mb-3">
-                GOLDTRADE V17
-              </h3>
+              <p className="text-gray-500 text-sm">
+                Administrator
+              </p>
 
-              <p className="text-gray-400 text-sm">
-                Enterprise Gold Trading Platform with Wallet, Deposit,
-                Withdraw, Gold Trading and USDT Exchange.
+              <p className="text-cyan-400 font-bold mt-1">
+                {adminName}
               </p>
             </div>
 
             <div>
-              <h3 className="text-cyan-400 font-black text-xl mb-3">
-                Server Status
-              </h3>
+              <p className="text-gray-500 text-sm">
+                Current Session
+              </p>
 
-              <div className="space-y-2 text-sm text-gray-300">
-                <p>Backend API : ONLINE</p>
-                <p>MongoDB : CONNECTED</p>
-                <p>Trading Engine : ACTIVE</p>
-                <p>Wallet Service : RUNNING</p>
-              </div>
+              <p className="text-green-400 font-bold mt-1">
+                Active
+              </p>
             </div>
 
             <div>
-              <h3 className="text-green-400 font-black text-xl mb-3">
-                Version
-              </h3>
-
-              <div className="space-y-2 text-sm text-gray-300">
-                <p>GoldTrade Enterprise V17</p>
-                <p>Admin Dashboard</p>
-                <p>Build 2026 Edition</p>
-              </div>
+              <p className="text-gray-500 text-sm">
+                Last Updated
+              </p>
+              <p className="text-yellow-400 font-bold mt-1">
+                <span suppressHydrationWarning>
+                  {mounted ? currentDateTime : "--:--:--"}
+                </span>
+              </p>
             </div>
 
           </div>
 
-          <div className="border-t border-zinc-800 mt-8 pt-6 text-center text-gray-500 text-sm">
-            © 2026 GoldTrade Enterprise — Admin Control Center.
-          </div>
+        </div>
 
-        </footer>
+      </div>
 
-      </main>
+      {/* ==========================================
+          COPYRIGHT
+      ========================================== */}
+
+      <div className="text-center py-8 border-t border-zinc-800">
+
+        <h3 className="text-yellow-400 font-black text-xl mb-2">
+          GoldTrade Enterprise V18
+        </h3>
+
+        <p className="text-gray-500 text-sm">
+          Pkr • GOLD • Usdt Multi wallet Trading Platform
+        </p>
+
+        <p className="text-gray-600 text-xs mt-3">
+          © 2026 GoldTrade Enterprise — All Rights Reserved.
+        </p>
+
+      </div>
 
     </div>
   );
