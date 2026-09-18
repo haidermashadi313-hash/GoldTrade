@@ -30,7 +30,6 @@ const walletTransactionSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model(
-  "walletTransaction",
-  walletTransactionSchema
-);
+module.exports =
+  mongoose.models.WalletTransaction ||
+  mongoose.model("WalletTransaction", walletTransactionSchema);
