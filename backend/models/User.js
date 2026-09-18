@@ -53,7 +53,7 @@ const userSchema = new mongoose.Schema(
     },
 
     // =====================================================
-    // WALLET BALANCES
+    // wallet BALANCES
     // =====================================================
 
     walletBalance: {
@@ -62,7 +62,7 @@ const userSchema = new mongoose.Schema(
       min: 0,
     },
 
-    usdtBalance: {
+    UsdtBalance: {
       type: Number,
       default: 0,
       min: 0,
@@ -188,7 +188,7 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
-    isWalletFrozen: {
+    iswalletFrozen: {
       type: Boolean,
       default: false,
     },

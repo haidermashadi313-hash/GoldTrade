@@ -6,18 +6,18 @@ const goldTradeSchema = new mongoose.Schema(
 
     tradeType: {
       type: String,
-      enum: ["BUY", "SELL"],
+      enum: ["buy", "sell"],
     },
 
     grams: Number,
 
     pricePerGram: Number,
 
-    totalPKR: Number,
+    totalPkr: Number,
 
     walletUsed: {
       type: String,
-      default: "PKR",
+      default: "Pkr",
     },
 
     status: {

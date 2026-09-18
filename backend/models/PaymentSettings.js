@@ -2,13 +2,13 @@ const mongoose = require("mongoose");
 
 const paymentSettingsSchema = new mongoose.Schema(
   {
-    // ================= LIVE USDT RATES =================
-    usdtBuyRate: {
+    // ================= LIVE Usdt RATES =================
+    UsdtbuyRate: {
       type: Number,
       default: 282.4,
     },
 
-    usdtSellRate: {
+    UsdtsellRate: {
       type: Number,
       default: 281.2,
     },
@@ -77,8 +77,8 @@ const paymentSettingsSchema = new mongoose.Schema(
       },
     },
 
-    // ================= USDT WALLET =================
-    usdtWallet: {
+    // ================= Usdt wallet =================
+    Usdtwallet: {
       network: {
         type: String,
         default: "TRC20",

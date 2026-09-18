@@ -30,8 +30,8 @@ export enum VaultStatus {
 }
 
 export enum GoldTransactionType {
-  BUY = "BUY",
-  SELL = "SELL",
+  buy = "buy",
+  sell = "sell",
   DEPOSIT = "DEPOSIT",
   WITHDRAW = "WITHDRAW",
   CONVERT = "CONVERT",
@@ -68,9 +68,9 @@ export interface IGoldHolding {
   purity: GoldPurity;
   unit: GoldUnit;
   quantity: number;
-  averageBuyPricePKR: number;
-  averageBuyPriceUSD: number;
-  currentValuePKR: number;
+  averagebuyPricePkr: number;
+  averagebuyPriceUSD: number;
+  currentValuePkr: number;
   currentValueUSD: number;
 }
 
@@ -96,7 +96,7 @@ export interface IInsuranceInfo {
   status: InsuranceStatus;
   provider: string;
   policyNumber: string;
-  insuredAmountPKR: number;
+  insuredAmountPkr: number;
   insuredAmountUSD: number;
   expiryDate?: Date;
 }
@@ -115,8 +115,8 @@ export interface IGoldLedgerEntry {
   purity: GoldPurity;
   unit: GoldUnit;
   quantity: number;
-  pricePerGramPKR: number;
-  totalAmountPKR: number;
+  pricePerGramPkr: number;
+  totalAmountPkr: number;
   referenceId: string;
   createdAt: Date;
 }
@@ -153,9 +153,9 @@ export interface IGoldVault extends Document {
   qrVerification: any;
   reserveAudit: any;
   holdingStatistics: any;
-  priceHistory: any[];
-  valuationHistory: any[];
-  certificateVerificationHistory: any[];
+  pricehistory: any[];
+  valuationhistory: any[];
+  certificateVerificationhistory: any[];
   ownershipTransfers: any[];
   frozenAt?: Date;
   lastTransactionAt?: Date;
@@ -163,8 +163,8 @@ export interface IGoldVault extends Document {
 }
 
 export interface IGoldVaultMethods {
-  buyGold(grams: number, pricePKR: number): void;
-  sellGold(grams: number, pricePKR: number): void;
+  buyGold(grams: number, pricePkr: number): void;
+  sellGold(grams: number, pricePkr: number): void;
   convertGoldUnits(): void;
   recalculatePortfolio(): void;
   updateROI(): void;
@@ -181,7 +181,7 @@ export interface IGoldVaultModel extends Model<IGoldVault, {}, IGoldVaultMethods
   findByVaultNumber(vaultNumber: string): Promise<IGoldVault | null>;
   findByCertificateNumber(certificateNumber: string): Promise<IGoldVault | null>;
   findPhysicalVaults(): Promise<IGoldVault[]>;
-  findHighValueVaults(minValuePKR: number): Promise<IGoldVault[]>;
+  findHighValueVaults(minValuePkr: number): Promise<IGoldVault[]>;
   findExpiringInsurance(days: number): Promise<IGoldVault[]>;
   findPendingAudits(): Promise<IGoldVault[]>;
 }
@@ -214,9 +214,9 @@ const GoldVaultSchema = new Schema<IGoldVault, IGoldVaultModel, IGoldVaultMethod
         purity: { type: String, enum: Object.values(GoldPurity), default: GoldPurity.GOLD_24K },
         unit: { type: String, enum: Object.values(GoldUnit), default: GoldUnit.GRAM },
         quantity: { type: Number, default: 0 },
-        averageBuyPricePKR: { type: Number, default: 0 },
-        averageBuyPriceUSD: { type: Number, default: 0 },
-        currentValuePKR: { type: Number, default: 0 },
+        averagebuyPricePkr: { type: Number, default: 0 },
+        averagebuyPriceUSD: { type: Number, default: 0 },
+        currentValuePkr: { type: Number, default: 0 },
         currentValueUSD: { type: Number, default: 0 },
       },
     ],
@@ -235,7 +235,7 @@ const GoldVaultSchema = new Schema<IGoldVault, IGoldVaultModel, IGoldVaultMethod
       status: { type: String, enum: Object.values(InsuranceStatus), default: InsuranceStatus.NOT_INSURED },
       provider: { type: String, default: "" },
       policyNumber: { type: String, default: "" },
-      insuredAmountPKR: { type: Number, default: 0 },
+      insuredAmountPkr: { type: Number, default: 0 },
       insuredAmountUSD: { type: Number, default: 0 },
       expiryDate: Date,
     },
@@ -256,7 +256,7 @@ const GoldVaultSchema = new Schema<IGoldVault, IGoldVaultModel, IGoldVaultMethod
     },
 
     livePriceEngine: {
-      price24KPKRGram: { type: Number, default: 0 },
+      price24KPkrGram: { type: Number, default: 0 },
       exchangeRateUSD: { type: Number, default: 0 },
       exchangeRateAED: { type: Number, default: 0 },
       exchangeRateSAR: { type: Number, default: 0 },
@@ -266,7 +266,7 @@ const GoldVaultSchema = new Schema<IGoldVault, IGoldVaultModel, IGoldVaultMethod
 
     portfolioValue: {
       totalGoldGrams: { type: Number, default: 0 },
-      totalValuePKR: { type: Number, default: 0 },
+      totalValuePkr: { type: Number, default: 0 },
       totalValueUSD: { type: Number, default: 0 },
       totalValueAED: { type: Number, default: 0 },
       totalValueSAR: { type: Number, default: 0 },
@@ -275,19 +275,19 @@ const GoldVaultSchema = new Schema<IGoldVault, IGoldVaultModel, IGoldVaultMethod
     },
 
     profitLoss: {
-      investedAmountPKR: { type: Number, default: 0 },
-      currentMarketValuePKR: { type: Number, default: 0 },
-      unrealizedProfitPKR: { type: Number, default: 0 },
-      realizedProfitPKR: { type: Number, default: 0 },
+      investedAmountPkr: { type: Number, default: 0 },
+      currentMarketValuePkr: { type: Number, default: 0 },
+      unrealizedProfitPkr: { type: Number, default: 0 },
+      realizedProfitPkr: { type: Number, default: 0 },
       roiPercentage: { type: Number, default: 0 },
       updatedAt: Date,
     },
 
     allTimeStats: {
-      highestPortfolioValuePKR: { type: Number, default: 0 },
-      lowestPortfolioValuePKR: { type: Number, default: 0 },
-      highestGoldPricePKRGram: { type: Number, default: 0 },
-      lowestGoldPricePKRGram: { type: Number, default: 0 },
+      highestPortfolioValuePkr: { type: Number, default: 0 },
+      lowestPortfolioValuePkr: { type: Number, default: 0 },
+      highestGoldPricePkrGram: { type: Number, default: 0 },
+      lowestGoldPricePkrGram: { type: Number, default: 0 },
       highestRecordedAt: Date,
       lowestRecordedAt: Date,
     },
@@ -301,8 +301,8 @@ const GoldVaultSchema = new Schema<IGoldVault, IGoldVaultModel, IGoldVaultMethod
     },
 
     holdingStatistics: {
-      totalBuyTransactions: { type: Number, default: 0 },
-      totalSellTransactions: { type: Number, default: 0 },
+      totalbuyTransactions: { type: Number, default: 0 },
+      totalsellTransactions: { type: Number, default: 0 },
       totalGoldPurchasedGrams: { type: Number, default: 0 },
       totalGoldSoldGrams: { type: Number, default: 0 },
     },
@@ -312,8 +312,8 @@ const GoldVaultSchema = new Schema<IGoldVault, IGoldVaultModel, IGoldVaultMethod
       purity: { type: String, enum: Object.values(GoldPurity), default: GoldPurity.GOLD_24K },
       unit: { type: String, enum: Object.values(GoldUnit), default: GoldUnit.GRAM },
       quantity: { type: Number, default: 0 },
-      pricePerGramPKR: { type: Number, default: 0 },
-      totalAmountPKR: { type: Number, default: 0 },
+      pricePerGramPkr: { type: Number, default: 0 },
+      totalAmountPkr: { type: Number, default: 0 },
       referenceId: { type: String, default: "" },
       createdAt: { type: Date, default: Date.now },
     }],
@@ -325,9 +325,9 @@ const GoldVaultSchema = new Schema<IGoldVault, IGoldVaultModel, IGoldVaultMethod
       createdAt: { type: Date, default: Date.now },
     }],
 
-    priceHistory: [{ createdAt: { type: Date, default: Date.now } }],
-    valuationHistory: [{ createdAt: { type: Date, default: Date.now } }],
-    certificateVerificationHistory: [{ createdAt: { type: Date, default: Date.now } }],
+    pricehistory: [{ createdAt: { type: Date, default: Date.now } }],
+    valuationhistory: [{ createdAt: { type: Date, default: Date.now } }],
+    certificateVerificationhistory: [{ createdAt: { type: Date, default: Date.now } }],
     ownershipTransfers: [{ createdAt: { type: Date, default: Date.now } }],
 
     frozenAt: Date,
@@ -412,17 +412,17 @@ GoldVaultSchema.methods.convertGoldUnits = function (this: any): void {
 };
 
 GoldVaultSchema.methods.recalculatePortfolio = function (this: any): void {
-  const price = Number(this.livePriceEngine?.price24KPKRGram || 0);
+  const price = Number(this.livePriceEngine?.price24KPkrGram || 0);
   this.portfolioValue = this.portfolioValue || {};
   this.portfolioValue.totalGoldGrams = Number(this.totalGoldGrams || 0);
-  this.portfolioValue.totalValuePKR = this.portfolioValue.totalGoldGrams * price;
+  this.portfolioValue.totalValuePkr = this.portfolioValue.totalGoldGrams * price;
 
   const usdRate = Number(this.livePriceEngine?.exchangeRateUSD || 1);
   const aedRate = Number(this.livePriceEngine?.exchangeRateAED || 0);
   const sarRate = Number(this.livePriceEngine?.exchangeRateSAR || 0);
   const eurRate = Number(this.livePriceEngine?.exchangeRateEUR || 0);
 
-  this.portfolioValue.totalValueUSD = this.portfolioValue.totalValuePKR / usdRate;
+  this.portfolioValue.totalValueUSD = this.portfolioValue.totalValuePkr / usdRate;
   this.portfolioValue.totalValueAED = this.portfolioValue.totalValueUSD * aedRate;
   this.portfolioValue.totalValueSAR = this.portfolioValue.totalValueUSD * sarRate;
   this.portfolioValue.totalValueEUR = this.portfolioValue.totalValueUSD * eurRate;
@@ -431,11 +431,11 @@ GoldVaultSchema.methods.recalculatePortfolio = function (this: any): void {
 
 GoldVaultSchema.methods.updateROI = function (this: any): void {
   this.profitLoss = this.profitLoss || {};
-  const invested = Number(this.profitLoss.investedAmountPKR || 0);
-  const current = Number(this.portfolioValue?.totalValuePKR || 0);
+  const invested = Number(this.profitLoss.investedAmountPkr || 0);
+  const current = Number(this.portfolioValue?.totalValuePkr || 0);
 
-  this.profitLoss.currentMarketValuePKR = current;
-  this.profitLoss.unrealizedProfitPKR = current - invested;
+  this.profitLoss.currentMarketValuePkr = current;
+  this.profitLoss.unrealizedProfitPkr = current - invested;
   this.profitLoss.roiPercentage = invested > 0 ? Number((((current - invested) / invested) * 100).toFixed(2)) : 0;
   this.profitLoss.updatedAt = new Date();
 };
@@ -443,38 +443,38 @@ GoldVaultSchema.methods.updateROI = function (this: any): void {
 GoldVaultSchema.methods.updateAllTimeStats = function (this: any): void {
   this.allTimeStats = this.allTimeStats || {};
 
-  const value = Number(this.portfolioValue?.totalValuePKR || 0);
-  const price = Number(this.livePriceEngine?.price24KPKRGram || 0);
+  const value = Number(this.portfolioValue?.totalValuePkr || 0);
+  const price = Number(this.livePriceEngine?.price24KPkrGram || 0);
 
-  if (value > Number(this.allTimeStats.highestPortfolioValuePKR || 0)) {
-    this.allTimeStats.highestPortfolioValuePKR = value;
+  if (value > Number(this.allTimeStats.highestPortfolioValuePkr || 0)) {
+    this.allTimeStats.highestPortfolioValuePkr = value;
     this.allTimeStats.highestRecordedAt = new Date();
   }
 
-  if (!this.allTimeStats.lowestPortfolioValuePKR || value < Number(this.allTimeStats.lowestPortfolioValuePKR)) {
-    this.allTimeStats.lowestPortfolioValuePKR = value;
+  if (!this.allTimeStats.lowestPortfolioValuePkr || value < Number(this.allTimeStats.lowestPortfolioValuePkr)) {
+    this.allTimeStats.lowestPortfolioValuePkr = value;
     this.allTimeStats.lowestRecordedAt = new Date();
   }
 
-  if (price > Number(this.allTimeStats.highestGoldPricePKRGram || 0)) {
-    this.allTimeStats.highestGoldPricePKRGram = price;
+  if (price > Number(this.allTimeStats.highestGoldPricePkrGram || 0)) {
+    this.allTimeStats.highestGoldPricePkrGram = price;
   }
 
-  if (!this.allTimeStats.lowestGoldPricePKRGram || price < Number(this.allTimeStats.lowestGoldPricePKRGram)) {
-    this.allTimeStats.lowestGoldPricePKRGram = price;
+  if (!this.allTimeStats.lowestGoldPricePkrGram || price < Number(this.allTimeStats.lowestGoldPricePkrGram)) {
+    this.allTimeStats.lowestGoldPricePkrGram = price;
   }
 };
 
-GoldVaultSchema.methods.buyGold = function (this: any, grams: number, pricePKR: number): void {
+GoldVaultSchema.methods.buyGold = function (this: any, grams: number, pricePkr: number): void {
   this.totalGoldGrams = Number(this.totalGoldGrams || 0) + grams;
   this.availableGoldGrams = Number(this.availableGoldGrams || 0) + grams;
 
   this.holdingStatistics = this.holdingStatistics || {};
   this.holdingStatistics.totalGoldPurchasedGrams = Number(this.holdingStatistics.totalGoldPurchasedGrams || 0) + grams;
-  this.holdingStatistics.totalBuyTransactions = Number(this.holdingStatistics.totalBuyTransactions || 0) + 1;
+  this.holdingStatistics.totalbuyTransactions = Number(this.holdingStatistics.totalbuyTransactions || 0) + 1;
 
   this.profitLoss = this.profitLoss || {};
-  this.profitLoss.investedAmountPKR = Number(this.profitLoss.investedAmountPKR || 0) + grams * pricePKR;
+  this.profitLoss.investedAmountPkr = Number(this.profitLoss.investedAmountPkr || 0) + grams * pricePkr;
 
   this.lastTransactionAt = new Date();
   this.convertGoldUnits();
@@ -482,7 +482,7 @@ GoldVaultSchema.methods.buyGold = function (this: any, grams: number, pricePKR: 
   this.updateROI();
 };
 
-GoldVaultSchema.methods.sellGold = function (this: any, grams: number, pricePKR: number): void {
+GoldVaultSchema.methods.sellGold = function (this: any, grams: number, pricePkr: number): void {
   if (Number(this.availableGoldGrams || 0) < grams) {
     throw new Error("Insufficient available gold.");
   }
@@ -492,10 +492,10 @@ GoldVaultSchema.methods.sellGold = function (this: any, grams: number, pricePKR:
 
   this.holdingStatistics = this.holdingStatistics || {};
   this.holdingStatistics.totalGoldSoldGrams = Number(this.holdingStatistics.totalGoldSoldGrams || 0) + grams;
-  this.holdingStatistics.totalSellTransactions = Number(this.holdingStatistics.totalSellTransactions || 0) + 1;
+  this.holdingStatistics.totalsellTransactions = Number(this.holdingStatistics.totalsellTransactions || 0) + 1;
 
   this.profitLoss = this.profitLoss || {};
-  this.profitLoss.realizedProfitPKR = Number(this.profitLoss.realizedProfitPKR || 0) + grams * pricePKR;
+  this.profitLoss.realizedProfitPkr = Number(this.profitLoss.realizedProfitPkr || 0) + grams * pricePkr;
 
   this.lastTransactionAt = new Date();
   this.convertGoldUnits();
@@ -535,9 +535,9 @@ GoldVaultSchema.pre<IGoldVault>("save", function (next) {
 
   if (this.ledger?.length > 1000) this.ledger = this.ledger.slice(0, 1000);
   if (this.auditTrail?.length > 500) this.auditTrail = this.auditTrail.slice(0, 500);
-  if (this.priceHistory?.length > 3650) this.priceHistory = this.priceHistory.slice(0, 3650);
-  if (this.valuationHistory?.length > 1000) this.valuationHistory = this.valuationHistory.slice(0, 1000);
-  if (this.certificateVerificationHistory?.length > 500) this.certificateVerificationHistory = this.certificateVerificationHistory.slice(0, 500);
+  if (this.pricehistory?.length > 3650) this.pricehistory = this.pricehistory.slice(0, 3650);
+  if (this.valuationhistory?.length > 1000) this.valuationhistory = this.valuationhistory.slice(0, 1000);
+  if (this.certificateVerificationhistory?.length > 500) this.certificateVerificationhistory = this.certificateVerificationhistory.slice(0, 500);
   if (this.ownershipTransfers?.length > 250) this.ownershipTransfers = this.ownershipTransfers.slice(0, 250);
 
   next();
@@ -563,8 +563,8 @@ GoldVaultSchema.statics.findPhysicalVaults = function () {
   return this.find({ vaultType: VaultType.PHYSICAL, isActive: true });
 };
 
-GoldVaultSchema.statics.findHighValueVaults = function (minValuePKR = 1000000) {
-  return this.find({ "portfolioValue.totalValuePKR": { $gte: minValuePKR }, isActive: true }).sort({ "portfolioValue.totalValuePKR": -1 });
+GoldVaultSchema.statics.findHighValueVaults = function (minValuePkr = 1000000) {
+  return this.find({ "portfolioValue.totalValuePkr": { $gte: minValuePkr }, isActive: true }).sort({ "portfolioValue.totalValuePkr": -1 });
 };
 
 GoldVaultSchema.statics.findExpiringInsurance = function (days = 30) {

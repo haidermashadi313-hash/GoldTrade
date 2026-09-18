@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const usdtTransactionSchema = new mongoose.Schema(
+const UsdtTransactionSchema = new mongoose.Schema(
   {
     // ================= USER =================
     username: {
@@ -18,18 +18,18 @@ const usdtTransactionSchema = new mongoose.Schema(
     // ================= TRANSACTION TYPE =================
     transactionType: {
       type: String,
-      enum: ["BUY", "SELL"],
+      enum: ["buy", "sell"],
       required: true,
     },
 
     // ================= AMOUNTS =================
-    pkrAmount: {
+    PkrAmount: {
       type: Number,
       required: true,
       min: 0,
     },
 
-    usdtAmount: {
+    UsdtAmount: {
       type: Number,
       required: true,
       min: 0,
@@ -49,17 +49,17 @@ const usdtTransactionSchema = new mongoose.Schema(
     // ================= PAYMENT METHOD =================
     paymentMethod: {
       type: String,
-      enum: ["BANK", "EASYPAISA", "NAYAPAY", "USDT"],
+      enum: ["BANK", "EASYPAISA", "NAYAPAY", "Usdt"],
       required: true,
     },
 
-    // User wallet address (BUY)
+    // User wallet address (buy)
     walletAddress: {
       type: String,
       default: "",
     },
 
-    // Payment details (SELL)
+    // Payment details (sell)
     accountTitle: {
       type: String,
       default: "",
@@ -122,8 +122,8 @@ const usdtTransactionSchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.model(
-  "USDTTransaction",
-  usdtTransactionSchema
+  "UsdtTransaction",
+  UsdtTransactionSchema
 );
 const express = require("express");
 const router = express.Router();
@@ -131,16 +131,16 @@ const multer = require("multer");
 const path = require("path");
 
 const User = require("../models/User");
-const USDTTransaction = require("../models/USDTTransaction");
+const UsdtTransaction = require("../models/UsdtTransaction");
 
 // ======================================================
 // RECEIPT IMAGE UPLOAD
-// uploads/usdt/
+// uploads/Usdt/
 // ======================================================
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/usdt/");
+    cb(null, "uploads/Usdt/");
   },
 
   filename: (req, file, cb) => {
@@ -162,8 +162,8 @@ const upload = multer({
 });
 
 // ======================================================
-// LIVE BUY / SELL RATE
-// GET /api/usdt/rate
+// LIVE buy / sell RATE
+// GET /api/Usdt/rate
 // ======================================================
 
 router.get("/rate", async (req, res) => {
@@ -179,14 +179,14 @@ router.get("/rate", async (req, res) => {
   } catch (err) {
     res.status(500).json({
       success: false,
-      message: "Unable to load USDT rate.",
+      message: "Unable to load Usdt rate.",
     });
   }
 });
 
 // ======================================================
-// BUY USDT REQUEST
-// POST /api/usdt/buy
+// buy Usdt REQUEST
+// POST /api/Usdt/buy
 // ======================================================
 
 router.post(
@@ -197,8 +197,8 @@ router.post(
       const {
         username,
         walletAddress,
-        pkrAmount,
-        usdtAmount,
+        PkrAmount,
+        UsdtAmount,
         network,
         paymentMethod,
       } = req.body;
@@ -212,14 +212,14 @@ router.post(
         });
       }
 
-      const transaction = await USDTTransaction.create({
+      const transaction = await UsdtTransaction.create({
         username,
         userId: user._id,
 
-        transactionType: "BUY",
+        transactionType: "buy",
 
-        pkrAmount: Number(pkrAmount),
-        usdtAmount: Number(usdtAmount),
+        PkrAmount: Number(PkrAmount),
+        UsdtAmount: Number(UsdtAmount),
 
         rate: 282.4,
 
@@ -229,7 +229,7 @@ router.post(
         paymentMethod,
 
         receiptImage: req.file
-          ? `/uploads/usdt/${req.file.filename}`
+          ? `/uploads/Usdt/${req.file.filename}`
           : "",
 
         status: "Pending",
@@ -237,7 +237,7 @@ router.post(
 
       res.json({
         success: true,
-        message: "Buy USDT request submitted successfully.",
+        message: "buy Usdt request submitted successfully.",
         transaction,
       });
     } catch (err) {
@@ -245,22 +245,22 @@ router.post(
 
       res.status(500).json({
         success: false,
-        message: "Unable to submit Buy USDT request.",
+        message: "Unable to submit buy Usdt request.",
       });
     }
   }
 );
 // ======================================================
-// SELL USDT REQUEST
-// POST /api/usdt/sell
+// sell Usdt REQUEST
+// POST /api/Usdt/sell
 // ======================================================
 
 router.post("/sell", async (req, res) => {
   try {
     const {
       username,
-      usdtAmount,
-      pkrAmount,
+      UsdtAmount,
+      PkrAmount,
       paymentMethod,
       accountTitle,
       accountNumber,
@@ -276,22 +276,22 @@ router.post("/sell", async (req, res) => {
       });
     }
 
-    // Check USDT Balance
-    if ((user.usdtBalance || 0) < Number(usdtAmount)) {
+    // Check Usdt Balance
+    if ((user.UsdtBalance || 0) < Number(UsdtAmount)) {
       return res.status(400).json({
         success: false,
-        message: "Insufficient USDT balance.",
+        message: "Insufficient Usdt balance.",
       });
     }
 
-    const transaction = await USDTTransaction.create({
+    const transaction = await UsdtTransaction.create({
       username,
       userId: user._id,
 
-      transactionType: "SELL",
+      transactionType: "sell",
 
-      usdtAmount: Number(usdtAmount),
-      pkrAmount: Number(pkrAmount),
+      UsdtAmount: Number(UsdtAmount),
+      PkrAmount: Number(PkrAmount),
 
       rate: 281.2,
 
@@ -307,7 +307,7 @@ router.post("/sell", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Sell USDT request submitted successfully.",
+      message: "sell Usdt request submitted successfully.",
       transaction,
     });
 
@@ -316,19 +316,19 @@ router.post("/sell", async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Unable to submit Sell USDT request.",
+      message: "Unable to submit sell Usdt request.",
     });
   }
 });
 
 // ======================================================
-// USER USDT HISTORY
-// GET /api/usdt/history/:username
+// USER Usdt history
+// GET /api/Usdt/history/:username
 // ======================================================
 
 router.get("/history/:username", async (req, res) => {
   try {
-    const transactions = await USDTTransaction.find({
+    const transactions = await UsdtTransaction.find({
       username: req.params.username,
     }).sort({ createdAt: -1 });
 
@@ -343,19 +343,19 @@ router.get("/history/:username", async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Unable to load USDT history.",
+      message: "Unable to load Usdt history.",
     });
   }
 });
 
 // ======================================================
-// ADMIN - ALL PENDING USDT REQUESTS
-// GET /api/usdt/pending
+// ADMIN - ALL PENDING Usdt REQUESTS
+// GET /api/Usdt/pending
 // ======================================================
 
 router.get("/pending", async (req, res) => {
   try {
-    const transactions = await USDTTransaction.find({
+    const transactions = await UsdtTransaction.find({
       status: "Pending",
     }).sort({ createdAt: -1 });
 
@@ -370,19 +370,19 @@ router.get("/pending", async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Unable to load pending USDT requests.",
+      message: "Unable to load pending Usdt requests.",
     });
   }
 });
 
 // ======================================================
-// ADMIN - APPROVED USDT REQUESTS
-// GET /api/usdt/approved
+// ADMIN - APPROVED Usdt REQUESTS
+// GET /api/Usdt/approved
 // ======================================================
 
 router.get("/approved", async (req, res) => {
   try {
-    const transactions = await USDTTransaction.find({
+    const transactions = await UsdtTransaction.find({
       status: "Approved",
     }).sort({ approvedAt: -1 });
 
@@ -397,19 +397,19 @@ router.get("/approved", async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Unable to load approved USDT requests.",
+      message: "Unable to load approved Usdt requests.",
     });
   }
 });
 
 // ======================================================
-// ADMIN - REJECTED USDT REQUESTS
-// GET /api/usdt/rejected
+// ADMIN - REJECTED Usdt REQUESTS
+// GET /api/Usdt/rejected
 // ======================================================
 
 router.get("/rejected", async (req, res) => {
   try {
-    const transactions = await USDTTransaction.find({
+    const transactions = await UsdtTransaction.find({
       status: "Rejected",
     }).sort({ rejectedAt: -1 });
 
@@ -424,13 +424,13 @@ router.get("/rejected", async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Unable to load rejected USDT requests.",
+      message: "Unable to load rejected Usdt requests.",
     });
   }
 });
 // ======================================================
-// ADMIN APPROVE USDT REQUEST
-// PUT /api/usdt/:id/approve
+// ADMIN APPROVE Usdt REQUEST
+// PUT /api/Usdt/:id/approve Usdt REQUEST
 // ======================================================
 
 router.put("/:id/approve", async (req, res) => {
@@ -439,13 +439,13 @@ router.put("/:id/approve", async (req, res) => {
   try {
     session.startTransaction();
 
-    const transaction = await USDTTransaction.findById(req.params.id).session(session);
+    const transaction = await UsdtTransaction.findById(req.params.id).session(session);
 
     if (!transaction) {
       await session.abortTransaction();
       return res.status(404).json({
         success: false,
-        message: "USDT request not found.",
+        message: "Usdt request not found.",
       });
     }
 
@@ -453,7 +453,7 @@ router.put("/:id/approve", async (req, res) => {
       await session.abortTransaction();
       return res.status(400).json({
         success: false,
-        message: "Request already processed.",
+        message: "Usdt request already processed.",
       });
     }
 
@@ -467,27 +467,27 @@ router.put("/:id/approve", async (req, res) => {
       });
     }
 
-    // ================= BUY APPROVAL =================
-    if (transaction.transactionType === "BUY") {
-      user.usdtBalance = (user.usdtBalance || 0) + transaction.usdtAmount;
+    // ================= buy APPROVAL =================
+    if (transaction.transactionType === "buy") {
+      user.UsdtBalance = (user.UsdtBalance || 0) + transaction.UsdtAmount;
     }
 
-    // ================= SELL APPROVAL =================
-    if (transaction.transactionType === "SELL") {
-      if ((user.usdtBalance || 0) < transaction.usdtAmount) {
+    // ================= sell APPROVAL =================
+    if (transaction.transactionType === "sell") {
+      if ((user.UsdtBalance || 0) < transaction.UsdtAmount) {
         await session.abortTransaction();
         return res.status(400).json({
           success: false,
-          message: "User has insufficient USDT balance.",
+          message: "User has insufficient Usdt balance.",
         });
       }
 
-      // Deduct USDT
-      user.usdtBalance -= transaction.usdtAmount;
+      // Deduct Usdt
+      user.UsdtBalance -= transaction.UsdtAmount;
 
-      // Credit PKR Wallet
+      // Credit Pkr wallet
       user.walletBalance =
-        (user.walletBalance || 0) + transaction.pkrAmount;
+        (user.walletBalance || 0) + transaction.PkrAmount;
     }
 
     await user.save({ session });
@@ -499,26 +499,26 @@ router.put("/:id/approve", async (req, res) => {
 
     await transaction.save({ session });
 
-    // Transaction History
+    // Transaction history
     await Transaction.create(
       [
         {
           username: user.username,
           type:
-            transaction.transactionType === "BUY"
-              ? "USDT_BUY_APPROVED"
-              : "USDT_SELL_APPROVED",
+            transaction.transactionType === "buy"
+              ? "Usdt_buy_APPROVED"
+              : "Usdt_sell_APPROVED",
 
-          amount: transaction.transactionType === "BUY"
-            ? transaction.usdtAmount
-            : transaction.pkrAmount,
+          amount: transaction.transactionType === "buy"
+            ? transaction.UsdtAmount
+            : transaction.PkrAmount,
 
           status: "Approved",
 
           description:
-            transaction.transactionType === "BUY"
-              ? `Admin approved BUY ${transaction.usdtAmount} USDT`
-              : `Admin approved SELL ${transaction.usdtAmount} USDT`,
+            transaction.transactionType === "buy"
+              ? `Admin approved buy ${transaction.UsdtAmount} Usdt`
+              : `Admin approved sell ${transaction.UsdtAmount} Usdt`,
         },
       ],
       { session }
@@ -530,7 +530,7 @@ router.put("/:id/approve", async (req, res) => {
       success: true,
       message: `${transaction.transactionType} request approved successfully.`,
       walletBalance: user.walletBalance,
-      usdtBalance: user.usdtBalance,
+      UsdtBalance: user.UsdtBalance,
     });
 
   } catch (err) {
@@ -540,7 +540,7 @@ router.put("/:id/approve", async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Unable to approve USDT request.",
+      message: "Unable to approve Usdt request.",
     });
 
   } finally {
@@ -549,25 +549,25 @@ router.put("/:id/approve", async (req, res) => {
 });
 
 // ======================================================
-// ADMIN REJECT USDT REQUEST
-// PUT /api/usdt/:id/reject
+// ADMIN REJECT Usdt REQUEST
+// PUT /api/Usdt/:id/reject Usdt REQUEST
 // ======================================================
 
 router.put("/:id/reject", async (req, res) => {
   try {
-    const transaction = await USDTTransaction.findById(req.params.id);
+    const transaction = await UsdtTransaction.findById(req.params.id);
 
     if (!transaction) {
       return res.status(404).json({
         success: false,
-        message: "USDT request not found.",
+        message: "Usdt request not found.",
       });
     }
 
     if (transaction.status !== "Pending") {
       return res.status(400).json({
         success: false,
-        message: "Request already processed.",
+        message: "Usdt request already processed.",
       });
     }
 
@@ -589,7 +589,7 @@ router.put("/:id/reject", async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Unable to reject USDT request.",
+      message: "Unable to reject Usdt request.",
     });
   }
 });

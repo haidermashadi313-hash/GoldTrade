@@ -3,7 +3,7 @@ const router = express.Router();
 
 const User = require("../models/User");
 const GoldTransaction = require("../models/GoldTransaction");
-const WalletTransaction = require("../models/WalletTransaction");
+const walletTransaction = require("../models/walletTransaction");
 
 const { verifyToken } = require("../middleware/authMiddleware");
 
@@ -38,7 +38,7 @@ router.get("/users", verifyToken, adminOnly, async (req, res) => {
         totalUsers: users.length,
         activeUsers: users.filter((u) => u.status === "Active").length,
         blockedUsers: users.filter((u) => u.status === "Blocked").length,
-        frozenWallets: users.filter((u) => u.walletFrozen).length,
+        frozenwallets: users.filter((u) => u.walletFrozen).length,
       },
     });
   } catch (error) {
@@ -66,13 +66,13 @@ router.get("/profile/:id", verifyToken, adminOnly, async (req, res) => {
       });
     }
 
-    const goldHistory = await GoldTransaction.find({
+    const goldhistory = await GoldTransaction.find({
       userId: user._id,
     })
       .sort({ createdAt: -1 })
       .limit(20);
 
-    const walletHistory = await WalletTransaction.find({
+    const wallethistory = await walletTransaction.find({
       userId: user._id,
     })
       .sort({ createdAt: -1 })
@@ -81,8 +81,8 @@ router.get("/profile/:id", verifyToken, adminOnly, async (req, res) => {
     res.status(200).json({
       success: true,
       profile: user,
-      goldHistory,
-      walletHistory,
+      goldhistory,
+      wallethistory,
     });
   } catch (error) {
     console.error("PROFILE ERROR:", error);
@@ -129,7 +129,7 @@ router.put("/block/:id", verifyToken, adminOnly, async (req, res) => {
 });
 
 // =====================================
-// FREEZE / UNFREEZE WALLET
+// FREEZE / UNFREEZE wallet
 // PUT /api/gold/admin/freeze/:id
 // =====================================
 router.put("/freeze/:id", verifyToken, adminOnly, async (req, res) => {
@@ -151,8 +151,8 @@ router.put("/freeze/:id", verifyToken, adminOnly, async (req, res) => {
       success: true,
       walletFrozen: user.walletFrozen,
       message: user.walletFrozen
-        ? "Wallet frozen successfully."
-        : "Wallet unfrozen successfully.",
+        ? "wallet frozen successfully."
+        : "wallet unfrozen successfully.",
     });
   } catch (error) {
     console.error("FREEZE ERROR:", error);
@@ -279,7 +279,7 @@ router.put("/gold/settings", verifyToken, adminOnly, async (req, res) => {
     settings.buyGoldPrice = Number(req.body.buyGoldPrice);
     settings.sellGoldPrice = Number(req.body.sellGoldPrice);
     settings.goldPriceUSD = Number(req.body.goldPriceUSD);
-    settings.usdToPkr = Number(req.body.usdToPkr);
+    settings.UsdtoPkr = Number(req.body.UsdtoPkr);
     settings.goldTradingEnabled = req.body.goldTradingEnabled;
     settings.marketStatus = req.body.marketStatus;
 
@@ -316,7 +316,7 @@ router.put("/gold/settings", verifyToken, adminOnly, async (req, res) => {
     settings.buyGoldPrice = Number(req.body.buyGoldPrice);
     settings.sellGoldPrice = Number(req.body.sellGoldPrice);
     settings.goldPriceUSD = Number(req.body.goldPriceUSD);
-    settings.usdToPkr = Number(req.body.usdToPkr);
+    settings.UsdtoPkr = Number(req.body.UsdtoPkr);
     settings.goldTradingEnabled = Boolean(req.body.goldTradingEnabled);
     settings.marketStatus = req.body.marketStatus;
 
@@ -329,7 +329,7 @@ router.put("/gold/settings", verifyToken, adminOnly, async (req, res) => {
         buyPrice: settings.buyGoldPrice,
         sellPrice: settings.sellGoldPrice,
         goldPriceUSD: settings.goldPriceUSD,
-        usdToPkr: settings.usdToPkr,
+        UsdtoPkr: settings.UsdtoPkr,
         tradingEnabled: settings.goldTradingEnabled,
         marketStatus: settings.marketStatus,
       },
@@ -345,7 +345,7 @@ router.put("/gold/settings", verifyToken, adminOnly, async (req, res) => {
   }
 });
 // =====================================================
-// ADMIN GOLD WALLET CREDIT / DEBIT
+// ADMIN GOLD wallet CREDIT / DEBIT
 // PUT /api/gold/admin/gold/wallet/:id
 // =====================================================
 
@@ -405,19 +405,19 @@ router.put("/gold/wallet/:id", verifyToken, adminOnly, async (req, res) => {
       tradeType: action === "credit" ? "ADMIN CREDIT" : "ADMIN DEBIT",
       grams,
       pricePerGram: 0,
-      totalPKR: 0,
-      averageBuyPrice: user.goldAveragePrice,
+      totalPkr: 0,
+      averagebuyPrice: user.goldAveragePrice,
       profitLoss: 0,
       status: "Completed",
     });
 
     await Transaction.create({
       username: user.username,
-      type: "Admin Gold Wallet",
+      type: "Admin Gold wallet",
       amount: grams,
       transactionId: `AG${Date.now()}`,
       status: "Completed",
-      reason: reason || "Admin Gold Wallet Update",
+      reason: reason || "Admin Gold wallet Update",
     });
 
     return res.json({
@@ -427,7 +427,7 @@ router.put("/gold/wallet/:id", verifyToken, adminOnly, async (req, res) => {
     });
 
   } catch (error) {
-    console.error("ADMIN GOLD WALLET ERROR:", error);
+    console.error("ADMIN GOLD wallet ERROR:", error);
 
     return res.status(500).json({
       success: false,

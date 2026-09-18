@@ -2,8 +2,8 @@ import crypto from "crypto";
 import mongoose, { Document, Model, Schema } from "mongoose";
 
 export enum OrderSide {
-  BUY = "BUY",
-  SELL = "SELL",
+  buy = "buy",
+  sell = "sell",
 }
 
 export enum OrderType {
@@ -47,7 +47,7 @@ export enum TradeGoldUnit {
 }
 
 export enum PaymentMethodType {
-  WALLET = "WALLET",
+  wallet = "wallet",
   BANK = "BANK",
   RAAST = "RAAST",
   JAZZCASH = "JAZZCASH",
@@ -73,9 +73,9 @@ export enum ExecutionSource {
 }
 
 export interface IOrderPriceSnapshot {
-  marketPricePKR: number;
+  marketPricePkr: number;
   marketPriceUSD: number;
-  spreadPKR: number;
+  spreadPkr: number;
   exchangeRateUSD: number;
   capturedAt: Date;
 }
@@ -84,7 +84,7 @@ export interface ISIPConfiguration {
   enabled: boolean;
   frequency: SIPFrequency;
   nextExecutionDate?: Date;
-  amountPKR: number;
+  amountPkr: number;
   goldQuantityGram: number;
   totalExecutions: number;
   completedExecutions: number;
@@ -94,9 +94,9 @@ export interface ISIPConfiguration {
 export interface IOrderFill {
   fillId: string;
   quantityGram: number;
-  executedPricePKR: number;
+  executedPricePkr: number;
   executedPriceUSD: number;
-  feePKR: number;
+  feePkr: number;
   executedAt: Date;
 }
 
@@ -119,14 +119,14 @@ export interface ITradeOrder extends Document {
   purity: TradeGoldPurity;
   unit: TradeGoldUnit;
   quantityGram: number;
-  requestedPricePKR: number;
-  triggerPricePKR?: number;
+  requestedPricePkr: number;
+  triggerPricePkr?: number;
   timeInForce: TimeInForce;
   paymentMethod: PaymentMethodType;
   paymentStatus: "UNPAID" | "PENDING" | "AUTHORIZED" | "PAID" | "FAILED" | "REFUNDED";
   executedQuantityGram: number;
   remainingQuantityGram: number;
-  averageExecutionPricePKR: number;
+  averageExecutionPricePkr: number;
   priceSnapshot: IOrderPriceSnapshot;
   sip?: ISIPConfiguration;
   fills: IOrderFill[];
@@ -136,9 +136,9 @@ export interface ITradeOrder extends Document {
   executedAt?: Date;
   lastUpdatedAt?: Date;
 
-  estimatedOrderValuePKR: number;
+  estimatedOrderValuePkr: number;
   estimatedOrderValueUSD: number;
-  executionValuePKR: number;
+  executionValuePkr: number;
   executionValueUSD: number;
 
   marketOrder: any;
@@ -155,7 +155,7 @@ export interface ITradeOrder extends Document {
   recoveryEngine: any;
   riskEngine: any;
   partialFills: any[];
-  matchingHistory: any[];
+  matchinghistory: any[];
   sipExecutions: any[];
   auditTrail: any[];
 
@@ -192,13 +192,13 @@ export interface ITradeOrderModel extends Model<ITradeOrder, {}, ITradeOrderMeth
   findOrdersByPaymentMethod(method: PaymentMethodType): Promise<ITradeOrder[]>;
   findOrdersByVault(vaultId: mongoose.Types.ObjectId): Promise<ITradeOrder[]>;
   findTodayOrders(): Promise<ITradeOrder[]>;
-  findLargeOrders(minPKR: number): Promise<ITradeOrder[]>;
+  findLargeOrders(minPkr: number): Promise<ITradeOrder[]>;
 }
 
 const TradeOrderSchema = new Schema<ITradeOrder, ITradeOrderModel, ITradeOrderMethods>(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    wallet: { type: Schema.Types.ObjectId, ref: "Wallet", required: true, index: true },
+    wallet: { type: Schema.Types.ObjectId, ref: "wallet", required: true, index: true },
     goldVault: { type: Schema.Types.ObjectId, ref: "GoldVault", required: true, index: true },
     orderNumber: { type: String, required: true, unique: true, uppercase: true, trim: true, index: true },
     clientOrderId: { type: String, uppercase: true, trim: true, index: true },
@@ -212,9 +212,9 @@ const TradeOrderSchema = new Schema<ITradeOrder, ITradeOrderModel, ITradeOrderMe
     purity: { type: String, enum: Object.values(TradeGoldPurity), default: TradeGoldPurity.GOLD_24K },
     unit: { type: String, enum: Object.values(TradeGoldUnit), default: TradeGoldUnit.GRAM },
     quantityGram: { type: Number, required: true, min: 0.001 },
-    requestedPricePKR: { type: Number, required: true },
+    requestedPricePkr: { type: Number, required: true },
 
-    paymentMethod: { type: String, enum: Object.values(PaymentMethodType), default: PaymentMethodType.WALLET },
+    paymentMethod: { type: String, enum: Object.values(PaymentMethodType), default: PaymentMethodType.wallet },
     paymentStatus: {
       type: String,
       enum: ["UNPAID", "PENDING", "AUTHORIZED", "PAID", "FAILED", "REFUNDED"],
@@ -223,16 +223,16 @@ const TradeOrderSchema = new Schema<ITradeOrder, ITradeOrderModel, ITradeOrderMe
 
     executedQuantityGram: { type: Number, default: 0 },
     remainingQuantityGram: { type: Number, default: 0 },
-    averageExecutionPricePKR: { type: Number, default: 0 },
-    executionValuePKR: { type: Number, default: 0 },
+    averageExecutionPricePkr: { type: Number, default: 0 },
+    executionValuePkr: { type: Number, default: 0 },
     executionValueUSD: { type: Number, default: 0 },
-    estimatedOrderValuePKR: { type: Number, default: 0 },
+    estimatedOrderValuePkr: { type: Number, default: 0 },
     estimatedOrderValueUSD: { type: Number, default: 0 },
 
     priceSnapshot: {
-      marketPricePKR: { type: Number, default: 0 },
+      marketPricePkr: { type: Number, default: 0 },
       marketPriceUSD: { type: Number, default: 0 },
-      spreadPKR: { type: Number, default: 0 },
+      spreadPkr: { type: Number, default: 0 },
       exchangeRateUSD: { type: Number, default: 0 },
       capturedAt: { type: Date, default: Date.now },
     },
@@ -244,24 +244,24 @@ const TradeOrderSchema = new Schema<ITradeOrder, ITradeOrderModel, ITradeOrderMe
 
     limitOrder: {
       enabled: { type: Boolean, default: false },
-      limitPricePKR: { type: Number, default: 0 },
+      limitPricePkr: { type: Number, default: 0 },
     },
 
     stopLoss: {
       enabled: { type: Boolean, default: false },
-      triggerPricePKR: { type: Number, default: 0 },
+      triggerPricePkr: { type: Number, default: 0 },
     },
 
     takeProfit: {
       enabled: { type: Boolean, default: false },
-      targetPricePKR: { type: Number, default: 0 },
+      targetPricePkr: { type: Number, default: 0 },
     },
 
     sip: {
       enabled: { type: Boolean, default: false, index: true },
       frequency: { type: String, enum: Object.values(SIPFrequency), default: SIPFrequency.MONTHLY },
       nextExecutionDate: Date,
-      amountPKR: { type: Number, default: 0 },
+      amountPkr: { type: Number, default: 0 },
       goldQuantityGram: { type: Number, default: 0 },
       totalExecutions: { type: Number, default: 0 },
       completedExecutions: { type: Number, default: 0 },
@@ -283,32 +283,32 @@ const TradeOrderSchema = new Schema<ITradeOrder, ITradeOrderModel, ITradeOrderMe
     feeEngine: {
       buyFeePercent: { type: Number, default: 0.2 },
       sellFeePercent: { type: Number, default: 0.2 },
-      minimumFeePKR: { type: Number, default: 10 },
-      maximumFeePKR: { type: Number, default: 5000 },
-      calculatedFeePKR: { type: Number, default: 0 },
+      minimumFeePkr: { type: Number, default: 10 },
+      maximumFeePkr: { type: Number, default: 5000 },
+      calculatedFeePkr: { type: Number, default: 0 },
     },
 
     spreadEngine: {
-      finalSpreadPKR: { type: Number, default: 0 },
+      finalSpreadPkr: { type: Number, default: 0 },
     },
 
     gatewayFees: {
-      gatewayFeePKR: { type: Number, default: 0 },
+      gatewayFeePkr: { type: Number, default: 0 },
     },
 
     taxEngine: {
-      totalTaxPKR: { type: Number, default: 0 },
+      totalTaxPkr: { type: Number, default: 0 },
     },
 
     vipBenefits: {
       vipLevel: { type: String, default: "STANDARD" },
       discountPercent: { type: Number, default: 0 },
-      feeSavedPKR: { type: Number, default: 0 },
+      feeSavedPkr: { type: Number, default: 0 },
       cashbackMultiplier: { type: Number, default: 1 },
     },
 
     cashbackRewards: {
-      cashbackPKR: { type: Number, default: 0 },
+      cashbackPkr: { type: Number, default: 0 },
       cashbackGoldGram: { type: Number, default: 0 },
       loyaltyPoints: { type: Number, default: 0 },
       rewardCampaign: { type: String, default: "" },
@@ -328,15 +328,15 @@ const TradeOrderSchema = new Schema<ITradeOrder, ITradeOrderModel, ITradeOrderMe
       {
         fillId: String,
         quantityGram: Number,
-        executedPricePKR: Number,
+        executedPricePkr: Number,
         executedPriceUSD: Number,
-        feePKR: Number,
+        feePkr: Number,
         executedAt: { type: Date, default: Date.now },
       },
     ],
 
     partialFills: [{ createdAt: { type: Date, default: Date.now } }],
-    matchingHistory: [{ createdAt: { type: Date, default: Date.now } }],
+    matchinghistory: [{ createdAt: { type: Date, default: Date.now } }],
     sipExecutions: [{ createdAt: { type: Date, default: Date.now } }],
     timeline: [
       {
@@ -371,15 +371,15 @@ TradeOrderSchema.index({ orderNumber: 1 }, { unique: true });
 TradeOrderSchema.index({ clientOrderId: 1 });
 TradeOrderSchema.index({ placedAt: -1 });
 TradeOrderSchema.index({ executedAt: -1 });
-TradeOrderSchema.index({ side: 1, orderType: 1, status: 1, requestedPricePKR: -1, placedAt: 1 });
-TradeOrderSchema.index({ "limitOrder.enabled": 1, "limitOrder.limitPricePKR": 1 });
-TradeOrderSchema.index({ "stopLoss.enabled": 1, "stopLoss.triggerPricePKR": 1 });
-TradeOrderSchema.index({ "takeProfit.enabled": 1, "takeProfit.targetPricePKR": 1 });
+TradeOrderSchema.index({ side: 1, orderType: 1, status: 1, requestedPricePkr: -1, placedAt: 1 });
+TradeOrderSchema.index({ "limitOrder.enabled": 1, "limitOrder.limitPricePkr": 1 });
+TradeOrderSchema.index({ "stopLoss.enabled": 1, "stopLoss.triggerPricePkr": 1 });
+TradeOrderSchema.index({ "takeProfit.enabled": 1, "takeProfit.targetPricePkr": 1 });
 TradeOrderSchema.index({ "sip.enabled": 1, "sip.nextExecutionDate": 1 });
 TradeOrderSchema.index({ "settlementEngine.settlementStatus": 1 });
 TradeOrderSchema.index({ paymentMethod: 1, paymentStatus: 1 });
-TradeOrderSchema.index({ executionValuePKR: -1 });
-TradeOrderSchema.index({ "feeEngine.calculatedFeePKR": -1 });
+TradeOrderSchema.index({ executionValuePkr: -1 });
+TradeOrderSchema.index({ "feeEngine.calculatedFeePkr": -1 });
 
 TradeOrderSchema.virtual("remainingQuantity").get(function (this: any) {
   return Math.max((this.quantityGram || 0) - (this.executedQuantityGram || 0), 0);
@@ -395,16 +395,16 @@ TradeOrderSchema.virtual("isCompleted").get(function (this: any) {
 });
 
 TradeOrderSchema.virtual("effectiveExecutionPrice").get(function (this: any) {
-  return this.averageExecutionPricePKR || this.requestedPricePKR || 0;
+  return this.averageExecutionPricePkr || this.requestedPricePkr || 0;
 });
 
 TradeOrderSchema.methods.calculateOrderValue = function (this: any): void {
-  this.estimatedOrderValuePKR = (this.quantityGram || 0) * (this.requestedPricePKR || 0);
-  this.executionValuePKR = (this.executedQuantityGram || 0) * (this.averageExecutionPricePKR || this.requestedPricePKR || 0);
+  this.estimatedOrderValuePkr = (this.quantityGram || 0) * (this.requestedPricePkr || 0);
+  this.executionValuePkr = (this.executedQuantityGram || 0) * (this.averageExecutionPricePkr || this.requestedPricePkr || 0);
 
   if (this.priceSnapshot?.exchangeRateUSD > 0) {
-    this.estimatedOrderValueUSD = this.estimatedOrderValuePKR / this.priceSnapshot.exchangeRateUSD;
-    this.executionValueUSD = this.executionValuePKR / this.priceSnapshot.exchangeRateUSD;
+    this.estimatedOrderValueUSD = this.estimatedOrderValuePkr / this.priceSnapshot.exchangeRateUSD;
+    this.executionValueUSD = this.executionValuePkr / this.priceSnapshot.exchangeRateUSD;
   }
 };
 
@@ -415,22 +415,22 @@ TradeOrderSchema.methods.validateQuantity = function (this: any): boolean {
 };
 
 TradeOrderSchema.methods.validatePrice = function (this: any): boolean {
-  if ((this.requestedPricePKR || 0) <= 0) throw new Error("Invalid order price.");
-  if (this.orderType === OrderType.LIMIT && this.limitOrder?.enabled && (this.limitOrder.limitPricePKR || 0) <= 0) {
+  if ((this.requestedPricePkr || 0) <= 0) throw new Error("Invalid order price.");
+  if (this.orderType === OrderType.LIMIT && this.limitOrder?.enabled && (this.limitOrder.limitPricePkr || 0) <= 0) {
     throw new Error("Limit price required.");
   }
   return true;
 };
 
 TradeOrderSchema.methods.validateTriggers = function (this: any): boolean {
-  if (this.stopLoss?.enabled && (this.stopLoss.triggerPricePKR || 0) <= 0) throw new Error("Invalid Stop Loss trigger.");
-  if (this.takeProfit?.enabled && (this.takeProfit.targetPricePKR || 0) <= 0) throw new Error("Invalid Take Profit target.");
+  if (this.stopLoss?.enabled && (this.stopLoss.triggerPricePkr || 0) <= 0) throw new Error("Invalid Stop Loss trigger.");
+  if (this.takeProfit?.enabled && (this.takeProfit.targetPricePkr || 0) <= 0) throw new Error("Invalid Take Profit target.");
   return true;
 };
 
 TradeOrderSchema.methods.validateSlippage = function (this: any): boolean {
-  const marketPrice = Number(this.priceSnapshot?.marketPricePKR || 0);
-  const requested = Number(this.requestedPricePKR || 0);
+  const marketPrice = Number(this.priceSnapshot?.marketPricePkr || 0);
+  const requested = Number(this.requestedPricePkr || 0);
   if (!marketPrice) return true;
 
   const percent = (Math.abs(marketPrice - requested) / marketPrice) * 100;
@@ -453,19 +453,19 @@ TradeOrderSchema.methods.updateExecutionStatus = function (this: any): void {
 };
 
 TradeOrderSchema.methods.calculateTradingFees = function (this: any): void {
-  const rate = this.side === OrderSide.BUY ? Number(this.feeEngine?.buyFeePercent || 0) : Number(this.feeEngine?.sellFeePercent || 0);
-  let fee = (Number(this.executionValuePKR || 0) * rate) / 100;
-  fee = Math.max(fee, Number(this.feeEngine?.minimumFeePKR || 0));
-  fee = Math.min(fee, Number(this.feeEngine?.maximumFeePKR || fee));
+  const rate = this.side === OrderSide.buy ? Number(this.feeEngine?.buyFeePercent || 0) : Number(this.feeEngine?.sellFeePercent || 0);
+  let fee = (Number(this.executionValuePkr || 0) * rate) / 100;
+  fee = Math.max(fee, Number(this.feeEngine?.minimumFeePkr || 0));
+  fee = Math.min(fee, Number(this.feeEngine?.maximumFeePkr || fee));
 
   this.feeEngine = this.feeEngine || {};
-  this.feeEngine.calculatedFeePKR = Number(fee.toFixed(2));
+  this.feeEngine.calculatedFeePkr = Number(fee.toFixed(2));
 };
 
 TradeOrderSchema.methods.calculateRiskScore = function (this: any): void {
   let score = 0;
   if ((this.quantityGram || 0) >= 100) score += 25;
-  if ((this.estimatedOrderValuePKR || 0) >= 5000000) score += 25;
+  if ((this.estimatedOrderValuePkr || 0) >= 5000000) score += 25;
   if (this.paymentMethod === PaymentMethodType.CRYPTO) score += 15;
   if ((this.marketOrder?.actualSlippagePercent || 0) > 1) score += 20;
   if ((this.recoveryEngine?.retryCount || 0) >= 3) score += 15;
@@ -482,7 +482,7 @@ TradeOrderSchema.methods.runAMLChecks = function (this: any): void {
   this.riskEngine.amlChecked = true;
   this.riskEngine.amlCheckedAt = new Date();
 
-  if ((this.estimatedOrderValuePKR || 0) >= 10000000) {
+  if ((this.estimatedOrderValuePkr || 0) >= 10000000) {
     this.riskEngine.manualReviewRequired = true;
     this.riskEngine.riskFlags.push("HIGH_VALUE_TRANSACTION");
   }
@@ -517,7 +517,7 @@ TradeOrderSchema.pre<ITradeOrder>("save", function (next) {
 
   if (this.fills?.length > 500) this.fills = this.fills.slice(0, 500);
   if (this.partialFills?.length > 500) this.partialFills = this.partialFills.slice(0, 500);
-  if (this.matchingHistory?.length > 1000) this.matchingHistory = this.matchingHistory.slice(0, 1000);
+  if (this.matchinghistory?.length > 1000) this.matchinghistory = this.matchinghistory.slice(0, 1000);
   if (this.timeline?.length > 300) this.timeline = this.timeline.slice(0, 300);
   if (this.auditTrail?.length > 500) this.auditTrail = this.auditTrail.slice(0, 500);
   if (this.sipExecutions?.length > 365) this.sipExecutions = this.sipExecutions.slice(0, 365);
@@ -540,7 +540,7 @@ TradeOrderSchema.statics.findPendingSettlementOrders = function () {
 };
 
 TradeOrderSchema.statics.findLimitOrders = function () {
-  return this.find({ orderType: OrderType.LIMIT, status: { $in: [OrderStatus.OPEN, OrderStatus.PENDING] } }).sort({ requestedPricePKR: 1, placedAt: 1 });
+  return this.find({ orderType: OrderType.LIMIT, status: { $in: [OrderStatus.OPEN, OrderStatus.PENDING] } }).sort({ requestedPricePkr: 1, placedAt: 1 });
 };
 
 TradeOrderSchema.statics.findSIPOrders = function () {
@@ -565,8 +565,8 @@ TradeOrderSchema.statics.findTodayOrders = function () {
   return this.find({ placedAt: { $gte: start } }).sort({ placedAt: -1 });
 };
 
-TradeOrderSchema.statics.findLargeOrders = function (minPKR = 500000) {
-  return this.find({ estimatedOrderValuePKR: { $gte: minPKR } }).sort({ estimatedOrderValuePKR: -1 });
+TradeOrderSchema.statics.findLargeOrders = function (minPkr = 500000) {
+  return this.find({ estimatedOrderValuePkr: { $gte: minPkr } }).sort({ estimatedOrderValuePkr: -1 });
 };
 
 const TradeOrder =

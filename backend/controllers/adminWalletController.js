@@ -1,14 +1,14 @@
 const User = require("../models/User");
-const WalletTransaction = require("../models/WalletTransaction");
+const walletTransaction = require("../models/walletTransaction");
 
 // =======================================
-// GET ALL USERS FOR WALLET MANAGER
+// GET ALL USERS FOR wallet MANAGER
 // =======================================
-exports.getWalletUsers = async (req, res) => {
+exports.getwalletUsers = async (req, res) => {
   try {
     const users = await User.find()
       .select(
-        "username email role status walletBalance usdtBalance goldBalance totalDeposit totalWithdraw"
+        "username email role status walletBalance UsdtBalance goldBalance totalDeposit totalWithdraw"
       )
       .sort({ createdAt: -1 });
 
@@ -25,9 +25,9 @@ exports.getWalletUsers = async (req, res) => {
 };
 
 // =======================================
-// CREDIT / DEBIT WALLET
+// CREDIT / DEBIT wallet
 // =======================================
-exports.updateWallet = async (req, res) => {
+exports.updatewallet = async (req, res) => {
   try {
     const {
       userId,
@@ -70,8 +70,8 @@ exports.updateWallet = async (req, res) => {
     let previousBalance = 0;
     let newBalance = 0;
 
-    // PKR Wallet
-    if (walletType === "PKR") {
+    // Pkr wallet
+    if (walletType === "Pkr") {
       previousBalance = user.walletBalance;
 
       newBalance =
@@ -84,9 +84,9 @@ exports.updateWallet = async (req, res) => {
       user.walletBalance = newBalance;
     }
 
-    // USDT Wallet
-    if (walletType === "USDT") {
-      previousBalance = user.usdtBalance;
+    // Usdt wallet
+    if (walletType === "Usdt") {
+      previousBalance = user.UsdtBalance;
 
       newBalance =
         action === "credit"
@@ -95,10 +95,10 @@ exports.updateWallet = async (req, res) => {
 
       if (newBalance < 0) newBalance = 0;
 
-      user.usdtBalance = newBalance;
+      user.UsdtBalance = newBalance;
     }
 
-    // GOLD Wallet
+    // GOLD wallet
     if (walletType === "GOLD") {
       previousBalance = user.goldBalance;
 
@@ -114,7 +114,7 @@ exports.updateWallet = async (req, res) => {
 
     await user.save();
 
-    await WalletTransaction.create({
+    await walletTransaction.create({
       user: user._id,
       admin: req.user.id,
       walletType,
@@ -127,7 +127,7 @@ exports.updateWallet = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Wallet updated successfully.",
+      message: "wallet updated successfully.",
       walletType,
       previousBalance,
       newBalance,
@@ -144,11 +144,11 @@ exports.updateWallet = async (req, res) => {
 };
 
 // =======================================
-// WALLET HISTORY
+// wallet history
 // =======================================
-exports.walletHistory = async (req, res) => {
+exports.wallethistory = async (req, res) => {
   try {
-    const history = await WalletTransaction.find()
+    const history = await walletTransaction.find()
       .populate("user", "username email")
       .populate("admin", "username email")
       .sort({ createdAt: -1 });

@@ -24,7 +24,7 @@ import {
   getUserDetails,
   blockUser,
   unblockUser,
-  updateWalletBalance,
+  updatewalletBalance,
   deleteUser,
 
   getPendingKycRequests,
@@ -206,10 +206,10 @@ router.get("/users/search", searchUsers);
 router.get("/users/:id", getUserDetails);
 
 /**
- * USER WALLET MANAGEMENT
+ * USER wallet MANAGEMENT
  */
 
-router.patch("/users/:id/wallet", updateWalletBalance);
+router.patch("/users/:id/wallet", updatewalletBalance);
 
 /**
  * BLOCK / UNBLOCK USER
@@ -515,7 +515,7 @@ router.get("/withdrawals/today", async (req, res) => {
 // Get current gold price
 router.get("/gold-price", getGoldPriceSettings);
 
-// Update gold price (Buy / Sell / USD Rate)
+// Update gold price (buy / sell / USD Rate)
 router.patch("/gold-price", updateGoldPrice);
 
 // Refresh live gold price (Future API integration)
@@ -567,25 +567,25 @@ router.patch("/trading/resume-all", async (req, res) => {
 
 // Pause buy orders
 router.patch("/trading/pause-buy", async (req, res) => {
-  req.body.action = "PAUSE_BUY";
+  req.body.action = "PAUSE_buy";
   return toggleTradingStatus(req, res);
 });
 
 // Resume buy orders
 router.patch("/trading/resume-buy", async (req, res) => {
-  req.body.action = "RESUME_BUY";
+  req.body.action = "RESUME_buy";
   return toggleTradingStatus(req, res);
 });
 
 // Pause sell orders
 router.patch("/trading/pause-sell", async (req, res) => {
-  req.body.action = "PAUSE_SELL";
+  req.body.action = "PAUSE_sell";
   return toggleTradingStatus(req, res);
 });
 
 // Resume sell orders
 router.patch("/trading/resume-sell", async (req, res) => {
-  req.body.action = "RESUME_SELL";
+  req.body.action = "RESUME_sell";
   return toggleTradingStatus(req, res);
 });
 

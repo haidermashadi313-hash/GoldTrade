@@ -31,6 +31,6 @@ const walletTransactionSchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.model(
-  "WalletTransaction",
+  "walletTransaction",
   walletTransactionSchema
 );

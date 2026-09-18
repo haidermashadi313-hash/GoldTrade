@@ -13,7 +13,7 @@ router.get("/", async (req, res) => {
       settings = await Settings.create({
         buyGoldPrice: 31500,
         sellGoldPrice: 31200,
-        usdtRate: 280,
+        UsdtRate: 280,
         marketStatus: "OPEN",
       });
     }

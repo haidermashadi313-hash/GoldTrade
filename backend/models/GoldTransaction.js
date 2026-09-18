@@ -17,7 +17,7 @@ const goldTransactionSchema = new mongoose.Schema(
 
     tradeType: {
       type: String,
-      enum: ["BUY", "SELL"],
+      enum: ["buy", "sell"],
       required: true,
       index: true,
     },
@@ -42,7 +42,7 @@ const goldTransactionSchema = new mongoose.Schema(
 
     walletType: {
       type: String,
-      default: "PKR",
+      default: "Pkr",
     },
 
     status: {

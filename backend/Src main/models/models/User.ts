@@ -139,9 +139,9 @@ export interface ITradingProfile {
 
   failedTrades?: number;
 
-  totalBuyAmount: number;
+  totalbuyAmount: number;
 
-  totalSellAmount: number;
+  totalsellAmount: number;
 
   totalGoldBought: number;
 
@@ -149,9 +149,9 @@ export interface ITradingProfile {
 
   tradingVolume: number;
 
-  averageBuyPrice?: number;
+  averagebuyPrice?: number;
 
-  averageSellPrice?: number;
+  averagesellPrice?: number;
 
   highestProfitTrade?: number;
 
@@ -209,7 +209,7 @@ export interface IUser extends Document {
 
   kyc: IKYC;
 
-  kycHistory?: Array<{
+  kychistory?: Array<{
     status: KYCStatus;
     changedBy?: mongoose.Types.ObjectId;
     notes?: string;
@@ -248,7 +248,7 @@ export interface IUser extends Document {
 
   referral: IReferral;
 
-  referralHistory?: Array<{
+  referralhistory?: Array<{
     referredUser: mongoose.Types.ObjectId;
     referralLevel?: number;
     rewardAmount?: number;
@@ -269,7 +269,7 @@ export interface IUser extends Document {
     totalBonusEarned?: number;
   };
 
-  bonusHistory?: Array<{
+  bonushistory?: Array<{
     title: string;
     amount?: number;
     type?: "SIGNUP" | "FIRST_DEPOSIT" | "REFERRAL" | "LOYALTY" | "PROMOTION" | "CASHBACK";
@@ -279,7 +279,7 @@ export interface IUser extends Document {
 
   security: ISecurity;
 
-  loginHistory?: Array<{
+  loginhistory?: Array<{
     loginTime?: Date;
     ipAddress?: string;
     device?: string;
@@ -508,7 +508,7 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
 
     wallet: {
       type: Schema.Types.ObjectId,
-      ref: "Wallet",
+      ref: "wallet",
       index: true,
     },
 
@@ -613,10 +613,10 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
     },
 
     // ==================================================
-    // KYC HISTORY
+    // KYC history
     // ==================================================
 
-    kycHistory: [
+    kychistory: [
       {
         status: {
           type: String,
@@ -642,16 +642,16 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
 
 // ======================================================
 // END OF SECTION 3/10
-// NEXT SECTION: WALLET + TRADING SCHEMA
+// NEXT SECTION: wallet + TRADING SCHEMA
 // ======================================================// ======================================================
 // GOLDTRADE V17 ENTERPRISE
 // FILE: backend/src/models/User.ts
 // SECTION 4/10
-// WALLET + TRADING SCHEMA
+// wallet + TRADING SCHEMA
 // ======================================================
 
     // ==================================================
-    // WALLET INFORMATION
+    // wallet INFORMATION
     // ==================================================
 
     walletBalance: {
@@ -702,7 +702,7 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
 
     walletCurrency: {
       type: String,
-      default: "PKR",
+      default: "Pkr",
       uppercase: true,
     },
 
@@ -726,12 +726,12 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
         default: 0,
       },
 
-      totalBuyAmount: {
+      totalbuyAmount: {
         type: Number,
         default: 0,
       },
 
-      totalSellAmount: {
+      totalsellAmount: {
         type: Number,
         default: 0,
       },
@@ -751,12 +751,12 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
         default: 0,
       },
 
-      averageBuyPrice: {
+      averagebuyPrice: {
         type: Number,
         default: 0,
       },
 
-      averageSellPrice: {
+      averagesellPrice: {
         type: Number,
         default: 0,
       },
@@ -909,10 +909,10 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
     },
 
     // ==================================================
-    // REFERRAL HISTORY
+    // REFERRAL history
     // ==================================================
 
-    referralHistory: [
+    referralhistory: [
       {
         referredUser: {
           type: Schema.Types.ObjectId,
@@ -1001,10 +1001,10 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
     },
 
     // ==================================================
-    // BONUS HISTORY
+    // BONUS history
     // ==================================================
 
-    bonusHistory: [
+    bonushistory: [
       {
         title: {
           type: String,
@@ -1147,10 +1147,10 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
     },
 
     // ==================================================
-    // LOGIN HISTORY
+    // LOGIN history
     // ==================================================
 
-    loginHistory: [
+    loginhistory: [
       {
         loginTime: {
           type: Date,
@@ -1458,7 +1458,7 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
 
       preferredCurrency: {
         type: String,
-        default: "PKR",
+        default: "Pkr",
       },
 
       preferredGoldUnit: {
@@ -1533,10 +1533,10 @@ UserSchema.virtual("isAccountLocked").get(function () {
 });
 
 // ======================================================
-// VIRTUAL FIELD : FULL WALLET VALUE
+// VIRTUAL FIELD : FULL wallet VALUE
 // ======================================================
 
-UserSchema.virtual("totalWalletValue").get(function () {
+UserSchema.virtual("totalwalletValue").get(function () {
   const walletBalance = Number(this.walletBalance ?? 0);
   const bonusBalance = Number(this.bonusBalance ?? 0);
   const goldMarketValue = Number(this.portfolio?.goldMarketValue ?? 0);
@@ -1847,8 +1847,8 @@ UserSchema.methods.recordSuccessfulLogin = async function (
   security.loginAttempts = 0;
   security.lockUntil = undefined;
 
-  const loginHistory = this.loginHistory ?? [];
-  loginHistory.unshift({
+  const loginhistory = this.loginhistory ?? [];
+  loginhistory.unshift({
     loginTime: new Date(),
     ipAddress: ip,
     device,
@@ -1861,7 +1861,7 @@ UserSchema.methods.recordSuccessfulLogin = async function (
     status: "SUCCESS",
   });
 
-  this.loginHistory = loginHistory.slice(0, 20);
+  this.loginhistory = loginhistory.slice(0, 20);
 
   return this.save();
 };

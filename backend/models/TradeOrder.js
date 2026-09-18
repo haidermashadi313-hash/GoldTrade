@@ -16,7 +16,7 @@ const tradeOrderSchema = new mongoose.Schema(
 
     tradeType: {
       type: String,
-      enum: ["BUY", "SELL"],
+      enum: ["buy", "sell"],
       required: true,
     },
 
@@ -30,7 +30,7 @@ const tradeOrderSchema = new mongoose.Schema(
       required: true,
     },
 
-    totalPKR: {
+    totalPkr: {
       type: Number,
       required: true,
     },

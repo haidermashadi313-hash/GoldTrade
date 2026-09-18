@@ -1328,10 +1328,10 @@ const KYCSchema = new Schema<any>(
     },
 
     // ==================================================
-    // SELFIE VERIFICATION HISTORY
+    // SELFIE VERIFICATION history
     // ==================================================
 
-    selfieHistory: [
+    selfiehistory: [
       {
         selfieImage: String,
 
@@ -1618,10 +1618,10 @@ const KYCSchema = new Schema<any>(
     },
 
     // ==================================================
-    // RESIDENCE HISTORY
+    // RESIDENCE history
     // ==================================================
 
-    residenceHistory: [
+    residencehistory: [
       {
         address: String,
 
@@ -1651,10 +1651,10 @@ const KYCSchema = new Schema<any>(
     ],
 
     // ==================================================
-    // ADDRESS VERIFICATION HISTORY
+    // ADDRESS VERIFICATION history
     // ==================================================
 
-    addressVerificationHistory: [
+    addressVerificationhistory: [
       {
         documentType: {
           type: String,
@@ -2030,7 +2030,7 @@ const KYCSchema = new Schema<any>(
     ],
 
     // ==================================================
-    // NOTIFICATION HISTORY
+    // NOTIFICATION history
     // ==================================================
 
     notifications: {
@@ -2553,7 +2553,7 @@ KYCSchema.methods.checkExpiry = async function (): Promise<IKYC> {
 };
 
 // ======================================================
-// LIMIT AUDIT HISTORY SIZE
+// LIMIT AUDIT history SIZE
 // ======================================================
 
 KYCSchema.pre("save", function (next) {

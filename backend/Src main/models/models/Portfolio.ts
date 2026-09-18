@@ -31,23 +31,23 @@ export interface IGoldHolding {
   purity: GoldPurity;
   vaultType: VaultHoldingType;
   grams: number;
-  averageBuyPricePKR: number;
-  averageBuyPriceUSD: number;
-  marketPricePKR: number;
-  marketValuePKR: number;
-  profitLossPKR: number;
+  averagebuyPricePkr: number;
+  averagebuyPriceUSD: number;
+  marketPricePkr: number;
+  marketValuePkr: number;
+  profitLossPkr: number;
   roiPercentage: number;
   updatedAt: Date;
 }
 
 export interface ICashBalances {
-  PKR: number;
+  Pkr: number;
   USD: number;
   AED: number;
   SAR: number;
   EUR: number;
   GBP: number;
-  USDT: number;
+  Usdt: number;
 }
 
 export interface IGoldBalances {
@@ -64,7 +64,7 @@ export interface IRewardBalance {
   cashbackGoldGram: number;
   loyaltyGoldGram: number;
   referralGoldGram: number;
-  rewardPKR: number;
+  rewardPkr: number;
   loyaltyPoints: number;
 }
 
@@ -115,7 +115,7 @@ export interface IPortfolioModel extends Model<IPortfolio> {
   findActivePortfolios(): Promise<IPortfolio[]>;
   findVIPPortfolios(): Promise<IPortfolio[]>;
   findTopInvestors(limit?: number): Promise<IPortfolio[]>;
-  findHighNetWorthPortfolios(minPKR?: number): Promise<IPortfolio[]>;
+  findHighNetWorthPortfolios(minPkr?: number): Promise<IPortfolio[]>;
   findRiskyPortfolios(): Promise<IPortfolio[]>;
   findRebalanceRequiredPortfolios(): Promise<IPortfolio[]>;
   findPortfoliosByInvestorGrade(grade: string): Promise<IPortfolio[]>;
@@ -129,11 +129,11 @@ const holdingSchema = new Schema<IGoldHolding>(
     purity: { type: String, enum: Object.values(GoldPurity), required: true },
     vaultType: { type: String, enum: Object.values(VaultHoldingType), required: true },
     grams: { type: Number, default: 0 },
-    averageBuyPricePKR: { type: Number, default: 0 },
-    averageBuyPriceUSD: { type: Number, default: 0 },
-    marketPricePKR: { type: Number, default: 0 },
-    marketValuePKR: { type: Number, default: 0 },
-    profitLossPKR: { type: Number, default: 0 },
+    averagebuyPricePkr: { type: Number, default: 0 },
+    averagebuyPriceUSD: { type: Number, default: 0 },
+    marketPricePkr: { type: Number, default: 0 },
+    marketValuePkr: { type: Number, default: 0 },
+    profitLossPkr: { type: Number, default: 0 },
     roiPercentage: { type: Number, default: 0 },
     updatedAt: { type: Date, default: Date.now },
   },
@@ -151,13 +151,13 @@ const PortfolioSchema = new Schema<IPortfolio, IPortfolioModel, IPortfolioMethod
     holdings: { type: [holdingSchema], default: [] },
 
     cashBalances: {
-      PKR: { type: Number, default: 0 },
+      Pkr: { type: Number, default: 0 },
       USD: { type: Number, default: 0 },
       AED: { type: Number, default: 0 },
       SAR: { type: Number, default: 0 },
       EUR: { type: Number, default: 0 },
       GBP: { type: Number, default: 0 },
-      USDT: { type: Number, default: 0 },
+      Usdt: { type: Number, default: 0 },
     },
 
     goldBalances: {
@@ -174,12 +174,12 @@ const PortfolioSchema = new Schema<IPortfolio, IPortfolioModel, IPortfolioMethod
       cashbackGoldGram: { type: Number, default: 0 },
       loyaltyGoldGram: { type: Number, default: 0 },
       referralGoldGram: { type: Number, default: 0 },
-      rewardPKR: { type: Number, default: 0 },
+      rewardPkr: { type: Number, default: 0 },
       loyaltyPoints: { type: Number, default: 0 },
     },
 
     linkedAccounts: {
-      wallet: { type: Schema.Types.ObjectId, ref: "Wallet" },
+      wallet: { type: Schema.Types.ObjectId, ref: "wallet" },
       goldVaults: [{ type: Schema.Types.ObjectId, ref: "GoldVault" }],
       bankAccounts: [{ type: Schema.Types.ObjectId, ref: "BankAccount" }],
       tradeOrders: [{ type: Schema.Types.ObjectId, ref: "TradeOrder" }],
@@ -187,10 +187,10 @@ const PortfolioSchema = new Schema<IPortfolio, IPortfolioModel, IPortfolioMethod
     },
 
     assetClassAllocation: {
-      goldAssetsPKR: { type: Number, default: 0 },
-      cashAssetsPKR: { type: Number, default: 0 },
-      cryptoAssetsPKR: { type: Number, default: 0 },
-      rewardAssetsPKR: { type: Number, default: 0 },
+      goldAssetsPkr: { type: Number, default: 0 },
+      cashAssetsPkr: { type: Number, default: 0 },
+      cryptoAssetsPkr: { type: Number, default: 0 },
+      rewardAssetsPkr: { type: Number, default: 0 },
       goldPercentage: { type: Number, default: 0 },
       cashPercentage: { type: Number, default: 0 },
       cryptoPercentage: { type: Number, default: 0 },
@@ -203,78 +203,78 @@ const PortfolioSchema = new Schema<IPortfolio, IPortfolioModel, IPortfolioMethod
     },
 
     cryptoAllocation: {
-      totalCryptoValuePKR: { type: Number, default: 0 },
+      totalCryptoValuePkr: { type: Number, default: 0 },
       totalCryptoPercentage: { type: Number, default: 0 },
     },
 
     portfolioValuation: {
-      totalValuePKR: { type: Number, default: 0 },
+      totalValuePkr: { type: Number, default: 0 },
       totalValueUSD: { type: Number, default: 0 },
     },
 
     goldValuation: {
-      totalGoldValuePKR: { type: Number, default: 0 },
+      totalGoldValuePkr: { type: Number, default: 0 },
       totalGoldValueUSD: { type: Number, default: 0 },
       totalGoldGrams: { type: Number, default: 0 },
-      digitalGoldValuePKR: { type: Number, default: 0 },
-      physicalGoldValuePKR: { type: Number, default: 0 },
-      hybridGoldValuePKR: { type: Number, default: 0 },
+      digitalGoldValuePkr: { type: Number, default: 0 },
+      physicalGoldValuePkr: { type: Number, default: 0 },
+      hybridGoldValuePkr: { type: Number, default: 0 },
     },
 
     cashValuation: {
-      totalCashPKR: { type: Number, default: 0 },
+      totalCashPkr: { type: Number, default: 0 },
       totalCashUSD: { type: Number, default: 0 },
     },
 
     rewardValuation: {
-      rewardValuePKR: { type: Number, default: 0 },
-      cashbackValuePKR: { type: Number, default: 0 },
-      loyaltyValuePKR: { type: Number, default: 0 },
-      referralValuePKR: { type: Number, default: 0 },
+      rewardValuePkr: { type: Number, default: 0 },
+      cashbackValuePkr: { type: Number, default: 0 },
+      loyaltyValuePkr: { type: Number, default: 0 },
+      referralValuePkr: { type: Number, default: 0 },
     },
 
     dailyPerformance: {
-      todayOpenValuePKR: { type: Number, default: 0 },
-      currentValuePKR: { type: Number, default: 0 },
-      gainLossPKR: { type: Number, default: 0 },
+      todayOpenValuePkr: { type: Number, default: 0 },
+      currentValuePkr: { type: Number, default: 0 },
+      gainLossPkr: { type: Number, default: 0 },
       gainLossPercent: { type: Number, default: 0 },
       updatedAt: { type: Date },
     },
 
     wealthSummary: {
-      netWorthPKR: { type: Number, default: 0 },
-      investableAssetsPKR: { type: Number, default: 0 },
-      liquidAssetsPKR: { type: Number, default: 0 },
-      lockedAssetsPKR: { type: Number, default: 0 },
-      rewardAssetsPKR: { type: Number, default: 0 },
+      netWorthPkr: { type: Number, default: 0 },
+      investableAssetsPkr: { type: Number, default: 0 },
+      liquidAssetsPkr: { type: Number, default: 0 },
+      lockedAssetsPkr: { type: Number, default: 0 },
+      rewardAssetsPkr: { type: Number, default: 0 },
       wealthRankScore: { type: Number, default: 0 },
     },
 
     investmentSummary: {
-      totalInvestmentPKR: { type: Number, default: 0 },
+      totalInvestmentPkr: { type: Number, default: 0 },
       totalInvestmentUSD: { type: Number, default: 0 },
       totalGoldPurchasedGram: { type: Number, default: 0 },
       totalGoldSoldGram: { type: Number, default: 0 },
-      averageBuyPricePKR: { type: Number, default: 0 },
-      averageSellPricePKR: { type: Number, default: 0 },
+      averagebuyPricePkr: { type: Number, default: 0 },
+      averagesellPricePkr: { type: Number, default: 0 },
       firstInvestmentDate: { type: Date },
       latestInvestmentDate: { type: Date },
     },
 
     profitLoss: {
-      realizedProfitPKR: { type: Number, default: 0 },
-      unrealizedProfitPKR: { type: Number, default: 0 },
+      realizedProfitPkr: { type: Number, default: 0 },
+      unrealizedProfitPkr: { type: Number, default: 0 },
       realizedProfitUSD: { type: Number, default: 0 },
       unrealizedProfitUSD: { type: Number, default: 0 },
-      totalProfitPKR: { type: Number, default: 0 },
-      totalLossPKR: { type: Number, default: 0 },
-      netProfitPKR: { type: Number, default: 0 },
+      totalProfitPkr: { type: Number, default: 0 },
+      totalLossPkr: { type: Number, default: 0 },
+      netProfitPkr: { type: Number, default: 0 },
       updatedAt: { type: Date },
     },
 
     roiAnalytics: {
       roiPercentage: { type: Number, default: 0 },
-      roiAmountPKR: { type: Number, default: 0 },
+      roiAmountPkr: { type: Number, default: 0 },
       roiAmountUSD: { type: Number, default: 0 },
       annualizedROI: { type: Number, default: 0 },
       monthlyROI: { type: Number, default: 0 },
@@ -288,8 +288,8 @@ const PortfolioSchema = new Schema<IPortfolio, IPortfolioModel, IPortfolioMethod
       losingTrades: { type: Number, default: 0 },
       winRatePercent: { type: Number, default: 0 },
       lossRatePercent: { type: Number, default: 0 },
-      averageProfitPerTradePKR: { type: Number, default: 0 },
-      averageLossPerTradePKR: { type: Number, default: 0 },
+      averageProfitPerTradePkr: { type: Number, default: 0 },
+      averageLossPerTradePkr: { type: Number, default: 0 },
     },
 
     investorGrade: {
@@ -337,37 +337,37 @@ const PortfolioSchema = new Schema<IPortfolio, IPortfolioModel, IPortfolioMethod
       },
       thresholdPercent: { type: Number, default: 5 },
       rebalanceRequired: { type: Boolean, default: false },
-      recommendedBuyGoldGram: { type: Number, default: 0 },
-      recommendedSellGoldGram: { type: Number, default: 0 },
-      estimatedRebalanceCostPKR: { type: Number, default: 0 },
+      recommendedbuyGoldGram: { type: Number, default: 0 },
+      recommendedsellGoldGram: { type: Number, default: 0 },
+      estimatedRebalanceCostPkr: { type: Number, default: 0 },
       nextRebalanceDate: { type: Date },
       lastRebalancedAt: { type: Date },
     },
 
     dashboardSummary: {
-      totalNetWorthPKR: { type: Number, default: 0 },
-      todayProfitPKR: { type: Number, default: 0 },
+      totalNetWorthPkr: { type: Number, default: 0 },
+      todayProfitPkr: { type: Number, default: 0 },
       todayProfitPercent: { type: Number, default: 0 },
-      monthlyProfitPKR: { type: Number, default: 0 },
-      yearlyProfitPKR: { type: Number, default: 0 },
+      monthlyProfitPkr: { type: Number, default: 0 },
+      yearlyProfitPkr: { type: Number, default: 0 },
       availableGoldGram: { type: Number, default: 0 },
-      availableCashPKR: { type: Number, default: 0 },
+      availableCashPkr: { type: Number, default: 0 },
       updatedAt: { type: Date },
     },
 
     referralAnalytics: {
       totalReferrals: { type: Number, default: 0 },
       activeReferrals: { type: Number, default: 0 },
-      referralIncomePKR: { type: Number, default: 0 },
+      referralIncomePkr: { type: Number, default: 0 },
       referralGoldGram: { type: Number, default: 0 },
       referralRank: { type: Number, default: 0 },
     },
 
     cashbackAnalytics: {
-      totalCashbackPKR: { type: Number, default: 0 },
+      totalCashbackPkr: { type: Number, default: 0 },
       totalCashbackGoldGram: { type: Number, default: 0 },
-      monthlyCashbackPKR: { type: Number, default: 0 },
-      yearlyCashbackPKR: { type: Number, default: 0 },
+      monthlyCashbackPkr: { type: Number, default: 0 },
+      yearlyCashbackPkr: { type: Number, default: 0 },
     },
 
     vipAnalytics: {
@@ -376,9 +376,9 @@ const PortfolioSchema = new Schema<IPortfolio, IPortfolioModel, IPortfolioMethod
         enum: ["STANDARD", "SILVER", "GOLD", "PLATINUM", "DIAMOND", "BLACK"],
         default: "STANDARD",
       },
-      totalFeeSavedPKR: { type: Number, default: 0 },
+      totalFeeSavedPkr: { type: Number, default: 0 },
       vipBenefitsUsed: { type: Number, default: 0 },
-      nextVIPTargetVolumePKR: { type: Number, default: 0 },
+      nextVIPTargetVolumePkr: { type: Number, default: 0 },
     },
 
     leaderboard: {
@@ -395,7 +395,7 @@ const PortfolioSchema = new Schema<IPortfolio, IPortfolioModel, IPortfolioMethod
     monthlySnapshots: { type: [Schema.Types.Mixed], default: [] },
     yearlySnapshots: { type: [Schema.Types.Mixed], default: [] },
     performanceTimeline: { type: [Schema.Types.Mixed], default: [] },
-    valuationHistory: { type: [Schema.Types.Mixed], default: [] },
+    valuationhistory: { type: [Schema.Types.Mixed], default: [] },
     achievements: { type: [Schema.Types.Mixed], default: [] },
     riskAlerts: { type: [Schema.Types.Mixed], default: [] },
   },
@@ -409,19 +409,19 @@ PortfolioSchema.index({ portfolioType: 1 });
 PortfolioSchema.index({ createdAt: -1 });
 PortfolioSchema.index({ "holdings.purity": 1, "holdings.vaultType": 1 });
 PortfolioSchema.index({ "goldBalances.totalGrams": -1 });
-PortfolioSchema.index({ "portfolioValuation.totalValuePKR": -1 });
-PortfolioSchema.index({ "profitLoss.netProfitPKR": -1 });
+PortfolioSchema.index({ "portfolioValuation.totalValuePkr": -1 });
+PortfolioSchema.index({ "profitLoss.netProfitPkr": -1 });
 PortfolioSchema.index({ "roiAnalytics.roiPercentage": -1 });
 PortfolioSchema.index({ "investorGrade.grade": 1 });
 PortfolioSchema.index({ "rewardBalance.loyaltyPoints": -1 });
 PortfolioSchema.index({ "referralAnalytics.totalReferrals": -1 });
 
 PortfolioSchema.virtual("netWorth").get(function (this: any) {
-  return this.portfolioValuation?.totalValuePKR || 0;
+  return this.portfolioValuation?.totalValuePkr || 0;
 });
 
 PortfolioSchema.virtual("todayProfit").get(function (this: any) {
-  return this.dailyPerformance?.gainLossPKR || 0;
+  return this.dailyPerformance?.gainLossPkr || 0;
 });
 
 PortfolioSchema.virtual("todayProfitPercent").get(function (this: any) {
@@ -441,15 +441,15 @@ PortfolioSchema.virtual("lockedGoldWeight").get(function (this: any) {
 });
 
 PortfolioSchema.virtual("rewardValue").get(function (this: any) {
-  return this.rewardValuation?.rewardValuePKR || 0;
+  return this.rewardValuation?.rewardValuePkr || 0;
 });
 
 PortfolioSchema.virtual("cashValue").get(function (this: any) {
-  return this.cashValuation?.totalCashPKR || 0;
+  return this.cashValuation?.totalCashPkr || 0;
 });
 
 PortfolioSchema.virtual("cryptoValue").get(function (this: any) {
-  return this.cryptoAllocation?.totalCryptoValuePKR || 0;
+  return this.cryptoAllocation?.totalCryptoValuePkr || 0;
 });
 
 PortfolioSchema.virtual("roi").get(function (this: any) {
@@ -457,13 +457,13 @@ PortfolioSchema.virtual("roi").get(function (this: any) {
 });
 
 PortfolioSchema.virtual("netProfit").get(function (this: any) {
-  return this.profitLoss?.netProfitPKR || 0;
+  return this.profitLoss?.netProfitPkr || 0;
 });
 
 PortfolioSchema.virtual("portfolioCompletion").get(function (this: any) {
   let completed = 0;
   if ((this.goldBalances?.totalGrams || 0) > 0) completed += 25;
-  if ((this.cashValuation?.totalCashPKR || 0) > 0) completed += 20;
+  if ((this.cashValuation?.totalCashPkr || 0) > 0) completed += 20;
   if (this.linkedAccounts?.wallet) completed += 15;
   if ((this.linkedAccounts?.bankAccounts?.length || 0) > 0) completed += 15;
   if ((this.linkedAccounts?.goldVaults?.length || 0) > 0) completed += 15;
@@ -500,11 +500,11 @@ PortfolioSchema.virtual("investorBadge").get(function (this: any) {
 
 PortfolioSchema.virtual("dashboardCards").get(function (this: any) {
   return {
-    netWorth: this.portfolioValuation?.totalValuePKR || 0,
-    todayProfit: this.dailyPerformance?.gainLossPKR || 0,
+    netWorth: this.portfolioValuation?.totalValuePkr || 0,
+    todayProfit: this.dailyPerformance?.gainLossPkr || 0,
     roi: this.roiAnalytics?.roiPercentage || 0,
     goldGram: this.goldBalances?.totalGrams || 0,
-    rewards: this.rewardValuation?.rewardValuePKR || 0,
+    rewards: this.rewardValuation?.rewardValuePkr || 0,
     riskScore: this.portfolioRisk?.overallRiskScore || 0,
   };
 });
@@ -550,40 +550,40 @@ PortfolioSchema.methods.calculateGoldBalances = function () {
 };
 
 PortfolioSchema.methods.calculatePortfolioValue = function () {
-  const gold = this.goldValuation.totalGoldValuePKR || 0;
-  const cash = this.cashValuation.totalCashPKR || 0;
-  const cryptoValue = this.cryptoAllocation.totalCryptoValuePKR || 0;
-  const reward = this.rewardValuation.rewardValuePKR || 0;
+  const gold = this.goldValuation.totalGoldValuePkr || 0;
+  const cash = this.cashValuation.totalCashPkr || 0;
+  const cryptoValue = this.cryptoAllocation.totalCryptoValuePkr || 0;
+  const reward = this.rewardValuation.rewardValuePkr || 0;
 
   const total = gold + cash + cryptoValue + reward;
-  this.portfolioValuation.totalValuePKR = Number(total.toFixed(2));
-  this.wealthSummary.netWorthPKR = total;
+  this.portfolioValuation.totalValuePkr = Number(total.toFixed(2));
+  this.wealthSummary.netWorthPkr = total;
 
   return total;
 };
 
 PortfolioSchema.methods.calculateROI = function () {
-  const invested = this.investmentSummary.totalInvestmentPKR || 0;
-  const current = this.portfolioValuation.totalValuePKR || 0;
+  const invested = this.investmentSummary.totalInvestmentPkr || 0;
+  const current = this.portfolioValuation.totalValuePkr || 0;
 
   if (invested <= 0) {
     this.roiAnalytics.roiPercentage = 0;
-    this.roiAnalytics.roiAmountPKR = 0;
+    this.roiAnalytics.roiAmountPkr = 0;
     return;
   }
 
   const roi = ((current - invested) / invested) * 100;
   this.roiAnalytics.roiPercentage = Number(roi.toFixed(2));
-  this.roiAnalytics.roiAmountPKR = Number((current - invested).toFixed(2));
+  this.roiAnalytics.roiAmountPkr = Number((current - invested).toFixed(2));
 };
 
 PortfolioSchema.methods.calculateDailyPerformance = function () {
-  const open = this.dailyPerformance.todayOpenValuePKR || 0;
-  const current = this.portfolioValuation.totalValuePKR || 0;
+  const open = this.dailyPerformance.todayOpenValuePkr || 0;
+  const current = this.portfolioValuation.totalValuePkr || 0;
   const pnl = current - open;
 
-  this.dailyPerformance.currentValuePKR = current;
-  this.dailyPerformance.gainLossPKR = Number(pnl.toFixed(2));
+  this.dailyPerformance.currentValuePkr = current;
+  this.dailyPerformance.gainLossPkr = Number(pnl.toFixed(2));
 
   if (open > 0) {
     this.dailyPerformance.gainLossPercent = Number(((pnl / open) * 100).toFixed(2));
@@ -595,11 +595,11 @@ PortfolioSchema.methods.calculateDailyPerformance = function () {
 };
 
 PortfolioSchema.methods.calculateAllocation = function () {
-  const total = this.portfolioValuation.totalValuePKR || 1;
-  const gold = this.goldValuation.totalGoldValuePKR || 0;
-  const cash = this.cashValuation.totalCashPKR || 0;
-  const cryptoValue = this.cryptoAllocation.totalCryptoValuePKR || 0;
-  const rewards = this.rewardValuation.rewardValuePKR || 0;
+  const total = this.portfolioValuation.totalValuePkr || 1;
+  const gold = this.goldValuation.totalGoldValuePkr || 0;
+  const cash = this.cashValuation.totalCashPkr || 0;
+  const cryptoValue = this.cryptoAllocation.totalCryptoValuePkr || 0;
+  const rewards = this.rewardValuation.rewardValuePkr || 0;
 
   this.assetClassAllocation.goldPercentage = Number(((gold / total) * 100).toFixed(2));
   this.assetClassAllocation.cashPercentage = Number(((cash / total) * 100).toFixed(2));
@@ -641,24 +641,24 @@ PortfolioSchema.methods.updateHealthSummary = function () {
 };
 
 PortfolioSchema.methods.updateDashboardSummary = function () {
-  this.dashboardSummary.totalNetWorthPKR = this.portfolioValuation.totalValuePKR || 0;
-  this.dashboardSummary.todayProfitPKR = this.dailyPerformance.gainLossPKR || 0;
+  this.dashboardSummary.totalNetWorthPkr = this.portfolioValuation.totalValuePkr || 0;
+  this.dashboardSummary.todayProfitPkr = this.dailyPerformance.gainLossPkr || 0;
   this.dashboardSummary.todayProfitPercent = this.dailyPerformance.gainLossPercent || 0;
   this.dashboardSummary.availableGoldGram = this.goldBalances.availableGrams || 0;
-  this.dashboardSummary.availableCashPKR = this.cashValuation.totalCashPKR || 0;
+  this.dashboardSummary.availableCashPkr = this.cashValuation.totalCashPkr || 0;
   this.dashboardSummary.updatedAt = new Date();
 };
 
 PortfolioSchema.methods.createDailySnapshot = function () {
   this.dailySnapshots.unshift({
     snapshotDate: new Date(),
-    portfolioValuePKR: this.portfolioValuation.totalValuePKR || 0,
+    portfolioValuePkr: this.portfolioValuation.totalValuePkr || 0,
     portfolioValueUSD: this.portfolioValuation.totalValueUSD || 0,
-    goldValuePKR: this.goldValuation.totalGoldValuePKR || 0,
-    cashValuePKR: this.cashValuation.totalCashPKR || 0,
-    cryptoValuePKR: this.cryptoAllocation.totalCryptoValuePKR || 0,
-    rewardValuePKR: this.rewardValuation.rewardValuePKR || 0,
-    gainLossPKR: this.dailyPerformance.gainLossPKR || 0,
+    goldValuePkr: this.goldValuation.totalGoldValuePkr || 0,
+    cashValuePkr: this.cashValuation.totalCashPkr || 0,
+    cryptoValuePkr: this.cryptoAllocation.totalCryptoValuePkr || 0,
+    rewardValuePkr: this.rewardValuation.rewardValuePkr || 0,
+    gainLossPkr: this.dailyPerformance.gainLossPkr || 0,
     gainLossPercent: this.dailyPerformance.gainLossPercent || 0,
     totalGoldGram: this.goldBalances.totalGrams || 0,
   });
@@ -697,7 +697,7 @@ PortfolioSchema.pre<IPortfolio>("save", function (next) {
   if (this.monthlySnapshots.length > 120) this.monthlySnapshots = this.monthlySnapshots.slice(0, 120);
   if (this.yearlySnapshots.length > 25) this.yearlySnapshots = this.yearlySnapshots.slice(0, 25);
   if (this.performanceTimeline.length > 1000) this.performanceTimeline = this.performanceTimeline.slice(0, 1000);
-  if (this.valuationHistory.length > 1000) this.valuationHistory = this.valuationHistory.slice(0, 1000);
+  if (this.valuationhistory.length > 1000) this.valuationhistory = this.valuationhistory.slice(0, 1000);
   if (this.achievements.length > 200) this.achievements = this.achievements.slice(0, 200);
   if (this.riskAlerts.length > 200) this.riskAlerts = this.riskAlerts.slice(0, 200);
   next();
@@ -712,18 +712,18 @@ PortfolioSchema.statics.findActivePortfolios = function () {
 };
 
 PortfolioSchema.statics.findVIPPortfolios = function () {
-  return this.find({ portfolioType: PortfolioType.VIP }).sort({ "portfolioValuation.totalValuePKR": -1 });
+  return this.find({ portfolioType: PortfolioType.VIP }).sort({ "portfolioValuation.totalValuePkr": -1 });
 };
 
 PortfolioSchema.statics.findTopInvestors = function (limit = 50) {
   return this.find({ status: PortfolioStatus.ACTIVE })
-    .sort({ "portfolioValuation.totalValuePKR": -1 })
+    .sort({ "portfolioValuation.totalValuePkr": -1 })
     .limit(limit);
 };
 
-PortfolioSchema.statics.findHighNetWorthPortfolios = function (minPKR = 10000000) {
-  return this.find({ "portfolioValuation.totalValuePKR": { $gte: minPKR } }).sort({
-    "portfolioValuation.totalValuePKR": -1,
+PortfolioSchema.statics.findHighNetWorthPortfolios = function (minPkr = 10000000) {
+  return this.find({ "portfolioValuation.totalValuePkr": { $gte: minPkr } }).sort({
+    "portfolioValuation.totalValuePkr": -1,
   });
 };
 
@@ -742,11 +742,11 @@ PortfolioSchema.statics.findPortfoliosByInvestorGrade = function (grade: string)
 };
 
 PortfolioSchema.statics.findTopReferralPortfolios = function (limit = 25) {
-  return this.find().sort({ "referralAnalytics.referralIncomePKR": -1 }).limit(limit);
+  return this.find().sort({ "referralAnalytics.referralIncomePkr": -1 }).limit(limit);
 };
 
 PortfolioSchema.statics.findTopCashbackPortfolios = function (limit = 25) {
-  return this.find().sort({ "cashbackAnalytics.totalCashbackPKR": -1 }).limit(limit);
+  return this.find().sort({ "cashbackAnalytics.totalCashbackPkr": -1 }).limit(limit);
 };
 
 PortfolioSchema.statics.findTodayUpdatedPortfolios = function () {

@@ -2,7 +2,7 @@
 // GOLDTRADE V17 ENTERPRISE
 // FILE: backend/src/routes/wallet.routes.ts
 // SECTION 1/10
-// WALLET OVERVIEW + FIAT + CRYPTO + GOLD ROUTES
+// wallet OVERVIEW + FIAT + CRYPTO + GOLD ROUTES
 // ======================================================
 
 import { Router } from "express";
@@ -38,21 +38,21 @@ const passthrough = (_req: any, _res: any, next: any) => next();
 const authenticate = authMiddleware.authenticate || passthrough;
 const authorizeAdmin = authMiddleware.authorizeAdmin || passthrough;
 
-const getWalletOverview = pick("getWalletOverview", "getWallet");
-const getWalletBalances = pick("getWalletBalances", "getWallet");
-const getFiatWallet = pick("getFiatWallet", "getWallet");
-const getCryptoWallet = pick("getCryptoWallet", "getCryptoAddress");
-const getGoldWallet = pick("getGoldWallet", "getWallet");
-const getNetWorthSummary = pick("getNetWorthSummary", "getWalletSummary");
+const getwalletOverview = pick("getwalletOverview", "getwallet");
+const getwalletBalances = pick("getwalletBalances", "getwallet");
+const getFiatwallet = pick("getFiatwallet", "getwallet");
+const getCryptowallet = pick("getCryptowallet", "getCryptoAddress");
+const getGoldwallet = pick("getGoldwallet", "getwallet");
+const getNetWorthSummary = pick("getNetWorthSummary", "getwalletSummary");
 const getAvailableBalance = pick("getAvailableBalance");
 const getLockedBalance = pick("getLockedBalance", "getGoldBalance");
-const getWalletStatistics = pick("getWalletStatistics", "walletStatistics");
-const refreshWalletBalances = pick("refreshWalletBalances", "refreshWalletCache");
+const getwalletStatistics = pick("getwalletStatistics", "walletStatistics");
+const refreshwalletBalances = pick("refreshwalletBalances", "refreshwalletCache");
 
 const createBankDeposit = pick("createBankDeposit");
 const createCryptoDeposit = pick("createCryptoDeposit");
 const createGoldDeposit = pick("createGoldDeposit");
-const getDepositHistory = pick("getDepositHistory");
+const getDeposithistory = pick("getDeposithistory");
 const getDepositById = pick("getDepositById");
 const cancelDepositRequest = pick("cancelDepositRequest");
 const uploadDepositProof = pick("uploadDepositProof");
@@ -63,7 +63,7 @@ const getDepositStatistics = pick("getDepositStatistics");
 const createBankWithdrawal = pick("createBankWithdrawal");
 const createCryptoWithdrawal = pick("createCryptoWithdrawal", "rejectCryptoWithdraw");
 const createGoldWithdrawal = pick("createGoldWithdrawal");
-const getWithdrawalHistory = pick("getWithdrawalHistory");
+const getWithdrawalhistory = pick("getWithdrawalhistory");
 const getWithdrawalById = pick("getWithdrawalById");
 const cancelWithdrawalRequest = pick("cancelWithdrawalRequest", "cancelWithdrawRequest");
 const verifyWithdrawalOTP = pick("verifyWithdrawalOTP");
@@ -85,18 +85,18 @@ const deleteCryptoAddress = pick("deleteCryptoAddress", "getCryptoAddress");
 const getCryptoAddresses = pick("getCryptoAddresses", "getCryptoAddress");
 const getCryptoAddressById = pick("getCryptoAddressById", "getCryptoAddress");
 const setDefaultCryptoAddress = pick("setDefaultCryptoAddress", "getCryptoAddress");
-const addWalletAddressBook = pick("addWalletAddressBook");
-const updateWalletAddressBook = pick("updateWalletAddressBook");
-const deleteWalletAddressBook = pick("deleteWalletAddressBook");
-const getWalletAddressBook = pick("getWalletAddressBook");
-const getWalletAddressBookById = pick("getWalletAddressBookById");
+const addwalletAddressBook = pick("addwalletAddressBook");
+const updatewalletAddressBook = pick("updatewalletAddressBook");
+const deletewalletAddressBook = pick("deletewalletAddressBook");
+const getwalletAddressBook = pick("getwalletAddressBook");
+const getwalletAddressBookById = pick("getwalletAddressBookById");
 
 const transferFiatBalance = pick("transferFiatBalance");
 const transferCryptoBalance = pick("transferCryptoBalance");
 const transferGoldBalance = pick("transferGoldBalance");
-const transferBetweenWallets = pick("transferBetweenWallets");
-const transferToUser = pick("transferToUser", "transferPKRToUser");
-const getTransferHistory = pick("getTransferHistory");
+const transferBetweenwallets = pick("transferBetweenwallets");
+const transferToUser = pick("transferToUser", "transferPkrToUser");
+const getTransferhistory = pick("getTransferhistory");
 const getTransferById = pick("getTransferById");
 const cancelTransfer = pick("cancelTransfer");
 const estimateTransferFee = pick("estimateTransferFee");
@@ -106,7 +106,7 @@ const getPendingTransfers = pick("getPendingTransfers");
 const approveTransfer = pick("approveTransfer", "approveRaastTransfer");
 const rejectTransfer = pick("rejectTransfer");
 
-const getTransactionHistory = pick("getTransactionHistory");
+const getTransactionhistory = pick("getTransactionhistory");
 const getTransactionById = pick("getTransactionById");
 const getTransactionSummary = pick("getTransactionSummary");
 const searchTransactions = pick("searchTransactions");
@@ -119,23 +119,23 @@ const exportTransactionsExcel = pick("exportTransactionsExcel", "exportTransacti
 const downloadTransactionReceipt = pick("downloadTransactionReceipt");
 const resendTransactionReceipt = pick("resendTransactionReceipt");
 const getTransactionAnalytics = pick("getTransactionAnalytics");
-const getWalletCashFlow = pick("getWalletCashFlow");
+const getwalletCashFlow = pick("getwalletCashFlow");
 
-const getRewardsWallet = pick("getRewardsWallet");
+const getRewardswallet = pick("getRewardswallet");
 const getRewardBalance = pick("getRewardBalance");
 const claimReward = pick("claimReward");
-const getRewardHistory = pick("getRewardHistory");
-const getCashbackHistory = pick("getCashbackHistory");
-const convertRewardToWallet = pick("convertRewardToWallet");
+const getRewardhistory = pick("getRewardhistory");
+const getCashbackhistory = pick("getCashbackhistory");
+const convertRewardTowallet = pick("convertRewardTowallet");
 const transferRewardBalance = pick("transferRewardBalance");
-const getReferralWallet = pick("getReferralWallet");
+const getReferralwallet = pick("getReferralwallet");
 const claimReferralBonus = pick("claimReferralBonus");
-const getReferralBonusHistory = pick("getReferralBonusHistory");
+const getReferralBonushistory = pick("getReferralBonushistory");
 const getWelcomeBonus = pick("getWelcomeBonus");
 const claimWelcomeBonus = pick("claimWelcomeBonus");
 const getLoyaltyPoints = pick("getLoyaltyPoints", "addLoyaltyPoints");
 const redeemLoyaltyPoints = pick("redeemLoyaltyPoints");
-const getBonusWalletSummary = pick("getBonusWalletSummary", "getWalletSummary");
+const getBonuswalletSummary = pick("getBonuswalletSummary", "getwalletSummary");
 const getRewardStatistics = pick("getRewardStatistics");
 
 const createPriceAlert = pick("createPriceAlert");
@@ -155,52 +155,52 @@ const createSavingsVault = pick("createSavingsVault");
 const getSavingsVault = pick("getSavingsVault");
 const depositSavingsVault = pick("depositSavingsVault");
 const withdrawSavingsVault = pick("withdrawSavingsVault");
-const getSavingsHistory = pick("getSavingsHistory");
-const getScheduledWalletJobs = pick("getScheduledWalletJobs");
+const getSavingshistory = pick("getSavingshistory");
+const getScheduledwalletJobs = pick("getScheduledwalletJobs");
 const executeScheduledInvestment = pick("executeScheduledInvestment");
 
-const getAdminWalletDashboard = pick("getAdminWalletDashboard");
+const getAdminwalletDashboard = pick("getAdminwalletDashboard");
 const getTreasuryOverview = pick("getTreasuryOverview");
 const updateTreasuryBalances = pick("updateTreasuryBalances");
 const getLiquidityPoolStatus = pick("getLiquidityPoolStatus");
 const refillLiquidityPool = pick("refillLiquidityPool");
-const getReserveWalletStatus = pick("getReserveWalletStatus");
-const updateReserveWallet = pick("updateReserveWallet");
+const getReservewalletStatus = pick("getReservewalletStatus");
+const updateReservewallet = pick("updateReservewallet");
 const getVaultGoldInventory = pick("getVaultGoldInventory");
 const updateVaultGoldInventory = pick("updateVaultGoldInventory");
 const getRiskExposureReport = pick("getRiskExposureReport");
-const freezeWallet = pick("freezeWallet");
-const unfreezeWallet = pick("unfreezeWallet");
-const getFrozenWallets = pick("getFrozenWallets");
-const getWalletAuditLogs = pick("getWalletAuditLogs");
-const getWalletHealthStatus = pick("getWalletHealthStatus");
-const syncWalletBalances = pick("syncWalletBalances");
-const reconcileWalletBalances = pick("reconcileWalletBalances");
+const freezewallet = pick("freezewallet");
+const unfreezewallet = pick("unfreezewallet");
+const getFrozenwallets = pick("getFrozenwallets");
+const getwalletAuditLogs = pick("getwalletAuditLogs");
+const getwalletHealthStatus = pick("getwalletHealthStatus");
+const syncwalletBalances = pick("syncwalletBalances");
+const reconcilewalletBalances = pick("reconcilewalletBalances");
 
-const getWalletHealth = pick("getWalletHealth", "walletHealth");
-const getWalletVersion = pick("getWalletVersion", "walletVersion");
-const verifyWalletIntegrity = pick("verifyWalletIntegrity", "walletIntegrity");
-const refreshWalletCache = pick("refreshWalletCache", "walletCacheRefresh");
+const getwalletHealth = pick("getwalletHealth", "walletHealth");
+const getwalletVersion = pick("getwalletVersion", "walletVersion");
+const verifywalletIntegrity = pick("verifywalletIntegrity", "walletIntegrity");
+const refreshwalletCache = pick("refreshwalletCache", "walletCacheRefresh");
 const getSupportedCurrencies = pick("getSupportedCurrencies", "supportedCurrencies");
 const getSupportedNetworks = pick("getSupportedNetworks", "supportedNetworks");
 const getExchangeRates = pick("getExchangeRates", "getLiveExchangeRates");
-const getWalletConfiguration = pick("getWalletConfiguration", "walletConfiguration");
-const walletWebhook = pick("walletWebhook", "handleWalletWebhook");
+const getwalletConfiguration = pick("getwalletConfiguration", "walletConfiguration");
+const walletWebhook = pick("walletWebhook", "handlewalletWebhook");
 const cryptoDepositWebhook = pick("cryptoDepositWebhook", "handleCryptoDepositWebhook");
 const bankDepositWebhook = pick("bankDepositWebhook", "handleBankDepositWebhook");
 const payoutWebhook = pick("payoutWebhook", "handlePayoutWebhook");
-const getWalletSystemStatistics = pick("getWalletSystemStatistics", "walletSystemStatistics");
+const getwalletSystemStatistics = pick("getwalletSystemStatistics", "walletSystemStatistics");
 const cleanupExpiredTransactions = pick("cleanupExpiredTransactions", "cleanupTransactions");
 const cleanupPendingDeposits = pick("cleanupPendingDeposits", "cleanupDeposits");
 const cleanupPendingWithdrawals = pick("cleanupPendingWithdrawals", "cleanupWithdrawals");
-const rebuildWalletIndexes = pick("rebuildWalletIndexes", "rebuildIndexes");
+const rebuildwalletIndexes = pick("rebuildwalletIndexes", "rebuildIndexes");
 const synchronizeBlockchainBalances = pick(
   "synchronizeBlockchainBalances",
   "syncBlockchainBalances"
 );
 
 // ======================================================
-// WALLET OVERVIEW ROUTES
+// wallet OVERVIEW ROUTES
 // PREFIX: /api/v1/wallet
 // ======================================================
 
@@ -208,21 +208,21 @@ const synchronizeBlockchainBalances = pick(
 router.get(
   "/overview",
   authenticate,
-  getWalletOverview
+  getwalletOverview
 );
 
 // All wallet balances
 router.get(
   "/balances",
   authenticate,
-  getWalletBalances
+  getwalletBalances
 );
 
-// Wallet statistics
+// wallet statistics
 router.get(
   "/statistics",
   authenticate,
-  getWalletStatistics
+  getwalletStatistics
 );
 
 // Net worth summary
@@ -236,40 +236,40 @@ router.get(
 router.post(
   "/refresh",
   authenticate,
-  refreshWalletBalances
+  refreshwalletBalances
 );
 
 // ======================================================
-// FIAT WALLET ROUTES
+// FIAT wallet ROUTES
 // ======================================================
 
-// PKR, USD, AED, SAR, EUR, GBP balances
+// Pkr, USD, AED, SAR, EUR, GBP balances
 router.get(
   "/fiat",
   authenticate,
-  getFiatWallet
+  getFiatwallet
 );
 
 // ======================================================
-// CRYPTO WALLET ROUTES
+// CRYPTO wallet ROUTES
 // ======================================================
 
-// BTC, ETH, USDT, BNB, SOL balances
+// BTC, ETH, Usdt, BNB, SOL balances
 router.get(
   "/crypto",
   authenticate,
-  getCryptoWallet
+  getCryptowallet
 );
 
 // ======================================================
-// GOLD WALLET ROUTES
+// GOLD wallet ROUTES
 // ======================================================
 
 // Gold wallet holdings
 router.get(
   "/gold",
   authenticate,
-  getGoldWallet
+  getGoldwallet
 );
 
 // Available balance only
@@ -287,7 +287,7 @@ router.get(
 );
 
 // ======================================================
-// ADMIN WALLET STATUS
+// ADMIN wallet STATUS
 // ======================================================
 
 // Global wallet statistics
@@ -295,7 +295,7 @@ router.get(
   "/admin/system-wallet-status",
   authenticate,
   authorizeAdmin,
-  getWalletStatistics
+  getwalletStatistics
 );
 
 // ======================================================
@@ -356,14 +356,14 @@ router.post(
 );
 
 // ======================================================
-// DEPOSIT HISTORY ROUTES
+// DEPOSIT history ROUTES
 // ======================================================
 
 // All deposits
 router.get(
   "/deposits",
   authenticate,
-  getDepositHistory
+  getDeposithistory
 );
 
 // Single deposit details
@@ -454,14 +454,14 @@ router.post(
 );
 
 // ======================================================
-// WITHDRAWAL HISTORY ROUTES
+// WITHDRAWAL history ROUTES
 // ======================================================
 
 // Get all withdrawals
 router.get(
   "/withdrawals",
   authenticate,
-  getWithdrawalHistory
+  getWithdrawalhistory
 );
 
 // Get withdrawal details
@@ -581,7 +581,7 @@ router.put(
 );
 
 // ======================================================
-// CRYPTO WALLET ADDRESS ROUTES
+// CRYPTO wallet ADDRESS ROUTES
 // PREFIX: /api/v1/wallet/crypto-addresses
 // ======================================================
 
@@ -628,7 +628,7 @@ router.put(
 );
 
 // ======================================================
-// WALLET ADDRESS BOOK ROUTES
+// wallet ADDRESS BOOK ROUTES
 // PREFIX: /api/v1/wallet/address-book
 // ======================================================
 
@@ -636,35 +636,35 @@ router.put(
 router.post(
   "/address-book",
   authenticate,
-  addWalletAddressBook
+  addwalletAddressBook
 );
 
 // Get address book
 router.get(
   "/address-book",
   authenticate,
-  getWalletAddressBook
+  getwalletAddressBook
 );
 
 // Get address book contact
 router.get(
   "/address-book/:contactId",
   authenticate,
-  getWalletAddressBookById
+  getwalletAddressBookById
 );
 
 // Update address book contact
 router.put(
   "/address-book/:contactId",
   authenticate,
-  updateWalletAddressBook
+  updatewalletAddressBook
 );
 
 // Delete address book contact
 router.delete(
   "/address-book/:contactId",
   authenticate,
-  deleteWalletAddressBook
+  deletewalletAddressBook
 );
 
 // ======================================================
@@ -672,7 +672,7 @@ router.delete(
 // BANK + CRYPTO ADDRESS MANAGEMENT ROUTES COMPLETE
 // ======================================================
 // SECTION 5/10 START
-// WALLET TRANSFER + INTERNAL TRANSFER + GOLD TRANSFER ROUTES
+// wallet TRANSFER + INTERNAL TRANSFER + GOLD TRANSFER ROUTES
 // ======================================================
 
 // ======================================================
@@ -705,7 +705,7 @@ router.post(
 router.post(
   "/transfer/internal",
   authenticate,
-  transferBetweenWallets
+  transferBetweenwallets
 );
 
 // Universal transfer endpoint (email/userId/phone/referral)
@@ -741,14 +741,14 @@ router.get(
 );
 
 // ======================================================
-// TRANSFER HISTORY ROUTES
+// TRANSFER history ROUTES
 // ======================================================
 
 // All transfers
 router.get(
   "/transfers",
   authenticate,
-  getTransferHistory
+  getTransferhistory
 );
 
 // Single transfer details
@@ -796,14 +796,14 @@ router.post(
 
 // ======================================================
 // SECTION 5/10 END
-// WALLET TRANSFER ROUTES COMPLETE
+// wallet TRANSFER ROUTES COMPLETE
 // ======================================================
 // SECTION 6/10 START
-// TRANSACTION HISTORY + STATEMENTS + EXPORT ROUTES
+// TRANSACTION history + STATEMENTS + EXPORT ROUTES
 // ======================================================
 
 // ======================================================
-// TRANSACTION HISTORY ROUTES
+// TRANSACTION history ROUTES
 // PREFIX: /api/v1/wallet/transactions
 // ======================================================
 
@@ -811,7 +811,7 @@ router.post(
 router.get(
   "/transactions",
   authenticate,
-  getTransactionHistory
+  getTransactionhistory
 );
 
 // Single transaction details
@@ -843,7 +843,7 @@ router.post(
 );
 
 // ======================================================
-// WALLET STATEMENTS ROUTES
+// wallet STATEMENTS ROUTES
 // ======================================================
 
 // Monthly wallet statement
@@ -861,7 +861,7 @@ router.get(
 );
 
 // ======================================================
-// EXPORT TRANSACTION HISTORY
+// EXPORT TRANSACTION history
 // ======================================================
 
 // Export CSV
@@ -904,7 +904,7 @@ router.post(
 );
 
 // ======================================================
-// WALLET ANALYTICS ROUTES
+// wallet ANALYTICS ROUTES
 // ======================================================
 
 // Transaction analytics
@@ -914,23 +914,23 @@ router.get(
   getTransactionAnalytics
 );
 
-// Wallet cash flow
+// wallet cash flow
 router.get(
   "/cash-flow",
   authenticate,
-  getWalletCashFlow
+  getwalletCashFlow
 );
 
 // ======================================================
 // SECTION 6/10 END
-// TRANSACTION HISTORY + STATEMENTS ROUTES COMPLETE
+// TRANSACTION history + STATEMENTS ROUTES COMPLETE
 // ======================================================
 // SECTION 7/10 START
-// REWARDS + CASHBACK + BONUS + REFERRAL WALLET ROUTES
+// REWARDS + CASHBACK + BONUS + REFERRAL wallet ROUTES
 // ======================================================
 
 // ======================================================
-// REWARD WALLET ROUTES
+// REWARD wallet ROUTES
 // PREFIX: /api/v1/wallet/rewards
 // ======================================================
 
@@ -938,7 +938,7 @@ router.get(
 router.get(
   "/rewards",
   authenticate,
-  getRewardsWallet
+  getRewardswallet
 );
 
 // Reward balance only
@@ -959,7 +959,7 @@ router.post(
 router.get(
   "/rewards/history",
   authenticate,
-  getRewardHistory
+  getRewardhistory
 );
 
 // ======================================================
@@ -970,7 +970,7 @@ router.get(
 router.get(
   "/cashback/history",
   authenticate,
-  getCashbackHistory
+  getCashbackhistory
 );
 
 // ======================================================
@@ -981,7 +981,7 @@ router.get(
 router.post(
   "/rewards/convert",
   authenticate,
-  convertRewardToWallet
+  convertRewardTowallet
 );
 
 // Transfer reward balance to another user
@@ -992,14 +992,14 @@ router.post(
 );
 
 // ======================================================
-// REFERRAL BONUS WALLET
+// REFERRAL BONUS wallet
 // ======================================================
 
 // Referral wallet summary
 router.get(
   "/referral-wallet",
   authenticate,
-  getReferralWallet
+  getReferralwallet
 );
 
 // Claim referral bonus
@@ -1013,7 +1013,7 @@ router.post(
 router.get(
   "/referral-wallet/history",
   authenticate,
-  getReferralBonusHistory
+  getReferralBonushistory
 );
 
 // ======================================================
@@ -1060,7 +1060,7 @@ router.post(
 router.get(
   "/bonus/summary",
   authenticate,
-  getBonusWalletSummary
+  getBonuswalletSummary
 );
 
 // Reward statistics
@@ -1085,7 +1085,7 @@ router.get(
 
 // ======================================================
 // SECTION 7/10 END
-// REWARDS + BONUS WALLET ROUTES COMPLETE
+// REWARDS + BONUS wallet ROUTES COMPLETE
 // ======================================================
 // SECTION 8/10 START
 // PRICE ALERTS + AUTO INVEST + SAVINGS VAULT ROUTES
@@ -1236,7 +1236,7 @@ router.post(
 router.get(
   "/savings/history",
   authenticate,
-  getSavingsHistory
+  getSavingshistory
 );
 
 // ======================================================
@@ -1247,7 +1247,7 @@ router.get(
 router.get(
   "/scheduled-jobs",
   authenticate,
-  getScheduledWalletJobs
+  getScheduledwalletJobs
 );
 
 // ======================================================
@@ -1255,11 +1255,11 @@ router.get(
 // PRICE ALERTS + AUTO INVEST + SAVINGS VAULT ROUTES COMPLETE
 // ======================================================
 // SECTION 9/10 START
-// ADMIN WALLET MANAGEMENT + TREASURY + LIQUIDITY + RISK ROUTES
+// ADMIN wallet MANAGEMENT + TREASURY + LIQUIDITY + RISK ROUTES
 // ======================================================
 
 // ======================================================
-// ADMIN WALLET DASHBOARD ROUTES
+// ADMIN wallet DASHBOARD ROUTES
 // PREFIX: /api/v1/admin/wallet
 // ======================================================
 
@@ -1268,23 +1268,23 @@ router.get(
   "/admin/dashboard",
   authenticate,
   authorizeAdmin,
-  getAdminWalletDashboard
+  getAdminwalletDashboard
 );
 
-// Wallet health status
+// wallet health status
 router.get(
   "/admin/health",
   authenticate,
   authorizeAdmin,
-  getWalletHealthStatus
+  getwalletHealthStatus
 );
 
-// Wallet audit logs
+// wallet audit logs
 router.get(
   "/admin/audit-logs",
   authenticate,
   authorizeAdmin,
-  getWalletAuditLogs
+  getwalletAuditLogs
 );
 
 // ======================================================
@@ -1328,7 +1328,7 @@ router.post(
 );
 
 // ======================================================
-// RESERVE WALLET ROUTES
+// RESERVE wallet ROUTES
 // ======================================================
 
 // Reserve wallet balances
@@ -1336,7 +1336,7 @@ router.get(
   "/admin/reserve-wallet",
   authenticate,
   authorizeAdmin,
-  getReserveWalletStatus
+  getReservewalletStatus
 );
 
 // Update reserve wallet
@@ -1344,7 +1344,7 @@ router.put(
   "/admin/reserve-wallet",
   authenticate,
   authorizeAdmin,
-  updateReserveWallet
+  updateReservewallet
 );
 
 // ======================================================
@@ -1368,10 +1368,10 @@ router.put(
 );
 
 // ======================================================
-// WALLET RISK MANAGEMENT ROUTES
+// wallet RISK MANAGEMENT ROUTES
 // ======================================================
 
-// Wallet exposure report
+// wallet exposure report
 router.get(
   "/admin/risk-exposure",
   authenticate,
@@ -1384,7 +1384,7 @@ router.post(
   "/admin/users/:userId/freeze",
   authenticate,
   authorizeAdmin,
-  freezeWallet
+  freezewallet
 );
 
 // Unfreeze user wallet
@@ -1392,7 +1392,7 @@ router.post(
   "/admin/users/:userId/unfreeze",
   authenticate,
   authorizeAdmin,
-  unfreezeWallet
+  unfreezewallet
 );
 
 // List frozen wallets
@@ -1400,11 +1400,11 @@ router.get(
   "/admin/frozen-wallets",
   authenticate,
   authorizeAdmin,
-  getFrozenWallets
+  getFrozenwallets
 );
 
 // ======================================================
-// WALLET RECONCILIATION ROUTES
+// wallet RECONCILIATION ROUTES
 // ======================================================
 
 // Sync wallet balances
@@ -1412,7 +1412,7 @@ router.post(
   "/admin/sync-balances",
   authenticate,
   authorizeAdmin,
-  syncWalletBalances
+  syncwalletBalances
 );
 
 // Reconcile wallet balances
@@ -1420,40 +1420,40 @@ router.post(
   "/admin/reconcile-balances",
   authenticate,
   authorizeAdmin,
-  reconcileWalletBalances
+  reconcilewalletBalances
 );
 
 // ======================================================
 // SECTION 9/10 END
-// ADMIN WALLET MANAGEMENT ROUTES COMPLETE
+// ADMIN wallet MANAGEMENT ROUTES COMPLETE
 // ======================================================
 // SECTION 10/10 START
-// WALLET HEALTH + WEBHOOKS + ADMIN SYSTEM + FINAL ROUTES
+// wallet HEALTH + WEBHOOKS + ADMIN SYSTEM + FINAL ROUTES
 // ======================================================
 
 // ======================================================
-// WALLET HEALTH ROUTES
+// wallet HEALTH ROUTES
 // PREFIX: /api/v1/wallet
 // ======================================================
 
-// Wallet service health
-router.get("/health", getWalletHealth);
+// wallet service health
+router.get("/health", getwalletHealth);
 
-// Wallet module version
-router.get("/version", getWalletVersion);
+// wallet module version
+router.get("/version", getwalletVersion);
 
 // Verify wallet integrity
 router.get(
   "/verify-integrity",
   authenticate,
-  verifyWalletIntegrity
+  verifywalletIntegrity
 );
 
 // Refresh wallet cache
 router.post(
   "/refresh-cache",
   authenticate,
-  refreshWalletCache
+  refreshwalletCache
 );
 
 // ======================================================
@@ -1479,11 +1479,11 @@ router.get(
   getExchangeRates
 );
 
-// Wallet configuration
+// wallet configuration
 router.get(
   "/configuration",
   authenticate,
-  getWalletConfiguration
+  getwalletConfiguration
 );
 
 // ======================================================
@@ -1520,12 +1520,12 @@ router.post(
 // PREFIX: /api/v1/admin/wallet/system
 // ======================================================
 
-// Wallet system statistics
+// wallet system statistics
 router.get(
   "/admin/system/statistics",
   authenticate,
   authorizeAdmin,
-  getWalletSystemStatistics
+  getwalletSystemStatistics
 );
 
 // Cleanup expired transactions
@@ -1557,7 +1557,7 @@ router.post(
   "/admin/system/rebuild-indexes",
   authenticate,
   authorizeAdmin,
-  rebuildWalletIndexes
+  rebuildwalletIndexes
 );
 
 // Synchronize blockchain balances
@@ -1570,7 +1570,7 @@ router.post(
 
 // ======================================================
 // SECTION 10/10 END
-// WALLET ROUTES COMPLETE
+// wallet ROUTES COMPLETE
 // ======================================================
 
 export default router;

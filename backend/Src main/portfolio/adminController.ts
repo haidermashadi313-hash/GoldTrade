@@ -18,7 +18,7 @@ const getModel = <T = any>(name: string) =>
   mongoose.model<T>(name, new mongoose.Schema({}, { strict: false }));
 
 const User = getModel("User");
-const Wallet = getModel("Wallet");
+const wallet = getModel("wallet");
 const Deposit = getModel("Deposit");
 const Withdrawal = getModel("Withdrawal");
 const GoldPrice = getModel("GoldPrice");
@@ -528,7 +528,7 @@ export const getUserDetails = async (
       );
     }
 
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: user._id,
     });
 
@@ -647,7 +647,7 @@ export const unblockUser = async (
  * Update wallet balance
  */
 
-export const updateWalletBalance = async (
+export const updatewalletBalance = async (
   req: Request,
   res: Response
 ) => {
@@ -659,14 +659,14 @@ export const updateWalletBalance = async (
       goldBalance,
     } = req.body;
 
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.params.id,
     });
 
     if (!wallet) {
       return errorResponse(
         res,
-        "Wallet not found.",
+        "wallet not found.",
         404
       );
     }
@@ -690,13 +690,13 @@ export const updateWalletBalance = async (
 
     await createActivityLog(
       admin.id,
-      `Updated Wallet: ${req.params.id}`,
+      `Updated wallet: ${req.params.id}`,
       req
     );
 
     return successResponse(
       res,
-      "Wallet updated successfully.",
+      "wallet updated successfully.",
       {
         wallet,
       }
@@ -730,7 +730,7 @@ export const deleteUser = async (
       );
     }
 
-    await Wallet.deleteMany({
+    await wallet.deleteMany({
       user: user._id,
     });
 
@@ -1047,13 +1047,13 @@ export const approveDeposit = async (
       return errorResponse(res, "Deposit already approved.", 400);
     }
 
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: deposit.user,
     }).session(session);
 
     if (!wallet) {
       await session.abortTransaction();
-      return errorResponse(res, "Wallet not found.", 404);
+      return errorResponse(res, "wallet not found.", 404);
     }
 
     wallet.balance += deposit.amount;
@@ -1331,13 +1331,13 @@ export const approveWithdrawal = async (
       return errorResponse(res, "Withdrawal already approved.", 400);
     }
 
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: withdrawal.user,
     }).session(session);
 
     if (!wallet) {
       await session.abortTransaction();
-      return errorResponse(res, "Wallet not found.", 404);
+      return errorResponse(res, "wallet not found.", 404);
     }
 
     if (wallet.balance < withdrawal.amount) {
@@ -1362,7 +1362,7 @@ export const approveWithdrawal = async (
 
     await createActivityLog(
       admin.id,
-      `Approved Withdrawal: PKR ${withdrawal.amount}`,
+      `Approved Withdrawal: Pkr ${withdrawal.amount}`,
       req
     );
 
@@ -1424,7 +1424,7 @@ export const rejectWithdrawal = async (
 
     await createActivityLog(
       admin.id,
-      `Rejected Withdrawal: PKR ${withdrawal.amount}`,
+      `Rejected Withdrawal: Pkr ${withdrawal.amount}`,
       req
     );
 
@@ -1476,7 +1476,7 @@ export const bulkApproveWithdrawals = async (
         continue;
       }
 
-      const wallet = await Wallet.findOne({
+      const wallet = await wallet.findOne({
         user: withdrawal.user,
       }).session(session);
 
@@ -1606,7 +1606,7 @@ export const deleteWithdrawal = async (
 
     await createActivityLog(
       admin.id,
-      `Deleted Withdrawal Record: PKR ${withdrawal.amount}`,
+      `Deleted Withdrawal Record: Pkr ${withdrawal.amount}`,
       req
     );
 
@@ -1691,7 +1691,7 @@ export const updateGoldPrice = async (
 
     await createActivityLog(
       admin.id,
-      `Updated Gold Price Buy:${goldPrice.buyPrice} Sell:${goldPrice.sellPrice}`,
+      `Updated Gold Price buy:${goldPrice.buyPrice} sell:${goldPrice.sellPrice}`,
       req
     );
 
@@ -1847,19 +1847,19 @@ export const toggleTradingStatus = async (
         settings.sellEnabled = true;
         break;
 
-      case "PAUSE_BUY":
+      case "PAUSE_buy":
         settings.buyEnabled = false;
         break;
 
-      case "PAUSE_SELL":
+      case "PAUSE_sell":
         settings.sellEnabled = false;
         break;
 
-      case "RESUME_BUY":
+      case "RESUME_buy":
         settings.buyEnabled = true;
         break;
 
-      case "RESUME_SELL":
+      case "RESUME_sell":
         settings.sellEnabled = true;
         break;
 
@@ -2451,7 +2451,7 @@ export const getTradingAnalytics = async (
   try {
     verifyAdmin(req);
 
-    const walletStats = await Wallet.aggregate([
+    const walletStats = await wallet.aggregate([
       {
         $group: {
           _id: null,
@@ -2817,7 +2817,7 @@ export const backupDatabase = async (
 
     const backupSummary = {
       users: await User.countDocuments(),
-      wallets: await Wallet.countDocuments(),
+      wallets: await wallet.countDocuments(),
       deposits: await Deposit.countDocuments(),
       withdrawals: await Withdrawal.countDocuments(),
       referrals: await Referral.countDocuments(),

@@ -50,7 +50,7 @@ const depositRoutes = require("./routes/depositRoutes");
 const withdrawRoutes = require("./routes/withdrawRoutes");
 
 const goldRoutes = require("./routes/goldRoutes");
-const usdtRoutes = require("./routes/usdtRoutes");
+const UsdtRoutes = require("./routes/UsdtRoutes");
 const tradingRoutes = require("./routes/tradingRoutes");
 
 const marketRoutes = require("./routes/marketRoutes");
@@ -66,7 +66,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const adminDepositRoutes = require("./routes/adminDepositRoutes");
 const adminUsdtRoutes = require("./routes/adminUsdtRoutes");
-const adminWalletRoutes = require("./routes/adminWalletRoutes");
+const adminwalletRoutes = require("./routes/adminwalletRoutes");
 const adminUserRoutes = require("./routes/adminUserRoutes");
 
 // ==========================================
@@ -136,7 +136,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/deposit", depositRoutes);
 app.use("/api/admin/withdraws", withdrawRoutes);
-app.use("/api/usdt", usdtRoutes);
+app.use("/api/Usdt", UsdtRoutes);
 app.use("/api/gold", goldRoutes);
 app.use("/api/trading", tradingRoutes);
 app.use("/api/market", marketRoutes);
@@ -153,9 +153,9 @@ app.use("/api/history", historyRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/admin/deposits", adminDepositRoutes);
-app.use("/api/admin/wallet", adminWalletRoutes);
+app.use("/api/admin/wallet", adminwalletRoutes);
 app.use("/api/admin/users", adminUserRoutes);
-app.use("/api/admin/usdt", adminUsdtRoutes);
+app.use("/api/admin/Usdt", adminUsdtRoutes);
 
 // ======================================================
 // 404 API ROUTE
@@ -171,15 +171,15 @@ app.use("/api/*", (req, res) => {
   });
 });
 // ===========================================
-// TEMP FIX PKR WALLET (DELETE AFTER USE)
+// TEMP FIX Pkr wallet (DELETE AFTER USE)
 // ===========================================
-const Wallet = require("./models/Wallet");
+const wallet = require("./models/wallet");
 
-app.get("/fix-pkr", async (req, res) => {
+app.get("/fix-Pkr", async (req, res) => {
   try {
-    const result = await Wallet.updateMany(
-      { pkrBalance: { $exists: false } },
-      { $set: { pkrBalance: 0 } }
+    const result = await wallet.updateMany(
+      { PkrBalance: { $exists: false } },
+      { $set: { PkrBalance: 0 } }
     );
 
     res.json({

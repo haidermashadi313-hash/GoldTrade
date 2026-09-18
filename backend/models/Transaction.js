@@ -20,17 +20,17 @@ const transactionSchema = new mongoose.Schema(
       enum: [
         "Deposit",
         "Withdraw",
-        "Gold Buy",
-        "Gold Sell",
-        "Wallet Credit",
-        "Wallet Debit",
+        "Gold buy",
+        "Gold sell",
+        "wallet Credit",
+        "wallet Debit",
         "Referral Bonus",
         "Cashback",
       ],
       required: true,
     },
 
-    amountPKR: {
+    amountPkr: {
       type: Number,
       default: 0,
     },
@@ -40,14 +40,14 @@ const transactionSchema = new mongoose.Schema(
       default: 0,
     },
 
-    amountUSDT: {
+    amountUsdt: {
       type: Number,
       default: 0,
     },
 
     provider: {
       type: String,
-      default: "Wallet",
+      default: "wallet",
     },
 
     status: {

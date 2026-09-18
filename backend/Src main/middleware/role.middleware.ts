@@ -106,10 +106,10 @@ export const userOrAdmin = authorizeRoles(
 
 export const Permissions = {
   USER: [
-    "BUY_GOLD",
-    "SELL_GOLD",
+    "buy_GOLD",
+    "sell_GOLD",
     "VIEW_PORTFOLIO",
-    "CREATE_WALLET",
+    "CREATE_wallet",
     "WITHDRAW",
     "DEPOSIT",
   ],

@@ -70,8 +70,8 @@ register("get", "/prices/:currency", ["getGoldPriceByCurrency"]);
 register("get", "/supported-currencies", ["getSupportedCurrencies"]);
 
 // Historical and charts
-register("get", "/history", ["getHistoricalGoldPrices", "getGoldPriceHistory"]);
-register("get", "/history/range", ["getPriceHistoryRange", "getGoldPriceHistory"]);
+register("get", "/history", ["getHistoricalGoldPrices", "getGoldPricehistory"]);
+register("get", "/history/range", ["getPricehistoryRange", "getGoldPricehistory"]);
 register("get", "/history/statistics", ["getHistoricalPriceStatistics"]);
 register("get", "/history/export/csv", ["exportHistoricalPricesCSV"]);
 register("get", "/charts/candlestick", ["getCandlestickData", "getCandlestickChartData"]);
@@ -81,8 +81,8 @@ register("get", "/charts/export/csv", ["exportChartDataCSV"]);
 // Pricing tools
 register("get", "/premium", ["getGoldPremiumRates"]);
 register("get", "/spread", ["getGoldSpreadRates"]);
-register("post", "/buy/calculate", ["calculateBuyPrice"]);
-register("post", "/sell/calculate", ["calculateSellPrice"]);
+register("post", "/buy/calculate", ["calculatebuyPrice"]);
+register("post", "/sell/calculate", ["calculatesellPrice"]);
 register("post", "/currency/convert", ["convertGoldPriceCurrency", "getGoldPriceByCurrency"]);
 register("post", "/trade-estimation", ["estimateTradeValue"]);
 

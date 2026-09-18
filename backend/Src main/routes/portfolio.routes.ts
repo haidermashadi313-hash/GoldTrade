@@ -129,7 +129,7 @@ register("get", "/reports/dashboard", ["getPortfolioReportsDashboard"]);
 register("post", "/reports/generate", ["generatePortfolioReport"]);
 register("get", "/reports/:reportId", ["getPortfolioReportById"]);
 register("delete", "/reports/:reportId", ["deletePortfolioReport"]);
-register("get", "/export/history", ["getExportHistory"]);
+register("get", "/export/history", ["getExporthistory"]);
 register("get", "/export/portfolio/csv", ["exportPortfolioCSV"]);
 
 // Health, cache, scheduler, webhooks

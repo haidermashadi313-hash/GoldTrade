@@ -15,7 +15,7 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
-// GET COMPLETE HISTORY
+// GET COMPLETE history
 router.get("/", verifyToken, adminOnly, async (req, res) => {
   try {
     const deposits = await Deposit.find().sort({ createdAt: -1 });

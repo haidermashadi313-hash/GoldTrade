@@ -23,7 +23,7 @@ const settingsSchema = new mongoose.Schema(
       default: 108.45,
     },
 
-    usdToPkr: {
+    UsdtoPkr: {
       type: Number,
       default: 290,
     },

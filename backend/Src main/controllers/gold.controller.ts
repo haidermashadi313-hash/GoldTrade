@@ -8,7 +8,7 @@
 import { Request, Response } from "express";
 import GoldPriceModel from "../models/GoldPrice";
 import TransactionModel from "../models/Transaction";
-import WalletModel from "../models/Wallet";
+import walletModel from "../models/wallet";
 import PortfolioModel from "../models/Portfolio";
 import UserModel from "../models/User";
 
@@ -16,7 +16,7 @@ import UserModel from "../models/User";
 // models, so keep their controller-facing access permissive.
 const GoldPrice: any = GoldPriceModel;
 const Transaction: any = TransactionModel;
-const Wallet: any = WalletModel;
+const wallet: any = walletModel;
 const Portfolio: any = PortfolioModel;
 const User: any = UserModel;
 
@@ -173,10 +173,10 @@ export const getMarketSummary = async (
         marketStatus: latest.marketStatus,
         lastUpdated: latest.updatedAt,
 
-        gold24KPKR: latest.prices.K24.PKR,
-        gold22KPKR: latest.prices.K22.PKR,
-        gold21KPKR: latest.prices.K21.PKR,
-        gold18KPKR: latest.prices.K18.PKR,
+        gold24KPkr: latest.prices.K24.Pkr,
+        gold22KPkr: latest.prices.K22.Pkr,
+        gold21KPkr: latest.prices.K21.Pkr,
+        gold18KPkr: latest.prices.K18.Pkr,
 
         usdRate: latest.exchangeRates.USD,
         aedRate: latest.exchangeRates.AED,
@@ -194,11 +194,11 @@ export const getMarketSummary = async (
 };
 
 // ======================================================
-// PRICE HISTORY
+// PRICE history
 // GET /api/v1/gold/history
 // ======================================================
 
-export const getGoldPriceHistory = async (
+export const getGoldPricehistory = async (
   req: Request,
   res: Response
 ) => {
@@ -283,18 +283,18 @@ export const getGoldPriceCache = async (
 // SECTION 1/10 END
 // ======================================================// ======================================================
 // SECTION 2/10 START
-// BUY DIGITAL GOLD ENGINE
+// buy DIGITAL GOLD ENGINE
 // ======================================================
 
 // Supported currencies for gold purchase
 const GOLD_PAYMENT_CURRENCIES = [
-  "PKR",
+  "Pkr",
   "USD",
   "AED",
   "SAR",
   "EUR",
   "GBP",
-  "USDT",
+  "Usdt",
 ];
 
 // ======================================================
@@ -336,7 +336,7 @@ const getGoldGramPrice = async (
 };
 
 // ======================================================
-// BUY DIGITAL GOLD
+// buy DIGITAL GOLD
 // POST /api/v1/gold/buy
 // ======================================================
 
@@ -372,7 +372,7 @@ export const buyDigitalGold = async (
       });
     }
 
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id,
     });
 
@@ -383,7 +383,7 @@ export const buyDigitalGold = async (
     if (!wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "Wallet or portfolio not found.",
+        message: "wallet or portfolio not found.",
       });
     }
 
@@ -397,15 +397,15 @@ export const buyDigitalGold = async (
     );
 
     // Check balance
-    if (currency === "USDT") {
-      if (wallet.cryptoBalances.USDT < totalAmount) {
+    if (currency === "Usdt") {
+      if (wallet.cryptoBalances.Usdt < totalAmount) {
         return res.status(400).json({
           success: false,
-          message: "Insufficient USDT balance.",
+          message: "Insufficient Usdt balance.",
         });
       }
 
-      wallet.cryptoBalances.USDT -= totalAmount;
+      wallet.cryptoBalances.Usdt -= totalAmount;
     } else {
       if (wallet.balances[currency] < totalAmount) {
         return res.status(400).json({
@@ -417,7 +417,7 @@ export const buyDigitalGold = async (
       wallet.balances[currency] -= totalAmount;
     }
 
-    // Update Gold Wallet
+    // Update Gold wallet
     wallet.goldBalance.totalGrams += grams;
     wallet.goldBalance.availableGrams += grams;
 
@@ -425,7 +425,7 @@ export const buyDigitalGold = async (
     portfolio.goldHoldings.totalGrams += grams;
     portfolio.goldHoldings[karat] += grams;
 
-    portfolio.purchaseHistory.push({
+    portfolio.purchasehistory.push({
       karat,
       grams,
       pricePerGram: gramPrice,
@@ -439,7 +439,7 @@ export const buyDigitalGold = async (
     await Transaction.create({
       user: req.user.id,
       wallet: wallet._id,
-      transactionType: "BUY_GOLD",
+      transactionType: "buy_GOLD",
       providerReference: reference,
       currency,
       amount: totalAmount,
@@ -467,8 +467,8 @@ export const buyDigitalGold = async (
       },
 
       walletBalance:
-        currency === "USDT"
-          ? wallet.cryptoBalances.USDT
+        currency === "Usdt"
+          ? wallet.cryptoBalances.Usdt
           : wallet.balances[currency],
 
       goldBalance: wallet.goldBalance,
@@ -483,7 +483,7 @@ export const buyDigitalGold = async (
 };
 
 // ======================================================
-// BUY GOLD PREVIEW
+// buy GOLD PREVIEW
 // POST /api/v1/gold/buy/preview
 // ======================================================
 
@@ -524,22 +524,22 @@ export const previewGoldPurchase = async (
 };
 
 // ======================================================
-// GET USER GOLD PURCHASE HISTORY
+// GET USER GOLD PURCHASE history
 // GET /api/v1/gold/purchases
 // ======================================================
 
-export const getGoldPurchaseHistory = async (
+export const getGoldPurchasehistory = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id,
     });
 
     const purchases = await Transaction.find({
       wallet: wallet._id,
-      transactionType: "BUY_GOLD",
+      transactionType: "buy_GOLD",
     }).sort({
       createdAt: -1,
     });
@@ -568,7 +568,7 @@ export const getGoldHoldings = async (
   res: Response
 ) => {
   try {
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id,
     });
 
@@ -607,7 +607,7 @@ export const getGoldPurchaseSummary = async (
       user: req.user.id,
     });
 
-    const purchases = portfolio.purchaseHistory;
+    const purchases = portfolio.purchasehistory;
 
     const totalSpent = purchases.reduce(
       (sum: number, item: any) => sum + item.totalAmount,
@@ -641,14 +641,14 @@ export const getGoldPurchaseSummary = async (
 // SECTION 2/10 END
 // ======================================================// ======================================================
 // SECTION 3/10 START
-// SELL DIGITAL GOLD ENGINE
+// sell DIGITAL GOLD ENGINE
 // ======================================================
 
 // ======================================================
 // CALCULATE CURRENT GOLD VALUE
 // ======================================================
 
-const calculateGoldSellValue = async (
+const calculateGoldsellValue = async (
   karat: string,
   currency: string,
   grams: number
@@ -674,7 +674,7 @@ const calculateGoldSellValue = async (
 };
 
 // ======================================================
-// SELL DIGITAL GOLD
+// sell DIGITAL GOLD
 // POST /api/v1/gold/sell
 // ======================================================
 
@@ -692,7 +692,7 @@ export const sellDigitalGold = async (
       });
     }
 
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id,
     });
 
@@ -703,7 +703,7 @@ export const sellDigitalGold = async (
     if (!wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "Wallet or portfolio not found.",
+        message: "wallet or portfolio not found.",
       });
     }
 
@@ -721,49 +721,49 @@ export const sellDigitalGold = async (
       });
     }
 
-    const currentValue = await calculateGoldSellValue(
+    const currentValue = await calculateGoldsellValue(
       karat,
       currency,
       grams
     );
 
-    // Average Buy Price
-    const buyHistory = portfolio.purchaseHistory.filter(
+    // Average buy Price
+    const buyhistory = portfolio.purchasehistory.filter(
       (item: any) => item.karat === karat
     );
 
-    let averageBuyPrice = 0;
+    let averagebuyPrice = 0;
 
-    if (buyHistory.length > 0) {
-      const totalSpent = buyHistory.reduce(
+    if (buyhistory.length > 0) {
+      const totalSpent = buyhistory.reduce(
         (sum: number, item: any) =>
           sum + item.pricePerGram * item.grams,
         0
       );
 
-      const totalGramsBought = buyHistory.reduce(
+      const totalGramsBought = buyhistory.reduce(
         (sum: number, item: any) => sum + item.grams,
         0
       );
 
-      averageBuyPrice = totalSpent / totalGramsBought;
+      averagebuyPrice = totalSpent / totalGramsBought;
     }
 
     const purchaseValue = Number(
-      (averageBuyPrice * grams).toFixed(2)
+      (averagebuyPrice * grams).toFixed(2)
     );
 
     const profitLoss = Number(
       (currentValue.totalAmount - purchaseValue).toFixed(2)
     );
 
-    // Update Wallet Gold
+    // Update wallet Gold
     wallet.goldBalance.totalGrams -= grams;
     wallet.goldBalance.availableGrams -= grams;
 
-    // Credit Wallet Currency
-    if (currency === "USDT") {
-      wallet.cryptoBalances.USDT += currentValue.totalAmount;
+    // Credit wallet Currency
+    if (currency === "Usdt") {
+      wallet.cryptoBalances.Usdt += currentValue.totalAmount;
     } else {
       wallet.balances[currency] += currentValue.totalAmount;
     }
@@ -772,13 +772,13 @@ export const sellDigitalGold = async (
     portfolio.goldHoldings.totalGrams -= grams;
     portfolio.goldHoldings[karat] -= grams;
 
-    portfolio.sellHistory.push({
+    portfolio.sellhistory.push({
       karat,
       grams,
       currency,
       soldPricePerGram: currentValue.pricePerGram,
       totalReceived: currentValue.totalAmount,
-      averageBuyPrice,
+      averagebuyPrice,
       profitLoss,
       soldAt: new Date(),
     });
@@ -788,7 +788,7 @@ export const sellDigitalGold = async (
     await Transaction.create({
       user: req.user.id,
       wallet: wallet._id,
-      transactionType: "SELL_GOLD",
+      transactionType: "sell_GOLD",
       providerReference: reference,
       currency,
       amount: currentValue.totalAmount,
@@ -813,14 +813,14 @@ export const sellDigitalGold = async (
         currency,
         sellPricePerGram: currentValue.pricePerGram,
         totalReceived: currentValue.totalAmount,
-        averageBuyPrice,
+        averagebuyPrice,
         purchaseValue,
         profitLoss,
       },
 
       walletBalance:
-        currency === "USDT"
-          ? wallet.cryptoBalances.USDT
+        currency === "Usdt"
+          ? wallet.cryptoBalances.Usdt
           : wallet.balances[currency],
 
       goldBalance: wallet.goldBalance,
@@ -835,18 +835,18 @@ export const sellDigitalGold = async (
 };
 
 // ======================================================
-// SELL PREVIEW
+// sell PREVIEW
 // POST /api/v1/gold/sell/preview
 // ======================================================
 
-export const previewGoldSell = async (
+export const previewGoldsell = async (
   req: Request,
   res: Response
 ) => {
   try {
     const { karat, currency, grams } = req.body;
 
-    const currentValue = await calculateGoldSellValue(
+    const currentValue = await calculateGoldsellValue(
       karat,
       currency,
       grams
@@ -873,22 +873,22 @@ export const previewGoldSell = async (
 };
 
 // ======================================================
-// SELL HISTORY
+// sell history
 // GET /api/v1/gold/sales
 // ======================================================
 
-export const getGoldSalesHistory = async (
+export const getGoldSaleshistory = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id,
     });
 
     const sales = await Transaction.find({
       wallet: wallet._id,
-      transactionType: "SELL_GOLD",
+      transactionType: "sell_GOLD",
     }).sort({
       createdAt: -1,
     });
@@ -921,7 +921,7 @@ export const getGoldProfitLoss = async (
       user: req.user.id,
     });
 
-    const sales = portfolio.sellHistory;
+    const sales = portfolio.sellhistory;
 
     const totalProfit = sales.reduce(
       (sum: number, sale: any) =>
@@ -961,23 +961,23 @@ export const getGoldProfitLoss = async (
 };
 
 // ======================================================
-// GOLD TRADE HISTORY (BUY + SELL)
+// GOLD TRADE history (buy + sell)
 // GET /api/v1/gold/trades
 // ======================================================
 
-export const getGoldTradeHistory = async (
+export const getGoldTradehistory = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id,
     });
 
     const trades = await Transaction.find({
       wallet: wallet._id,
       transactionType: {
-        $in: ["BUY_GOLD", "SELL_GOLD"],
+        $in: ["buy_GOLD", "sell_GOLD"],
       },
     }).sort({
       createdAt: -1,
@@ -1046,25 +1046,25 @@ export const transferGold = async (req: Request, res: Response) => {
       });
     }
 
-    const senderWallet = await Wallet.findOne({ user: sender._id });
-    const receiverWallet = await Wallet.findOne({ user: receiver._id });
+    const senderwallet = await wallet.findOne({ user: sender._id });
+    const receiverwallet = await wallet.findOne({ user: receiver._id });
 
     const senderPortfolio = await Portfolio.findOne({ user: sender._id });
     const receiverPortfolio = await Portfolio.findOne({ user: receiver._id });
 
     if (
-      !senderWallet ||
-      !receiverWallet ||
+      !senderwallet ||
+      !receiverwallet ||
       !senderPortfolio ||
       !receiverPortfolio
     ) {
       return res.status(404).json({
         success: false,
-        message: "Wallet or portfolio not found."
+        message: "wallet or portfolio not found."
       });
     }
 
-    if (senderWallet.goldBalance.availableGrams < grams) {
+    if (senderwallet.goldBalance.availableGrams < grams) {
       return res.status(400).json({
         success: false,
         message: "Insufficient available gold."
@@ -1081,25 +1081,25 @@ export const transferGold = async (req: Request, res: Response) => {
     const reference = generateVaultReference();
 
     // Sender update
-    senderWallet.goldBalance.totalGrams -= grams;
-    senderWallet.goldBalance.availableGrams -= grams;
+    senderwallet.goldBalance.totalGrams -= grams;
+    senderwallet.goldBalance.availableGrams -= grams;
     senderPortfolio.goldHoldings.totalGrams -= grams;
     senderPortfolio.goldHoldings[karat] -= grams;
 
     // Receiver update
-    receiverWallet.goldBalance.totalGrams += grams;
-    receiverWallet.goldBalance.availableGrams += grams;
+    receiverwallet.goldBalance.totalGrams += grams;
+    receiverwallet.goldBalance.availableGrams += grams;
     receiverPortfolio.goldHoldings.totalGrams += grams;
     receiverPortfolio.goldHoldings[karat] += grams;
 
-    await senderWallet.save();
-    await receiverWallet.save();
+    await senderwallet.save();
+    await receiverwallet.save();
     await senderPortfolio.save();
     await receiverPortfolio.save();
 
     await Transaction.create({
       user: sender._id,
-      wallet: senderWallet._id,
+      wallet: senderwallet._id,
       transactionType: "GOLD_TRANSFER_SENT",
       providerReference: reference,
       goldKarat: karat,
@@ -1111,7 +1111,7 @@ export const transferGold = async (req: Request, res: Response) => {
 
     await Transaction.create({
       user: receiver._id,
-      wallet: receiverWallet._id,
+      wallet: receiverwallet._id,
       transactionType: "GOLD_TRANSFER_RECEIVED",
       providerReference: reference,
       goldKarat: karat,
@@ -1178,14 +1178,14 @@ export const lockGoldInVault = async (
   try {
     const { grams } = req.body;
 
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id
     });
 
     if (!wallet) {
       return res.status(404).json({
         success: false,
-        message: "Wallet not found."
+        message: "wallet not found."
       });
     }
 
@@ -1227,14 +1227,14 @@ export const unlockGoldFromVault = async (
   try {
     const { grams } = req.body;
 
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id
     });
 
     if (!wallet) {
       return res.status(404).json({
         success: false,
-        message: "Wallet not found."
+        message: "wallet not found."
       });
     }
 
@@ -1274,7 +1274,7 @@ export const getVaultStatus = async (
   res: Response
 ) => {
   try {
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id
     }).select("goldBalance");
 
@@ -1292,16 +1292,16 @@ export const getVaultStatus = async (
 };
 
 // ======================================================
-// GOLD TRANSFER HISTORY
+// GOLD TRANSFER history
 // GET /api/v1/gold/transfers
 // ======================================================
 
-export const getGoldTransferHistory = async (
+export const getGoldTransferhistory = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id
     });
 
@@ -1454,7 +1454,7 @@ export const executeSavingsPlanPurchase = async (
   planId: string,
   userId: string
 ) => {
-  const wallet = await Wallet.findOne({ user: userId });
+  const wallet = await wallet.findOne({ user: userId });
   const portfolio = await Portfolio.findOne({ user: userId });
 
   if (!wallet || !portfolio) return;
@@ -1474,10 +1474,10 @@ export const executeSavingsPlanPurchase = async (
     (plan.investmentAmount / gramPrice).toFixed(4)
   );
 
-  // Deduct Wallet
-  if (plan.currency === "USDT") {
-    if (wallet.cryptoBalances.USDT < plan.investmentAmount) return;
-    wallet.cryptoBalances.USDT -= plan.investmentAmount;
+  // Deduct wallet
+  if (plan.currency === "Usdt") {
+    if (wallet.cryptoBalances.Usdt < plan.investmentAmount) return;
+    wallet.cryptoBalances.Usdt -= plan.investmentAmount;
   } else {
     if (wallet.balances[plan.currency] < plan.investmentAmount)
       return;
@@ -1874,16 +1874,16 @@ export const retryFailedSavingsPlan = async (
 };
 
 // ======================================================
-// GET SIP EXECUTION HISTORY
+// GET SIP EXECUTION history
 // GET /api/v1/gold/savings-plan/:planId/history
 // ======================================================
 
-export const getSavingsPlanExecutionHistory = async (
+export const getSavingsPlanExecutionhistory = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id,
     });
 
@@ -2121,7 +2121,7 @@ export const redeemPhysicalGold = async (
       });
     }
 
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id,
     });
 
@@ -2132,7 +2132,7 @@ export const redeemPhysicalGold = async (
     if (!wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "Wallet or portfolio not found.",
+        message: "wallet or portfolio not found.",
       });
     }
 
@@ -2168,7 +2168,7 @@ export const redeemPhysicalGold = async (
       createdAt: new Date(),
     };
 
-    portfolio.redemptionHistory.push(redemption);
+    portfolio.redemptionhistory.push(redemption);
 
     await wallet.save();
     await portfolio.save();
@@ -2198,23 +2198,23 @@ export const redeemPhysicalGold = async (
 };
 
 // ======================================================
-// GET USER REDEMPTION HISTORY
+// GET USER REDEMPTION history
 // GET /api/v1/gold/redemptions
 // ======================================================
 
-export const getRedemptionHistory = async (
+export const getRedemptionhistory = async (
   req: Request,
   res: Response
 ) => {
   try {
     const portfolio = await Portfolio.findOne({
       user: req.user.id,
-    }).select("redemptionHistory");
+    }).select("redemptionhistory");
 
     return res.json({
       success: true,
-      total: portfolio?.redemptionHistory.length || 0,
-      history: portfolio?.redemptionHistory || [],
+      total: portfolio?.redemptionhistory.length || 0,
+      history: portfolio?.redemptionhistory || [],
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -2238,7 +2238,7 @@ export const getRedemptionStatus = async (
       user: req.user.id,
     });
 
-    const redemption = portfolio?.redemptionHistory.find(
+    const redemption = portfolio?.redemptionhistory.find(
       (item: any) => item.reference === req.params.reference
     );
 
@@ -2275,7 +2275,7 @@ export const trackGoldShipment = async (
       user: req.user.id,
     });
 
-    const redemption = portfolio?.redemptionHistory.find(
+    const redemption = portfolio?.redemptionhistory.find(
       (item: any) => item.reference === req.params.reference
     );
 
@@ -2315,7 +2315,7 @@ export const cancelRedemptionRequest = async (
   res: Response
 ) => {
   try {
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id,
     });
 
@@ -2323,7 +2323,7 @@ export const cancelRedemptionRequest = async (
       user: req.user.id,
     });
 
-    const redemption = portfolio?.redemptionHistory.find(
+    const redemption = portfolio?.redemptionhistory.find(
       (item: any) => item.reference === req.params.reference
     );
 
@@ -2385,7 +2385,7 @@ export const updateRedemptionStatus = async (
     const { status, trackingNumber, courier } = req.body;
 
     const portfolio = await Portfolio.findOne({
-      "redemptionHistory.reference": req.params.reference,
+      "redemptionhistory.reference": req.params.reference,
     });
 
     if (!portfolio) {
@@ -2395,7 +2395,7 @@ export const updateRedemptionStatus = async (
       });
     }
 
-    const redemption = portfolio.redemptionHistory.find(
+    const redemption = portfolio.redemptionhistory.find(
       (item: any) => item.reference === req.params.reference
     );
 
@@ -2405,7 +2405,7 @@ export const updateRedemptionStatus = async (
     redemption.updatedAt = new Date();
 
     if (status === "DELIVERED") {
-      const wallet = await Wallet.findOne({
+      const wallet = await wallet.findOne({
         user: portfolio.user,
       });
 
@@ -2789,11 +2789,11 @@ export const revokeGoldCertificate = async (
 };
 
 // ======================================================
-// CERTIFICATE VERIFICATION HISTORY
+// CERTIFICATE VERIFICATION history
 // GET /api/v1/gold/certificate-history
 // ======================================================
 
-export const getCertificateVerificationHistory = async (
+export const getCertificateVerificationhistory = async (
   req: Request,
   res: Response
 ) => {
@@ -2843,10 +2843,10 @@ const calculatePortfolioMarketValue = async (portfolio: any) => {
   const holdings = portfolio.goldHoldings;
 
   const values = {
-    K24: holdings.K24 * latestPrice.prices.K24.PKR,
-    K22: holdings.K22 * latestPrice.prices.K22.PKR,
-    K21: holdings.K21 * latestPrice.prices.K21.PKR,
-    K18: holdings.K18 * latestPrice.prices.K18.PKR,
+    K24: holdings.K24 * latestPrice.prices.K24.Pkr,
+    K22: holdings.K22 * latestPrice.prices.K22.Pkr,
+    K21: holdings.K21 * latestPrice.prices.K21.Pkr,
+    K18: holdings.K18 * latestPrice.prices.K18.Pkr,
   };
 
   return {
@@ -2880,7 +2880,7 @@ export const getGoldPortfolioDashboard = async (
       portfolio
     );
 
-    const totalInvestment = portfolio.purchaseHistory.reduce(
+    const totalInvestment = portfolio.purchasehistory.reduce(
       (sum: number, item: any) => sum + item.totalAmount,
       0
     );
@@ -2944,22 +2944,22 @@ export const getGoldHoldingsBreakdown = async (
         {
           karat: "24K",
           grams: portfolio.goldHoldings.K24,
-          valuePKR: marketValue.K24,
+          valuePkr: marketValue.K24,
         },
         {
           karat: "22K",
           grams: portfolio.goldHoldings.K22,
-          valuePKR: marketValue.K22,
+          valuePkr: marketValue.K22,
         },
         {
           karat: "21K",
           grams: portfolio.goldHoldings.K21,
-          valuePKR: marketValue.K21,
+          valuePkr: marketValue.K21,
         },
         {
           karat: "18K",
           grams: portfolio.goldHoldings.K18,
-          valuePKR: marketValue.K18,
+          valuePkr: marketValue.K18,
         },
       ],
     });
@@ -2991,13 +2991,13 @@ export const getMonthlyGoldAnalytics = async (
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
 
-    const purchases = portfolio.purchaseHistory.filter(
+    const purchases = portfolio.purchasehistory.filter(
       (item: any) =>
         item.purchasedAt >= startDate &&
         item.purchasedAt <= endDate
     );
 
-    const sales = portfolio.sellHistory.filter(
+    const sales = portfolio.sellhistory.filter(
       (item: any) =>
         item.soldAt >= startDate &&
         item.soldAt <= endDate
@@ -3058,12 +3058,12 @@ export const getYearlyGoldAnalytics = async (
       user: req.user.id,
     });
 
-    const purchases = portfolio.purchaseHistory.filter(
+    const purchases = portfolio.purchasehistory.filter(
       (item: any) =>
         new Date(item.purchasedAt).getFullYear() === year
     );
 
-    const sales = portfolio.sellHistory.filter(
+    const sales = portfolio.sellhistory.filter(
       (item: any) =>
         new Date(item.soldAt).getFullYear() === year
     );
@@ -3116,14 +3116,14 @@ export const getGoldPerformanceStatistics = async (
       user: req.user.id,
     });
 
-    const totalPurchases = portfolio.purchaseHistory.length;
-    const totalSales = portfolio.sellHistory.length;
+    const totalPurchases = portfolio.purchasehistory.length;
+    const totalSales = portfolio.sellhistory.length;
 
-    const winningTrades = portfolio.sellHistory.filter(
+    const winningTrades = portfolio.sellhistory.filter(
       (trade: any) => trade.profitLoss > 0
     ).length;
 
-    const losingTrades = portfolio.sellHistory.filter(
+    const losingTrades = portfolio.sellhistory.filter(
       (trade: any) => trade.profitLoss < 0
     ).length;
 
@@ -3147,7 +3147,7 @@ export const getGoldPerformanceStatistics = async (
           totalPurchases > 0
             ? Number(
                 (
-                  portfolio.purchaseHistory.reduce(
+                  portfolio.purchasehistory.reduce(
                     (sum: number, item: any) =>
                       sum + item.grams,
                     0
@@ -3179,7 +3179,7 @@ export const getTopGoldTrades = async (
       user: req.user.id,
     });
 
-    const sorted = [...portfolio.sellHistory].sort(
+    const sorted = [...portfolio.sellhistory].sort(
       (a: any, b: any) =>
         b.profitLoss - a.profitLoss
     );
@@ -3218,10 +3218,10 @@ export const getGoldPortfolioChartData = async (
 
     const chart = history.map((price: any) => ({
       date: price.createdAt,
-      K24: price.prices.K24.PKR,
-      K22: price.prices.K22.PKR,
-      K21: price.prices.K21.PKR,
-      K18: price.prices.K18.PKR,
+      K24: price.prices.K24.Pkr,
+      K22: price.prices.K22.Pkr,
+      K21: price.prices.K21.Pkr,
+      K18: price.prices.K18.Pkr,
     }));
 
     return res.json({
@@ -3416,7 +3416,7 @@ export const getGoldInventory = async (
   res: Response
 ) => {
   try {
-    const wallets = await Wallet.find();
+    const wallets = await wallet.find();
 
     const inventory = wallets.reduce(
       (acc: any, wallet: any) => {
@@ -3435,7 +3435,7 @@ export const getGoldInventory = async (
     return res.json({
       success: true,
       inventory,
-      totalWallets: wallets.length,
+      totalwallets: wallets.length,
     });
 
   } catch (error: any) {
@@ -3459,8 +3459,8 @@ export const getGoldAuditLog = async (
     const transactions = await Transaction.find({
       transactionType: {
         $in: [
-          "BUY_GOLD",
-          "SELL_GOLD",
+          "buy_GOLD",
+          "sell_GOLD",
           "GOLD_TRANSFER_SENT",
           "GOLD_TRANSFER_RECEIVED",
           "GOLD_REDEMPTION_REQUEST",
@@ -3496,10 +3496,10 @@ export const updateGoldTradingLimits = async (
 ) => {
   try {
     const settings = {
-      minimumBuyGram: req.body.minimumBuyGram,
-      maximumBuyGram: req.body.maximumBuyGram,
-      minimumSellGram: req.body.minimumSellGram,
-      maximumSellGram: req.body.maximumSellGram,
+      minimumbuyGram: req.body.minimumbuyGram,
+      maximumbuyGram: req.body.maximumbuyGram,
+      minimumsellGram: req.body.minimumsellGram,
+      maximumsellGram: req.body.maximumsellGram,
       redemptionMinimumGram: req.body.redemptionMinimumGram,
       updatedAt: new Date(),
       updatedBy: req.user.id,
@@ -3529,12 +3529,12 @@ export const getGoldAdminDashboard = async (
   res: Response
 ) => {
   try {
-    const totalBuyOrders = await Transaction.countDocuments({
-      transactionType: "BUY_GOLD",
+    const totalbuyOrders = await Transaction.countDocuments({
+      transactionType: "buy_GOLD",
     });
 
-    const totalSellOrders = await Transaction.countDocuments({
-      transactionType: "SELL_GOLD",
+    const totalsellOrders = await Transaction.countDocuments({
+      transactionType: "sell_GOLD",
     });
 
     const totalRedemptions = await Transaction.countDocuments({
@@ -3560,8 +3560,8 @@ export const getGoldAdminDashboard = async (
       success: true,
 
       dashboard: {
-        totalBuyOrders,
-        totalSellOrders,
+        totalbuyOrders,
+        totalsellOrders,
         totalRedemptions,
         pendingRedemptions,
         activeCertificates:
@@ -3592,7 +3592,7 @@ export const getGoldSystemHealth = async (
       createdAt: -1,
     });
 
-    const wallets = await Wallet.countDocuments();
+    const wallets = await wallet.countDocuments();
     const portfolios = await Portfolio.countDocuments();
 
     return res.json({
@@ -3603,7 +3603,7 @@ export const getGoldSystemHealth = async (
         version: "17.0.0",
         marketStatus: latestPrice?.marketStatus,
         latestPriceUpdated: latestPrice?.updatedAt,
-        totalWallets: wallets,
+        totalwallets: wallets,
         totalPortfolios: portfolios,
         supportedKarats: [
           "24K",
@@ -3612,13 +3612,13 @@ export const getGoldSystemHealth = async (
           "18K",
         ],
         supportedCurrencies: [
-          "PKR",
+          "Pkr",
           "USD",
           "AED",
           "SAR",
           "EUR",
           "GBP",
-          "USDT",
+          "Usdt",
         ],
         redemptionProducts: 10,
         timestamp: new Date(),

@@ -66,7 +66,7 @@ const getOrCreateSettings = async () => {
       buyPrice: 31250,
       sellPrice: 30980,
       goldPriceUSD: 3420.5,
-      usdToPkr: 282.4,
+      UsdtoPkr: 282.4,
       tradingEnabled: true,
       marketStatus: "open",
     });
@@ -94,7 +94,7 @@ router.get("/price", async (req, res) => {
         buyPrice: settings.buyPrice,
         sellPrice: settings.sellPrice,
         goldPriceUSD: settings.goldPriceUSD,
-        usdToPkr: settings.usdToPkr,
+        UsdtoPkr: settings.UsdtoPkr,
         tradingEnabled: settings.tradingEnabled,
         marketStatus: settings.marketStatus,
         updatedAt: settings.updatedAt,
@@ -125,7 +125,7 @@ router.put("/price", verifyToken,adminOnly, async (req, res) => {
       buyPrice,
       sellPrice,
       goldPriceUSD,
-      usdToPkr,
+      UsdtoPkr,
       tradingEnabled,
       marketStatus,
     } = req.body;
@@ -136,7 +136,7 @@ router.put("/price", verifyToken,adminOnly, async (req, res) => {
       buyPrice === undefined ||
       sellPrice === undefined ||
       goldPriceUSD === undefined ||
-      usdToPkr === undefined
+      UsdtoPkr === undefined
     ) {
       return res.status(400).json({
         success: false,
@@ -147,7 +147,7 @@ router.put("/price", verifyToken,adminOnly, async (req, res) => {
     settings.buyPrice = Number(buyPrice);
     settings.sellPrice = Number(sellPrice);
     settings.goldPriceUSD = Number(goldPriceUSD);
-    settings.usdToPkr = Number(usdToPkr);
+    settings.UsdtoPkr = Number(UsdtoPkr);
 
     settings.tradingEnabled =
       tradingEnabled === undefined
@@ -236,7 +236,7 @@ router.put("/trading/toggle", verifyToken, adminOnly, async (req, res) => {
 
 // =====================================================
 // GOLDTRADE V19 - PART 3/8
-// BUY GOLD API
+// buy GOLD API
 // POST /api/gold/buy
 // =====================================================
 
@@ -280,21 +280,21 @@ router.post("/buy", verifyToken, async (req, res) => {
     const pricePerGram = Number(settings.buyPrice);
     const totalAmount = Number((quantity * pricePerGram).toFixed(2));
 
-    if ((user.pkrWallet || 0) < totalAmount) {
+    if ((user.Pkrwallet || 0) < totalAmount) {
       return res.status(400).json({
         success: false,
-        message: "Insufficient PKR wallet balance.",
+        message: "Insufficient Pkr wallet balance.",
       });
     }
 
-    user.pkrWallet = Number(user.pkrWallet || 0) - totalAmount;
-    user.goldWallet = Number(user.goldWallet || 0) + quantity;
+    user.Pkrwallet = Number(user.Pkrwallet || 0) - totalAmount;
+    user.goldwallet = Number(user.goldwallet || 0) + quantity;
 
     await user.save();
 
     const trade = await GoldTrade.create({
       userId: user._id,
-      type: "BUY",
+      type: "buy",
       grams: quantity,
       pricePerGram,
       totalAmount,
@@ -303,9 +303,9 @@ router.post("/buy", verifyToken, async (req, res) => {
 
     await Transaction.create({
       userId: user._id,
-      type: "BUY_GOLD",
+      type: "buy_GOLD",
       amount: totalAmount,
-      currency: "PKR",
+      currency: "Pkr",
       description: `Purchased ${quantity}g gold @ Rs.${pricePerGram}/g`,
       status: "SUCCESS",
     });
@@ -315,12 +315,12 @@ router.post("/buy", verifyToken, async (req, res) => {
       message: "Gold purchased successfully.",
       trade,
       wallet: {
-        pkrWallet: user.pkrWallet,
-        goldWallet: user.goldWallet,
+        Pkrwallet: user.Pkrwallet,
+        goldwallet: user.goldwallet,
       },
     });
   } catch (error) {
-    console.error("BUY GOLD ERROR:", error);
+    console.error("buy GOLD ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -331,7 +331,7 @@ router.post("/buy", verifyToken, async (req, res) => {
 });
 // =====================================================
 // GOLDTRADE V19 - PART 3B/8
-// SELL GOLD API
+// sell GOLD API
 // POST /api/gold/sell
 // =====================================================
 
@@ -377,7 +377,7 @@ router.post("/sell", verifyToken, async (req, res) => {
     const quantity = Number(grams);
 
     // Gold wallet balance check
-    if ((user.goldWallet || 0) < quantity) {
+    if ((user.goldwallet || 0) < quantity) {
       return res.status(400).json({
         success: false,
         message: "Insufficient gold wallet balance.",
@@ -387,16 +387,16 @@ router.post("/sell", verifyToken, async (req, res) => {
     const pricePerGram = Number(settings.sellPrice);
     const totalAmount = Number((quantity * pricePerGram).toFixed(2));
 
-    // ---------------- Wallet Update ----------------
-    user.goldWallet = Number(user.goldWallet || 0) - quantity;
-    user.pkrWallet = Number(user.pkrWallet || 0) + totalAmount;
+    // ---------------- wallet Update ----------------
+    user.goldwallet = Number(user.goldwallet || 0) - quantity;
+    user.Pkrwallet = Number(user.Pkrwallet || 0) + totalAmount;
 
     await user.save();
 
     // ---------------- Gold Trade Record ----------------
     const trade = await GoldTrade.create({
       userId: user._id,
-      type: "SELL",
+      type: "sell",
       grams: quantity,
       pricePerGram,
       totalAmount,
@@ -406,9 +406,9 @@ router.post("/sell", verifyToken, async (req, res) => {
     // ---------------- Transaction Record ----------------
     await Transaction.create({
       userId: user._id,
-      type: "SELL_GOLD",
+      type: "sell_GOLD",
       amount: totalAmount,
-      currency: "PKR",
+      currency: "Pkr",
       description: `Sold ${quantity}g gold @ Rs.${pricePerGram}/g`,
       status: "SUCCESS",
     });
@@ -419,13 +419,13 @@ router.post("/sell", verifyToken, async (req, res) => {
       message: "Gold sold successfully.",
       trade,
       wallet: {
-        pkrWallet: Number(user.pkrWallet.toFixed(2)),
-        goldWallet: Number(user.goldWallet.toFixed(4)),
+        Pkrwallet: Number(user.Pkrwallet.toFixed(2)),
+        goldwallet: Number(user.goldwallet.toFixed(4)),
       },
     });
 
   } catch (error) {
-    console.error("SELL GOLD ERROR:", error);
+    console.error("sell GOLD ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -437,7 +437,7 @@ router.post("/sell", verifyToken, async (req, res) => {
 
 // =====================================================
 // GOLDTRADE V19 - PART 4/8
-// USER PORTFOLIO + HISTORY + PROFIT / LOSS
+// USER PORTFOLIO + history + PROFIT / LOSS
 // =====================================================
 
 // =====================================================
@@ -458,24 +458,24 @@ router.get("/portfolio", verifyToken, async (req, res) => {
 
     const settings = await getOrCreateSettings();
 
-    const goldBalance = Number(user.goldWallet || 0);
-    const currentBuyPrice = Number(settings.buyPrice || 0);
-    const currentSellPrice = Number(settings.sellPrice || 0);
+    const goldBalance = Number(user.goldwallet || 0);
+    const currentbuyPrice = Number(settings.buyPrice || 0);
+    const currentsellPrice = Number(settings.sellPrice || 0);
 
-    const totalBuyValue = Number((goldBalance * currentBuyPrice).toFixed(2));
-    const totalSellValue = Number((goldBalance * currentSellPrice).toFixed(2));
+    const totalbuyValue = Number((goldBalance * currentbuyPrice).toFixed(2));
+    const totalsellValue = Number((goldBalance * currentsellPrice).toFixed(2));
 
     return res.status(200).json({
       success: true,
       portfolio: {
         username: user.username,
         email: user.email,
-        goldWallet: goldBalance,
-        pkrWallet: Number(user.pkrWallet || 0),
-        currentBuyPrice,
-        currentSellPrice,
-        totalBuyValue,
-        totalSellValue,
+        goldwallet: goldBalance,
+        Pkrwallet: Number(user.Pkrwallet || 0),
+        currentbuyPrice,
+        currentsellPrice,
+        totalbuyValue,
+        totalsellValue,
         marketStatus: settings.marketStatus,
         tradingEnabled: settings.tradingEnabled,
       },
@@ -491,7 +491,7 @@ router.get("/portfolio", verifyToken, async (req, res) => {
 });
 
 // =====================================================
-// USER GOLD HISTORY
+// USER GOLD history
 // GET /api/gold/history
 // =====================================================
 
@@ -507,7 +507,7 @@ router.get("/history", verifyToken, async (req, res) => {
       trades,
     });
   } catch (error) {
-    console.error("GOLD HISTORY ERROR:", error);
+    console.error("GOLD history ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -525,7 +525,7 @@ router.get("/transactions", verifyToken, async (req, res) => {
   try {
     const transactions = await Transaction.find({
       userId: req.user.id,
-      type: { $in: ["BUY_GOLD", "SELL_GOLD"] },
+      type: { $in: ["buy_GOLD", "sell_GOLD"] },
     }).sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -534,7 +534,7 @@ router.get("/transactions", verifyToken, async (req, res) => {
       transactions,
     });
   } catch (error) {
-    console.error("GOLD TRANSACTION HISTORY ERROR:", error);
+    console.error("GOLD TRANSACTION history ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -561,17 +561,17 @@ router.get("/profit-loss", verifyToken, async (req, res) => {
     let totalSoldAmount = 0;
 
     trades.forEach((trade) => {
-      if (trade.type === "BUY") {
+      if (trade.type === "buy") {
         totalBoughtGrams += Number(trade.grams);
         totalBoughtAmount += Number(trade.totalAmount);
       }
 
-      if (trade.type === "SELL") {
+      if (trade.type === "sell") {
         totalSoldAmount += Number(trade.totalAmount);
       }
     });
 
-    const averageBuyPrice =
+    const averagebuyPrice =
       totalBoughtGrams > 0
         ? Number((totalBoughtAmount / totalBoughtGrams).toFixed(2))
         : 0;
@@ -580,7 +580,7 @@ router.get("/profit-loss", verifyToken, async (req, res) => {
       (
         totalBoughtGrams -
         trades
-          .filter((trade) => trade.type === "SELL")
+          .filter((trade) => trade.type === "sell")
           .reduce((sum, trade) => sum + Number(trade.grams), 0)
       ).toFixed(4)
     );
@@ -592,7 +592,7 @@ router.get("/profit-loss", verifyToken, async (req, res) => {
     const unrealizedProfit = Number(
       (
         currentValue -
-        currentGoldBalance * averageBuyPrice
+        currentGoldBalance * averagebuyPrice
       ).toFixed(2)
     );
 
@@ -605,7 +605,7 @@ router.get("/profit-loss", verifyToken, async (req, res) => {
       summary: {
         totalBoughtGrams,
         currentGoldBalance,
-        averageBuyPrice,
+        averagebuyPrice,
         currentMarketPrice: Number(settings.sellPrice),
         currentValue,
         realizedProfit,
@@ -647,17 +647,17 @@ router.get("/admin/dashboard", verifyToken, adminOnly, async (req, res) => {
       User.countDocuments(),
       GoldTrade.countDocuments(),
       GoldTrade.countDocuments({ status: "COMPLETED" }),
-      GoldTrade.find({ type: "BUY", status: "COMPLETED" }),
-      GoldTrade.find({ type: "SELL", status: "COMPLETED" }),
-      User.find({}, "goldWallet pkrWallet"),
+      GoldTrade.find({ type: "buy", status: "COMPLETED" }),
+      GoldTrade.find({ type: "sell", status: "COMPLETED" }),
+      User.find({}, "goldwallet Pkrwallet"),
     ]);
 
-    let totalGoldInWallets = 0;
-    let totalPKRInWallets = 0;
+    let totalGoldInwallets = 0;
+    let totalPkrInwallets = 0;
 
     users.forEach((user) => {
-      totalGoldInWallets += Number(user.goldWallet || 0);
-      totalPKRInWallets += Number(user.pkrWallet || 0);
+      totalGoldInwallets += Number(user.goldwallet || 0);
+      totalPkrInwallets += Number(user.Pkrwallet || 0);
     });
 
     const totalGoldBought = buyTrades.reduce(
@@ -670,12 +670,12 @@ router.get("/admin/dashboard", verifyToken, adminOnly, async (req, res) => {
       0
     );
 
-    const totalBuyAmount = buyTrades.reduce(
+    const totalbuyAmount = buyTrades.reduce(
       (sum, trade) => sum + Number(trade.totalAmount),
       0
     );
 
-    const totalSellAmount = sellTrades.reduce(
+    const totalsellAmount = sellTrades.reduce(
       (sum, trade) => sum + Number(trade.totalAmount),
       0
     );
@@ -693,15 +693,15 @@ router.get("/admin/dashboard", verifyToken, adminOnly, async (req, res) => {
         buyPrice: settings.buyPrice,
         sellPrice: settings.sellPrice,
         goldPriceUSD: settings.goldPriceUSD,
-        usdToPkr: settings.usdToPkr,
+        UsdtoPkr: settings.UsdtoPkr,
 
         totalGoldBought: Number(totalGoldBought.toFixed(4)),
         totalGoldSold: Number(totalGoldSold.toFixed(4)),
-        totalGoldInWallets: Number(totalGoldInWallets.toFixed(4)),
+        totalGoldInwallets: Number(totalGoldInwallets.toFixed(4)),
 
-        totalBuyAmount: Number(totalBuyAmount.toFixed(2)),
-        totalSellAmount: Number(totalSellAmount.toFixed(2)),
-        totalPKRInWallets: Number(totalPKRInWallets.toFixed(2)),
+        totalbuyAmount: Number(totalbuyAmount.toFixed(2)),
+        totalsellAmount: Number(totalsellAmount.toFixed(2)),
+        totalPkrInwallets: Number(totalPkrInwallets.toFixed(2)),
       },
     });
 
@@ -731,7 +731,7 @@ router.get("/admin/market", verifyToken, adminOnly, async (req, res) => {
         buyPrice: settings.buyPrice,
         sellPrice: settings.sellPrice,
         goldPriceUSD: settings.goldPriceUSD,
-        usdToPkr: settings.usdToPkr,
+        UsdtoPkr: settings.UsdtoPkr,
         marketStatus: settings.marketStatus,
         tradingEnabled: settings.tradingEnabled,
         updatedAt: settings.updatedAt,
@@ -784,12 +784,12 @@ router.get("/admin/recent-trades", verifyToken, adminOnly, async (req, res) => {
 router.get("/admin/volume", verifyToken, adminOnly, async (req, res) => {
   try {
     const buyTrades = await GoldTrade.find({
-      type: "BUY",
+      type: "buy",
       status: "COMPLETED",
     });
 
     const sellTrades = await GoldTrade.find({
-      type: "SELL",
+      type: "sell",
       status: "COMPLETED",
     });
 
@@ -875,7 +875,7 @@ router.get("/admin/user/search", verifyToken, adminOnly, async (req, res) => {
 });
 
 // =====================================================
-// ADMIN GET USER GOLD WALLET
+// ADMIN GET USER GOLD wallet
 // GET /api/gold/admin/user/:id
 // =====================================================
 
@@ -892,7 +892,7 @@ router.get("/admin/user/:id", verifyToken, adminOnly, async (req, res) => {
 
     const settings = await getOrCreateSettings();
 
-    const goldBalance = Number(user.goldWallet || 0);
+    const goldBalance = Number(user.goldwallet || 0);
 
     return res.status(200).json({
       success: true,
@@ -902,14 +902,14 @@ router.get("/admin/user/:id", verifyToken, adminOnly, async (req, res) => {
         email: user.email,
         phone: user.phone,
 
-        goldWallet: goldBalance,
-        pkrWallet: Number(user.pkrWallet || 0),
+        goldwallet: goldBalance,
+        Pkrwallet: Number(user.Pkrwallet || 0),
 
-        currentBuyValue: Number(
+        currentbuyValue: Number(
           (goldBalance * settings.buyPrice).toFixed(2)
         ),
 
-        currentSellValue: Number(
+        currentsellValue: Number(
           (goldBalance * settings.sellPrice).toFixed(2)
         ),
 
@@ -928,7 +928,7 @@ router.get("/admin/user/:id", verifyToken, adminOnly, async (req, res) => {
 });
 
 // =====================================================
-// ADMIN USER GOLD HISTORY
+// ADMIN USER GOLD history
 // GET /api/gold/admin/user/:id/history
 // =====================================================
 
@@ -949,7 +949,7 @@ router.get(
       });
 
     } catch (error) {
-      console.error("ADMIN USER HISTORY ERROR:", error);
+      console.error("ADMIN USER history ERROR:", error);
 
       return res.status(500).json({
         success: false,
@@ -972,7 +972,7 @@ router.get(
     try {
       const transactions = await Transaction.find({
         userId: req.params.id,
-        type: { $in: ["BUY_GOLD", "SELL_GOLD"] },
+        type: { $in: ["buy_GOLD", "sell_GOLD"] },
       }).sort({ createdAt: -1 });
 
       return res.status(200).json({
@@ -1023,11 +1023,11 @@ router.get(
       let totalSold = 0;
 
       trades.forEach((trade) => {
-        if (trade.type === "BUY") totalBought += Number(trade.grams);
-        if (trade.type === "SELL") totalSold += Number(trade.grams);
+        if (trade.type === "buy") totalBought += Number(trade.grams);
+        if (trade.type === "sell") totalSold += Number(trade.grams);
       });
 
-      const balance = Number(user.goldWallet || 0);
+      const balance = Number(user.goldwallet || 0);
 
       return res.status(200).json({
         success: true,
@@ -1035,8 +1035,8 @@ router.get(
           username: user.username,
           email: user.email,
 
-          goldWallet: balance,
-          pkrWallet: Number(user.pkrWallet || 0),
+          goldwallet: balance,
+          Pkrwallet: Number(user.Pkrwallet || 0),
 
           totalBought: Number(totalBought.toFixed(4)),
           totalSold: Number(totalSold.toFixed(4)),
@@ -1063,7 +1063,7 @@ router.get(
 
 // =====================================================
 // GOLDTRADE V19 - PART 7/8
-// ADMIN CREDIT / DEBIT GOLD WALLET
+// ADMIN CREDIT / DEBIT GOLD wallet
 // PUT /api/gold/admin/user/:id/wallet
 // =====================================================
 
@@ -1104,19 +1104,19 @@ router.put(
 
       // ---------------- Credit ----------------
       if (action === "credit") {
-        user.goldWallet = Number(user.goldWallet || 0) + goldAmount;
+        user.goldwallet = Number(user.goldwallet || 0) + goldAmount;
       }
 
       // ---------------- Debit ----------------
       if (action === "debit") {
-        if (Number(user.goldWallet || 0) < goldAmount) {
+        if (Number(user.goldwallet || 0) < goldAmount) {
           return res.status(400).json({
             success: false,
             message: "User has insufficient gold balance.",
           });
         }
 
-        user.goldWallet = Number(user.goldWallet || 0) - goldAmount;
+        user.goldwallet = Number(user.goldwallet || 0) - goldAmount;
       }
 
       await user.save();
@@ -1155,13 +1155,13 @@ router.put(
             : "Gold debited successfully.",
 
         wallet: {
-          goldWallet: Number(user.goldWallet.toFixed(4)),
-          pkrWallet: Number((user.pkrWallet || 0).toFixed(2)),
+          goldwallet: Number(user.goldwallet.toFixed(4)),
+          Pkrwallet: Number((user.Pkrwallet || 0).toFixed(2)),
         },
       });
 
     } catch (error) {
-      console.error("ADMIN GOLD WALLET ERROR:", error);
+      console.error("ADMIN GOLD wallet ERROR:", error);
 
       return res.status(500).json({
         success: false,
@@ -1173,7 +1173,7 @@ router.put(
 );
 
 // =====================================================
-// ADMIN GET GOLD WALLET LOGS
+// ADMIN GET GOLD wallet LOGS
 // GET /api/gold/admin/wallet/logs
 // =====================================================
 
@@ -1198,7 +1198,7 @@ router.get(
       });
 
     } catch (error) {
-      console.error("ADMIN WALLET LOG ERROR:", error);
+      console.error("ADMIN wallet LOG ERROR:", error);
 
       return res.status(500).json({
         success: false,
@@ -1268,7 +1268,7 @@ router.put(
       settings.buyPrice = 31250;
       settings.sellPrice = 30980;
       settings.goldPriceUSD = 3420.5;
-      settings.usdToPkr = 282.4;
+      settings.UsdtoPkr = 282.4;
       settings.marketStatus = "open";
       settings.tradingEnabled = true;
 
@@ -1312,7 +1312,7 @@ router.get("/info", async (req, res) => {
         portfolio: "/api/gold/portfolio",
         history: "/api/gold/history",
         adminDashboard: "/api/gold/admin/dashboard",
-        adminWallet: "/api/gold/admin/user/:id/wallet",
+        adminwallet: "/api/gold/admin/user/:id/wallet",
       },
       market: {
         buyPrice: settings.buyPrice,

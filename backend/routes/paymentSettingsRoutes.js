@@ -86,7 +86,7 @@ router.put(
     { name: "bankQR", maxCount: 1 },
     { name: "easyPaisaQR", maxCount: 1 },
     { name: "nayaPayQR", maxCount: 1 },
-    { name: "usdtQR", maxCount: 1 },
+    { name: "UsdtQR", maxCount: 1 },
   ]),
   async (req, res) => {
     try {
@@ -96,9 +96,9 @@ router.put(
         settings = new PaymentSettings();
       }
 
-      // USDT Rates
-      settings.usdtBuyRate = req.body.usdtBuyRate;
-      settings.usdtSellRate = req.body.usdtSellRate;
+      // Usdt Rates
+      settings.UsdtbuyRate = req.body.UsdtbuyRate;
+      settings.UsdtsellRate = req.body.UsdtsellRate;
 
       // Bank
       settings.bank.bankName = req.body.bankName;
@@ -114,9 +114,9 @@ router.put(
       settings.nayaPay.accountTitle = req.body.nayaTitle;
       settings.nayaPay.mobileNumber = req.body.nayaNumber;
 
-      // USDT Wallet
-      settings.usdtWallet.network = req.body.network;
-      settings.usdtWallet.walletAddress = req.body.walletAddress;
+      // Usdt wallet
+      settings.Usdtwallet.network = req.body.network;
+      settings.Usdtwallet.walletAddress = req.body.walletAddress;
 
       // QR Uploads
       if (req.files.bankQR) {
@@ -134,9 +134,9 @@ router.put(
           "/uploads/payment/" + req.files.nayaPayQR[0].filename;
       }
 
-      if (req.files.usdtQR) {
-        settings.usdtWallet.qrCode =
-          "/uploads/payment/" + req.files.usdtQR[0].filename;
+      if (req.files.UsdtQR) {
+        settings.Usdtwallet.qrCode =
+          "/uploads/payment/" + req.files.UsdtQR[0].filename;
       }
 
       settings.updatedBy = req.user._id;

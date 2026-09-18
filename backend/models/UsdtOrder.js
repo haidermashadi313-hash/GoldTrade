@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const usdtOrderSchema = new mongoose.Schema(
+const UsdtOrderSchema = new mongoose.Schema(
   {
     username: {
       type: String,
@@ -9,7 +9,7 @@ const usdtOrderSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["BUY", "SELL"],
+      enum: ["buy", "sell"],
       required: true,
     },
 
@@ -18,12 +18,12 @@ const usdtOrderSchema = new mongoose.Schema(
       default: "TRC20",
     },
 
-    pkrAmount: {
+    PkrAmount: {
       type: Number,
       required: true,
     },
 
-    usdtAmount: {
+    UsdtAmount: {
       type: Number,
       required: true,
     },
@@ -51,4 +51,4 @@ const usdtOrderSchema = new mongoose.Schema(
 
 module.exports =
   mongoose.models.UsdtOrder ||
-  mongoose.model("UsdtOrder", usdtOrderSchema);
+  mongoose.model("UsdtOrder", UsdtOrderSchema);

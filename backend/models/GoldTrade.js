@@ -15,7 +15,7 @@ const goldTradeSchema = new mongoose.Schema(
 
     tradeType: {
       type: String,
-      enum: ["BUY", "SELL"],
+      enum: ["buy", "sell"],
       required: true,
     },
 
@@ -29,12 +29,12 @@ const goldTradeSchema = new mongoose.Schema(
       required: true,
     },
 
-    totalPKR: {
+    totalPkr: {
       type: Number,
       required: true,
     },
 
-    averageBuyPrice: {
+    averagebuyPrice: {
       type: Number,
       default: 0,
     },

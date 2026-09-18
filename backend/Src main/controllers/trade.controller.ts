@@ -2,7 +2,7 @@
 // GOLDTRADE V17 ENTERPRISE
 // FILE: backend/src/controllers/trade.controller.ts
 // SECTION 1/10
-// MARKET BUY / SELL ORDER ENGINE
+// MARKET buy / sell ORDER ENGINE
 // ======================================================
 
 import { Request, Response } from "express";
@@ -11,7 +11,7 @@ import { Request, Response } from "express";
 // trade fields used by this controller. Keep the controller's model handles
 // runtime-compatible while avoiding incorrect compile-time schema inference.
 const TradeOrder: any = require("../models/TradeOrder");
-const Wallet: any = require("../models/Wallet");
+const wallet: any = require("../models/wallet");
 const Portfolio: any = require("../models/Portfolio");
 const GoldPrice: any = require("../models/GoldPrice");
 const Transaction: any = require("../models/Transaction");
@@ -21,8 +21,8 @@ const Transaction: any = require("../models/Transaction");
 // ======================================================
 
 const TRADE_CONFIG = {
-  BUY_FEE_PERCENT: 0.25,
-  SELL_FEE_PERCENT: 0.25,
+  buy_FEE_PERCENT: 0.25,
+  sell_FEE_PERCENT: 0.25,
   MIN_GRAMS: 0.01,
   MAX_GRAMS: 1000,
 };
@@ -69,22 +69,22 @@ const getMarketPrice = async (
 
 const calculateTradingFee = (
   amount: number,
-  side: "BUY" | "SELL"
+  side: "buy" | "sell"
 ) => {
   const feePercent =
-    side === "BUY"
-      ? TRADE_CONFIG.BUY_FEE_PERCENT
-      : TRADE_CONFIG.SELL_FEE_PERCENT;
+    side === "buy"
+      ? TRADE_CONFIG.buy_FEE_PERCENT
+      : TRADE_CONFIG.sell_FEE_PERCENT;
 
   return Number(((amount * feePercent) / 100).toFixed(2));
 };
 
 // ======================================================
-// PLACE MARKET BUY ORDER
+// PLACE MARKET buy ORDER
 // POST /api/v1/trade/market-buy
 // ======================================================
 
-export const placeMarketBuyOrder = async (
+export const placeMarketbuyOrder = async (
   req: Request,
   res: Response
 ) => {
@@ -101,7 +101,7 @@ export const placeMarketBuyOrder = async (
       });
     }
 
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id,
     });
 
@@ -112,7 +112,7 @@ export const placeMarketBuyOrder = async (
     if (!wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "Wallet or portfolio not found.",
+        message: "wallet or portfolio not found.",
       });
     }
 
@@ -125,18 +125,18 @@ export const placeMarketBuyOrder = async (
       (marketPrice * grams).toFixed(2)
     );
 
-    const fee = calculateTradingFee(tradeValue, "BUY");
+    const fee = calculateTradingFee(tradeValue, "buy");
     const totalCost = Number((tradeValue + fee).toFixed(2));
 
-    if (currency === "USDT") {
-      if (wallet.cryptoBalances.USDT < totalCost) {
+    if (currency === "Usdt") {
+      if (wallet.cryptoBalances.Usdt < totalCost) {
         return res.status(400).json({
           success: false,
-          message: "Insufficient USDT balance.",
+          message: "Insufficient Usdt balance.",
         });
       }
 
-      wallet.cryptoBalances.USDT -= totalCost;
+      wallet.cryptoBalances.Usdt -= totalCost;
     } else {
       if (wallet.balances[currency] < totalCost) {
         return res.status(400).json({
@@ -160,7 +160,7 @@ export const placeMarketBuyOrder = async (
       user: req.user.id,
       reference,
       orderType: "MARKET",
-      side: "BUY",
+      side: "buy",
       karat,
       currency,
       grams,
@@ -174,7 +174,7 @@ export const placeMarketBuyOrder = async (
     await Transaction.create({
       user: req.user.id,
       wallet: wallet._id,
-      transactionType: "MARKET_BUY_ORDER",
+      transactionType: "MARKET_buy_ORDER",
       providerReference: reference,
       currency,
       amount: totalCost,
@@ -182,7 +182,7 @@ export const placeMarketBuyOrder = async (
       goldGrams: grams,
       goldPricePerGram: marketPrice,
       status: "COMPLETED",
-      description: "Market Buy Order",
+      description: "Market buy Order",
     });
 
     await wallet.save();
@@ -213,18 +213,18 @@ export const placeMarketBuyOrder = async (
 };
 
 // ======================================================
-// PLACE MARKET SELL ORDER
+// PLACE MARKET sell ORDER
 // POST /api/v1/trade/market-sell
 // ======================================================
 
-export const placeMarketSellOrder = async (
+export const placeMarketsellOrder = async (
   req: Request,
   res: Response
 ) => {
   try {
     const { karat, currency, grams } = req.body;
 
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id,
     });
 
@@ -235,7 +235,7 @@ export const placeMarketSellOrder = async (
     if (!wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "Wallet or portfolio not found.",
+        message: "wallet or portfolio not found.",
       });
     }
 
@@ -262,7 +262,7 @@ export const placeMarketSellOrder = async (
       (marketPrice * grams).toFixed(2)
     );
 
-    const fee = calculateTradingFee(tradeValue, "SELL");
+    const fee = calculateTradingFee(tradeValue, "sell");
     const receiveAmount = Number((tradeValue - fee).toFixed(2));
 
     wallet.goldBalance.totalGrams -= grams;
@@ -271,8 +271,8 @@ export const placeMarketSellOrder = async (
     portfolio.goldHoldings.totalGrams -= grams;
     portfolio.goldHoldings[karat] -= grams;
 
-    if (currency === "USDT") {
-      wallet.cryptoBalances.USDT += receiveAmount;
+    if (currency === "Usdt") {
+      wallet.cryptoBalances.Usdt += receiveAmount;
     } else {
       wallet.balances[currency] += receiveAmount;
     }
@@ -283,7 +283,7 @@ export const placeMarketSellOrder = async (
       user: req.user.id,
       reference,
       orderType: "MARKET",
-      side: "SELL",
+      side: "sell",
       karat,
       currency,
       grams,
@@ -297,7 +297,7 @@ export const placeMarketSellOrder = async (
     await Transaction.create({
       user: req.user.id,
       wallet: wallet._id,
-      transactionType: "MARKET_SELL_ORDER",
+      transactionType: "MARKET_sell_ORDER",
       providerReference: reference,
       currency,
       amount: receiveAmount,
@@ -305,7 +305,7 @@ export const placeMarketSellOrder = async (
       goldGrams: grams,
       goldPricePerGram: marketPrice,
       status: "COMPLETED",
-      description: "Market Sell Order",
+      description: "Market sell Order",
     });
 
     await wallet.save();
@@ -374,7 +374,7 @@ export const previewMarketOrder = async (
         tradingFee: fee,
 
         total:
-          side === "BUY"
+          side === "buy"
             ? tradeValue + fee
             : tradeValue - fee,
       },
@@ -389,7 +389,7 @@ export const previewMarketOrder = async (
 };
 
 // ======================================================
-// GET MARKET ORDER HISTORY
+// GET MARKET ORDER history
 // GET /api/v1/trade/market-orders
 // ======================================================
 
@@ -468,11 +468,11 @@ export const getTradeOrderDetails = async (
 const LIMIT_ORDER_EXPIRY_DAYS = 30;
 
 // ======================================================
-// PLACE LIMIT BUY ORDER
+// PLACE LIMIT buy ORDER
 // POST /api/v1/trade/limit-buy
 // ======================================================
 
-export const placeLimitBuyOrder = async (
+export const placeLimitbuyOrder = async (
   req: Request,
   res: Response
 ) => {
@@ -486,28 +486,28 @@ export const placeLimitBuyOrder = async (
       });
     }
 
-    const wallet = await Wallet.findOne({ user: req.user.id });
+    const wallet = await wallet.findOne({ user: req.user.id });
 
     if (!wallet) {
       return res.status(404).json({
         success: false,
-        message: "Wallet not found.",
+        message: "wallet not found.",
       });
     }
 
     const tradeValue = Number((grams * targetPrice).toFixed(2));
-    const fee = calculateTradingFee(tradeValue, "BUY");
+    const fee = calculateTradingFee(tradeValue, "buy");
     const reserveAmount = Number((tradeValue + fee).toFixed(2));
 
-    if (currency === "USDT") {
-      if (wallet.cryptoBalances.USDT < reserveAmount) {
+    if (currency === "Usdt") {
+      if (wallet.cryptoBalances.Usdt < reserveAmount) {
         return res.status(400).json({
           success: false,
-          message: "Insufficient USDT balance.",
+          message: "Insufficient Usdt balance.",
         });
       }
 
-      wallet.cryptoBalances.USDT -= reserveAmount;
+      wallet.cryptoBalances.Usdt -= reserveAmount;
     } else {
       if (wallet.balances[currency] < reserveAmount) {
         return res.status(400).json({
@@ -528,7 +528,7 @@ export const placeLimitBuyOrder = async (
       user: req.user.id,
       reference,
       orderType: "LIMIT",
-      side: "BUY",
+      side: "buy",
       karat,
       currency,
       grams,
@@ -558,24 +558,24 @@ export const placeLimitBuyOrder = async (
 };
 
 // ======================================================
-// PLACE LIMIT SELL ORDER
+// PLACE LIMIT sell ORDER
 // POST /api/v1/trade/limit-sell
 // ======================================================
 
-export const placeLimitSellOrder = async (
+export const placeLimitsellOrder = async (
   req: Request,
   res: Response
 ) => {
   try {
     const { karat, currency, grams, targetPrice } = req.body;
 
-    const wallet = await Wallet.findOne({ user: req.user.id });
+    const wallet = await wallet.findOne({ user: req.user.id });
     const portfolio = await Portfolio.findOne({ user: req.user.id });
 
     if (!wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "Wallet or portfolio not found.",
+        message: "wallet or portfolio not found.",
       });
     }
 
@@ -605,7 +605,7 @@ export const placeLimitSellOrder = async (
       user: req.user.id,
       reference,
       orderType: "LIMIT",
-      side: "SELL",
+      side: "sell",
       karat,
       currency,
       grams,
@@ -651,17 +651,17 @@ export const executeEligibleLimitOrders = async () => {
       );
 
       const shouldExecute =
-        (order.side === "BUY" && currentPrice <= order.targetPrice) ||
-        (order.side === "SELL" && currentPrice >= order.targetPrice);
+        (order.side === "buy" && currentPrice <= order.targetPrice) ||
+        (order.side === "sell" && currentPrice >= order.targetPrice);
 
       if (!shouldExecute) continue;
 
-      const wallet = await Wallet.findOne({ user: order.user });
+      const wallet = await wallet.findOne({ user: order.user });
       const portfolio = await Portfolio.findOne({ user: order.user });
 
       if (!wallet || !portfolio) continue;
 
-      if (order.side === "BUY") {
+      if (order.side === "buy") {
         wallet.goldBalance.totalGrams += order.remainingGrams;
         wallet.goldBalance.availableGrams += order.remainingGrams;
 
@@ -675,11 +675,11 @@ export const executeEligibleLimitOrders = async () => {
           (order.remainingGrams * currentPrice).toFixed(2)
         );
 
-        const fee = calculateTradingFee(tradeValue, "SELL");
+        const fee = calculateTradingFee(tradeValue, "sell");
         const receiveAmount = Number((tradeValue - fee).toFixed(2));
 
-        if (order.currency === "USDT") {
-          wallet.cryptoBalances.USDT += receiveAmount;
+        if (order.currency === "Usdt") {
+          wallet.cryptoBalances.Usdt += receiveAmount;
         } else {
           wallet.balances[order.currency] += receiveAmount;
         }
@@ -702,9 +702,9 @@ export const executeEligibleLimitOrders = async () => {
         user: order.user,
         wallet: wallet._id,
         transactionType:
-          order.side === "BUY"
-            ? "LIMIT_BUY_FILLED"
-            : "LIMIT_SELL_FILLED",
+          order.side === "buy"
+            ? "LIMIT_buy_FILLED"
+            : "LIMIT_sell_FILLED",
         providerReference: order.reference,
         currency: order.currency,
         amount: Number(
@@ -752,18 +752,18 @@ export const cancelLimitOrder = async (
       });
     }
 
-    const wallet = await Wallet.findOne({ user: req.user.id });
+    const wallet = await wallet.findOne({ user: req.user.id });
 
     if (!wallet) {
       return res.status(404).json({
         success: false,
-        message: "Wallet not found.",
+        message: "wallet not found.",
       });
     }
 
-    if (order.side === "BUY") {
-      if (order.currency === "USDT") {
-        wallet.cryptoBalances.USDT += order.reservedAmount;
+    if (order.side === "buy") {
+      if (order.currency === "Usdt") {
+        wallet.cryptoBalances.Usdt += order.reservedAmount;
       } else {
         wallet.balances[order.currency] += order.reservedAmount;
       }
@@ -831,13 +831,13 @@ export const getOrderBook = async (
   try {
     const buyOrders = await TradeOrder.find({
       orderType: "LIMIT",
-      side: "BUY",
+      side: "buy",
       status: "OPEN",
     }).sort({ targetPrice: -1 });
 
     const sellOrders = await TradeOrder.find({
       orderType: "LIMIT",
-      side: "SELL",
+      side: "sell",
       status: "OPEN",
     }).sort({ targetPrice: 1 });
 
@@ -869,13 +869,13 @@ export const expireLimitOrders = async () => {
   });
 
   for (const order of expiredOrders) {
-    const wallet = await Wallet.findOne({ user: order.user });
+    const wallet = await wallet.findOne({ user: order.user });
 
     if (!wallet) continue;
 
-    if (order.side === "BUY") {
-      if (order.currency === "USDT") {
-        wallet.cryptoBalances.USDT += order.reservedAmount;
+    if (order.side === "buy") {
+      if (order.currency === "Usdt") {
+        wallet.cryptoBalances.Usdt += order.reservedAmount;
       } else {
         wallet.balances[order.currency] += order.reservedAmount;
       }
@@ -923,13 +923,13 @@ export const createStopLossOrder = async (
   try {
     const { karat, currency, grams, stopPrice } = req.body;
 
-    const wallet = await Wallet.findOne({ user: req.user.id });
+    const wallet = await wallet.findOne({ user: req.user.id });
     const portfolio = await Portfolio.findOne({ user: req.user.id });
 
     if (!wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "Wallet or portfolio not found.",
+        message: "wallet or portfolio not found.",
       });
     }
 
@@ -947,7 +947,7 @@ export const createStopLossOrder = async (
       user: req.user.id,
       reference: generateTradeReference(),
       orderType: "STOP_LOSS",
-      side: "SELL",
+      side: "sell",
       karat,
       currency,
       grams,
@@ -985,13 +985,13 @@ export const createTakeProfitOrder = async (
   try {
     const { karat, currency, grams, targetPrice } = req.body;
 
-    const wallet = await Wallet.findOne({ user: req.user.id });
+    const wallet = await wallet.findOne({ user: req.user.id });
     const portfolio = await Portfolio.findOne({ user: req.user.id });
 
     if (!wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "Wallet or portfolio not found.",
+        message: "wallet or portfolio not found.",
       });
     }
 
@@ -1009,7 +1009,7 @@ export const createTakeProfitOrder = async (
       user: req.user.id,
       reference: generateTradeReference(),
       orderType: "TAKE_PROFIT",
-      side: "SELL",
+      side: "sell",
       karat,
       currency,
       grams,
@@ -1052,13 +1052,13 @@ export const createTrailingStopOrder = async (
       trailingDistance,
     } = req.body;
 
-    const wallet = await Wallet.findOne({ user: req.user.id });
+    const wallet = await wallet.findOne({ user: req.user.id });
     const portfolio = await Portfolio.findOne({ user: req.user.id });
 
     if (!wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "Wallet or portfolio not found.",
+        message: "wallet or portfolio not found.",
       });
     }
 
@@ -1081,7 +1081,7 @@ export const createTrailingStopOrder = async (
       user: req.user.id,
       reference: generateTradeReference(),
       orderType: "TRAILING_STOP",
-      side: "SELL",
+      side: "sell",
       karat,
       currency,
       grams,
@@ -1171,7 +1171,7 @@ export const executeRiskOrders = async () => {
         continue;
       }
 
-      const wallet = await Wallet.findOne({
+      const wallet = await wallet.findOne({
         user: order.user,
       });
 
@@ -1193,15 +1193,15 @@ export const executeRiskOrders = async () => {
 
       const fee = calculateTradingFee(
         tradeValue,
-        "SELL"
+        "sell"
       );
 
       const receiveAmount = Number(
         (tradeValue - fee).toFixed(2)
       );
 
-      if (order.currency === "USDT") {
-        wallet.cryptoBalances.USDT += receiveAmount;
+      if (order.currency === "Usdt") {
+        wallet.cryptoBalances.Usdt += receiveAmount;
       } else {
         wallet.balances[order.currency] += receiveAmount;
       }
@@ -1261,7 +1261,7 @@ export const cancelRiskOrder = async (
       });
     }
 
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       user: req.user.id,
     });
 
@@ -1322,11 +1322,11 @@ export const getRiskOrders = async (
 };
 
 // ======================================================
-// GET RISK ORDER HISTORY
+// GET RISK ORDER history
 // GET /api/v1/trade/risk-history
 // ======================================================
 
-export const getRiskOrderHistory = async (
+export const getRiskOrderhistory = async (
   req: Request,
   res: Response
 ) => {
@@ -1342,7 +1342,7 @@ export const getRiskOrderHistory = async (
 
     return res.json({
       success: true,
-      totalHistory: history.length,
+      totalhistory: history.length,
       history,
     });
 
@@ -1371,7 +1371,7 @@ const MATCHING_BATCH_LIMIT = 100;
 // PRICE-TIME PRIORITY SORTING
 // ======================================================
 
-const sortBuyOrders = (orders: any[]) => {
+const sortbuyOrders = (orders: any[]) => {
   return orders.sort((a, b) => {
     if (a.targetPrice !== b.targetPrice) {
       return b.targetPrice - a.targetPrice; // Highest price first
@@ -1383,7 +1383,7 @@ const sortBuyOrders = (orders: any[]) => {
   });
 };
 
-const sortSellOrders = (orders: any[]) => {
+const sortsellOrders = (orders: any[]) => {
   return orders.sort((a, b) => {
     if (a.targetPrice !== b.targetPrice) {
       return a.targetPrice - b.targetPrice; // Lowest price first
@@ -1405,7 +1405,7 @@ const loadOpenOrderBook = async (
 ) => {
   const buyOrders = await TradeOrder.find({
     orderType: "LIMIT",
-    side: "BUY",
+    side: "buy",
     karat,
     currency,
     status: "OPEN",
@@ -1413,15 +1413,15 @@ const loadOpenOrderBook = async (
 
   const sellOrders = await TradeOrder.find({
     orderType: "LIMIT",
-    side: "SELL",
+    side: "sell",
     karat,
     currency,
     status: "OPEN",
   }).limit(MATCHING_BATCH_LIMIT);
 
   return {
-    buyOrders: sortBuyOrders(buyOrders),
-    sellOrders: sortSellOrders(sellOrders),
+    buyOrders: sortbuyOrders(buyOrders),
+    sellOrders: sortsellOrders(sellOrders),
   };
 };
 
@@ -1562,10 +1562,10 @@ export const buildMatchingQueue = async (
 // ======================================================
 
 // ======================================================
-// UPDATE BUY ORDER AFTER PARTIAL FILL
+// UPDATE buy ORDER AFTER PARTIAL FILL
 // ======================================================
 
-const updateBuyOrderFill = async (
+const updatebuyOrderFill = async (
   buyOrder: any,
   matchedGrams: number,
   executionPrice: number
@@ -1588,10 +1588,10 @@ const updateBuyOrderFill = async (
 };
 
 // ======================================================
-// UPDATE SELL ORDER AFTER PARTIAL FILL
+// UPDATE sell ORDER AFTER PARTIAL FILL
 // ======================================================
 
-const updateSellOrderFill = async (
+const updatesellOrderFill = async (
   sellOrder: any,
   matchedGrams: number,
   executionPrice: number
@@ -1614,14 +1614,14 @@ const updateSellOrderFill = async (
 };
 
 // ======================================================
-// CREDIT BUYER GOLD HOLDINGS
+// CREDIT buyER GOLD HOLDINGS
 // ======================================================
 
-const settleBuyerPortfolio = async (
+const settlebuyerPortfolio = async (
   buyOrder: any,
   matchedGrams: number
 ) => {
-  const wallet = await Wallet.findOne({
+  const wallet = await wallet.findOne({
     user: buyOrder.user,
   });
 
@@ -1630,7 +1630,7 @@ const settleBuyerPortfolio = async (
   });
 
   if (!wallet || !portfolio) {
-    throw new Error("Buyer settlement failed.");
+    throw new Error("buyer settlement failed.");
   }
 
   wallet.goldBalance.totalGrams += matchedGrams;
@@ -1646,15 +1646,15 @@ const settleBuyerPortfolio = async (
 };
 
 // ======================================================
-// CREDIT SELLER FIAT / USDT
+// CREDIT sellER FIAT / Usdt
 // ======================================================
 
-const settleSellerWallet = async (
+const settlesellerwallet = async (
   sellOrder: any,
   matchedGrams: number,
   executionPrice: number
 ) => {
-  const wallet = await Wallet.findOne({
+  const wallet = await wallet.findOne({
     user: sellOrder.user,
   });
 
@@ -1663,14 +1663,14 @@ const settleSellerWallet = async (
   });
 
   if (!wallet || !portfolio) {
-    throw new Error("Seller settlement failed.");
+    throw new Error("seller settlement failed.");
   }
 
   const tradeValue = Number(
     (matchedGrams * executionPrice).toFixed(2)
   );
 
-  const fee = calculateTradingFee(tradeValue, "SELL");
+  const fee = calculateTradingFee(tradeValue, "sell");
 
   const receiveAmount = Number(
     (tradeValue - fee).toFixed(2)
@@ -1682,8 +1682,8 @@ const settleSellerWallet = async (
   portfolio.goldHoldings.totalGrams -= matchedGrams;
   portfolio.goldHoldings[sellOrder.karat] -= matchedGrams;
 
-  if (sellOrder.currency === "USDT") {
-    wallet.cryptoBalances.USDT += receiveAmount;
+  if (sellOrder.currency === "Usdt") {
+    wallet.cryptoBalances.Usdt += receiveAmount;
   } else {
     wallet.balances[sellOrder.currency] += receiveAmount;
   }
@@ -1701,14 +1701,14 @@ const settleSellerWallet = async (
 };
 
 // ======================================================
-// CREATE BUY TRANSACTION
+// CREATE buy TRANSACTION
 // ======================================================
 
-const createBuyerTransaction = async (
+const createbuyerTransaction = async (
   buyOrder: any,
   trade: any
 ) => {
-  const wallet = await Wallet.findOne({
+  const wallet = await wallet.findOne({
     user: buyOrder.user,
   });
 
@@ -1716,7 +1716,7 @@ const createBuyerTransaction = async (
     user: buyOrder.user,
     wallet: wallet?._id,
 
-    transactionType: "LIMIT_BUY_FILLED",
+    transactionType: "LIMIT_buy_FILLED",
 
     providerReference: trade.tradeReference,
 
@@ -1729,15 +1729,15 @@ const createBuyerTransaction = async (
 
     status: "COMPLETED",
 
-    description: "Limit Buy Order Settlement",
+    description: "Limit buy Order Settlement",
   });
 };
 
 // ======================================================
-// CREATE SELL TRANSACTION
+// CREATE sell TRANSACTION
 // ======================================================
 
-const createSellerTransaction = async (
+const createsellerTransaction = async (
   sellOrder: any,
   trade: any,
   settlement: any
@@ -1746,7 +1746,7 @@ const createSellerTransaction = async (
     user: sellOrder.user,
     wallet: settlement.wallet._id,
 
-    transactionType: "LIMIT_SELL_FILLED",
+    transactionType: "LIMIT_sell_FILLED",
 
     providerReference: trade.tradeReference,
 
@@ -1759,7 +1759,7 @@ const createSellerTransaction = async (
 
     status: "COMPLETED",
 
-    description: "Limit Sell Order Settlement",
+    description: "Limit sell Order Settlement",
   });
 };
 
@@ -1781,36 +1781,36 @@ export const settleMatchedTrade = async (
   );
 
   const buyerSettlement =
-    await settleBuyerPortfolio(
+    await settlebuyerPortfolio(
       buyOrder,
       matchedGrams
     );
 
   const sellerSettlement =
-    await settleSellerWallet(
+    await settlesellerwallet(
       sellOrder,
       matchedGrams,
       executionPrice
     );
 
-  await updateBuyOrderFill(
+  await updatebuyOrderFill(
     buyOrder,
     matchedGrams,
     executionPrice
   );
 
-  await updateSellOrderFill(
+  await updatesellOrderFill(
     sellOrder,
     matchedGrams,
     executionPrice
   );
 
-  await createBuyerTransaction(
+  await createbuyerTransaction(
     buyOrder,
     trade
   );
 
-  await createSellerTransaction(
+  await createsellerTransaction(
     sellOrder,
     trade,
     sellerSettlement
@@ -1851,11 +1851,11 @@ const SYSTEM_LIQUIDITY_USER = "SYSTEM_LIQUIDITY_POOL";
 const MARKET_MAKER_SLIPPAGE = 0.0025; // 0.25%
 
 // ======================================================
-// GET SYSTEM LIQUIDITY WALLET
+// GET SYSTEM LIQUIDITY wallet
 // ======================================================
 
-const getLiquidityWallet = async () => {
-  const wallet = await Wallet.findOne({
+const getLiquiditywallet = async () => {
+  const wallet = await wallet.findOne({
     accountType: SYSTEM_LIQUIDITY_USER,
   });
 
@@ -1871,21 +1871,21 @@ const getLiquidityWallet = async () => {
 // ======================================================
 
 const hasLiquidity = async (
-  side: "BUY" | "SELL",
+  side: "buy" | "sell",
   currency: string,
   grams: number,
   executionPrice: number
 ) => {
-  const wallet = await getLiquidityWallet();
+  const wallet = await getLiquiditywallet();
 
   const requiredAmount = Number((grams * executionPrice).toFixed(2));
 
-  if (side === "BUY") {
+  if (side === "buy") {
     return wallet.goldBalance.availableGrams >= grams;
   }
 
-  if (currency === "USDT") {
-    return wallet.cryptoBalances.USDT >= requiredAmount;
+  if (currency === "Usdt") {
+    return wallet.cryptoBalances.Usdt >= requiredAmount;
   }
 
   return wallet.balances[currency] >= requiredAmount;
@@ -1897,9 +1897,9 @@ const hasLiquidity = async (
 
 const calculateLiquidityExecutionPrice = (
   marketPrice: number,
-  side: "BUY" | "SELL"
+  side: "buy" | "sell"
 ) => {
-  if (side === "BUY") {
+  if (side === "buy") {
     return Number(
       (marketPrice * (1 + MARKET_MAKER_SLIPPAGE)).toFixed(2)
     );
@@ -1911,38 +1911,38 @@ const calculateLiquidityExecutionPrice = (
 };
 
 // ======================================================
-// EXECUTE BUY FROM SYSTEM LIQUIDITY
+// EXECUTE buy FROM SYSTEM LIQUIDITY
 // ======================================================
 
-const executeLiquidityBuy = async (
+const executeLiquiditybuy = async (
   buyOrder: any,
   marketPrice: number
 ) => {
-  const liquidityWallet = await getLiquidityWallet();
+  const liquiditywallet = await getLiquiditywallet();
 
   const executionPrice = calculateLiquidityExecutionPrice(
     marketPrice,
-    "BUY"
+    "buy"
   );
 
   const tradeValue = Number(
     (buyOrder.remainingGrams * executionPrice).toFixed(2)
   );
 
-  const fee = calculateTradingFee(tradeValue, "BUY");
+  const fee = calculateTradingFee(tradeValue, "buy");
 
-  liquidityWallet.goldBalance.availableGrams -= buyOrder.remainingGrams;
-  liquidityWallet.goldBalance.totalGrams -= buyOrder.remainingGrams;
+  liquiditywallet.goldBalance.availableGrams -= buyOrder.remainingGrams;
+  liquiditywallet.goldBalance.totalGrams -= buyOrder.remainingGrams;
 
-  if (buyOrder.currency === "USDT") {
-    liquidityWallet.cryptoBalances.USDT += tradeValue;
+  if (buyOrder.currency === "Usdt") {
+    liquiditywallet.cryptoBalances.Usdt += tradeValue;
   } else {
-    liquidityWallet.balances[buyOrder.currency] += tradeValue;
+    liquiditywallet.balances[buyOrder.currency] += tradeValue;
   }
 
-  await liquidityWallet.save();
+  await liquiditywallet.save();
 
-  await settleBuyerPortfolio(
+  await settlebuyerPortfolio(
     buyOrder,
     buyOrder.remainingGrams
   );
@@ -1958,9 +1958,9 @@ const executeLiquidityBuy = async (
 
   await Transaction.create({
     user: buyOrder.user,
-    wallet: liquidityWallet._id,
+    wallet: liquiditywallet._id,
 
-    transactionType: "LIQUIDITY_BUY_EXECUTION",
+    transactionType: "LIQUIDITY_buy_EXECUTION",
 
     providerReference: buyOrder.reference,
 
@@ -1980,42 +1980,42 @@ const executeLiquidityBuy = async (
 };
 
 // ======================================================
-// EXECUTE SELL TO SYSTEM LIQUIDITY
+// EXECUTE sell TO SYSTEM LIQUIDITY
 // ======================================================
 
-const executeLiquiditySell = async (
+const executeLiquiditysell = async (
   sellOrder: any,
   marketPrice: number
 ) => {
-  const liquidityWallet = await getLiquidityWallet();
+  const liquiditywallet = await getLiquiditywallet();
 
   const executionPrice = calculateLiquidityExecutionPrice(
     marketPrice,
-    "SELL"
+    "sell"
   );
 
   const tradeValue = Number(
     (sellOrder.remainingGrams * executionPrice).toFixed(2)
   );
 
-  const fee = calculateTradingFee(tradeValue, "SELL");
+  const fee = calculateTradingFee(tradeValue, "sell");
 
   const receiveAmount = Number(
     (tradeValue - fee).toFixed(2)
   );
 
-  liquidityWallet.goldBalance.totalGrams += sellOrder.remainingGrams;
-  liquidityWallet.goldBalance.availableGrams += sellOrder.remainingGrams;
+  liquiditywallet.goldBalance.totalGrams += sellOrder.remainingGrams;
+  liquiditywallet.goldBalance.availableGrams += sellOrder.remainingGrams;
 
-  if (sellOrder.currency === "USDT") {
-    liquidityWallet.cryptoBalances.USDT -= receiveAmount;
+  if (sellOrder.currency === "Usdt") {
+    liquiditywallet.cryptoBalances.Usdt -= receiveAmount;
   } else {
-    liquidityWallet.balances[sellOrder.currency] -= receiveAmount;
+    liquiditywallet.balances[sellOrder.currency] -= receiveAmount;
   }
 
-  await liquidityWallet.save();
+  await liquiditywallet.save();
 
-  const sellerSettlement = await settleSellerWallet(
+  const sellerSettlement = await settlesellerwallet(
     sellOrder,
     sellOrder.remainingGrams,
     executionPrice
@@ -2034,7 +2034,7 @@ const executeLiquiditySell = async (
     user: sellOrder.user,
     wallet: sellerSettlement.wallet._id,
 
-    transactionType: "LIQUIDITY_SELL_EXECUTION",
+    transactionType: "LIQUIDITY_sell_EXECUTION",
 
     providerReference: sellOrder.reference,
 
@@ -2109,9 +2109,9 @@ export const executeLiquidityFallbackOrders = async () => {
     );
 
     const eligible =
-      (order.side === "BUY" &&
+      (order.side === "buy" &&
         marketPrice <= order.targetPrice) ||
-      (order.side === "SELL" &&
+      (order.side === "sell" &&
         marketPrice >= order.targetPrice);
 
     if (!eligible) continue;
@@ -2125,10 +2125,10 @@ export const executeLiquidityFallbackOrders = async () => {
 
     if (!liquidityAvailable) continue;
 
-    if (order.side === "BUY") {
-      await executeLiquidityBuy(order, marketPrice);
+    if (order.side === "buy") {
+      await executeLiquiditybuy(order, marketPrice);
     } else {
-      await executeLiquiditySell(order, marketPrice);
+      await executeLiquiditysell(order, marketPrice);
     }
   }
 };
@@ -2145,13 +2145,13 @@ export const getMatchingQueueStatus = async (
   try {
     const buyOrders = await TradeOrder.countDocuments({
       orderType: "LIMIT",
-      side: "BUY",
+      side: "buy",
       status: "OPEN",
     });
 
     const sellOrders = await TradeOrder.countDocuments({
       orderType: "LIMIT",
-      side: "SELL",
+      side: "sell",
       status: "OPEN",
     });
 
@@ -2163,8 +2163,8 @@ export const getMatchingQueueStatus = async (
       success: true,
 
       queue: {
-        openBuyOrders: buyOrders,
-        openSellOrders: sellOrders,
+        openbuyOrders: buyOrders,
+        opensellOrders: sellOrders,
         partiallyFilledOrders: partialOrders,
         timestamp: new Date(),
       },
@@ -2199,15 +2199,15 @@ export const processMatchingCycle = async () => {
   }
 
   const supportedPairs = [
-    { karat: "K24", currency: "PKR" },
-    { karat: "K22", currency: "PKR" },
-    { karat: "K21", currency: "PKR" },
-    { karat: "K18", currency: "PKR" },
+    { karat: "K24", currency: "Pkr" },
+    { karat: "K22", currency: "Pkr" },
+    { karat: "K21", currency: "Pkr" },
+    { karat: "K18", currency: "Pkr" },
 
     { karat: "K24", currency: "USD" },
     { karat: "K22", currency: "USD" },
     { karat: "K24", currency: "AED" },
-    { karat: "K24", currency: "USDT" },
+    { karat: "K24", currency: "Usdt" },
   ];
 
   const summary = {
@@ -2273,13 +2273,13 @@ export const getMarketDepthSummary = async (
   try {
     const buyOrders = await TradeOrder.find({
       orderType: "LIMIT",
-      side: "BUY",
+      side: "buy",
       status: "OPEN",
     });
 
     const sellOrders = await TradeOrder.find({
       orderType: "LIMIT",
-      side: "SELL",
+      side: "sell",
       status: "OPEN",
     });
 
@@ -2412,7 +2412,7 @@ export const getMatchingEngineHealth = async (
   res: Response
 ) => {
   try {
-    const liquidityWallet = await getLiquidityWallet();
+    const liquiditywallet = await getLiquiditywallet();
 
     return res.json({
       success: true,
@@ -2422,10 +2422,10 @@ export const getMatchingEngineHealth = async (
         version: "GoldTrade Matching Engine v17",
 
         liquidityGold:
-          liquidityWallet.goldBalance.availableGrams,
+          liquiditywallet.goldBalance.availableGrams,
 
-        liquidityUSDT:
-          liquidityWallet.cryptoBalances.USDT,
+        liquidityUsdt:
+          liquiditywallet.cryptoBalances.Usdt,
 
         timestamp: new Date(),
       },
@@ -2479,31 +2479,31 @@ export const placeAdvancedLimitOrder = async (
       });
     }
 
-    const wallet = await Wallet.findOne({ user: req.user.id });
+    const wallet = await wallet.findOne({ user: req.user.id });
     const portfolio = await Portfolio.findOne({ user: req.user.id });
 
     if (!wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "Wallet or portfolio not found.",
+        message: "wallet or portfolio not found.",
       });
     }
 
     const tradeValue = Number((grams * targetPrice).toFixed(2));
     const fee = calculateTradingFee(tradeValue, side);
 
-    if (side === "BUY") {
+    if (side === "buy") {
       const reserveAmount = tradeValue + fee;
 
-      if (currency === "USDT") {
-        if (wallet.cryptoBalances.USDT < reserveAmount) {
+      if (currency === "Usdt") {
+        if (wallet.cryptoBalances.Usdt < reserveAmount) {
           return res.status(400).json({
             success: false,
-            message: "Insufficient USDT balance.",
+            message: "Insufficient Usdt balance.",
           });
         }
 
-        wallet.cryptoBalances.USDT -= reserveAmount;
+        wallet.cryptoBalances.Usdt -= reserveAmount;
       } else {
         if (wallet.balances[currency] < reserveAmount) {
           return res.status(400).json({
@@ -2576,9 +2576,9 @@ const executeIOCOrder = async (order: any) => {
   );
 
   const eligible =
-    (order.side === "BUY" &&
+    (order.side === "buy" &&
       marketPrice <= order.targetPrice) ||
-    (order.side === "SELL" &&
+    (order.side === "sell" &&
       marketPrice >= order.targetPrice);
 
   if (!eligible) {
@@ -2605,7 +2605,7 @@ const executeFOKOrder = async (order: any) => {
   );
 
   const oppositeOrders =
-    order.side === "BUY"
+    order.side === "buy"
       ? orderBook.sellOrders
       : orderBook.buyOrders;
 
@@ -2613,7 +2613,7 @@ const executeFOKOrder = async (order: any) => {
 
   for (const opposite of oppositeOrders) {
     const eligible =
-      order.side === "BUY"
+      order.side === "buy"
         ? opposite.targetPrice <= order.targetPrice
         : opposite.targetPrice >= order.targetPrice;
 
@@ -2663,13 +2663,13 @@ export const applyTimeInForceRules = async (order: any) => {
 // ======================================================
 
 // ======================================================
-// RECALCULATE RESERVED BUY BALANCE
+// RECALCULATE RESERVED buy BALANCE
 // ======================================================
 
 const recalculateReservedAmount = (
   grams: number,
   targetPrice: number,
-  side: "BUY" | "SELL"
+  side: "buy" | "sell"
 ) => {
   const tradeValue = Number((grams * targetPrice).toFixed(2));
   const fee = calculateTradingFee(tradeValue, side);
@@ -2707,12 +2707,12 @@ export const modifyLimitOrder = async (
       });
     }
 
-    const wallet = await Wallet.findOne({ user: req.user.id });
+    const wallet = await wallet.findOne({ user: req.user.id });
 
     if (!wallet) {
       return res.status(404).json({
         success: false,
-        message: "Wallet not found.",
+        message: "wallet not found.",
       });
     }
 
@@ -2733,12 +2733,12 @@ export const modifyLimitOrder = async (
         ? targetPrice
         : order.targetPrice;
 
-    // BUY ORDER BALANCE RECALCULATION
-    if (order.side === "BUY") {
+    // buy ORDER BALANCE RECALCULATION
+    if (order.side === "buy") {
       const recalculated = recalculateReservedAmount(
         newRemaining,
         newPrice,
-        "BUY"
+        "buy"
       );
 
       const difference =
@@ -2746,15 +2746,15 @@ export const modifyLimitOrder = async (
 
       if (difference > 0) {
         // Need extra balance
-        if (order.currency === "USDT") {
-          if (wallet.cryptoBalances.USDT < difference) {
+        if (order.currency === "Usdt") {
+          if (wallet.cryptoBalances.Usdt < difference) {
             return res.status(400).json({
               success: false,
-              message: "Insufficient USDT balance.",
+              message: "Insufficient Usdt balance.",
             });
           }
 
-          wallet.cryptoBalances.USDT -= difference;
+          wallet.cryptoBalances.Usdt -= difference;
         } else {
           if (
             wallet.balances[order.currency] < difference
@@ -2770,8 +2770,8 @@ export const modifyLimitOrder = async (
       } else if (difference < 0) {
         const refund = Math.abs(difference);
 
-        if (order.currency === "USDT") {
-          wallet.cryptoBalances.USDT += refund;
+        if (order.currency === "Usdt") {
+          wallet.cryptoBalances.Usdt += refund;
         } else {
           wallet.balances[order.currency] += refund;
         }
@@ -2783,8 +2783,8 @@ export const modifyLimitOrder = async (
       order.tradingFee = recalculated.tradingFee;
     }
 
-    // SELL ORDER GOLD RECALCULATION
-    if (order.side === "SELL") {
+    // sell ORDER GOLD RECALCULATION
+    if (order.side === "sell") {
       const gramDifference =
         newRemaining - previousRemaining;
 
@@ -2977,12 +2977,12 @@ export const cancelAllOpenOrders = async (
   res: Response
 ) => {
   try {
-    const wallet = await Wallet.findOne({ user: req.user.id });
+    const wallet = await wallet.findOne({ user: req.user.id });
 
     if (!wallet) {
       return res.status(404).json({
         success: false,
-        message: "Wallet not found."
+        message: "wallet not found."
       });
     }
 
@@ -2996,11 +2996,11 @@ export const cancelAllOpenOrders = async (
     let releasedGold = 0;
 
     for (const order of orders) {
-      if (order.side === "BUY") {
+      if (order.side === "buy") {
         const refund = order.reservedAmount || 0;
 
-        if (order.currency === "USDT") {
-          wallet.cryptoBalances.USDT += refund;
+        if (order.currency === "Usdt") {
+          wallet.cryptoBalances.Usdt += refund;
         } else {
           wallet.balances[order.currency] += refund;
         }
@@ -3008,7 +3008,7 @@ export const cancelAllOpenOrders = async (
         refundedAmount += refund;
       }
 
-      if (order.side === "SELL") {
+      if (order.side === "sell") {
         wallet.goldBalance.availableGrams += order.remainingGrams;
         wallet.goldBalance.lockedGrams -= order.remainingGrams;
 
@@ -3107,11 +3107,11 @@ export const getOpenOrdersDashboard = async (
     }).sort({ createdAt: -1 });
 
     const buyOrders = openOrders.filter(
-      (o: any) => o.side === "BUY"
+      (o: any) => o.side === "buy"
     );
 
     const sellOrders = openOrders.filter(
-      (o: any) => o.side === "SELL"
+      (o: any) => o.side === "sell"
     );
 
     const buyVolume = buyOrders.reduce(
@@ -3174,19 +3174,19 @@ export const getTradeOrderSummary = async (
       buyOrders: 0,
       sellOrders: 0,
 
-      totalBuyVolume: 0,
-      totalSellVolume: 0
+      totalbuyVolume: 0,
+      totalsellVolume: 0
     };
 
     for (const order of allOrders) {
-      if (order.side === "BUY") {
+      if (order.side === "buy") {
         summary.buyOrders++;
-        summary.totalBuyVolume += order.grams;
+        summary.totalbuyVolume += order.grams;
       }
 
-      if (order.side === "SELL") {
+      if (order.side === "sell") {
         summary.sellOrders++;
-        summary.totalSellVolume += order.grams;
+        summary.totalsellVolume += order.grams;
       }
 
       switch (order.status) {
@@ -3275,11 +3275,11 @@ export const getReservedTradingBalances = async (
     const reservedCurrency: Record<string, number> = {};
 
     for (const order of orders) {
-      if (order.side === "SELL") {
+      if (order.side === "sell") {
         reservedGold += order.remainingGrams;
       }
 
-      if (order.side === "BUY") {
+      if (order.side === "buy") {
         reservedCurrency[order.currency] =
           (reservedCurrency[order.currency] || 0) +
           (order.reservedAmount || 0);
@@ -3308,7 +3308,7 @@ export const getReservedTradingBalances = async (
 // SECTION 5/10 COMPLETE
 // ======================================================// ======================================================
 // SECTION 6/10 START
-// TRADE HISTORY + PROFIT/LOSS LEDGER ENGINE
+// TRADE history + PROFIT/LOSS LEDGER ENGINE
 // ======================================================
 
 // ======================================================
@@ -3320,8 +3320,8 @@ const calculateRealizedPL = (buyPrice:number,sellPrice:number,grams:number)=>{
     const saleValue = sellPrice * grams;
     const grossProfit = saleValue - investment;
 
-    const buyFee = calculateTradingFee(investment,"BUY");
-    const sellFee = calculateTradingFee(saleValue,"SELL");
+    const buyFee = calculateTradingFee(investment,"buy");
+    const sellFee = calculateTradingFee(saleValue,"sell");
 
     const netProfit = grossProfit - buyFee - sellFee;
 
@@ -3336,11 +3336,11 @@ const calculateRealizedPL = (buyPrice:number,sellPrice:number,grams:number)=>{
 };
 
 // ======================================================
-// GET COMPLETE TRADE HISTORY
+// GET COMPLETE TRADE history
 // GET /api/v1/trade/history
 // ======================================================
 
-export const getTradeHistory = async(req:Request,res:Response)=>{
+export const getTradehistory = async(req:Request,res:Response)=>{
 try{
 
 const trades = await TradeOrder.find({
@@ -3363,11 +3363,11 @@ message:error.message
 };
 
 // ======================================================
-// TRADE HISTORY WITH FILTERS
+// TRADE history WITH FILTERS
 // GET /api/v1/trade/history/filter
 // ======================================================
 
-export const getFilteredTradeHistory = async(req:Request,res:Response)=>{
+export const getFilteredTradehistory = async(req:Request,res:Response)=>{
 try{
 
 const {side,karat,currency,startDate,endDate} = req.query;
@@ -3420,7 +3420,7 @@ try{
 
 const sells = await TradeOrder.find({
 user:req.user.id,
-side:"SELL",
+side:"sell",
 status:"FILLED"
 }).sort({executedAt:-1});
 
@@ -3433,7 +3433,7 @@ let totalProfit=0;
 
 for(const trade of sells){
 
-const buyPrice=trade.averageBuyPrice || trade.executedPrice;
+const buyPrice=trade.averagebuyPrice || trade.executedPrice;
 
 const pnl = calculateRealizedPL(
 buyPrice,
@@ -3491,7 +3491,7 @@ const year=Number(req.query.year);
 
 const trades = await TradeOrder.find({
 user:req.user.id,
-side:"SELL",
+side:"sell",
 status:"FILLED"
 });
 
@@ -3506,7 +3506,7 @@ return date.getFullYear()===year && date.getMonth()===month;
 
 const profit = monthlyTrades.reduce((sum:number,trade:any)=>{
 const pnl = calculateRealizedPL(
-trade.averageBuyPrice || trade.executedPrice,
+trade.averagebuyPrice || trade.executedPrice,
 trade.executedPrice,
 trade.grams
 );
@@ -3545,7 +3545,7 @@ try{
 
 const trades = await TradeOrder.find({
 user:req.user.id,
-side:"SELL",
+side:"sell",
 status:"FILLED"
 });
 
@@ -3556,7 +3556,7 @@ for(const trade of trades){
 const year=new Date(trade.executedAt).getFullYear();
 
 const pnl = calculateRealizedPL(
-trade.averageBuyPrice || trade.executedPrice,
+trade.averagebuyPrice || trade.executedPrice,
 trade.executedPrice,
 trade.grams
 );
@@ -3608,8 +3608,8 @@ const report = trades.map((trade:any)=>{
 const tradeValue=trade.executedPrice * trade.grams;
 const fee=calculateTradingFee(tradeValue,trade.side);
 
-if(trade.side==="BUY") buyFees+=fee;
-if(trade.side==="SELL") sellFees+=fee;
+if(trade.side==="buy") buyFees+=fee;
+if(trade.side==="sell") sellFees+=fee;
 
 return{
 reference:trade.reference,
@@ -3644,11 +3644,11 @@ message:error.message
 };
 
 // ======================================================
-// EXPORT TRADE HISTORY (CSV/PDF READY DATA)
+// EXPORT TRADE history (CSV/PDF READY DATA)
 // GET /api/v1/trade/export
 // ======================================================
 
-export const exportTradeHistory = async(req:Request,res:Response)=>{
+export const exportTradehistory = async(req:Request,res:Response)=>{
 try{
 
 const trades = await TradeOrder.find({
@@ -3696,7 +3696,7 @@ const year=Number(req.query.year);
 
 const sells = await TradeOrder.find({
 user:req.user.id,
-side:"SELL",
+side:"sell",
 status:"FILLED"
 });
 
@@ -3711,7 +3711,7 @@ const tradeYear=new Date(trade.executedAt).getFullYear();
 if(year && tradeYear!==year) continue;
 
 const pnl = calculateRealizedPL(
-trade.averageBuyPrice || trade.executedPrice,
+trade.averagebuyPrice || trade.executedPrice,
 trade.executedPrice,
 trade.grams
 );
@@ -3748,7 +3748,7 @@ message:error.message
 
 // ======================================================
 // SECTION 6/10 END
-// TRADE HISTORY & PROFIT/LOSS ENGINE COMPLETE
+// TRADE history & PROFIT/LOSS ENGINE COMPLETE
 // ======================================================// ======================================================
 // SECTION 7/10 START
 // TRADING POSITIONS + UNREALIZED P/L ENGINE
@@ -3784,7 +3784,7 @@ const buildPositionSummary = async (userId: string) => {
 
     const buyTrades = await TradeOrder.find({
       user: userId,
-      side: "BUY",
+      side: "buy",
       karat,
       status: "FILLED",
     });
@@ -3800,29 +3800,29 @@ const buildPositionSummary = async (userId: string) => {
       0
     );
 
-    const averageBuyPrice =
+    const averagebuyPrice =
       totalGramsBought > 0
         ? Number(
             (totalInvestment / totalGramsBought).toFixed(2)
           )
         : 0;
 
-    const currentPrice = latestPrice.prices[karat].PKR;
+    const currentPrice = latestPrice.prices[karat].Pkr;
 
     const marketValue = Number(
       (grams * currentPrice).toFixed(2)
     );
 
     const unrealizedPL = Number(
-      ((currentPrice - averageBuyPrice) * grams).toFixed(2)
+      ((currentPrice - averagebuyPrice) * grams).toFixed(2)
     );
 
     const roi =
-      averageBuyPrice > 0
+      averagebuyPrice > 0
         ? Number(
             (
-              ((currentPrice - averageBuyPrice) /
-                averageBuyPrice) *
+              ((currentPrice - averagebuyPrice) /
+                averagebuyPrice) *
               100
             ).toFixed(2)
           )
@@ -3831,7 +3831,7 @@ const buildPositionSummary = async (userId: string) => {
     positions.push({
       karat,
       grams,
-      averageBuyPrice,
+      averagebuyPrice,
       currentPrice,
       marketValue,
       unrealizedPL,
@@ -4008,11 +4008,11 @@ export const getLivePositionMetrics = async (
     const metrics = positions.map((position: any) => ({
       karat: position.karat,
       livePrice: position.currentPrice,
-      averageBuyPrice: position.averageBuyPrice,
+      averagebuyPrice: position.averagebuyPrice,
       priceDifference: Number(
         (
           position.currentPrice -
-          position.averageBuyPrice
+          position.averagebuyPrice
         ).toFixed(2)
       ),
       unrealizedPL: position.unrealizedPL,
@@ -4034,11 +4034,11 @@ export const getLivePositionMetrics = async (
 };
 
 // ======================================================
-// POSITION PERFORMANCE HISTORY
+// POSITION PERFORMANCE history
 // GET /api/v1/trade/position-history/:karat
 // ======================================================
 
-export const getPositionPerformanceHistory = async (
+export const getPositionPerformancehistory = async (
   req: Request,
   res: Response
 ) => {
@@ -4490,7 +4490,7 @@ export const getPriceChangeSummary = async (
     const summary: any[] = [];
 
     ["K24", "K22", "K21", "K18"].forEach((karat) => {
-      ["PKR", "USD", "AED", "USDT"].forEach(
+      ["Pkr", "USD", "AED", "Usdt"].forEach(
         (currency) => {
           const current =
             latest.prices[karat][currency];
@@ -4552,12 +4552,12 @@ export const getAdminTradingDashboard = async (req: Request, res: Response) => {
     const filledOrders = await TradeOrder.countDocuments({ status: "FILLED" });
 
     const buyVolume = await TradeOrder.aggregate([
-      { $match: { side: "BUY", status: "FILLED" } },
+      { $match: { side: "buy", status: "FILLED" } },
       { $group: { _id: null, grams: { $sum: "$grams" } } }
     ]);
 
     const sellVolume = await TradeOrder.aggregate([
-      { $match: { side: "SELL", status: "FILLED" } },
+      { $match: { side: "sell", status: "FILLED" } },
       { $group: { _id: null, grams: { $sum: "$grams" } } }
     ]);
 
@@ -4567,8 +4567,8 @@ export const getAdminTradingDashboard = async (req: Request, res: Response) => {
         totalOrders,
         openOrders,
         filledOrders,
-        totalBuyVolume: buyVolume[0]?.grams || 0,
-        totalSellVolume: sellVolume[0]?.grams || 0,
+        totalbuyVolume: buyVolume[0]?.grams || 0,
+        totalsellVolume: sellVolume[0]?.grams || 0,
         generatedAt: new Date()
       }
     });
@@ -4584,13 +4584,13 @@ export const getAdminTradingDashboard = async (req: Request, res: Response) => {
 
 export const getLiquidityStatus = async (req: Request, res: Response) => {
   try {
-    const wallet = await getLiquidityWallet();
+    const wallet = await getLiquiditywallet();
 
     return res.json({
       success: true,
       liquidity: {
         goldGrams: wallet.goldBalance.availableGrams,
-        usdt: wallet.cryptoBalances.USDT,
+        Usdt: wallet.cryptoBalances.Usdt,
         balances: wallet.balances,
         updatedAt: wallet.updatedAt
       }
@@ -4609,7 +4609,7 @@ export const updateLiquidityPool = async (req: Request, res: Response) => {
   try {
     const { goldGrams, currency, amount } = req.body;
 
-    const wallet = await getLiquidityWallet();
+    const wallet = await getLiquiditywallet();
 
     if (goldGrams) {
       wallet.goldBalance.totalGrams += goldGrams;
@@ -4617,8 +4617,8 @@ export const updateLiquidityPool = async (req: Request, res: Response) => {
     }
 
     if (currency && amount) {
-      if (currency === "USDT") {
-        wallet.cryptoBalances.USDT += amount;
+      if (currency === "Usdt") {
+        wallet.cryptoBalances.Usdt += amount;
       } else {
         wallet.balances[currency] += amount;
       }
@@ -4629,7 +4629,7 @@ export const updateLiquidityPool = async (req: Request, res: Response) => {
     return res.json({
       success: true,
       message: "Liquidity updated successfully.",
-      liquidityWallet: wallet
+      liquiditywallet: wallet
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
@@ -4648,8 +4648,8 @@ export const evaluateCircuitBreaker = async () => {
 
   if (!latest || !previous) return false;
 
-  const current = latest.prices.K24.PKR;
-  const old = previous.prices.K24.PKR;
+  const current = latest.prices.K24.Pkr;
+  const old = previous.prices.K24.Pkr;
 
   const movement = Math.abs(((current - old) / old) * 100);
 
@@ -4751,7 +4751,7 @@ export const getTradeMonitoring = async (req: Request, res: Response) => {
 
 export const getRiskDashboard = async (req: Request, res: Response) => {
   try {
-    const liquidity = await getLiquidityWallet();
+    const liquidity = await getLiquiditywallet();
 
     const latestPrice = await GoldPrice.findOne().sort({ createdAt: -1 });
 
@@ -4799,7 +4799,7 @@ const RISK_CONFIG = {
   MAX_SINGLE_ORDER_GRAMS: 500,
   MAX_DAILY_VOLUME_GRAMS: 2000,
   MAX_DAILY_TRADES: 100,
-  HIGH_VALUE_ORDER_PKR: 5000000,
+  HIGH_VALUE_ORDER_Pkr: 5000000,
   RAPID_ORDER_WINDOW_MINUTES: 5,
   RAPID_ORDER_LIMIT: 10
 };
@@ -4868,7 +4868,7 @@ const calculateFraudScore = async (
     reasons.push("Large order size.");
   }
 
-  if (tradeValue > RISK_CONFIG.HIGH_VALUE_ORDER_PKR) {
+  if (tradeValue > RISK_CONFIG.HIGH_VALUE_ORDER_Pkr) {
     score += 30;
     reasons.push("High value transaction.");
   }
@@ -5083,7 +5083,7 @@ export const getTradingEngineStatus = async (
   res: Response
 ) => {
   try {
-    const liquidity = await getLiquidityWallet();
+    const liquidity = await getLiquiditywallet();
     const latestPrice = await GoldPrice.findOne().sort({
       createdAt: -1
     });
@@ -5100,7 +5100,7 @@ export const getTradingEngineStatus = async (
         circuitBreaker: latestPrice.circuitBreakerTriggered,
         marketStatus: latestPrice.marketStatus,
         liquidityGold: liquidity.goldBalance.availableGrams,
-        liquidityUSDT: liquidity.cryptoBalances.USDT,
+        liquidityUsdt: liquidity.cryptoBalances.Usdt,
         timestamp: new Date()
       }
     });

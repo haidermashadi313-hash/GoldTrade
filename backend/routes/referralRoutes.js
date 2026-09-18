@@ -3,7 +3,7 @@ const router = express.Router();
 
 const User = require("../models/User");
 const Referral = require("../models/Referral");
-const WalletTransaction = require("../models/WalletTransaction");
+const walletTransaction = require("../models/walletTransaction");
 const Transaction = require("../models/Transaction");
 
 const { verifyToken } = require("../middleware/authMiddleware");
@@ -206,7 +206,7 @@ router.post("/approve/:id", verifyToken, async (req, res) => {
     const previousBalance = user.walletBalance;
     const newBalance = previousBalance + referral.bonusAmount;
 
-    // Wallet Credit
+    // wallet Credit
     user.walletBalance = newBalance;
     user.pendingReferralBonus -= referral.bonusAmount;
     user.referralBonusEarned += referral.bonusAmount;
@@ -219,11 +219,11 @@ router.post("/approve/:id", verifyToken, async (req, res) => {
     referral.approvedAt = new Date();
     await referral.save();
 
-    // Wallet History
-    await WalletTransaction.create({
+    // wallet history
+    await walletTransaction.create({
       user: user._id,
       admin: req.user._id,
-      walletType: "PKR",
+      walletType: "Pkr",
       action: "credit",
       amount: referral.bonusAmount,
       previousBalance,
@@ -231,7 +231,7 @@ router.post("/approve/:id", verifyToken, async (req, res) => {
       reason: `Referral Bonus (${referral.referredUsername})`,
     });
 
-    // Transaction History
+    // Transaction history
     await Transaction.create({
       userId: user._id,
       username: user.username,

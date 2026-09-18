@@ -59,7 +59,7 @@ router.get("/:username", async (req, res) => {
 });
 
 // =======================================
-// MANUAL WALLET UPDATE (PKR / TRC20)
+// MANUAL wallet UPDATE (Pkr / TRC20)
 // =======================================
 router.put("/:id/wallet", async (req, res) => {
   try {
@@ -91,7 +91,7 @@ router.put("/:id/wallet", async (req, res) => {
 
     if (
       walletType !== "walletBalance" &&
-      walletType !== "usdtBalance"
+      walletType !== "UsdtBalance"
     ) {
       return res.status(400).json({
         success: false,
@@ -124,17 +124,17 @@ router.put("/:id/wallet", async (req, res) => {
 
       wallet:
         walletType === "walletBalance"
-          ? "PKR"
+          ? "Pkr"
           : "TRC20",
 
       type:
         walletType === "walletBalance"
           ? action === "add"
-            ? "Wallet Credit"
-            : "Wallet Debit"
+            ? "wallet Credit"
+            : "wallet Debit"
           : action === "add"
-          ? "USDT Credit"
-          : "USDT Debit",
+          ? "Usdt Credit"
+          : "Usdt Debit",
 
       amount: value,
 
@@ -151,7 +151,7 @@ router.put("/:id/wallet", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Wallet updated successfully.",
+      message: "wallet updated successfully.",
       data: user,
     });
   } catch (err) {
@@ -159,7 +159,7 @@ router.put("/:id/wallet", async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Wallet update failed.",
+      message: "wallet update failed.",
     });
   }
 });
@@ -288,7 +288,7 @@ router.delete("/:id", async (req, res) => {
 });
 
 // =======================================
-// USER WALLET HISTORY
+// USER wallet history
 // =======================================
 router.get("/:username/history", async (req, res) => {
   try {
@@ -306,7 +306,7 @@ router.get("/:username/history", async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "History fetch failed.",
+      message: "history fetch failed.",
     });
   }
 });

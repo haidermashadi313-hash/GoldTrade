@@ -37,8 +37,8 @@ const depositSchema = new mongoose.Schema(
 
     currency: {
       type: String,
-      enum: ["PKR", "USDT"],
-      default: "PKR",
+      enum: ["Pkr", "Usdt"],
+      default: "Pkr",
     },
 
     paymentMethod: {
@@ -48,7 +48,7 @@ const depositSchema = new mongoose.Schema(
         "JazzCash",
         "EasyPaisa",
         "Binance",
-        "USDT",
+        "Usdt",
         "ABA Bank",
         "Other",
       ],
@@ -114,7 +114,7 @@ const depositSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ================= WALLET CREDIT =================
+    // ================= wallet CREDIT =================
     walletUpdated: {
       type: Boolean,
       default: false,
@@ -122,7 +122,7 @@ const depositSchema = new mongoose.Schema(
 
     walletTransactionId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "WalletTransaction",
+      ref: "walletTransaction",
       default: null,
     },
   },

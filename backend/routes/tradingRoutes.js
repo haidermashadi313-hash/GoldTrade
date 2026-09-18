@@ -9,7 +9,7 @@ const GoldTransaction = require("../models/GoldTransaction");
 const { verifyToken } = require("../middleware/authMiddleware");
 
 /* ===========================================
-   GET USER TRADING HISTORY
+   GET USER TRADING history
    GET /api/trading/history
 =========================================== */
 
@@ -26,7 +26,7 @@ router.get("/history", verifyToken, async (req, res) => {
       transactions,
     });
   } catch (err) {
-    console.error("History Error:", err);
+    console.error("history Error:", err);
 
     res.status(500).json({
       success: false,
@@ -72,11 +72,11 @@ router.get("/market", async (req, res) => {
 });
 
 /* ===========================================
-   BUY / SELL GOLD
+   buy / sell GOLD
    POST /api/trading/gold
    (Section 2 starts from here...)
 =========================================== *//* ===========================================
-   BUY GOLD ENGINE
+   buy GOLD ENGINE
 =========================================== */
 
 router.post("/gold", verifyToken, async (req, res) => {
@@ -143,9 +143,9 @@ router.post("/gold", verifyToken, async (req, res) => {
       });
     }
 
-    // ================= BUY GOLD =================
+    // ================= buy GOLD =================
 
-    if (tradeType === "BUY") {
+    if (tradeType === "buy") {
       const goldPrice = settings.buyGoldPrice;
       const totalAmount = goldPrice * goldQty;
 
@@ -155,11 +155,11 @@ router.post("/gold", verifyToken, async (req, res) => {
 
         return res.status(400).json({
           success: false,
-          message: "Insufficient PKR wallet balance.",
+          message: "Insufficient Pkr wallet balance.",
         });
       }
 
-      // Wallet Update
+      // wallet Update
       user.walletBalance -= totalAmount;
       user.goldBalance = (user.goldBalance ?? 0) + goldQty;
 
@@ -209,7 +209,7 @@ router.post("/gold", verifyToken, async (req, res) => {
             userId: user._id,
             username: user.username,
 
-            type: "BUY",
+            type: "buy",
 
             quantity: goldQty,
             pricePerGram: goldPrice,
@@ -218,7 +218,7 @@ router.post("/gold", verifyToken, async (req, res) => {
             cashback,
 
             status: "Approved",
-            description: `Bought ${goldQty} gram Gold at PKR ${goldPrice}/g`,
+            description: `Bought ${goldQty} gram Gold at Pkr ${goldPrice}/g`,
           },
         ],
         { session }
@@ -232,7 +232,7 @@ router.post("/gold", verifyToken, async (req, res) => {
         message: "Gold purchased successfully.",
 
         transaction: {
-          type: "BUY",
+          type: "buy",
           quantity: goldQty,
           pricePerGram: goldPrice,
           totalAmount,
@@ -248,7 +248,7 @@ router.post("/gold", verifyToken, async (req, res) => {
       });
     }
 
-    // SELL LOGIC Section 3 me hoga...
+    // sell LOGIC Section 3 me hoga...
 
     await session.abortTransaction();
     session.endSession();
@@ -259,10 +259,10 @@ router.post("/gold", verifyToken, async (req, res) => {
     });
 
     /* ===========================================
-       SELL GOLD ENGINE
+       sell GOLD ENGINE
     =========================================== */
 
-    if (tradeType === "SELL") {
+    if (tradeType === "sell") {
 
       const goldPrice = settings.sellGoldPrice;
       const totalAmount = goldPrice * goldQty;
@@ -282,7 +282,7 @@ router.post("/gold", verifyToken, async (req, res) => {
       const averagePrice = user.goldAveragePrice ?? goldPrice;
       const profitLoss = (goldPrice - averagePrice) * goldQty;
 
-      // Wallet Update
+      // wallet Update
       user.goldBalance -= goldQty;
       user.walletBalance += totalAmount;
 
@@ -304,7 +304,7 @@ router.post("/gold", verifyToken, async (req, res) => {
             userId: user._id,
             username: user.username,
 
-            type: "SELL",
+            type: "sell",
 
             quantity: goldQty,
             pricePerGram: goldPrice,
@@ -314,7 +314,7 @@ router.post("/gold", verifyToken, async (req, res) => {
 
             status: "Approved",
 
-            description: `Sold ${goldQty} gram Gold at PKR ${goldPrice}/g`,
+            description: `Sold ${goldQty} gram Gold at Pkr ${goldPrice}/g`,
           },
         ],
         { session }
@@ -328,7 +328,7 @@ router.post("/gold", verifyToken, async (req, res) => {
         message: "Gold sold successfully.",
 
         transaction: {
-          type: "SELL",
+          type: "sell",
           quantity: goldQty,
           pricePerGram: goldPrice,
           totalAmount,
@@ -574,7 +574,7 @@ router.get("/dashboard", verifyToken, async (req, res) => {
     // Total Portfolio Value
     const portfolioValue =
       (user.walletBalance ?? 0) +
-      (user.usdtBalance ?? 0) +
+      (user.UsdtBalance ?? 0) +
       currentGoldValue;
 
     // Total Trading Volume
@@ -591,10 +591,10 @@ router.get("/dashboard", verifyToken, async (req, res) => {
     ]);
 
     const buyStats =
-      tradingStats.find((t) => t._id === "BUY") || {};
+      tradingStats.find((t) => t._id === "buy") || {};
 
     const sellStats =
-      tradingStats.find((t) => t._id === "SELL") || {};
+      tradingStats.find((t) => t._id === "sell") || {};
 
     res.json({
       success: true,
@@ -609,7 +609,7 @@ router.get("/dashboard", verifyToken, async (req, res) => {
 
         wallet: {
           walletBalance: user.walletBalance ?? 0,
-          usdtBalance: user.usdtBalance ?? 0,
+          UsdtBalance: user.UsdtBalance ?? 0,
           goldBalance: user.goldBalance ?? 0,
 
           cashbackEarned: user.cashbackEarned ?? 0,
@@ -629,8 +629,8 @@ router.get("/dashboard", verifyToken, async (req, res) => {
         },
 
         statistics: {
-          totalBuyTrades: buyStats.totalTrades ?? 0,
-          totalSellTrades: sellStats.totalTrades ?? 0,
+          totalbuyTrades: buyStats.totalTrades ?? 0,
+          totalsellTrades: sellStats.totalTrades ?? 0,
 
           totalGoldBought:
             buyStats.totalQuantity ?? 0,
@@ -638,10 +638,10 @@ router.get("/dashboard", verifyToken, async (req, res) => {
           totalGoldSold:
             sellStats.totalQuantity ?? 0,
 
-          totalBuyVolume:
+          totalbuyVolume:
             buyStats.totalAmount ?? 0,
 
-          totalSellVolume:
+          totalsellVolume:
             sellStats.totalAmount ?? 0,
         },
 
@@ -684,7 +684,7 @@ router.get("/portfolio", verifyToken, async (req, res) => {
 
       portfolio: {
         walletBalance: user.walletBalance ?? 0,
-        usdtBalance: user.usdtBalance ?? 0,
+        UsdtBalance: user.UsdtBalance ?? 0,
 
         goldBalance: user.goldBalance ?? 0,
         goldValue,
@@ -694,7 +694,7 @@ router.get("/portfolio", verifyToken, async (req, res) => {
 
         totalPortfolioValue:
           (user.walletBalance ?? 0) +
-          (user.usdtBalance ?? 0) +
+          (user.UsdtBalance ?? 0) +
           goldValue,
 
         goldProfitLoss: user.goldProfitLoss ?? 0,

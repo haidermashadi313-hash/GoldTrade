@@ -23,7 +23,7 @@ const withdrawSchema = new mongoose.Schema(
 
     currency: {
       type: String,
-      default: "PKR",
+      default: "Pkr",
     },
 
     // ================= PAYMENT METHOD =================
@@ -36,7 +36,7 @@ const withdrawSchema = new mongoose.Schema(
         "JAZZCASH",
         "SADAPAY",
         "RAAST",
-        "USDT_TRC20",
+        "Usdt_TRC20",
       ],
       required: true,
     },

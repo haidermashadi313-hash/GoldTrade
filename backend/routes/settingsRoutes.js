@@ -39,7 +39,7 @@ const getSettings = async () => {
       buyGoldPrice: 31250,
       sellGoldPrice: 30950,
       goldPriceUSD: 3350,
-      usdToPkr: 305,
+      UsdtoPkr: 305,
       goldTradingEnabled: true,
       marketStatus: "OPEN",
       maintenanceMode: false,
@@ -52,7 +52,7 @@ const getSettings = async () => {
 // =======================================================
 // GET PUBLIC SETTINGS
 // GET /api/settings/public
-// Used by Gold Dashboard / Buy / Sell Pages
+// Used by Gold Dashboard / buy / sell Pages
 // =======================================================
 
 router.get("/public", async (req, res) => {
@@ -64,7 +64,7 @@ router.get("/public", async (req, res) => {
       buyGoldPrice: settings.buyGoldPrice,
       sellGoldPrice: settings.sellGoldPrice,
       goldPriceUSD: settings.goldPriceUSD,
-      usdToPkr: settings.usdToPkr,
+      UsdtoPkr: settings.UsdtoPkr,
       goldTradingEnabled: settings.goldTradingEnabled,
       marketStatus: settings.marketStatus,
       maintenanceMode: settings.maintenanceMode,
@@ -117,7 +117,7 @@ router.get("/gold-price", async (req, res) => {
       buyPrice: settings.buyGoldPrice,
       sellPrice: settings.sellGoldPrice,
       usdPrice: settings.goldPriceUSD,
-      usdToPkr: settings.usdToPkr,
+      UsdtoPkr: settings.UsdtoPkr,
       marketStatus: settings.marketStatus,
       tradingEnabled: settings.goldTradingEnabled,
     });
@@ -142,7 +142,7 @@ router.put("/update", verifyToken, isAdmin, async (req, res) => {
       buyGoldPrice,
       sellGoldPrice,
       goldPriceUSD,
-      usdToPkr,
+      UsdtoPkr,
       goldTradingEnabled,
       marketStatus,
       maintenanceMode,
@@ -150,12 +150,12 @@ router.put("/update", verifyToken, isAdmin, async (req, res) => {
 
     let settings = await getSettings();
 
-    // ---------- GOLD BUY PRICE ----------
+    // ---------- GOLD buy PRICE ----------
     if (buyGoldPrice !== undefined) {
       settings.buyGoldPrice = Number(buyGoldPrice);
     }
 
-    // ---------- GOLD SELL PRICE ----------
+    // ---------- GOLD sell PRICE ----------
     if (sellGoldPrice !== undefined) {
       settings.sellGoldPrice = Number(sellGoldPrice);
     }
@@ -165,9 +165,9 @@ router.put("/update", verifyToken, isAdmin, async (req, res) => {
       settings.goldPriceUSD = Number(goldPriceUSD);
     }
 
-    // ---------- USD TO PKR RATE ----------
-    if (usdToPkr !== undefined) {
-      settings.usdToPkr = Number(usdToPkr);
+    // ---------- USD TO Pkr RATE ----------
+    if (UsdtoPkr !== undefined) {
+      settings.UsdtoPkr = Number(UsdtoPkr);
     }
 
     // ---------- ENABLE / DISABLE GOLD TRADING ----------
@@ -222,7 +222,7 @@ router.post("/reset", verifyToken, isAdmin, async (req, res) => {
     settings.buyGoldPrice = 31250;
     settings.sellGoldPrice = 30950;
     settings.goldPriceUSD = 3350;
-    settings.usdToPkr = 305;
+    settings.UsdtoPkr = 305;
     settings.goldTradingEnabled = true;
     settings.marketStatus = "OPEN";
     settings.maintenanceMode = false;

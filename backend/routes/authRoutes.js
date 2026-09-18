@@ -57,7 +57,7 @@ router.post("/signup", async (req, res) => {
       role: "user",
       status: "Active",
       walletBalance: 0,
-      usdtBalance: 0,
+      UsdtBalance: 0,
       goldBalance: 0,
     });
 
@@ -169,7 +169,7 @@ router.post("/login", async (req, res) => {
         role: user.role,
         status: user.status,
         walletBalance: user.walletBalance || 0,
-        usdtBalance: user.usdtBalance || 0,
+        UsdtBalance: user.UsdtBalance || 0,
         goldBalance: user.goldBalance || 0,
       },
     });

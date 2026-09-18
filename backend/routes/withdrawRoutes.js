@@ -4,7 +4,7 @@ const express = require("express");
 const router = express.Router();
 
 const Withdraw = require("../models/Withdraw");
-const Wallet = require("../models/Wallet");
+const wallet = require("../models/wallet");
 const Transaction = require("../models/Transaction");
 
 const { verifyToken, isAdmin } = require("../middleware/Auth");
@@ -25,12 +25,12 @@ router.post("/create", verifyToken, async (req, res) => {
       });
     }
 
-    const wallet = await Wallet.findOne({ userId: req.user.id });
+    const wallet = await wallet.findOne({ userId: req.user.id });
 
     if (!wallet) {
       return res.status(404).json({
         success: false,
-        message: "Wallet not found.",
+        message: "wallet not found.",
       });
     }
 
@@ -45,7 +45,7 @@ router.post("/create", verifyToken, async (req, res) => {
       userId: req.user.id,
       username: req.user.username,
       requestAmount: amount,
-      currency: "PKR",
+      currency: "Pkr",
       paymentMethod: method,
       senderAccount: account,
       status: "Pending",
@@ -112,12 +112,12 @@ router.put("/:id/approve", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    const wallet = await Wallet.findOne({ userId: withdraw.userId });
+    const wallet = await wallet.findOne({ userId: withdraw.userId });
 
     if (!wallet) {
       return res.status(404).json({
         success: false,
-        message: "Wallet not found.",
+        message: "wallet not found.",
       });
     }
 
@@ -143,7 +143,7 @@ router.put("/:id/approve", verifyToken, isAdmin, async (req, res) => {
       userId: withdraw.userId,
       username: withdraw.username,
       transactionType: "Withdraw",
-      amountPKR: withdraw.requestAmount,
+      amountPkr: withdraw.requestAmount,
       status: "Approved",
       provider: withdraw.paymentMethod,
       description: "Withdraw approved by admin",
@@ -205,7 +205,7 @@ router.put("/:id/reject", verifyToken, isAdmin, async (req, res) => {
     });
   }
 });// =====================================================
-// USER GET MY WITHDRAW HISTORY
+// USER GET MY WITHDRAW history
 // GET /api/withdraw/history
 // =====================================================
 
@@ -220,7 +220,7 @@ router.get("/history", verifyToken, async (req, res) => {
       withdrawals,
     });
   } catch (err) {
-    console.error("WITHDRAW HISTORY ERROR:", err);
+    console.error("WITHDRAW history ERROR:", err);
 
     return res.status(500).json({
       success: false,

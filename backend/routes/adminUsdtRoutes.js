@@ -1,5 +1,5 @@
 // =======================================================
-// GoldTrade V18 - ADMIN USDT ROUTES (PART 1/4)
+// GoldTrade V18 - ADMIN Usdt ROUTES (PART 1/4)
 // =======================================================
 
 const express = require("express");
@@ -7,7 +7,7 @@ const router = express.Router();
 
 // ================= MODELS =================
 const User = require("../models/User");
-const Wallet = require("../models/Wallet");
+const wallet = require("../models/wallet");
 const UsdtRequest = require("../models/UsdtRequest");
 const Transaction = require("../models/Transaction");
 
@@ -23,19 +23,19 @@ router.use(isAdmin);
 
 // =======================================================
 // HEALTH CHECK
-// GET /api/admin/usdt/health
+// GET /api/admin/Usdt/health
 // =======================================================
 router.get("/health", (req, res) => {
   res.json({
     success: true,
-    message: "Admin USDT API Working",
+    message: "Admin Usdt API Working",
     admin: req.user?.username || "Admin",
   });
 });
 
 // =======================================================
-// GET ALL USDT REQUESTS
-// GET /api/admin/usdt/all
+// GET ALL Usdt REQUESTS
+// GET /api/admin/Usdt/all
 // =======================================================
 
 router.get("/all", async (req, res) => {
@@ -49,18 +49,18 @@ router.get("/all", async (req, res) => {
       requests,
     });
   } catch (err) {
-    console.error("GET USDT REQUESTS ERROR:", err);
+    console.error("GET Usdt REQUESTS ERROR:", err);
 
     return res.status(500).json({
       success: false,
-      message: "Failed to load USDT requests.",
+      message: "Failed to load Usdt requests.",
     });
   }
 });
 
 // =======================================================
-// GET USDT DASHBOARD STATS
-// GET /api/admin/usdt/stats
+// GET Usdt DASHBOARD STATS
+// GET /api/admin/Usdt/stats
 // =======================================================
 
 router.get("/stats", async (req, res) => {
@@ -93,7 +93,7 @@ router.get("/stats", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("USDT STATS ERROR:", err);
+    console.error("Usdt STATS ERROR:", err);
 
     return res.status(500).json({
       success: false,
@@ -103,20 +103,20 @@ router.get("/stats", async (req, res) => {
 });
 
 // ======================================================
-// APPROVE USDT REQUEST
-// PUT /api/admin/usdt/:id/approve
+// APPROVE Usdt REQUEST
+// PUT /api/admin/Usdt/:id/approve
 // ======================================================
 
 router.put("/:id/approve", verifyToken, isAdmin, async (req, res) => {
   try {
     const { adminAmount, adminNote } = req.body;
 
-    const order = await UsdtOrder.findById(req.params.id);
+    const order = await UsdtRequest.findById(req.params.id);
 
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "USDT request not found.",
+        message: "Usdt request not found.",
       });
     }
 
@@ -136,22 +136,22 @@ router.put("/:id/approve", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    const wallet = await Wallet.findOne({ userId: user._id });
+    const wallet = await wallet.findOne({ userId: user._id });
 
     if (!wallet) {
       return res.status(404).json({
         success: false,
-        message: "Wallet not found.",
+        message: "wallet not found.",
       });
     }
 
-    // Credit USDT
+    // Credit Usdt
     const creditAmount = Number(adminAmount || order.amount);
 
-    wallet.usdtBalance =
-      Number(wallet.usdtBalance || 0) + creditAmount;
+    wallet.UsdtBalance =
+      Number(wallet.UsdtBalance || 0) + creditAmount;
 
-    user.usdtBalance = wallet.usdtBalance;
+    user.UsdtBalance = wallet.UsdtBalance;
 
     await wallet.save();
     await user.save();
@@ -166,14 +166,14 @@ router.put("/:id/approve", verifyToken, isAdmin, async (req, res) => {
 
     return res.json({
       success: true,
-      message: "USDT request approved successfully.",
+      message: "Usdt request approved successfully.",
       wallet: {
-        usdtBalance: wallet.usdtBalance,
+        UsdtBalance: wallet.UsdtBalance,
       },
     });
 
   } catch (err) {
-    console.error("APPROVE USDT ERROR:", err);
+    console.error("APPROVE Usdt ERROR:", err);
 
     return res.status(500).json({
       success: false,
@@ -183,8 +183,8 @@ router.put("/:id/approve", verifyToken, isAdmin, async (req, res) => {
   }
 });
 // ======================================================
-// REJECT USDT REQUEST
-// PUT /api/admin/usdt/:id/reject
+// REJECT Usdt REQUEST
+// PUT /api/admin/Usdt/:id/reject
 // ======================================================
 
 router.put("/:id/reject", verifyToken, isAdmin, async (req, res) => {
@@ -196,7 +196,7 @@ router.put("/:id/reject", verifyToken, isAdmin, async (req, res) => {
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "USDT request not found.",
+        message: "Usdt request not found.",
       });
     }
 
@@ -215,11 +215,11 @@ router.put("/:id/reject", verifyToken, isAdmin, async (req, res) => {
 
     return res.json({
       success: true,
-      message: "USDT request rejected successfully.",
+      message: "Usdt request rejected successfully.",
     });
 
   } catch (err) {
-    console.error("REJECT USDT ERROR:", err);
+    console.error("REJECT Usdt ERROR:", err);
 
     return res.status(500).json({
       success: false,
@@ -230,8 +230,8 @@ router.put("/:id/reject", verifyToken, isAdmin, async (req, res) => {
 });
 
 // =======================================================
-// GET SINGLE USDT REQUEST
-// GET /api/admin/usdt/:id
+// GET SINGLE Usdt REQUEST
+// GET /api/admin/Usdt/:id
 // =======================================================
 
 router.get("/:id", async (req, res) => {
@@ -244,7 +244,7 @@ router.get("/:id", async (req, res) => {
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "USDT request not found.",
+        message: "Usdt request not found.",
       });
     }
 
@@ -253,7 +253,7 @@ router.get("/:id", async (req, res) => {
       request,
     });
   } catch (err) {
-    console.error("GET SINGLE USDT ERROR:", err);
+    console.error("GET SINGLE Usdt ERROR:", err);
 
     return res.status(500).json({
       success: false,

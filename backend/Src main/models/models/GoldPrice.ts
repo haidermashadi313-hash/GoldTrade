@@ -143,9 +143,9 @@ export interface IAdminOverride {
 
   overrideReason?: string;
 
-  overrideBuyPrice?: number;
+  overridebuyPrice?: number;
 
-  overrideSellPrice?: number;
+  overridesellPrice?: number;
 
   overrideSpread?: number;
 
@@ -173,17 +173,17 @@ export interface IGoldPrice extends Document, Record<string, any> {
 
   currentPriceOunce: number;
 
-  liveBuyPriceGram: number;
+  livebuyPriceGram: number;
 
-  liveSellPriceGram: number;
+  livesellPriceGram: number;
 
-  liveBuyPriceTola: number;
+  livebuyPriceTola: number;
 
-  liveSellPriceTola: number;
+  livesellPriceTola: number;
 
-  liveBuyPriceOunce: number;
+  livebuyPriceOunce: number;
 
-  liveSellPriceOunce: number;
+  livesellPriceOunce: number;
 
   k24: IGoldRate;
 
@@ -229,7 +229,7 @@ const GoldPriceSchema = new Schema<any>(
 
     symbol: {
       type: String,
-      default: "XAU/PKR",
+      default: "XAU/Pkr",
       uppercase: true,
       trim: true,
       unique: true,
@@ -276,35 +276,35 @@ const GoldPriceSchema = new Schema<any>(
     },
 
     // ==================================================
-    // LIVE BUY / SELL PRICE
+    // LIVE buy / sell PRICE
     // ==================================================
 
-    liveBuyPriceGram: {
+    livebuyPriceGram: {
       type: Number,
       default: 0,
     },
 
-    liveSellPriceGram: {
+    livesellPriceGram: {
       type: Number,
       default: 0,
     },
 
-    liveBuyPriceTola: {
+    livebuyPriceTola: {
       type: Number,
       default: 0,
     },
 
-    liveSellPriceTola: {
+    livesellPriceTola: {
       type: Number,
       default: 0,
     },
 
-    liveBuyPriceOunce: {
+    livebuyPriceOunce: {
       type: Number,
       default: 0,
     },
 
-    liveSellPriceOunce: {
+    livesellPriceOunce: {
       type: Number,
       default: 0,
     },
@@ -802,7 +802,7 @@ const GoldPriceSchema = new Schema<any>(
 // ======================================================
 
     // ==================================================
-    // LIVE OHLC CANDLE HISTORY
+    // LIVE OHLC CANDLE history
     // ==================================================
 
     historicalCandles: [
@@ -851,7 +851,7 @@ const GoldPriceSchema = new Schema<any>(
     // DAILY HISTORICAL PRICES
     // ==================================================
 
-    dailyHistory: [
+    dailyhistory: [
       {
         date: {
           type: Date,
@@ -904,7 +904,7 @@ const GoldPriceSchema = new Schema<any>(
     // WEEKLY HISTORICAL PRICES
     // ==================================================
 
-    weeklyHistory: [
+    weeklyhistory: [
       {
         weekStart: {
           type: Date,
@@ -942,7 +942,7 @@ const GoldPriceSchema = new Schema<any>(
     // MONTHLY HISTORICAL PRICES
     // ==================================================
 
-    monthlyHistory: [
+    monthlyhistory: [
       {
         month: {
           type: String,
@@ -980,7 +980,7 @@ const GoldPriceSchema = new Schema<any>(
     // YEARLY HISTORICAL PRICES
     // ==================================================
 
-    yearlyHistory: [
+    yearlyhistory: [
       {
         year: {
           type: Number,
@@ -1140,12 +1140,12 @@ const GoldPriceSchema = new Schema<any>(
         trim: true,
       },
 
-      overrideBuyPrice: {
+      overridebuyPrice: {
         type: Number,
         default: 0,
       },
 
-      overrideSellPrice: {
+      overridesellPrice: {
         type: Number,
         default: 0,
       },
@@ -1170,10 +1170,10 @@ const GoldPriceSchema = new Schema<any>(
     },
 
     // ==================================================
-    // PRICE UPDATE HISTORY
+    // PRICE UPDATE history
     // ==================================================
 
-    updateHistory: [
+    updatehistory: [
       {
         source: {
           type: String,
@@ -1368,7 +1368,7 @@ GoldPriceSchema.index({ "adminOverride.overriddenBy": 1 });
 
 GoldPriceSchema.index({ "historicalCandles.timestamp": -1 });
 GoldPriceSchema.index({ "historicalCandles.timeframe": 1 });
-GoldPriceSchema.index({ "dailyHistory.date": -1 });
+GoldPriceSchema.index({ "dailyhistory.date": -1 });
 
 // ======================================================
 // MARKET HEALTH INDEXES
@@ -1383,17 +1383,17 @@ GoldPriceSchema.index({ "alerts.highVolatilityAlert": 1 });
 
 GoldPriceSchema.virtual("currentSpreadGram").get(function () {
   const self: any = this;
-  return self.liveSellPriceGram - self.liveBuyPriceGram;
+  return self.livesellPriceGram - self.livebuyPriceGram;
 });
 
 GoldPriceSchema.virtual("currentSpreadTola").get(function () {
   const self: any = this;
-  return self.liveSellPriceTola - self.liveBuyPriceTola;
+  return self.livesellPriceTola - self.livebuyPriceTola;
 });
 
 GoldPriceSchema.virtual("currentSpreadOunce").get(function () {
   const self: any = this;
-  return self.liveSellPriceOunce - self.liveBuyPriceOunce;
+  return self.livesellPriceOunce - self.livebuyPriceOunce;
 });
 
 // ======================================================
@@ -1448,18 +1448,18 @@ GoldPriceSchema.virtual("dailyRangePercentage").get(function () {
 });
 
 // ======================================================
-// VIRTUAL : LIVE BUY / SELL SUMMARY
+// VIRTUAL : LIVE buy / sell SUMMARY
 // ======================================================
 
 GoldPriceSchema.virtual("liveTradingPrice").get(function () {
   const self: any = this;
   return {
-    buyGram: self.liveBuyPriceGram,
-    sellGram: self.liveSellPriceGram,
-    buyTola: self.liveBuyPriceTola,
-    sellTola: self.liveSellPriceTola,
-    buyOunce: self.liveBuyPriceOunce,
-    sellOunce: self.liveSellPriceOunce,
+    buyGram: self.livebuyPriceGram,
+    sellGram: self.livesellPriceGram,
+    buyTola: self.livebuyPriceTola,
+    sellTola: self.livesellPriceTola,
+    buyOunce: self.livebuyPriceOunce,
+    sellOunce: self.livesellPriceOunce,
   };
 });
 
@@ -1579,21 +1579,21 @@ GoldPriceSchema.methods.updateLivePrice = async function (
 };
 
 // ======================================================
-// CALCULATE BUY / SELL SPREAD
+// CALCULATE buy / sell SPREAD
 // ======================================================
 
 GoldPriceSchema.methods.calculateSpread = async function (): Promise<IGoldPrice> {
   const spreadGram = this.spreadConfiguration.defaultSpreadGram;
   const spreadTola = this.spreadConfiguration.defaultSpreadTola;
 
-  this.liveBuyPriceGram = this.currentPriceGram;
-  this.liveSellPriceGram = this.currentPriceGram + spreadGram;
+  this.livebuyPriceGram = this.currentPriceGram;
+  this.livesellPriceGram = this.currentPriceGram + spreadGram;
 
-  this.liveBuyPriceTola = this.currentPriceTola;
-  this.liveSellPriceTola = this.currentPriceTola + spreadTola;
+  this.livebuyPriceTola = this.currentPriceTola;
+  this.livesellPriceTola = this.currentPriceTola + spreadTola;
 
-  this.liveBuyPriceOunce = this.currentPriceOunce;
-  this.liveSellPriceOunce = Number(
+  this.livebuyPriceOunce = this.currentPriceOunce;
+  this.livesellPriceOunce = Number(
     (this.currentPriceOunce + spreadGram * 31.1035).toFixed(2)
   );
 
@@ -1676,13 +1676,13 @@ GoldPriceSchema.methods.applyAdminOverride = async function (
   this.adminOverride.enabled = true;
   this.adminOverride.overriddenBy = adminId;
   this.adminOverride.overrideReason = reason;
-  this.adminOverride.overrideBuyPrice = buyPrice;
-  this.adminOverride.overrideSellPrice = sellPrice;
+  this.adminOverride.overridebuyPrice = buyPrice;
+  this.adminOverride.overridesellPrice = sellPrice;
   this.adminOverride.overrideSpread = sellPrice - buyPrice;
   this.adminOverride.overriddenAt = new Date();
 
-  this.liveBuyPriceGram = buyPrice;
-  this.liveSellPriceGram = sellPrice;
+  this.livebuyPriceGram = buyPrice;
+  this.livesellPriceGram = sellPrice;
 
   return this.save();
 };
@@ -1695,8 +1695,8 @@ GoldPriceSchema.methods.removeAdminOverride = async function (): Promise<IGoldPr
   this.adminOverride.enabled = false;
   this.adminOverride.overriddenBy = undefined;
   this.adminOverride.overrideReason = "";
-  this.adminOverride.overrideBuyPrice = 0;
-  this.adminOverride.overrideSellPrice = 0;
+  this.adminOverride.overridebuyPrice = 0;
+  this.adminOverride.overridesellPrice = 0;
   this.adminOverride.overrideSpread = 0;
   this.adminOverride.overriddenAt = undefined;
   this.adminOverride.expiresAt = undefined;
@@ -1707,7 +1707,7 @@ GoldPriceSchema.methods.removeAdminOverride = async function (): Promise<IGoldPr
 };
 
 // ======================================================
-// SAVE PRICE UPDATE HISTORY
+// SAVE PRICE UPDATE history
 // ======================================================
 
 GoldPriceSchema.methods.recordPriceUpdate = async function ({
@@ -1732,7 +1732,7 @@ GoldPriceSchema.methods.recordPriceUpdate = async function ({
       ? Number((((newPrice - previousPrice) / previousPrice) * 100).toFixed(2))
       : 0;
 
-  this.updateHistory.unshift({
+  this.updatehistory.unshift({
     source,
     previousPrice,
     newPrice,
@@ -1744,8 +1744,8 @@ GoldPriceSchema.methods.recordPriceUpdate = async function ({
     createdAt: new Date(),
   });
 
-  if (this.updateHistory.length > 1000) {
-    this.updateHistory = this.updateHistory.slice(0, 1000);
+  if (this.updatehistory.length > 1000) {
+    this.updatehistory = this.updatehistory.slice(0, 1000);
   }
 
   return this.save();
@@ -1806,12 +1806,12 @@ GoldPriceSchema.pre("save", function (next) {
 
 GoldPriceSchema.pre("save", function (next) {
   const self: any = this;
-  const baseBuy = self.liveBuyPriceGram;
-  const baseSell = self.liveSellPriceGram;
+  const basebuy = self.livebuyPriceGram;
+  const basesell = self.livesellPriceGram;
 
   const convert = (purity: number) => ({
-    buy: Number((baseBuy * purity).toFixed(2)),
-    sell: Number((baseSell * purity).toFixed(2)),
+    buy: Number((basebuy * purity).toFixed(2)),
+    sell: Number((basesell * purity).toFixed(2)),
   });
 
   const k22 = convert(22 / 24);
@@ -1819,16 +1819,16 @@ GoldPriceSchema.pre("save", function (next) {
   const k18 = convert(18 / 24);
 
   // 24K
-  self.k24.buyPriceGram = baseBuy;
-  self.k24.sellPriceGram = baseSell;
-  self.k24.buyPriceTola = Number((baseBuy * 11.664).toFixed(2));
-  self.k24.sellPriceTola = Number((baseSell * 11.664).toFixed(2));
-  self.k24.buyPriceOunce = Number((baseBuy * 31.1035).toFixed(2));
-  self.k24.sellPriceOunce = Number((baseSell * 31.1035).toFixed(2));
-  self.k24.spread = Number((baseSell - baseBuy).toFixed(2));
+  self.k24.buyPriceGram = basebuy;
+  self.k24.sellPriceGram = basesell;
+  self.k24.buyPriceTola = Number((basebuy * 11.664).toFixed(2));
+  self.k24.sellPriceTola = Number((basesell * 11.664).toFixed(2));
+  self.k24.buyPriceOunce = Number((basebuy * 31.1035).toFixed(2));
+  self.k24.sellPriceOunce = Number((basesell * 31.1035).toFixed(2));
+  self.k24.spread = Number((basesell - basebuy).toFixed(2));
   self.k24.spreadPercentage =
-    baseBuy > 0
-      ? Number((((baseSell - baseBuy) / baseBuy) * 100).toFixed(2))
+    basebuy > 0
+      ? Number((((basesell - basebuy) / basebuy) * 100).toFixed(2))
       : 0;
 
   // 22K
@@ -1992,7 +1992,7 @@ GoldPriceSchema.pre("save", function (next) {
 
 GoldPriceSchema.pre("save", function (next) {
   const self: any = this;
-  const prices = (self.dailyHistory || [])
+  const prices = (self.dailyhistory || [])
     .map((item: any) => item.close)
     .slice(0, 90);
 
@@ -2014,7 +2014,7 @@ GoldPriceSchema.pre("save", function (next) {
 });
 
 // ======================================================
-// LIMIT HISTORY SIZE
+// LIMIT history SIZE
 // ======================================================
 
 GoldPriceSchema.pre("save", function (next) {
@@ -2023,24 +2023,24 @@ GoldPriceSchema.pre("save", function (next) {
     self.historicalCandles = self.historicalCandles.slice(0, 10000);
   }
 
-  if ((self.dailyHistory || []).length > 365) {
-    self.dailyHistory = self.dailyHistory.slice(0, 365);
+  if ((self.dailyhistory || []).length > 365) {
+    self.dailyhistory = self.dailyhistory.slice(0, 365);
   }
 
-  if ((self.weeklyHistory || []).length > 260) {
-    self.weeklyHistory = self.weeklyHistory.slice(0, 260);
+  if ((self.weeklyhistory || []).length > 260) {
+    self.weeklyhistory = self.weeklyhistory.slice(0, 260);
   }
 
-  if ((self.monthlyHistory || []).length > 120) {
-    self.monthlyHistory = self.monthlyHistory.slice(0, 120);
+  if ((self.monthlyhistory || []).length > 120) {
+    self.monthlyhistory = self.monthlyhistory.slice(0, 120);
   }
 
-  if ((self.yearlyHistory || []).length > 25) {
-    self.yearlyHistory = self.yearlyHistory.slice(0, 25);
+  if ((self.yearlyhistory || []).length > 25) {
+    self.yearlyhistory = self.yearlyhistory.slice(0, 25);
   }
 
-  if ((self.updateHistory || []).length > 1000) {
-    self.updateHistory = self.updateHistory.slice(0, 1000);
+  if ((self.updatehistory || []).length > 1000) {
+    self.updatehistory = self.updatehistory.slice(0, 1000);
   }
 
   next();
@@ -2131,7 +2131,7 @@ export interface IGoldPriceModel extends Model<IGoldPrice> {
 
   getMarketSession(session: MarketSession): Promise<IGoldPrice[]>;
 
-  getLatestHistory(limit?: number): Promise<IGoldPrice[]>;
+  getLatesthistory(limit?: number): Promise<IGoldPrice[]>;
 }
 
 // ======================================================
@@ -2140,7 +2140,7 @@ export interface IGoldPriceModel extends Model<IGoldPrice> {
 
 GoldPriceSchema.statics.getCurrentPrice = function () {
   return this.findOne({
-    symbol: "XAU/PKR",
+    symbol: "XAU/Pkr",
   }).sort({ updatedAt: -1 });
 };
 
@@ -2153,7 +2153,7 @@ GoldPriceSchema.statics.getMarketSession = function (
   }).sort({ lastPriceUpdate: -1 });
 };
 
-GoldPriceSchema.statics.getLatestHistory = function (
+GoldPriceSchema.statics.getLatesthistory = function (
   limit = 30
 ) {
   return this.find()

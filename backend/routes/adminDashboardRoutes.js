@@ -6,7 +6,7 @@ const Deposit = require("../models/Deposit");
 const Withdraw = require("../models/Withdraw");
 const Transaction = require("../models/Transaction");
 const GoldOrder = require("../models/GoldOrder");
-const USDTTransaction = require("../models/USDTTransaction");
+const UsdtTransaction = require("../models/UsdtTransaction");
 
 const { verifyToken } = require("../middleware/authMiddleware");
 
@@ -49,7 +49,7 @@ router.get("/", verifyToken, adminOnly, async (req, res) => {
 
     const goldTradesToday = await GoldTrade.countDocuments();
 
-    const usdtVolume = 0;
+    const UsdtVolume = 0;
     const walletBalance = 0;
 
     return res.status(200).json({
@@ -59,7 +59,7 @@ router.get("/", verifyToken, adminOnly, async (req, res) => {
         pendingDeposits,
         pendingWithdrawals,
         goldTradesToday,
-        usdtVolume,
+        UsdtVolume,
         walletBalance,
       },
     });
@@ -92,7 +92,7 @@ router.get(
         .sort({ createdAt: -1 })
         .limit(5);
 
-      const usdt = await USDTTransaction.find()
+      const Usdt = await UsdtTransaction.find()
         .sort({ createdAt: -1 })
         .limit(5);
 
@@ -106,7 +106,7 @@ router.get(
         activity: {
           deposits,
           withdraws,
-          usdt,
+          Usdt,
           goldOrders,
         },
       });
@@ -134,7 +134,7 @@ router.get(
     try {
       const users = await User.find()
         .select(
-          "username email walletBalance usdtBalance goldBalance createdAt status role"
+          "username email walletBalance UsdtBalance goldBalance createdAt status role"
         )
         .sort({ createdAt: -1 });
 

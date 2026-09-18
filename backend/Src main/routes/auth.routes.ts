@@ -93,7 +93,7 @@ registerRoute("post", "/sessions/logout-others", ["revokeOtherSessions"]);
 registerRoute("get", "/devices", ["getTrustedDevices"]);
 registerRoute("put", "/devices/:deviceId", ["renameTrustedDevice"]);
 registerRoute("delete", "/devices/:deviceId", ["removeTrustedDevice"]);
-registerRoute("get", "/login-history", ["getLoginHistory"]);
+registerRoute("get", "/login-history", ["getLoginhistory"]);
 
 // KYC
 registerRoute("post", "/kyc/submit", ["submitKYC"]);
@@ -113,8 +113,8 @@ registerRoute("post", "/referral/generate-code", ["generateReferralCode"]);
 registerRoute("post", "/referral/apply", ["applyReferralCode"]);
 registerRoute("get", "/referral/validate/:code", ["validateReferralCode"]);
 registerRoute("get", "/referral/stats", ["getReferralStats"]);
-registerRoute("get", "/referral/history", ["getReferralHistory"]);
-registerRoute("get", "/referral/rewards", ["getReferralRewardHistory"]);
+registerRoute("get", "/referral/history", ["getReferralhistory"]);
+registerRoute("get", "/referral/rewards", ["getReferralRewardhistory"]);
 registerRoute("post", "/referral/claim-reward", ["claimReferralReward"]);
 registerRoute("post", "/referral/send-invite", ["sendReferralInvite"]);
 registerRoute("get", "/referral/leaderboard", ["getReferralLeaderboard"]);

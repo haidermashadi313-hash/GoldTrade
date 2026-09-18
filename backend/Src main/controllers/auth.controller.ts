@@ -375,7 +375,7 @@ export const changePassword = async (req, res) => {
       });
 
     const usedBefore = await Promise.all(
-      (user.passwordHistory || []).map((hash) =>
+      (user.passwordhistory || []).map((hash) =>
         bcrypt.compare(newPassword, hash)
       )
     );
@@ -388,9 +388,9 @@ export const changePassword = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-    user.passwordHistory.unshift(user.password);
+    user.passwordhistory.unshift(user.password);
 
-    user.passwordHistory = user.passwordHistory.slice(0, 5);
+    user.passwordhistory = user.passwordhistory.slice(0, 5);
 
     user.password = hashedPassword;
 
@@ -885,7 +885,7 @@ export const getUserSummary = async (
 // SECTION 4/10 END
 // ======================================================// ======================================================
 // SECTION 5/10 START
-// DEVICE SESSION MANAGEMENT + LOGIN HISTORY
+// DEVICE SESSION MANAGEMENT + LOGIN history
 // ======================================================
 
 import crypto from "crypto";
@@ -938,7 +938,7 @@ export const createLoginSession = async (
 
   user.sessions.push(session);
 
-  user.loginHistory.unshift({
+  user.loginhistory.unshift({
     loginAt: new Date(),
     ipAddress: req.ip,
     browser: session.browser,
@@ -947,7 +947,7 @@ export const createLoginSession = async (
     success: true,
   });
 
-  user.loginHistory = user.loginHistory.slice(0, 100);
+  user.loginhistory = user.loginhistory.slice(0, 100);
 
   await user.save();
 
@@ -1192,23 +1192,23 @@ export const logoutAllDevices = async (
 };
 
 // ======================================================
-// GET LOGIN HISTORY
+// GET LOGIN history
 // GET /api/v1/auth/login-history
 // ======================================================
 
-export const getLoginHistory = async (
+export const getLoginhistory = async (
   req: Request,
   res: Response
 ) => {
   try {
     const user = await User.findById(req.user.id).select(
-      "loginHistory"
+      "loginhistory"
     );
 
     return res.json({
       success: true,
-      totalLogins: user.loginHistory.length,
-      history: user.loginHistory,
+      totalLogins: user.loginhistory.length,
+      history: user.loginhistory,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -1225,8 +1225,8 @@ export const getLoginHistory = async (
 // AUTO USER REGISTRATION BUSINESS LOGIC
 // ======================================================
 
-// Wallet, Portfolio, GoldVault aur Referral models ko file ke top imports me add karo.
-import Wallet from "../models/Wallet";
+// wallet, Portfolio, GoldVault aur Referral models ko file ke top imports me add karo.
+import wallet from "../models/wallet";
 import Portfolio from "../models/Portfolio";
 import GoldVault from "../models/GoldVault";
 import Transaction from "../models/Transaction";
@@ -1245,21 +1245,21 @@ const generateReferralCode = (username: string) => {
 };
 
 // ======================================================
-// CREATE DEFAULT WALLET
+// CREATE DEFAULT wallet
 // ======================================================
 
-const createDefaultWallet = async (userId: string) => {
-  return await Wallet.create({
+const createDefaultwallet = async (userId: string) => {
+  return await wallet.create({
     user: userId,
 
     balances: {
-      PKR: 0,
+      Pkr: 0,
       USD: 0,
       AED: 0,
       SAR: 0,
       EUR: 0,
       GBP: 0,
-      USDT: 0,
+      Usdt: 0,
     },
 
     goldBalance: {
@@ -1334,12 +1334,12 @@ const createWelcomeBonus = async (
   userId: string,
   walletId: string
 ) => {
-  const bonusPKR = 1000;
+  const bonusPkr = 1000;
   const bonusGoldGram = 0.05;
 
-  await Wallet.findByIdAndUpdate(walletId, {
+  await wallet.findByIdAndUpdate(walletId, {
     $inc: {
-      "balances.PKR": bonusPKR,
+      "balances.Pkr": bonusPkr,
       "goldBalance.totalGrams": bonusGoldGram,
       "goldBalance.availableGrams": bonusGoldGram,
     },
@@ -1352,7 +1352,7 @@ const createWelcomeBonus = async (
 
     transactionType: "WELCOME_BONUS",
 
-    amountPKR: bonusPKR,
+    amountPkr: bonusPkr,
 
     goldGram: bonusGoldGram,
 
@@ -1374,16 +1374,16 @@ const applyReferralBonus = async (
 
   if (!referrer) return;
 
-  const referrerWallet = await Wallet.findOne({
+  const referrerwallet = await wallet.findOne({
     user: referrer._id,
   });
 
-  const referralBonusPKR = 500;
+  const referralBonusPkr = 500;
   const referralBonusGoldGram = 0.02;
 
-  await Wallet.findByIdAndUpdate(referrerWallet._id, {
+  await wallet.findByIdAndUpdate(referrerwallet._id, {
     $inc: {
-      "balances.PKR": referralBonusPKR,
+      "balances.Pkr": referralBonusPkr,
       "goldBalance.totalGrams": referralBonusGoldGram,
       "goldBalance.availableGrams": referralBonusGoldGram,
     },
@@ -1398,11 +1398,11 @@ const applyReferralBonus = async (
   await Transaction.create({
     user: referrer._id,
 
-    wallet: referrerWallet._id,
+    wallet: referrerwallet._id,
 
     transactionType: "REFERRAL_BONUS",
 
-    amountPKR: referralBonusPKR,
+    amountPkr: referralBonusPkr,
 
     goldGram: referralBonusGoldGram,
 
@@ -1424,8 +1424,8 @@ const completeRegistrationSetup = async (
   user: any,
   referralCode?: string
 ) => {
-  // Wallet
-  const wallet = await createDefaultWallet(user._id);
+  // wallet
+  const wallet = await createDefaultwallet(user._id);
 
   // Portfolio
   const portfolio = await createDefaultPortfolio(
@@ -1529,14 +1529,14 @@ export const getLoginAnalytics = async (
 ) => {
   try {
     const user = await User.findById(req.user.id).select(
-      "loginHistory lastLogin createdAt sessions"
+      "loginhistory lastLogin createdAt sessions"
     );
 
     const successfulLogins =
-      user.loginHistory.filter((l: any) => l.success).length;
+      user.loginhistory.filter((l: any) => l.success).length;
 
     const failedLogins =
-      user.loginHistory.filter((l: any) => !l.success).length;
+      user.loginhistory.filter((l: any) => !l.success).length;
 
     const activeSessions =
       user.sessions.filter((s: any) => s.isActive).length;
@@ -1550,7 +1550,7 @@ export const getLoginAnalytics = async (
         successfulLogins,
         failedLogins,
         activeSessions,
-        totalLoginRecords: user.loginHistory.length,
+        totalLoginRecords: user.loginhistory.length,
       },
     });
   } catch (error: any) {
@@ -1572,10 +1572,10 @@ export const getRecentDevices = async (
 ) => {
   try {
     const user = await User.findById(req.user.id).select(
-      "loginHistory"
+      "loginhistory"
     );
 
-    const recentDevices = user.loginHistory.slice(0, 10);
+    const recentDevices = user.loginhistory.slice(0, 10);
 
     return res.json({
       success: true,
@@ -1602,7 +1602,7 @@ export const recordFailedLogin = async (
 
     if (!user) return;
 
-    user.loginHistory.unshift({
+    user.loginhistory.unshift({
       loginAt: new Date(),
       ipAddress: req.ip,
       browser: req.headers["x-browser"] || "Unknown Browser",
@@ -1612,7 +1612,7 @@ export const recordFailedLogin = async (
       success: false,
     });
 
-    user.loginHistory = user.loginHistory.slice(0, 100);
+    user.loginhistory = user.loginhistory.slice(0, 100);
 
     await user.save();
   } catch (error) {
@@ -1631,7 +1631,7 @@ export const getSecurityEvents = async (
 ) => {
   try {
     const user = await User.findById(req.user.id).select(
-      "loginHistory failedLoginAttempts accountLockedUntil passwordChangedAt lastLogout"
+      "loginhistory failedLoginAttempts accountLockedUntil passwordChangedAt lastLogout"
     );
 
     return res.json({
@@ -1642,7 +1642,7 @@ export const getSecurityEvents = async (
         accountLockedUntil: user.accountLockedUntil,
         passwordChangedAt: user.passwordChangedAt,
         lastLogout: user.lastLogout,
-        recentEvents: user.loginHistory.slice(0, 20),
+        recentEvents: user.loginhistory.slice(0, 20),
       },
     });
   } catch (error: any) {
@@ -1654,17 +1654,17 @@ export const getSecurityEvents = async (
 };
 
 // ======================================================
-// CLEAR LOGIN HISTORY
+// CLEAR LOGIN history
 // DELETE /api/v1/auth/login-history
 // ======================================================
 
-export const clearLoginHistory = async (
+export const clearLoginhistory = async (
   req: Request,
   res: Response
 ) => {
   try {
     await User.findByIdAndUpdate(req.user.id, {
-      loginHistory: [],
+      loginhistory: [],
     });
 
     return res.json({
@@ -1691,7 +1691,7 @@ export const getAccountOverview = async (
   try {
     const user = await User.findById(req.user.id)
       .select(
-        "fullName username email role accountStatus lastLogin lastActiveAt createdAt loginHistory sessions"
+        "fullName username email role accountStatus lastLogin lastActiveAt createdAt loginhistory sessions"
       )
       .populate("wallet")
       .populate("portfolio");
@@ -1716,7 +1716,7 @@ export const getAccountOverview = async (
 
         security: {
           activeDevices: user.sessions.filter((s: any) => s.isActive).length,
-          loginHistoryCount: user.loginHistory.length,
+          loginhistoryCount: user.loginhistory.length,
         },
 
         wallet: user.wallet,

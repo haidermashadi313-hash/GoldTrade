@@ -12,7 +12,7 @@ const REFRESH_SECRET = process.env.REFRESH_SECRET || "dev-refresh-secret";
 const userSchema = new mongoose.Schema(
   {
     // Security
-    passwordHistory: {
+    passwordhistory: {
       type: [String],
       default: [],
     },
@@ -83,13 +83,13 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
 
-    // Wallet
+    // wallet
     walletBalance: {
       type: Number,
       default: 0,
     },
 
-    usdtBalance: {
+    UsdtBalance: {
       type: Number,
       default: 0,
     },
@@ -100,7 +100,7 @@ const userSchema = new mongoose.Schema(
     },
 
     // ==========================
-    // GOLD WALLET (GoldTrade V17)
+    // GOLD wallet (GoldTrade V17)
     // ==========================
     goldBalance: {
       type: Number,
@@ -117,12 +117,12 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
 
-    totalGoldBuy: {
+    totalGoldbuy: {
       type: Number,
       default: 0,
     },
 
-    totalGoldSell: {
+    totalGoldsell: {
       type: Number,
       default: 0,
     },
@@ -165,8 +165,8 @@ const userSchema = new mongoose.Schema(
       },
     ],
 
-    // Login History
-    loginHistory: [
+    // Login history
+    loginhistory: [
       {
         loginAt: Date,
         ipAddress: String,
@@ -332,11 +332,11 @@ const isBlacklisted = async (token) => {
 };
 
 // ======================================================
-// LOGIN HISTORY
+// LOGIN history
 // ======================================================
 
-const saveLoginHistory = async (user, req, success = true) => {
-  user.loginHistory.unshift({
+const saveLoginhistory = async (user, req, success = true) => {
+  user.loginhistory.unshift({
     loginAt: new Date(),
     ipAddress: req.ip,
     browser: req.headers["x-browser"] || "Unknown",
@@ -345,7 +345,7 @@ const saveLoginHistory = async (user, req, success = true) => {
     success,
   });
 
-  user.loginHistory = user.loginHistory.slice(0, 100);
+  user.loginhistory = user.loginhistory.slice(0, 100);
 
   await user.save();
 };
@@ -420,7 +420,7 @@ module.exports.createSession = createSession;
 module.exports.rotateRefreshToken = rotateRefreshToken;
 module.exports.blacklistToken = blacklistToken;
 module.exports.isBlacklisted = isBlacklisted;
-module.exports.saveLoginHistory = saveLoginHistory;
+module.exports.saveLoginhistory = saveLoginhistory;
 module.exports.getSessions = getSessions;
 module.exports.logoutDevice = logoutDevice;
 module.exports.logoutAllDevices = logoutAllDevices;

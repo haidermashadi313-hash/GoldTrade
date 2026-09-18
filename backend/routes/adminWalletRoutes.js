@@ -1,7 +1,7 @@
 "use strict";
 
 // ======================================================
-// GoldTrade V18 - Admin Wallet Routes (PART 1/4)
+// GoldTrade V18 - Admin wallet Routes (PART 1/4)
 // ======================================================
 
 const express = require("express");
@@ -9,8 +9,8 @@ const router = express.Router();
 
 // ================= MODELS =================
 const User = require("../models/User");
-const Wallet = require("../models/Wallet");
-const WalletTransaction = require("../models/WalletTransaction");
+const wallet = require("../models/wallet");
+const walletTransaction = require("../models/walletTransaction");
 
 // ================= MIDDLEWARE =================
 const verifyToken = require("../middleware/verifyToken");
@@ -24,14 +24,14 @@ const isAdmin = require("../middleware/isAdmin");
 router.get("/health", verifyToken, isAdmin, (req, res) => {
   return res.json({
     success: true,
-    message: "Admin Wallet API Working - GoldTrade V18",
+    message: "Admin wallet API Working - GoldTrade V18",
     version: "V18 Enterprise",
     timestamp: new Date().toISOString(),
   });
 });
 
 // ======================================================
-// GET ALL USERS + WALLET BALANCES
+// GET ALL USERS + wallet BALANCES
 // GET /api/admin/wallet/all
 // ======================================================
 
@@ -44,9 +44,9 @@ router.get("/all", verifyToken, isAdmin, async (req, res) => {
 
     const wallets = await Promise.all(
       users.map(async (user) => {
-        const wallet = await Wallet.findOne({ userId: user._id }).lean();
+        const wallet = await wallet.findOne({ userId: user._id }).lean();
         console.log("USER:", user.username);
-        console.log("WALLET:", wallet);
+        console.log("wallet:", wallet);
 
         return {
           _id: user._id,
@@ -55,14 +55,14 @@ router.get("/all", verifyToken, isAdmin, async (req, res) => {
           email: user.email || "",
           status: user.status || "Active",
 
-          walletBalance: Number((wallet?.pkrBalance ?? 0)),
+          walletBalance: Number((wallet?.PkrBalance ?? 0)),
             
-          pkrBalance: Number(wallet?.pkrBalance ?? 0),
+          PkrBalance: Number(wallet?.PkrBalance ?? 0),
               
 
           goldBalance: Number(wallet?.goldBalance ?? 0),
              
-          usdtBalance: Number(wallet?.usdtBalance ?? 0),
+          UsdtBalance: Number(wallet?.UsdtBalance ?? 0),
               
 
           updatedAt: wallet?.updatedAt || user.createdAt,
@@ -85,7 +85,7 @@ router.get("/all", verifyToken, isAdmin, async (req, res) => {
   }
 });
 // ======================================================
-// CREDIT PKR / GOLD / USDT WALLET
+// CREDIT Pkr / GOLD / Usdt wallet
 // POST /api/admin/wallet/credit
 // ======================================================
 
@@ -120,29 +120,29 @@ router.post("/credit", verifyToken, isAdmin, async (req, res) => {
     }
 
     // Find wallet
-    let wallet = await Wallet.findOne({ userId: user._id });
+    let wallet = await wallet.findOne({ userId: user._id });
 
     if (!wallet) {
-      wallet = await Wallet.create({
+      wallet = await wallet.create({
         userId: user._id,
-        pkrBalance: 0,
+        PkrBalance: 0,
         goldBalance: 0,
-        usdtBalance: 0,
+        UsdtBalance: 0,
       });
     }
 
     // Credit wallet
     switch (walletType) {
-      case "PKR":
-        wallet.pkrBalance += value;
+      case "Pkr":
+        wallet.PkrBalance += value;
         break;
 
       case "GOLD":
         wallet.goldBalance += value;
         break;
 
-      case "USDT":
-        wallet.usdtBalance += value;
+      case "Usdt":
+        wallet.UsdtBalance += value;
         break;
 
       default:
@@ -155,7 +155,7 @@ router.post("/credit", verifyToken, isAdmin, async (req, res) => {
     await wallet.save();
 
     // Save transaction history
-    await WalletTransaction.create({
+    await walletTransaction.create({
       userId: user._id,
         username: user.username,
         walletType: walletType.toUpperCase(),
@@ -166,7 +166,7 @@ router.post("/credit", verifyToken, isAdmin, async (req, res) => {
 
         admin: req.user.username,
         adminUsername: req.user.username,
-        note: note || "Wallet credited by admin.",
+        note: note || "wallet credited by admin.",
         createdAt: new Date(),
     });
 
@@ -174,9 +174,9 @@ router.post("/credit", verifyToken, isAdmin, async (req, res) => {
       success: true,
       message: `${walletType} wallet credited successfully.`,
       balances: {
-        pkr: wallet.pkrBalance,
+        Pkr: wallet.PkrBalance,
         gold: wallet.goldBalance,
-        usdt: wallet.usdtBalance,
+        Usdt: wallet.UsdtBalance,
       },
     });
 
@@ -185,14 +185,14 @@ router.post("/credit", verifyToken, isAdmin, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Wallet credit failed.",
+      message: "wallet credit failed.",
       error: err.message,
     });
   }
 });
 
 // ======================================================
-// DEBIT PKR / GOLD / USDT WALLET
+// DEBIT Pkr / GOLD / Usdt wallet
 // POST /api/admin/wallet/debit
 // ======================================================
 
@@ -226,13 +226,13 @@ router.post("/debit", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    // Find Wallet
-    const wallet = await Wallet.findOne({ userId: user._id });
+    // Find wallet
+    const wallet = await wallet.findOne({ userId: user._id });
 
     if (!wallet) {
       return res.status(404).json({
         success: false,
-        message: "Wallet not found.",
+        message: "wallet not found.",
       });
     }
 
@@ -240,14 +240,14 @@ router.post("/debit", verifyToken, isAdmin, async (req, res) => {
     let newBalance = 0;
 
     // =====================================================
-    // DEBIT WALLET (FIXED PKR + GOLD + USDT)
+    // DEBIT wallet (FIXED Pkr + GOLD + Usdt)
     // =====================================================
 
-    switch ((walletType || "PKR").toUpperCase()) {
+    switch ((walletType || "Pkr").toUpperCase()) {
 
-      case "PKR":
+      case "Pkr":
         previousBalance = Number(
-          wallet.pkrBalance ??
+          wallet.PkrBalance ??
           wallet.walletBalance ??
           wallet.balance ??
           0
@@ -256,12 +256,12 @@ router.post("/debit", verifyToken, isAdmin, async (req, res) => {
         if (previousBalance < debitAmount) {
           return res.status(400).json({
             success: false,
-            message: "Insufficient PKR balance.",
+            message: "Insufficient Pkr balance.",
           });
         }
 
         newBalance = previousBalance - debitAmount;
-        wallet.pkrBalance = newBalance;
+        wallet.PkrBalance = newBalance;
         break;
 
       case "GOLD":
@@ -278,18 +278,18 @@ router.post("/debit", verifyToken, isAdmin, async (req, res) => {
         wallet.goldBalance = newBalance;
         break;
 
-      case "USDT":
-        previousBalance = Number(wallet.usdtBalance || 0);
+      case "Usdt":
+        previousBalance = Number(wallet.UsdtBalance || 0);
 
         if (previousBalance < debitAmount) {
           return res.status(400).json({
             success: false,
-            message: "Insufficient USDT balance.",
+            message: "Insufficient Usdt balance.",
           });
         }
 
         newBalance = previousBalance - debitAmount;
-        wallet.usdtBalance = newBalance;
+        wallet.UsdtBalance = newBalance;
         break;
 
       default:
@@ -303,7 +303,7 @@ router.post("/debit", verifyToken, isAdmin, async (req, res) => {
     await wallet.save();
 
     // Save transaction history
-    await WalletTransaction.create({
+    await walletTransaction.create({
       userId: user._id,
       username: user.username,
 
@@ -317,7 +317,7 @@ router.post("/debit", verifyToken, isAdmin, async (req, res) => {
       adminId: req.user.id,
       adminUsername: req.user.username,
 
-      note: note || "Wallet debited by admin.",
+      note: note || "wallet debited by admin.",
       createdAt: new Date(),
     });
 
@@ -326,39 +326,39 @@ router.post("/debit", verifyToken, isAdmin, async (req, res) => {
       message: `${walletType.toUpperCase()} wallet debited successfully.`,
 
       balances: {
-        pkr: wallet.pkrBalance,
+        Pkr: wallet.PkrBalance,
         gold: wallet.goldBalance,
-        usdt: wallet.usdtBalance,
+        Usdt: wallet.UsdtBalance,
       },
 
       wallet: {
         username: user.username,
-        walletBalance: wallet.pkrBalance,
-        pkrBalance: wallet.pkrBalance,
+        walletBalance: wallet.PkrBalance,
+        PkrBalance: wallet.PkrBalance,
         goldBalance: wallet.goldBalance,
-        usdtBalance: wallet.usdtBalance,
+        UsdtBalance: wallet.UsdtBalance,
       },
     });
 
   } catch (error) {
-    console.error("DEBIT WALLET ERROR:", error);
+    console.error("DEBIT wallet ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Wallet debit failed.",
+      message: "wallet debit failed.",
       error: error.message,
     });
   }
 });
 
 // ======================================================
-// GET ALL WALLET TRANSACTIONS (ADMIN)
+// GET ALL wallet TRANSACTIONS (ADMIN)
 // GET /api/admin/wallet/history/all
 // ======================================================
 
 router.get("/history/all", verifyToken, isAdmin, async (req, res) => {
   try {
-    const transactions = await WalletTransaction.find({})
+    const transactions = await walletTransaction.find({})
       .sort({ createdAt: -1 })
       .limit(500)
       .lean();
@@ -367,7 +367,7 @@ router.get("/history/all", verifyToken, isAdmin, async (req, res) => {
       _id: tx._id,
 
       username: tx.username || "Unknown",
-      walletType: tx.walletType || "PKR",
+      walletType: tx.walletType || "Pkr",
       type: tx.type || "CREDIT",
 
       amount: Number(tx.amount || 0),
@@ -386,7 +386,7 @@ router.get("/history/all", verifyToken, isAdmin, async (req, res) => {
     });
 
   } catch (error) {
-    console.error("WALLET HISTORY ERROR:", error);
+    console.error("wallet history ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -398,7 +398,7 @@ router.get("/history/all", verifyToken, isAdmin, async (req, res) => {
 
 
 // ======================================================
-// SINGLE USER WALLET HISTORY
+// SINGLE USER wallet history
 // GET /api/admin/wallet/history/:username
 // ======================================================
 
@@ -415,7 +415,7 @@ router.get("/history/:username", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    const transactions = await WalletTransaction.find({
+    const transactions = await walletTransaction.find({
       userId: user._id,
     })
       .sort({ createdAt: -1 })
@@ -430,7 +430,7 @@ router.get("/history/:username", verifyToken, isAdmin, async (req, res) => {
     });
 
   } catch (error) {
-    console.error("USER WALLET HISTORY ERROR:", error);
+    console.error("USER wallet history ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -442,7 +442,7 @@ router.get("/history/:username", verifyToken, isAdmin, async (req, res) => {
 
 
 // ======================================================
-// GET SINGLE USER WALLET
+// GET SINGLE USER wallet
 // GET /api/admin/wallet/:username
 // ======================================================
 
@@ -459,7 +459,7 @@ router.get("/:username", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    const wallet = await Wallet.findOne({
+    const wallet = await wallet.findOne({
       userId: user._id,
     }).lean();
 
@@ -472,15 +472,15 @@ router.get("/:username", verifyToken, isAdmin, async (req, res) => {
         email: user.email || "",
         status: user.status || "Active",
 
-        // PKR (GoldTrade V18 compatible)
+        // Pkr (GoldTrade V18 compatible)
         walletBalance: Number(
-          wallet?.pkrBalance ??
+          wallet?.PkrBalance ??
           wallet?.walletBalance ??
           wallet?.balance ??
           0
         ),
-        pkrBalance: Number(
-          wallet?.pkrBalance ??
+        PkrBalance: Number(
+          wallet?.PkrBalance ??
           wallet?.walletBalance ??
           wallet?.balance ??
           0
@@ -489,15 +489,15 @@ router.get("/:username", verifyToken, isAdmin, async (req, res) => {
         // GOLD
         goldBalance: Number(wallet?.goldBalance ?? 0),
 
-        // USDT
-        usdtBalance: Number(wallet?.usdtBalance ?? 0),
+        // Usdt
+        UsdtBalance: Number(wallet?.UsdtBalance ?? 0),
 
         updatedAt: wallet?.updatedAt || user.createdAt,
       },
     });
 
   } catch (error) {
-    console.error("GET WALLET ERROR:", error);
+    console.error("GET wallet ERROR:", error);
 
     return res.status(500).json({
       success: false,

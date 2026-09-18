@@ -13,11 +13,11 @@ const router = express.Router();
 const User = require("../models/User");
 const Deposit = require("../models/Deposit");
 
-// Wallet history model (create if not exists)
-const WalletHistory =
-  mongoose.models.WalletHistory ||
+// wallet history model (create if not exists)
+const wallethistory =
+  mongoose.models.wallethistory ||
   mongoose.model(
-    "WalletHistory",
+    "wallethistory",
     new mongoose.Schema(
       {
         username: String,
@@ -61,10 +61,10 @@ const errorResponse = (res, message, status = 500) => {
 };
 
 // ======================================================
-// CREATE WALLET HISTORY
+// CREATE wallet history
 // ======================================================
 
-const createWalletHistory = async ({
+const createwallethistory = async ({
   username,
   amount,
   balanceBefore,
@@ -72,7 +72,7 @@ const createWalletHistory = async ({
   note,
   createdBy,
 }) => {
-  await WalletHistory.create({
+  await wallethistory.create({
     username,
     type: "Deposit",
     action: "credit",
@@ -146,7 +146,7 @@ router.get("/all", async (req, res) => {
       deposits
     );
   } catch (err) {
-    console.error("Deposit History Error:", err);
+    console.error("Deposit history Error:", err);
 
     return errorResponse(res, err.message);
   }
@@ -179,7 +179,7 @@ router.get("/:id", async (req, res) => {
 
 // ======================================================
 // POST /api/admin/deposits/:id/approve
-// Approve Deposit + Credit Wallet
+// Approve Deposit + Credit wallet
 // ======================================================
 
 router.post("/:id/approve", async (req, res) => {
@@ -214,7 +214,7 @@ router.post("/:id/approve", async (req, res) => {
 
     const balanceAfter = balanceBefore + depositAmount;
 
-    // Wallet Credit
+    // wallet Credit
     user.walletBalance = balanceAfter;
 
     // Deposit Statistics
@@ -229,8 +229,8 @@ router.post("/:id/approve", async (req, res) => {
 
     await deposit.save({ session });
 
-    // Wallet History
-    await createWalletHistory({
+    // wallet history
+    await createwallethistory({
       username: user.username,
       amount: depositAmount,
       balanceBefore,

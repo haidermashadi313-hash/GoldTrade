@@ -44,7 +44,7 @@ router.post("/", verifyToken, async (req, res) => {
       email: user.email,
 
       requestAmount: Number(requestAmount),
-      currency: currency || "PKR",
+      currency: currency || "Pkr",
       paymentMethod: paymentMethod || "Bank Transfer",
 
       senderName,
@@ -71,7 +71,7 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 // =====================================================
-// USER DEPOSIT HISTORY
+// USER DEPOSIT history
 // GET /api/deposit/history
 // =====================================================
 router.get("/history", verifyToken, async (req, res) => {
@@ -86,7 +86,7 @@ router.get("/history", verifyToken, async (req, res) => {
       data: deposits,
     });
   } catch (err) {
-    console.error("DEPOSIT HISTORY ERROR:", err);
+    console.error("DEPOSIT history ERROR:", err);
 
     return res.status(500).json({
       success: false,

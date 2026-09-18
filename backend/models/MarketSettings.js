@@ -7,7 +7,7 @@ const marketSettingsSchema = new mongoose.Schema(
       default: 3350,
     },
 
-    usdToPkr: {
+    UsdtoPkr: {
       type: Number,
       default: 282,
     },
@@ -22,7 +22,7 @@ const marketSettingsSchema = new mongoose.Schema(
       default: 250,
     },
 
-    usdtRate: {
+    UsdtRate: {
       type: Number,
       default: 281.5,
     },

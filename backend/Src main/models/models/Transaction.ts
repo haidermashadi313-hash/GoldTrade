@@ -14,8 +14,8 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 export enum TransactionType {
   DEPOSIT = "DEPOSIT",
   WITHDRAWAL = "WITHDRAWAL",
-  BUY_GOLD = "BUY_GOLD",
-  SELL_GOLD = "SELL_GOLD",
+  buy_GOLD = "buy_GOLD",
+  sell_GOLD = "sell_GOLD",
   REFERRAL_REWARD = "REFERRAL_REWARD",
   SIGNUP_BONUS = "SIGNUP_BONUS",
   CASHBACK = "CASHBACK",
@@ -45,9 +45,9 @@ export enum PaymentMethod {
   EASYPAISA = "EASYPAISA",
   JAZZCASH = "JAZZCASH",
   BINANCE = "BINANCE",
-  USDT_TRC20 = "USDT_TRC20",
-  USDT_ERC20 = "USDT_ERC20",
-  INTERNAL_WALLET = "INTERNAL_WALLET",
+  Usdt_TRC20 = "Usdt_TRC20",
+  Usdt_ERC20 = "Usdt_ERC20",
+  INTERNAL_wallet = "INTERNAL_wallet",
   REFERRAL = "REFERRAL",
   BONUS = "BONUS",
 }
@@ -208,7 +208,7 @@ const TransactionSchema = new Schema<ITransaction>(
     },
 
     // ==================================================
-    // USER & WALLET REFERENCES
+    // USER & wallet REFERENCES
     // ==================================================
 
     user: {
@@ -220,7 +220,7 @@ const TransactionSchema = new Schema<ITransaction>(
 
     wallet: {
       type: Schema.Types.ObjectId,
-      ref: "Wallet",
+      ref: "wallet",
       required: true,
       index: true,
     },
@@ -245,7 +245,7 @@ const TransactionSchema = new Schema<ITransaction>(
 
     currency: {
       type: String,
-      default: "PKR",
+      default: "Pkr",
       uppercase: true,
     },
 
@@ -536,7 +536,7 @@ const TransactionSchema = new Schema<ITransaction>(
     },
 
     // ==================================================
-    // BINANCE / USDT DETAILS
+    // BINANCE / Usdt DETAILS
     // ==================================================
 
     crypto: {
@@ -1407,7 +1407,7 @@ const TransactionSchema = new Schema<ITransaction>(
     // ADMIN NOTES
     // ==================================================
 
-    adminNotesHistory: [
+    adminNoteshistory: [
       {
         admin: {
           type: Schema.Types.ObjectId,
@@ -1469,7 +1469,7 @@ const TransactionSchema = new Schema<ITransaction>(
     ],
 
     // ==================================================
-    // NOTIFICATION HISTORY
+    // NOTIFICATION history
     // ==================================================
 
     notifications: {
@@ -1507,7 +1507,7 @@ const TransactionSchema = new Schema<ITransaction>(
         type: Date,
       },
 
-      notificationHistory: [
+      notificationhistory: [
         {
           channel: {
             type: String,
@@ -1540,7 +1540,7 @@ const TransactionSchema = new Schema<ITransaction>(
     },
 
     // ==================================================
-    // RECONCILIATION HISTORY
+    // RECONCILIATION history
     // ==================================================
 
     reconciliation: {
@@ -1635,7 +1635,7 @@ TransactionSchema.index({ referenceNumber: 1 });
 TransactionSchema.index({ externalReference: 1 });
 
 // ======================================================
-// USER & WALLET INDEXES
+// USER & wallet INDEXES
 // ======================================================
 
 TransactionSchema.index({ user: 1, transactionDate: -1 });
@@ -1708,8 +1708,8 @@ TransactionSchema.virtual("finalAmount").get(function () {
 
 TransactionSchema.virtual("isGoldTrade").get(function () {
   return (
-    this.type === TransactionType.BUY_GOLD ||
-    this.type === TransactionType.SELL_GOLD
+    this.type === TransactionType.buy_GOLD ||
+    this.type === TransactionType.sell_GOLD
   );
 });
 
@@ -2056,13 +2056,13 @@ TransactionSchema.methods.updateRiskScore =
   };
 
 // ======================================================
-// LIMIT AUDIT / NOTES HISTORY
+// LIMIT AUDIT / NOTES history
 // ======================================================
 
 TransactionSchema.pre<ITransaction>("save", function (next) {
-  if (this.adminNotesHistory.length > 200) {
-    this.adminNotesHistory =
-      this.adminNotesHistory.slice(0, 200);
+  if (this.adminNoteshistory.length > 200) {
+    this.adminNoteshistory =
+      this.adminNoteshistory.slice(0, 200);
   }
 
   if (this.userNotes.length > 100) {
