@@ -1,12 +1,10 @@
-"use strict";
-
 require("dotenv").config();
 
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const path = require("path");
 const multer = require("multer");
+const path = require("path"); 
 
 const app = express();
 
@@ -23,43 +21,9 @@ app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 // STATIC UPLOADS
 // ======================================================
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// ======================================================
-// CORS CONFIG (GoldTrade V18)
-// Localhost + Vercel + Custom Domain + Render
-// ======================================================
-
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://frontend-cj9o6n761-flextrade-5000.vercel.app",
-  "https://infotradewithzoyanet.org",
-  "https://www.infotradewithzoyanet.org",
-  process.env.CLIENT_URL,
-  process.env.CORS_ORIGIN,
-].filter(Boolean);
-
 app.use(
-  cors({
-    origin(origin, callback) {
-      // Allow Postman, mobile apps and server-to-server requests
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.error("CORS BLOCKED:", origin);
-
-      return callback(new Error("CORS Not Allowed"));
-    },
-
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"))
 );
 
 // ======================================================
@@ -69,16 +33,6 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// ======================================================
-// STATIC UPLOADS
-// ======================================================
-
-const path = require("path");
-
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "uploads"))
-);
 
 // ======================================================
 // IMPORT ROUTES (GoldTrade V18 - Linux Safe)
@@ -182,16 +136,6 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// ======================================================
-// STATIC UPLOADS
-// ======================================================
-
-const path = require("path");
-
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "uploads"))
-);
 
 // ======================================================
 // PUBLIC API ROUTES (GoldTrade V18 Final)
