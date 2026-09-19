@@ -1,20 +1,26 @@
 "use strict";
 
 // ======================================================
-// GoldTrade V18 - Admin wallet Routes (PART 1/4)
+// GoldTrade V18 - Admin Wallet Routes
+// Linux + Render Compatible
 // ======================================================
 
 const express = require("express");
 const router = express.Router();
 
-// ================= MODELS =================
-const User = require("../models/User");
-const wallet = require("../models/Wallet");
-const walletTransaction = require("../models/WalletTransaction");
+// ======================================================
+// MODELS
+// ======================================================
 
-// ================= MIDDLEWARE =================
-const verifyToken = require("../middleware/verifyToken");
-const isAdmin = require("../middleware/isAdmin");
+const User = require("../models/User");
+const Wallet = require("../models/Wallet");
+const WalletTransaction = require("../models/WalletTransaction");
+
+// ======================================================
+// MIDDLEWARE (FINAL)
+// ======================================================
+
+const { verifyToken, isAdmin } = require("../middleware/auth");
 
 // ======================================================
 // HEALTH CHECK
