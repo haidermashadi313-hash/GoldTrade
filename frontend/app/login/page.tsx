@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-cky2.onrender.com";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -15,7 +15,8 @@ export default function LoginPage() {
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">("success");
-    // ==========================================
+
+  // ==========================================
   // LOGIN FUNCTION (GoldTrade V18 FINAL)
   // ==========================================
   const handleLogin = async (
@@ -23,15 +24,8 @@ export default function LoginPage() {
   ) => {
     e.preventDefault();
 
-    setMessage("");
-
-    if (!username.trim() || !password.trim()) {
-      setMessageType("error");
-      setMessage("Username and password are required.");
-      return;
-    }
-
     setLoading(true);
+    setMessage("");
 
     try {
       const response = await fetch(`${API}/api/auth/login`, {
@@ -51,9 +45,7 @@ export default function LoginPage() {
         throw new Error(data.message || "Login failed.");
       }
 
-      // ==========================================
-      // SUPPORT MULTIPLE JWT RESPONSE FORMATS
-      // ==========================================
+      // JWT Token (supports multiple backend formats)
       const jwtToken =
         data.token ||
         data.accessToken ||
@@ -61,56 +53,33 @@ export default function LoginPage() {
         data.data?.token;
 
       if (!jwtToken) {
-        throw new Error("JWT token not received from server.");
+        throw new Error("JWT token not received.");
       }
 
       if (!data.user) {
-        throw new Error("User data not received from server.");
+        throw new Error("User data not received.");
       }
 
-      // ==========================================
-      // SAVE LOGIN DATA
-      // ==========================================
+      // Save Login Data
       localStorage.setItem("token", jwtToken);
       localStorage.setItem("username", data.user.username || "");
       localStorage.setItem("email", data.user.email || "");
       localStorage.setItem("userId", data.user._id || "");
 
-      // 猸?IMPORTANT: SAVE USER ROLE
-      const userRole = String(
-        data.user.role || "user"
-      ).toLowerCase();
-
+      const userRole = String(data.user.role || "user").toLowerCase();
       localStorage.setItem("role", userRole);
-
-      console.log("LOGIN SUCCESS:", {
-        username: data.user.username,
-        role: userRole,
-      });
 
       setMessageType("success");
       setMessage("Login successful. Redirecting...");
 
-      // ==========================================
-      // REDIRECT BY ROLE
-      // ==========================================
-      setTimeout(() => {
-        if (userRole === "admin") {
-          window.location.href = "/admin-dashboard";
-        } else {
-          window.location.href = "/dashboard";
-        }
-      }, 600);
-
-    } catch (err: any) {
-      console.error("LOGIN ERROR:", err);
-
+    } catch (error) {
       setMessageType("error");
-      setMessage(err.message || "Login failed.");
+      setMessage(error instanceof Error ? error.message : "Login failed.");
     } finally {
       setLoading(false);
     }
   };
+
     // ==========================================
   // LOGIN PAGE UI
   // ==========================================
@@ -268,5 +237,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-

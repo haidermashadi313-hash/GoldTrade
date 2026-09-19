@@ -95,7 +95,10 @@ export default function AdminDepositsPage() {
         `${API}/api/admin/deposits/${id}/${action}`,
         {
           method: "PUT",
-          headers,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
       );
 

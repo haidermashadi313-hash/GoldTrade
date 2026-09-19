@@ -12,9 +12,21 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
 } from "lucide-react";
+// ========================================
+// API URL (Render Production)
+// ========================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-cky2.onrender.com";
+
+// ========================================
+// AUTH HEADERS
+// ========================================
+
+const authHeaders = (token: string) => ({
+  Authorization: `Bearer ${token}`,
+  "Content-Type": "application/json",
+});
 
 // ========================================
 // TYPES
@@ -57,53 +69,55 @@ export default function AdminDashboardPage() {
 
   const [loading, setLoading] = useState(true);
 
-  // ========================================
-  // LOAD DASHBOARD
-  // ========================================
+// ========================================
+// LOAD DASHBOARD (FINAL FIX)
+// ========================================
 
-  const loadDashboard = async () => {
-    try {
-      setLoading(true);
+const loadDashboard = async () => {
+  try {
+    setLoading(true);
 
-      const response = await fetch(
-        `${API}/api/gold/admin/dashboard`,
-        {
-          headers,
-        }
-      );
+    const response = await fetch(`${API}/api/gold/admin/dashboard`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (response.ok && data.success) {
-        setStats({
-          totalUsers: data.totalUsers || 0,
-          totalDeposits: data.totalDeposits || 0,
-          totalWithdraws: data.totalWithdraws || 0,
-          totalGoldVolume: data.totalGoldVolume || 0,
-          totalUsdtVolume: data.totalUsdtVolume || 0,
-          totalWalletBalance: data.totalWalletBalance || 0,
-          pendingDeposits: data.pendingDeposits || 0,
-          pendingWithdraws: data.pendingWithdraws || 0,
-        });
-      } else {
-        setStats(defaultStats);
-      }
-    } catch (err) {
-      console.error("Dashboard Error:", err);
+    if (response.ok && data.success) {
+      setStats({
+        totalUsers: data.stats?.totalUsers || 0,
+        totalDeposits: data.stats?.totalDeposits || 0,
+        totalWithdraws: data.stats?.totalWithdraws || 0,
+        totalGoldVolume: data.stats?.totalGoldVolume || 0,
+        totalUsdtVolume: data.stats?.totalUsdtVolume || 0,
+        totalWalletBalance: data.stats?.totalWalletBalance || 0,
+        pendingDeposits: data.stats?.pendingDeposits || 0,
+        pendingWithdraws: data.stats?.pendingWithdraws || 0,
+      });
+    } else {
       setStats(defaultStats);
-    } finally {
-      setLoading(false);
+      console.error("Dashboard API Error:", data.message);
     }
-  };
+    
+  } catch (err) {
+    console.error("Dashboard Error:", err);
+    setStats(defaultStats);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  useEffect(() => {
-    if (!token) {
-      window.location.href = "/login";
-      return;
-    }
+useEffect(() => {
+  if (!token) {
+    window.location.href = "/login";
+    return;
+  }
 
-    loadDashboard();
-  }, []);  // ========================================
+  loadDashboard();
+}, [token]); // ========================================
   // LOADING SCREEN
   // ========================================
 
@@ -214,8 +228,8 @@ export default function AdminDashboardPage() {
             </div>
 
             <Link
-              href="/admin/deposits"
-              className="mt-5 inline-flex items-center justify-center bg-green-600 hover:bg-green-700 px-5 py-3 rounded-xl font-bold"
+               href="/admin/deposit"
+              className="mt-5 inline-flex items-center justify-center bg-green-600 hover:bg-green-700 px-5 py-3 rounded-xl font-bold transition"
             >
               Manage Deposits
             </Link>
@@ -307,7 +321,7 @@ export default function AdminDashboardPage() {
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
 
             <QuickButton
-              href="/admin/deposits"
+              href="/admin/deposit"
               icon={<ArrowDownCircle size={24} />}
               title="Deposit Requests"
               color="green"
@@ -431,5 +445,3 @@ function QuickButton({
     </Link>
   );
 }
-
-
