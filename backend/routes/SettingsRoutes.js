@@ -1,18 +1,24 @@
 "use strict";
 
 // =======================================================
-// GoldTrade V18 - SETTINGS ROUTES (PART 1/4)
+// GoldTrade V18 - SETTINGS ROUTES
+// Linux + Render Compatible
 // =======================================================
 
 const express = require("express");
 const router = express.Router();
 
-// ================= MODELS =================
+// =======================================================
+// MODELS
+// =======================================================
+
 const Settings = require("../models/Settings");
 
-// ================= MIDDLEWARE =================
-const verifyToken = require("../middleware/verifyToken");
-const isAdmin = require("../middleware/isAdmin");
+// =======================================================
+// MIDDLEWARE (FINAL)
+// =======================================================
+
+const { verifyToken, isAdmin } = require("../middleware/auth");
 
 // =======================================================
 // HEALTH CHECK
@@ -315,30 +321,37 @@ router.put("/toggle-market", verifyToken, isAdmin, async (req, res) => {
 
 router.put("/toggle-trading", verifyToken, isAdmin, async (req, res) => {
   try {
-    const settings = await getSettings();
+    let settings = await Settings.findOne();
+
+    if (!settings) {
+      settings = await Settings.create({
+        goldTradingEnabled: true,
+        marketStatus: "OPEN",
+      });
+    }
 
     settings.goldTradingEnabled = !settings.goldTradingEnabled;
-
-    settings.updatedBy =
-      req.user.username || req.user.email || "ADMIN";
-
+    settings.updatedBy = req.user.username || req.user.email || "ADMIN";
     settings.updatedAt = new Date();
 
     await settings.save();
 
-    return res.json({
+    return res.status(200).json({
       success: true,
       message: settings.goldTradingEnabled
-        ? "Gold Trading Enabled."
-        : "Gold Trading Disabled.",
+        ? "Gold Trading Enabled Successfully."
+        : "Gold Trading Disabled Successfully.",
       goldTradingEnabled: settings.goldTradingEnabled,
+      marketStatus: settings.marketStatus,
     });
-  } catch (err) {
-    console.error("TOGGLE TRADING ERROR:", err);
+
+  } catch (error) {
+    console.error("TOGGLE TRADING ERROR:", error);
 
     return res.status(500).json({
       success: false,
       message: "Failed to update trading status.",
+      error: error.message,
     });
   }
 });
