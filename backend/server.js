@@ -73,25 +73,18 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // ROUTE IMPORTS (GoldTrade V18 Linux FINAL)
 // ======================================================
 
-// ================= PUBLIC ROUTES =================
-
+// PUBLIC ROUTES
 const authRoutes = require("./routes/authRoutes");
-
 const userRoutes = require("./routes/UserRoutes");
 const walletRoutes = require("./routes/WalletRoutes");
-
 const depositRoutes = require("./routes/DepositRoutes");
 const withdrawRoutes = require("./routes/WithdrawRoutes");
-
 const goldRoutes = require("./routes/GoldRoutes");
 const usdtRoutes = require("./routes/UsdtRoutes");
-
 const tradingRoutes = require("./routes/TradingRoutes");
 const marketRoutes = require("./routes/MarketRoutes");
-
 const settingsRoutes = require("./routes/SettingsRoutes");
 const transactionRoutes = require("./routes/TransactionRoutes");
-
 const paymentSettingsRoutes = require("./routes/PaymentSettingsRoutes");
 const referralRoutes = require("./routes/ReferralRoutes");
 const historyRoutes = require("./routes/HistoryRoutes");
