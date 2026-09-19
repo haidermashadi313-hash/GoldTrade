@@ -1,5 +1,5 @@
 // =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/admin/page.tsx
 // SECTION 1/10
 // IMPORTS + TYPES + ADMIN STATES
@@ -525,7 +525,7 @@ const loadActivityLogs = async () => {
   };
 
 // ================= NEXT SECTION STARTS HERE =================// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/admin/page.tsx
 // SECTION 3/10
 // ADMIN HEADER + LIVE DASHBOARD + REVENUE + GOLD PRICE
@@ -928,7 +928,7 @@ const loadActivityLogs = async () => {
         </div>
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/admin/page.tsx
 // SECTION 4/10
 // USER MANAGEMENT + SEARCH + KYC + BLOCK/UNBLOCK + wallet EDIT
@@ -1255,7 +1255,7 @@ const loadActivityLogs = async () => {
         )}
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/admin/page.tsx
 // SECTION 5/10
 // DEPOSIT MANAGEMENT + APPROVE / REJECT + SCREENSHOT REVIEW
@@ -1620,7 +1620,7 @@ const loadActivityLogs = async () => {
         </div>
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/admin/page.tsx
 // SECTION 6/10
 // WITHDRAWAL MANAGEMENT + APPROVE / REJECT + PAYMENT QUEUE
@@ -2124,7 +2124,7 @@ const loadActivityLogs = async () => {
         </div>
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/admin/page.tsx
 // SECTION 7/10
 // LIVE GOLD PRICE CONTROL + TRADING CONTROL + MARKET SETTINGS
@@ -2585,7 +2585,7 @@ const loadActivityLogs = async () => {
         </div>
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/admin/page.tsx
 // SECTION 8/10
 // REFERRAL MANAGEMENT + COMMISSION + PROMO CODES + BONUS
@@ -3059,7 +3059,7 @@ const loadActivityLogs = async () => {
         </div>
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/admin/page.tsx
 // SECTION 9/10
 // REPORTS + ANALYTICS + REVENUE + ACTIVITY LOGS + EXPORTS
@@ -3402,7 +3402,7 @@ const loadActivityLogs = async () => {
         </div>
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/admin/page.tsx
 // SECTION 10/10
 // ADMIN SETTINGS + ROLE MANAGEMENT + MAINTENANCE + FOOTER
@@ -3446,7 +3446,7 @@ const loadActivityLogs = async () => {
 
               <input
                 type="email"
-                defaultValue="support@goldtrade.pk"
+                defaultValue="support@GoldTrade.pk"
                 className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white outline-none"
               />
 

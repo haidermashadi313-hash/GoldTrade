@@ -5,7 +5,7 @@ import { RefreshCw, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://goldtrade-api.onrender.com";
+  "https://GoldTrade-api.onrender.com";
 
 interface Transaction {
   _id: string;

@@ -13,11 +13,11 @@ import {
 } from "lucide-react";
 
 // ===============================
-// GOLDTRADE API
+// GoldTrade API
 // ===============================
 const API =
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://goldtrade-api.onrender.com";
+  "https://GoldTrade-api.onrender.com";
 
 export default function SignupPage() {
   const [username, setUsername] = useState("");

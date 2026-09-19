@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 
 // ==============================================
-// GOLDTRADE V18 ADMIN API
+// GoldTrade V18 ADMIN API
 // ==============================================
 
 const API =
@@ -194,7 +194,7 @@ export default function AdminGoldDashboard() {
   };
 
  // ==============================================
-// FETCH GOLD SETTINGS (GOLDTRADE V18 FINAL)
+// FETCH GOLD SETTINGS (GoldTrade V18 FINAL)
 // ==============================================
 
 const fetchSettings = async () => {

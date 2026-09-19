@@ -6,7 +6,7 @@ import Link from "next/link";
 import GoldChart from "./GoldChart";
 
 // ==============================================
-// GOLDTRADE 
+// GoldTrade 
 // ==============================================
 
 const API =
@@ -168,7 +168,7 @@ export default function GoldDashboard() {
           <div className="h-16 w-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
 
           <h2 className="text-yellow-400 text-3xl font-black">
-            GOLDTRADE 
+            GoldTrade 
           </h2>
 
           <p className="text-gray-400 mt-2">

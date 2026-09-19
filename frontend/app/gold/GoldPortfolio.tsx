@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
 // ==========================================
-// GOLDTRADE V18 API CONFIG
+// GoldTrade V18 API CONFIG
 // ==========================================
 
 const API =

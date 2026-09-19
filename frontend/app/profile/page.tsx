@@ -1,5 +1,5 @@
 // =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 1/10
 // IMPORTS + TYPES + STATES
@@ -114,7 +114,7 @@ export default function ProfilePage() {
       month: "long",
     });
   }, [profile.createdAt]);// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 2/10
 // API FUNCTIONS + PROFILE UPDATE + IMAGE UPLOAD + SECURITY
@@ -356,7 +356,7 @@ export default function ProfilePage() {
     profile.goldBalance,
     profile.UsdtBalance,
   ]);// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 3/10
 // PROFILE HEADER + USER CARD + wallet SUMMARY + KYC STATUS
@@ -623,7 +623,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 4/10
 // EDIT PROFILE FORM + PROFILE PHOTO UPLOAD
@@ -907,7 +907,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 5/10
 // SECURITY SETTINGS + PASSWORD + 2FA + REFERRAL CODE
@@ -1177,7 +1177,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 6/10
 // wallet PORTFOLIO + ACCOUNT STATISTICS + MEMBERSHIP
@@ -1469,7 +1469,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 7/10
 // KYC DOCUMENTS + BANK DETAILS + NOMINEE INFORMATION
@@ -1731,7 +1731,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 8/10
 // NOTIFICATION SETTINGS + LOGIN ACTIVITY + DEVICES
@@ -1995,7 +1995,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 9/10
 // SUPPORT CENTER + ACCOUNT PREFERENCES + PRIVACY SETTINGS
@@ -2318,7 +2318,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 10/10
 // PROFILE SUMMARY + FOOTER + CLOSE COMPONENT

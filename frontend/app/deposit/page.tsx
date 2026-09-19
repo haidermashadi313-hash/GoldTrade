@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Upload, Wallet, RefreshCw, CheckCircle, Clock, XCircle } from "lucide-react";
 
 // ==========================================
-// GOLDTRADE API V18
+// GoldTrade API V18
 // ==========================================
 const API =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -138,7 +138,7 @@ export default function DepositPage() {
 
       formData.append(
         "upload_preset",
-        "goldtrade_receipts"
+        "GoldTrade_receipts"
       );
 
       const response = await fetch(

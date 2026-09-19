@@ -1,4 +1,4 @@
-// GOLDTRADE V17 ENTERPRISE API SERVICE
+// GoldTrade V17 ENTERPRISE API SERVICE
 // Frontend -> Backend Connection
 
 

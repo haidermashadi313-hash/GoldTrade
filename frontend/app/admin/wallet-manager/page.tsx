@@ -77,7 +77,7 @@ useEffect(() => {
 }, [token]);
 
   // ==========================================
-// LOAD wallet USERS (FINAL GOLDTRADE V18)
+// LOAD wallet USERS (FINAL GoldTrade V18)
 // ==========================================
 const loadUsers = async () => {
   if (!token) return;

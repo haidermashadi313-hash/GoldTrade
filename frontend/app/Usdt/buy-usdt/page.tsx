@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 // =====================================================
-// GOLDTRADE V18 BUY Usdt PAGE
+// GoldTrade V18 BUY Usdt PAGE
 // PART 1/8
 // Imports + API + Types + States
 // =====================================================

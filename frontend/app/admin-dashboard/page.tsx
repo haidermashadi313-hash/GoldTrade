@@ -1832,7 +1832,7 @@ const [wallethistory, setwallethistory] = useState([]);
         </button>
 
       </div>      {/* ==========================================
-          GOLDTRADE SYSTEM FOOTER
+          GoldTrade SYSTEM FOOTER
       ========================================== */}
 
       <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-8">

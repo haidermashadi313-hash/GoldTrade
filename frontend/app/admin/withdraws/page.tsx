@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 // ==========================================
-// GOLDTRADE API V18
+// GoldTrade API V18
 // ==========================================
 const API =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";

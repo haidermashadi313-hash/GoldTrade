@@ -1,7 +1,7 @@
 "use client";
 
 // =====================================================
-// GOLDTRADE V18 DIGITAL WALLET
+// GoldTrade V18 DIGITAL WALLET
 // FRONTEND : WALLET PAGE
 // PART 1/8 — IMPORTS + API + TYPES
 // =====================================================

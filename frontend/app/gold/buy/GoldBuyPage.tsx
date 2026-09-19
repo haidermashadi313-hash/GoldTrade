@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
 // ==========================================
-// GOLDTRADE V18 API CONFIG
+// GoldTrade V18 API CONFIG
 // ==========================================
 
 const API =
@@ -359,7 +359,7 @@ const GoldbuyPage: React.FC = () => {
           <div className="h-16 w-16 border-4 border-green-400 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
 
           <h2 className="text-green-400 text-3xl font-black">
-            GOLDTRADE V18
+            GoldTrade V18
           </h2>
 
           <p className="text-gray-400 mt-2">
