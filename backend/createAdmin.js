@@ -12,7 +12,7 @@ async function createAdmin() {
 
     console.log("✅ MongoDB Connected");
 
-    const adminEmail = "admin@goldtrade.com";
+    const adminEmail = "admin@GoldTrade.com";
     const adminPassword = "Admin@110";
 
     const hashedPassword = await bcrypt.hash(adminPassword, 10);

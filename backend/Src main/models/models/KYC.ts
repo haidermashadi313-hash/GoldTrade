@@ -1,5 +1,5 @@
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/KYC.ts
 // SECTION 1/10
 // IMPORTS + ENUMS + INTERFACES
@@ -225,7 +225,7 @@ export interface IKYC extends Document {
 // END OF SECTION 1/10
 // NEXT SECTION: BASIC KYC SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/KYC.ts
 // SECTION 2/10
 // BASIC KYC SCHEMA
@@ -485,7 +485,7 @@ const KYCSchema = new Schema<any>(
 // END OF SECTION 2/10
 // NEXT SECTION: CNIC & PASSPORT DOCUMENT SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/KYC.ts
 // SECTION 3/10
 // CNIC + PASSPORT + DOCUMENT VERIFICATION SCHEMA
@@ -777,7 +777,7 @@ const KYCSchema = new Schema<any>(
 // END OF SECTION 3/10
 // NEXT SECTION: OCR EXTRACTED IDENTITY DATA SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/KYC.ts
 // SECTION 4/10
 // OCR EXTRACTED IDENTITY DATA SCHEMA
@@ -1062,7 +1062,7 @@ const KYCSchema = new Schema<any>(
 // END OF SECTION 4/10
 // NEXT SECTION: SELFIE VERIFICATION + FACE MATCH + LIVENESS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/KYC.ts
 // SECTION 5/10
 // SELFIE VERIFICATION + FACE MATCH + LIVENESS DETECTION
@@ -1390,7 +1390,7 @@ const KYCSchema = new Schema<any>(
 // END OF SECTION 5/10
 // NEXT SECTION: ADDRESS VERIFICATION + PROOF DOCUMENTS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/KYC.ts
 // SECTION 6/10
 // ADDRESS VERIFICATION + PROOF DOCUMENTS
@@ -1683,7 +1683,7 @@ const KYCSchema = new Schema<any>(
 // END OF SECTION 6/10
 // NEXT SECTION: ADMIN APPROVAL + AML / PEP / SANCTIONS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/KYC.ts
 // SECTION 7/10
 // ADMIN APPROVAL + AML / PEP / SANCTIONS WORKFLOW
@@ -2081,7 +2081,7 @@ const KYCSchema = new Schema<any>(
 // END OF SECTION 7/10
 // NEXT SECTION: INDEXES + VIRTUAL FIELDS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/KYC.ts
 // SECTION 8/10
 // INDEXES + VIRTUAL FIELDS
@@ -2296,7 +2296,7 @@ KYCSchema.set("toObject", {
 // END OF SECTION 8/10
 // NEXT SECTION: PRE-SAVE HOOKS + VERIFICATION METHODS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/KYC.ts
 // SECTION 9/10
 // PRE-SAVE HOOKS + VERIFICATION METHODS
@@ -2575,7 +2575,7 @@ KYCSchema.pre("save", function (next) {
 // END OF SECTION 9/10
 // NEXT SECTION: MODEL EXPORT + STATIC METHODS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/KYC.ts
 // SECTION 10/10
 // FINAL SCHEMA OPTIONS + STATIC METHODS + MODEL EXPORT
@@ -2714,5 +2714,5 @@ export default KYC;
 // ======================================================
 // END OF FILE
 // backend/src/models/KYC.ts
-// GOLDTRADE V17 ENTERPRISE KYC MODEL COMPLETE
+// GoldTrade V17 ENTERPRISE KYC MODEL COMPLETE
 // ======================================================

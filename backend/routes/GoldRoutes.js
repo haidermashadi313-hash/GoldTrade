@@ -1,5 +1,5 @@
 // =====================================================
-// GOLDTRADE V19 - GOLD ROUTES (PART 1/8)
+// GoldTrade V19 - GOLD ROUTES (PART 1/8)
 // Imports + Router + Middleware + Test Routes
 // =====================================================
 
@@ -9,7 +9,7 @@ const router = express.Router();
 // ================= Models =================
 const User = require("../models/User");
 const Settings = require("../models/Settings");
-const GoldTrade = require("../models/Goldtrade");
+const GoldTrade = require("../models/GoldTrade");
 const Transaction = require("../models/Transaction");
 
 // ================= Middleware =================
@@ -76,7 +76,7 @@ const getOrCreateSettings = async () => {
 };
 
 // =====================================================
-// GOLDTRADE V19 - GOLD ROUTES (PART 2/8)
+// GoldTrade V19 - GOLD ROUTES (PART 2/8)
 // MARKET SETTINGS (GET + PUT)
 // =====================================================
 
@@ -235,7 +235,7 @@ router.put("/trading/toggle", verifyToken, isAdmin, async (req, res) => {
 });
 
 // =====================================================
-// GOLDTRADE V19 - PART 3/8
+// GoldTrade V19 - PART 3/8
 // buy GOLD API
 // POST /api/gold/buy
 // =====================================================
@@ -330,7 +330,7 @@ router.post("/buy", verifyToken, async (req, res) => {
   }
 });
 // =====================================================
-// GOLDTRADE V19 - PART 3B/8
+// GoldTrade V19 - PART 3B/8
 // sell GOLD API
 // POST /api/gold/sell
 // =====================================================
@@ -436,7 +436,7 @@ router.post("/sell", verifyToken, async (req, res) => {
 });
 
 // =====================================================
-// GOLDTRADE V19 - PART 4/8
+// GoldTrade V19 - PART 4/8
 // USER PORTFOLIO + history + PROFIT / LOSS
 // =====================================================
 
@@ -623,7 +623,7 @@ router.get("/profit-loss", verifyToken, async (req, res) => {
 });
 
 // =====================================================
-// GOLDTRADE V19 - PART 5/8
+// GoldTrade V19 - PART 5/8
 // ADMIN DASHBOARD + GOLD STATISTICS
 // =====================================================
 
@@ -823,7 +823,7 @@ router.get("/admin/volume", verifyToken, isAdmin, async (req, res) => {
 });
 
 // =====================================================
-// GOLDTRADE V19 - PART 6/8
+// GoldTrade V19 - PART 6/8
 // ADMIN USER SEARCH + USER GOLD DETAILS
 // =====================================================
 
@@ -1062,7 +1062,7 @@ router.get(
 );
 
 // =====================================================
-// GOLDTRADE V19 - PART 7/8
+// GoldTrade V19 - PART 7/8
 // ADMIN CREDIT / DEBIT GOLD wallet
 // PUT /api/gold/admin/user/:id/wallet
 // =====================================================
@@ -1209,7 +1209,7 @@ router.get(
 );
 
 // =====================================================
-// GOLDTRADE V19 - PART 8/8
+// GoldTrade V19 - PART 8/8
 // FINAL CLEANUP + EXPORT
 // =====================================================
 

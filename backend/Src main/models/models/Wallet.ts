@@ -1,5 +1,5 @@
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/wallet.ts
 // SECTION 1/10
 // IMPORTS + ENUMS + INTERFACES
@@ -155,7 +155,7 @@ export interface Iwallet extends Document {
 // END OF SECTION 1/10
 // NEXT SECTION: wallet BALANCE SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/wallet.ts
 // SECTION 2/10
 // wallet BALANCE SCHEMA
@@ -312,7 +312,7 @@ const walletSchema = new Schema<Iwallet>(
 // END OF SECTION 2/10
 // NEXT SECTION: DEPOSIT + WITHDRAWAL STATISTICS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/wallet.ts
 // SECTION 3/10
 // DEPOSIT + WITHDRAWAL STATISTICS SCHEMA
@@ -509,7 +509,7 @@ const walletSchema = new Schema<Iwallet>(
 // END OF SECTION 3/10
 // NEXT SECTION: GOLD PORTFOLIO SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/wallet.ts
 // SECTION 4/10
 // GOLD PORTFOLIO + INVESTMENT SCHEMA
@@ -744,7 +744,7 @@ const walletSchema = new Schema<Iwallet>(
 // END OF SECTION 4/10
 // NEXT SECTION: TRANSACTION history SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/wallet.ts
 // SECTION 5/10
 // TRANSACTION history + AUDIT SCHEMA
@@ -950,7 +950,7 @@ const walletSchema = new Schema<Iwallet>(
 // END OF SECTION 5/10
 // NEXT SECTION: wallet SECURITY + LIMITS SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/wallet.ts
 // SECTION 6/10
 // wallet SECURITY + LIMITS + RISK CONTROL SCHEMA
@@ -1174,7 +1174,7 @@ const walletSchema = new Schema<Iwallet>(
 // END OF SECTION 6/10
 // NEXT SECTION: INDEXES + VIRTUAL FIELDS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/wallet.ts
 // SECTION 7/10
 // INDEXES + VIRTUAL FIELDS
@@ -1380,7 +1380,7 @@ walletSchema.set("toObject", {
 // END OF SECTION 7/10
 // NEXT SECTION: wallet METHODS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/wallet.ts
 // SECTION 8/10
 // wallet METHODS
@@ -1689,7 +1689,7 @@ walletSchema.methods.unfreezewallet = async function (): Promise<Iwallet> {
 // END OF SECTION 8/10
 // NEXT SECTION: PRE-SAVE HOOKS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/wallet.ts
 // SECTION 9/10
 // PRE-SAVE HOOKS + AUTO CALCULATIONS
@@ -1882,7 +1882,7 @@ walletSchema.pre<Iwallet>("save", function (next) {
 // END OF SECTION 9/10
 // NEXT SECTION: MODEL EXPORT + FINAL SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/wallet.ts
 // SECTION 10/10
 // FINAL SCHEMA OPTIONS + MODEL EXPORT
@@ -1989,5 +1989,5 @@ export default wallet;
 // ======================================================
 // END OF FILE
 // backend/src/models/wallet.ts
-// GOLDTRADE V17 ENTERPRISE wallet MODEL COMPLETE
+// GoldTrade V17 ENTERPRISE wallet MODEL COMPLETE
 // ======================================================

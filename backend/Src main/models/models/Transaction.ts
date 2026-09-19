@@ -1,5 +1,5 @@
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/Transaction.ts
 // SECTION 1/10
 // IMPORTS + ENUMS + INTERFACES
@@ -159,7 +159,7 @@ export interface ITransaction extends Document {
 
   payment: IPaymentInfo;
 
-  goldTrade?: IGoldTrade;
+  GoldTrade?: IGoldTrade;
 
   approval: IAdminApproval;
 
@@ -172,7 +172,7 @@ export interface ITransaction extends Document {
 // END OF SECTION 1/10
 // NEXT SECTION: BASIC TRANSACTION SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/Transaction.ts
 // SECTION 2/10
 // BASIC TRANSACTION SCHEMA
@@ -370,7 +370,7 @@ const TransactionSchema = new Schema<ITransaction>(
 // NEXT SECTION: PAYMENT INFORMATION SCHEMA
 // ======================================================
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/Transaction.ts
 // SECTION 3/10
 // PAYMENT INFORMATION SCHEMA
@@ -619,7 +619,7 @@ const TransactionSchema = new Schema<ITransaction>(
 // END OF SECTION 3/10
 // NEXT SECTION: GOLD TRADING INFORMATION SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/Transaction.ts
 // SECTION 4/10
 // GOLD TRADING INFORMATION SCHEMA
@@ -629,7 +629,7 @@ const TransactionSchema = new Schema<ITransaction>(
     // GOLD TRADING INFORMATION
     // ==================================================
 
-    goldTrade: {
+    GoldTrade: {
       goldGrams: {
         type: Number,
         default: 0,
@@ -834,7 +834,7 @@ const TransactionSchema = new Schema<ITransaction>(
 // END OF SECTION 4/10
 // NEXT SECTION: ADMIN APPROVAL WORKFLOW SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/Transaction.ts
 // SECTION 5/10
 // ADMIN APPROVAL WORKFLOW SCHEMA
@@ -1040,7 +1040,7 @@ const TransactionSchema = new Schema<ITransaction>(
 // END OF SECTION 5/10
 // NEXT SECTION: AML + FRAUD + SECURITY SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/Transaction.ts
 // SECTION 6/10
 // AML + FRAUD + SECURITY SCHEMA
@@ -1331,7 +1331,7 @@ const TransactionSchema = new Schema<ITransaction>(
 // END OF SECTION 6/10
 // NEXT SECTION: AUDIT TRAIL + NOTES SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/Transaction.ts
 // SECTION 7/10
 // AUDIT TRAIL + NOTES + NOTIFICATION + RECONCILIATION
@@ -1620,7 +1620,7 @@ const TransactionSchema = new Schema<ITransaction>(
 // END OF SECTION 7/10
 // NEXT SECTION: INDEXES + VIRTUAL FIELDS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/Transaction.ts
 // SECTION 8/10
 // INDEXES + VIRTUAL FIELDS
@@ -1769,12 +1769,12 @@ TransactionSchema.virtual("processingMinutes").get(function () {
 // VIRTUAL : GOLD TRADE VALUE
 // ======================================================
 
-TransactionSchema.virtual("goldTradeValue").get(function () {
-  if (!this.goldTrade) return 0;
+TransactionSchema.virtual("GoldTradeValue").get(function () {
+  if (!this.GoldTrade) return 0;
 
   return (
-    this.goldTrade.goldGrams *
-    this.goldTrade.pricePerGram
+    this.GoldTrade.goldGrams *
+    this.GoldTrade.pricePerGram
   );
 });
 
@@ -1810,7 +1810,7 @@ TransactionSchema.set("toObject", {
 // END OF SECTION 8/10
 // NEXT SECTION: PRE-SAVE HOOKS + METHODS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/Transaction.ts
 // SECTION 9/10
 // PRE-SAVE HOOKS + METHODS
@@ -2077,7 +2077,7 @@ TransactionSchema.pre<ITransaction>("save", function (next) {
 // END OF SECTION 9/10
 // NEXT SECTION: MODEL EXPORT + FINAL SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/Transaction.ts
 // SECTION 10/10
 // FINAL SCHEMA OPTIONS + MODEL EXPORT
@@ -2196,5 +2196,5 @@ export default Transaction;
 // ======================================================
 // END OF FILE
 // backend/src/models/Transaction.ts
-// GOLDTRADE V17 ENTERPRISE TRANSACTION MODEL COMPLETE
+// GoldTrade V17 ENTERPRISE TRANSACTION MODEL COMPLETE
 // ======================================================

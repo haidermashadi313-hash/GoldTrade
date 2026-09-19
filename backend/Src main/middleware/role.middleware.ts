@@ -1,5 +1,5 @@
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // SECTION 4/10
 // ROLE BASED AUTHORIZATION MIDDLEWARE
 // ======================================================

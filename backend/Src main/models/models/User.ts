@@ -1,5 +1,5 @@
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/User.ts
 // SECTION 1/10
 // IMPORTS + ENUMS + INTERFACES
@@ -378,7 +378,7 @@ export interface IUserModel extends Model<IUser> {
 // END OF SECTION 1/10
 // NEXT SECTION: PERSONAL INFORMATION SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/User.ts
 // SECTION 2/10
 // PERSONAL INFORMATION SCHEMA
@@ -516,7 +516,7 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
 // END OF SECTION 2/10
 // NEXT SECTION: KYC SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/User.ts
 // SECTION 3/10
 // KYC SCHEMA
@@ -644,7 +644,7 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
 // END OF SECTION 3/10
 // NEXT SECTION: wallet + TRADING SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/User.ts
 // SECTION 4/10
 // wallet + TRADING SCHEMA
@@ -838,7 +838,7 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
 // END OF SECTION 4/10
 // NEXT SECTION: REFERRAL + REWARD SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/User.ts
 // SECTION 5/10
 // REFERRAL + REWARD SCHEMA
@@ -1045,7 +1045,7 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
 // END OF SECTION 5/10
 // NEXT SECTION: SECURITY + OTP SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/User.ts
 // SECTION 6/10
 // SECURITY + OTP + DEVICE + LOGIN SCHEMA
@@ -1244,7 +1244,7 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
 // END OF SECTION 6/10
 // NEXT SECTION: ADMIN ROLES + PERMISSIONS SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/User.ts
 // SECTION 7/10
 // ADMIN ROLES + PERMISSIONS + NOTIFICATION SCHEMA
@@ -1486,7 +1486,7 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
 // NEXT SECTION: INDEXES + VIRTUAL FIELDS
 // ======================================================
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/User.ts
 // SECTION 8/10
 // INDEXES + VIRTUAL FIELDS
@@ -1656,7 +1656,7 @@ UserSchema.set("toObject", {
 // END OF SECTION 8/10
 // NEXT SECTION: PRE-SAVE HOOKS + METHODS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/User.ts
 // SECTION 9/10
 // PRE-SAVE HOOKS + PASSWORD METHODS + SECURITY METHODS
@@ -1889,7 +1889,7 @@ UserSchema.methods.generatePasswordResetToken = function (): string {
 // END OF SECTION 9/10
 // NEXT SECTION: MODEL EXPORT + FINAL SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/User.ts
 // SECTION 10/10
 // FINAL SCHEMA OPTIONS + MODEL EXPORT
@@ -1977,5 +1977,5 @@ export default User;
 // ======================================================
 // END OF FILE
 // backend/src/models/User.ts
-// GOLDTRADE V17 ENTERPRISE USER MODEL COMPLETE
+// GoldTrade V17 ENTERPRISE USER MODEL COMPLETE
 // ======================================================

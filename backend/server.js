@@ -1,7 +1,7 @@
 "use strict";
 
 // ======================================================
-// GOLDTRADE V18 SERVER (PART 1/4)
+// GoldTrade V18 SERVER (PART 1/4)
 // Linux + Render + Vercel Compatible
 // ======================================================
 
@@ -139,7 +139,7 @@ app.use("/api/admin/wallet", adminWalletRoutes);
 app.use("/api/admin/users", adminUserRoutes);
 app.use("/api/admin/usdt", adminUsdtRoutes);
 // ======================================================
-// GOLDTRADE V18 SERVER (PART 3/4)
+// GoldTrade V18 SERVER (PART 3/4)
 // HEALTH + STATUS + DEFAULT ROUTES
 // Linux + Render Safe
 // ======================================================
@@ -220,7 +220,7 @@ app.use((req, res) => {
   });
 });
 // ======================================================
-// GOLDTRADE V18 SERVER (PART 4/4)
+// GoldTrade V18 SERVER (PART 4/4)
 // GLOBAL ERROR HANDLER + SERVER START
 // Linux + Render Safe
 // ======================================================

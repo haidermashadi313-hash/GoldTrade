@@ -1,5 +1,5 @@
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/routes/adminRoutes.ts
 // SECTION 1/10
 // IMPORTS + ROUTER + JWT AUTH MIDDLEWARE
@@ -111,7 +111,7 @@ router.get("/auth/check", checkAdminAuth);
 // END OF SECTION 1/10
 // NEXT SECTION: DASHBOARD ROUTES
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/routes/adminRoutes.ts
 // SECTION 2/10
 // DASHBOARD ROUTES
@@ -181,7 +181,7 @@ router.get("/trading/settings", getTradingSettings);
 // END OF SECTION 2/10
 // NEXT SECTION: USER MANAGEMENT ROUTES
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/routes/adminRoutes.ts
 // SECTION 3/10
 // USER MANAGEMENT ROUTES
@@ -241,7 +241,7 @@ router.get("/users/export", exportUsersReport);
 // END OF SECTION 3/10
 // NEXT SECTION: KYC MANAGEMENT ROUTES
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/routes/adminRoutes.ts
 // SECTION 4/10
 // KYC MANAGEMENT ROUTES
@@ -317,7 +317,7 @@ router.get("/kyc/rejected", async (req, res) => {
 // END OF SECTION 4/10
 // NEXT SECTION: DEPOSIT MANAGEMENT ROUTES
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/routes/adminRoutes.ts
 // SECTION 5/10
 // DEPOSIT MANAGEMENT ROUTES
@@ -412,7 +412,7 @@ router.get("/deposits/today", async (req, res) => {
 // END OF SECTION 5/10
 // NEXT SECTION: WITHDRAWAL MANAGEMENT ROUTES
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/routes/adminRoutes.ts
 // SECTION 6/10
 // WITHDRAWAL MANAGEMENT ROUTES
@@ -502,7 +502,7 @@ router.get("/withdrawals/today", async (req, res) => {
 // END OF SECTION 6/10
 // NEXT SECTION: GOLD PRICE + TRADING MANAGEMENT ROUTES
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/routes/adminRoutes.ts
 // SECTION 7/10
 // GOLD PRICE + TRADING MANAGEMENT ROUTES
@@ -626,7 +626,7 @@ router.get("/gold-price/history", async (req, res) => {
 // END OF SECTION 7/10
 // NEXT SECTION: REFERRAL + COMMISSION MANAGEMENT ROUTES
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/routes/adminRoutes.ts
 // SECTION 8/10
 // REFERRAL + COMMISSION + PROMO CODE ROUTES
@@ -749,7 +749,7 @@ router.get("/reports/commissions", async (req, res) => {
 // END OF SECTION 8/10
 // NEXT SECTION: REPORTS + ANALYTICS ROUTES
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/routes/adminRoutes.ts
 // SECTION 9/10
 // REPORTS + ANALYTICS + ACTIVITY LOG ROUTES
@@ -902,7 +902,7 @@ router.get("/reports/export/activity-csv", async (req, res) => {
 // END OF SECTION 9/10
 // NEXT SECTION: SETTINGS + MAINTENANCE + BACKUP ROUTES
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/routes/adminRoutes.ts
 // SECTION 10/10
 // SETTINGS + MAINTENANCE + BACKUP + SYSTEM ROUTES
@@ -1031,5 +1031,5 @@ export default router;
 // ======================================================
 // END OF FILE
 // backend/src/routes/adminRoutes.ts
-// GOLDTRADE V17 ENTERPRISE ROUTES COMPLETE
+// GoldTrade V17 ENTERPRISE ROUTES COMPLETE
 // ======================================================

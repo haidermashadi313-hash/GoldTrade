@@ -41,7 +41,7 @@ export enum GoldTransactionType {
 }
 
 export enum CustodianProvider {
-  GOLDTRADE = "GOLDTRADE",
+  GoldTrade = "GoldTrade",
   MEEZAN_GOLD = "MEEZAN_GOLD",
   HBL_GOLD = "HBL_GOLD",
   BANK_AL_HABIB = "BANK_AL_HABIB",
@@ -224,7 +224,7 @@ const GoldVaultSchema = new Schema<IGoldVault, IGoldVaultModel, IGoldVaultMethod
     physicalVault: {
       vaultId: { type: String, default: "", uppercase: true },
       vaultType: { type: String, enum: Object.values(VaultType), default: VaultType.PHYSICAL },
-      custodian: { type: String, enum: Object.values(CustodianProvider), default: CustodianProvider.GOLDTRADE },
+      custodian: { type: String, enum: Object.values(CustodianProvider), default: CustodianProvider.GoldTrade },
       vaultLocation: { type: String, default: "" },
       lockerNumber: { type: String, default: "" },
       storageCountry: { type: String, default: "Pakistan" },

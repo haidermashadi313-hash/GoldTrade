@@ -1,5 +1,5 @@
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/routes/wallet.routes.ts
 // SECTION 1/10
 // wallet OVERVIEW + FIAT + CRYPTO + GOLD ROUTES

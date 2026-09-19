@@ -1,5 +1,5 @@
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/GoldPrice.ts
 // SECTION 1/10
 // IMPORTS + ENUMS + INTERFACES
@@ -215,7 +215,7 @@ export interface IGoldPrice extends Document, Record<string, any> {
 // END OF SECTION 1/10
 // NEXT SECTION: CURRENT GOLD PRICE SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/GoldPrice.ts
 // SECTION 2/10
 // CURRENT GOLD PRICE SCHEMA
@@ -419,7 +419,7 @@ const GoldPriceSchema = new Schema<any>(
 // END OF SECTION 2/10
 // NEXT SECTION: 24K / 22K / 21K / 18K PRICE STRUCTURE
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/GoldPrice.ts
 // SECTION 3/10
 // 24K / 22K / 21K / 18K PRICE STRUCTURE
@@ -558,7 +558,7 @@ const GoldPriceSchema = new Schema<any>(
 // END OF SECTION 3/10
 // NEXT SECTION: MARKET SESSION + EXCHANGE RATE SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/GoldPrice.ts
 // SECTION 4/10
 // MARKET SESSION + EXCHANGE RATE SCHEMA
@@ -795,7 +795,7 @@ const GoldPriceSchema = new Schema<any>(
 // END OF SECTION 4/10
 // NEXT SECTION: OHLC CANDLE + HISTORICAL PRICE SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/GoldPrice.ts
 // SECTION 5/10
 // OHLC CANDLE + HISTORICAL PRICE SCHEMA
@@ -1069,7 +1069,7 @@ const GoldPriceSchema = new Schema<any>(
 // END OF SECTION 5/10
 // NEXT SECTION: ADMIN OVERRIDE + SOURCE TRACKING
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/GoldPrice.ts
 // SECTION 6/10
 // ADMIN OVERRIDE + PRICE SOURCE TRACKING
@@ -1333,7 +1333,7 @@ const GoldPriceSchema = new Schema<any>(
 // END OF SECTION 6/10
 // NEXT SECTION: INDEXES + VIRTUAL FIELDS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/GoldPrice.ts
 // SECTION 7/10
 // INDEXES + VIRTUAL FIELDS
@@ -1531,7 +1531,7 @@ GoldPriceSchema.set("toObject", {
 // END OF SECTION 7/10
 // NEXT SECTION: PRICE UPDATE METHODS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/GoldPrice.ts
 // SECTION 8/10
 // PRICE UPDATE METHODS
@@ -1777,7 +1777,7 @@ GoldPriceSchema.methods.rollbackPrice = async function (
 // END OF SECTION 8/10
 // NEXT SECTION: PRE-SAVE HOOKS + AUTO CALCULATIONS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/GoldPrice.ts
 // SECTION 9/10
 // PRE-SAVE HOOKS + AUTO CALCULATIONS
@@ -2050,7 +2050,7 @@ GoldPriceSchema.pre("save", function (next) {
 // END OF SECTION 9/10
 // NEXT SECTION: MODEL EXPORT + FINAL SCHEMA
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/GoldPrice.ts
 // SECTION 10/10
 // FINAL SCHEMA OPTIONS + MODEL EXPORT
@@ -2181,5 +2181,5 @@ export default GoldPrice;
 // ======================================================
 // END OF FILE
 // backend/src/models/GoldPrice.ts
-// GOLDTRADE V17 ENTERPRISE GOLD PRICE MODEL COMPLETE
+// GoldTrade V17 ENTERPRISE GOLD PRICE MODEL COMPLETE
 // ======================================================

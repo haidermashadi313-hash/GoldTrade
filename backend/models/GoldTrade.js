@@ -1,40 +1,53 @@
+"use strict";
+
 const mongoose = require("mongoose");
+
+// =======================================================
+// GoldTrade V18 - Gold Transaction Model
+// Linux + Render Compatible
+// =======================================================
 
 const goldTradeSchema = new mongoose.Schema(
   {
-    user: {
+    userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
 
     username: {
       type: String,
       required: true,
+      lowercase: true,
+      trim: true,
     },
 
-    tradeType: {
+    type: {
       type: String,
-      enum: ["buy", "sell"],
+      enum: ["BUY", "SELL"],
       required: true,
     },
 
     grams: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     pricePerGram: {
       type: Number,
       required: true,
+      min: 0,
     },
 
-    totalPkr: {
+    totalAmount: {
       type: Number,
       required: true,
+      min: 0,
     },
 
-    averagebuyPrice: {
+    marketPrice: {
       type: Number,
       default: 0,
     },
@@ -46,13 +59,25 @@ const goldTradeSchema = new mongoose.Schema(
 
     status: {
       type: String,
+      enum: ["Completed", "Pending", "Cancelled"],
       default: "Completed",
+    },
+
+    note: {
+      type: String,
+      default: "",
     },
   },
   {
     timestamps: true,
+    collection: "goldtrades",
   }
 );
+
+// Useful indexes
+goldTradeSchema.index({ userId: 1, createdAt: -1 });
+goldTradeSchema.index({ username: 1 });
+goldTradeSchema.index({ type: 1 });
 
 module.exports =
   mongoose.models.GoldTrade ||

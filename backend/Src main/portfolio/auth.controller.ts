@@ -156,7 +156,7 @@ export const login = async (req: Request, res: Response) => {
 };
 
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/auth.controller.ts
 // SECTION 2/10
 // REFRESH TOKEN + LOGOUT + PROFILE + SESSION MANAGEMENT
@@ -339,7 +339,7 @@ export const updateLastActive = async (
 };
 
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // SECTION 3/10
 // PASSWORD SECURITY ENGINE
 // ======================================================

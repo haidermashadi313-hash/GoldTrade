@@ -156,7 +156,7 @@ router.post("/login", async (req, res) => {
         username: user.username,
         role: user.role,
       },
-      process.env.JWT_SECRET || "goldtrade_v18_secret",
+      process.env.JWT_SECRET || "GoldTrade_v18_secret",
       {
         expiresIn: process.env.JWT_EXPIRE || "30d",
       }

@@ -27,11 +27,13 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
       unique: true,
+      match: [/^\S+@\S+\.\S+$/, "Invalid email address"],
     },
 
     password: {
       type: String,
       required: true,
+      select: false,
     },
 
     phone: {
@@ -65,8 +67,13 @@ const userSchema = new mongoose.Schema(
       default: "Active",
     },
 
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+
     // =====================================================
-    // PKR / USDT / GOLD WALLET BALANCES
+    // WALLET BALANCES (V18 Compatibility)
     // =====================================================
 
     walletBalance: {
@@ -112,7 +119,7 @@ const userSchema = new mongoose.Schema(
     },
 
     // =====================================================
-    // DEPOSIT / WITHDRAW STATISTICS
+    // DEPOSIT / WITHDRAW STATS
     // =====================================================
 
     totalDeposit: {
@@ -152,11 +159,13 @@ const userSchema = new mongoose.Schema(
     pendingReferralBonus: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
     referralBonusEarned: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
     // =====================================================
@@ -219,14 +228,16 @@ const userSchema = new mongoose.Schema(
 );
 
 // =====================================================
-// INDEXES
+// INDEXES (NO DUPLICATE WARNINGS)
 // =====================================================
 
 userSchema.index({ role: 1 });
 userSchema.index({ status: 1 });
+userSchema.index({ createdAt: -1 });
+userSchema.index({ lastLogin: -1 });
 
 // =====================================================
-// EXPORT MODEL (Linux + Render Safe)
+// EXPORT MODEL (Render + Linux Safe)
 // =====================================================
 
 module.exports =

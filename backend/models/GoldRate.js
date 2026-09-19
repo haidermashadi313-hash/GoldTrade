@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const goldTradeSchema = new mongoose.Schema(
+const GoldTradeSchema = new mongoose.Schema(
   {
     username: String,
 
@@ -35,4 +35,4 @@ const goldTradeSchema = new mongoose.Schema(
 
 module.exports =
   mongoose.models.GoldTrade ||
-  mongoose.model("GoldTrade", goldTradeSchema);
+  mongoose.model("GoldTrade", GoldTradeSchema);

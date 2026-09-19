@@ -1,5 +1,5 @@
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/trade.controller.ts
 // SECTION 1/10
 // MARKET buy / sell ORDER ENGINE

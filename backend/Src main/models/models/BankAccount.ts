@@ -1,5 +1,5 @@
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/BankAccount.ts
 // SECTION 1/10 (UPDATED)
 // IMPORTS + PAYMENT ENUMS + INTERFACES
@@ -306,7 +306,7 @@ export interface IBankAccount extends Document {
   consumeDepositLimit(amount: number): void;
   consumeWithdrawalLimit(amount: number): void;
 }// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/BankAccount.ts
 // SECTION 2/10
 // BASIC BANK ACCOUNT SCHEMA
@@ -608,7 +608,7 @@ const BankAccountSchema = new Schema<any>(
     suspendedAt: Date,
 
     deletedAt: Date,// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/BankAccount.ts
 // SECTION 3/10
 // PAKISTAN BANKS + IBAN + RAAST DETAILS
@@ -861,7 +861,7 @@ const BankAccountSchema = new Schema<any>(
         reason: String,
       },
     ],// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/BankAccount.ts
 // SECTION 4/10
 // DIGITAL walletS + INTERNATIONAL PAYMENT GATEWAYS
@@ -1156,7 +1156,7 @@ const BankAccountSchema = new Schema<any>(
         reason: String,
       },
     ],// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/BankAccount.ts
 // SECTION 5/10
 // ENTERPRISE CRYPTO wallet SCHEMA
@@ -1521,7 +1521,7 @@ const BankAccountSchema = new Schema<any>(
         confirmedAt: Date,
       },
     ],// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/BankAccount.ts
 // SECTION 6/10
 // VERIFICATION + DEPOSIT / WITHDRAWAL LIMITS
@@ -1882,7 +1882,7 @@ const BankAccountSchema = new Schema<any>(
         default: false,
       },
     },// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/BankAccount.ts
 // SECTION 7/10
 // FRAUD DETECTION + RISK FLAGS + AUDIT LOGS
@@ -2218,7 +2218,7 @@ const BankAccountSchema = new Schema<any>(
 );
 
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/BankAccount.ts
 // SECTION 8/10
 // INDEXES + VIRTUAL FIELDS
@@ -2527,7 +2527,7 @@ BankAccountSchema.set("toObject", {
 // END OF SECTION 8/10
 // NEXT SECTION: PRE-SAVE HOOKS + VALIDATION METHODS
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/BankAccount.ts
 // SECTION 9/10
 // PRE-SAVE HOOKS + VALIDATION METHODS
@@ -2888,7 +2888,7 @@ BankAccountSchema.methods.consumeWithdrawalLimit = function (amount: number) {
 // END OF SECTION 9/10
 // NEXT SECTION: STATIC METHODS + MODEL EXPORT
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/BankAccount.ts
 // SECTION 10/10
 // STATIC METHODS + MODEL EXPORT
@@ -3104,5 +3104,5 @@ export default BankAccount;
 // ======================================================
 // END OF FILE
 // backend/src/models/BankAccount.ts
-// GOLDTRADE V17 ENTERPRISE BANK ACCOUNT MODEL COMPLETE
+// GoldTrade V17 ENTERPRISE BANK ACCOUNT MODEL COMPLETE
 // ======================================================

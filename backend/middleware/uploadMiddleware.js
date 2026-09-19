@@ -6,7 +6,7 @@ const cloudinary = require("../config/cloudinary");
 const storage = new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => ({
-    folder: "goldtrade/receipts",
+    folder: "GoldTrade/receipts",
     allowed_formats: ["jpg", "jpeg", "png", "webp"],
     public_id: `receipt-${Date.now()}-${Math.round(Math.random() * 1e9)}`,
   }),

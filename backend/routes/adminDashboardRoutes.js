@@ -101,7 +101,7 @@ router.get(
         .sort({ createdAt: -1 })
         .limit(5);
 
-      const goldTrades = await GoldTrade.find()
+      const GoldTrades = await GoldTrade.find()
         .sort({ createdAt: -1 })
         .limit(5);
 
@@ -111,7 +111,7 @@ router.get(
           deposits,
           withdrawals,
           usdtTransactions,
-          goldTrades,
+          GoldTrades,
         },
       });
     } catch (error) {

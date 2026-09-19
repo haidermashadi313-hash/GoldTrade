@@ -1,5 +1,5 @@
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/gold.controller.ts
 // SECTION 1/10
 // LIVE GOLD PRICE ENGINE + MARKET SUMMARY
@@ -2468,7 +2468,7 @@ const generateCertificateId = () => {
 // ======================================================
 
 const generateCertificateQR = (certificateId: string) => {
-  return `GOLDTRADE:${certificateId}`;
+  return `GoldTrade:${certificateId}`;
 };
 
 // ======================================================
@@ -2662,14 +2662,14 @@ export const verifyCertificateQR = async (
   try {
     const { qrCode } = req.body;
 
-    if (!qrCode.startsWith("GOLDTRADE:")) {
+    if (!qrCode.startsWith("GoldTrade:")) {
       return res.status(400).json({
         success: false,
         message: "Invalid QR code.",
       });
     }
 
-    const certificateId = qrCode.replace("GOLDTRADE:", "");
+    const certificateId = qrCode.replace("GoldTrade:", "");
 
     req.params.certificateId = certificateId;
 

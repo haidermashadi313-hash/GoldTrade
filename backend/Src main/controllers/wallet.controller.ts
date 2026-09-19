@@ -1,5 +1,5 @@
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/wallet.controller.ts
 // SECTION 1/10
 // wallet FOUNDATION + MULTI-CURRENCY DASHBOARD
@@ -3953,5 +3953,5 @@ export const walletSystemInfo = async (
 
 // ======================================================
 // SECTION 10/10 END
-// GOLDTRADE wallet CONTROLLER COMPLETE
+// GoldTrade wallet CONTROLLER COMPLETE
 // ======================================================

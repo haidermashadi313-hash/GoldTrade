@@ -1,5 +1,5 @@
 // ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/adminController.ts
 // SECTION 1/10
 // IMPORTS + HELPERS + ADMIN AUTH + INITIAL SETUP
@@ -200,7 +200,7 @@ export const formatDate = (date: Date) => {
 // END OF SECTION 1/10
 // NEXT SECTION: ADMIN DASHBOARD API
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/adminController.ts
 // SECTION 2/10
 // ADMIN DASHBOARD API + STATISTICS + REVENUE SUMMARY
@@ -413,7 +413,7 @@ export const getDatabaseStatus = async (
 // END OF SECTION 2/10
 // NEXT SECTION: USER MANAGEMENT APIs
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/adminController.ts
 // SECTION 3/10
 // USER MANAGEMENT APIs
@@ -765,7 +765,7 @@ export const deleteUser = async (
 // END OF SECTION 3/10
 // NEXT SECTION: KYC APPROVE / REJECT APIs
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/adminController.ts
 // SECTION 4/10
 // KYC MANAGEMENT APIs
@@ -958,7 +958,7 @@ export const getUserKycDetails = async (
 // END OF SECTION 4/10
 // NEXT SECTION: DEPOSIT APPROVE / REJECT APIs
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/adminController.ts
 // SECTION 5/10
 // DEPOSIT MANAGEMENT APIs
@@ -1238,7 +1238,7 @@ export const deleteDeposit = async (
 // END OF SECTION 5/10
 // NEXT SECTION: WITHDRAWAL APPROVE / REJECT APIs
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/adminController.ts
 // SECTION 6/10
 // WITHDRAWAL MANAGEMENT APIs
@@ -1623,7 +1623,7 @@ export const deleteWithdrawal = async (
 // END OF SECTION 6/10
 // NEXT SECTION: GOLD PRICE UPDATE APIs
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/adminController.ts
 // SECTION 7/10
 // GOLD PRICE + TRADING CONTROL APIs
@@ -1951,7 +1951,7 @@ export const getTradingStatus = async (
 // END OF SECTION 7/10
 // NEXT SECTION: REFERRAL & COMMISSION APIs
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/adminController.ts
 // SECTION 8/10
 // REFERRAL + COMMISSION + PROMO CODE + BONUS APIs
@@ -2298,7 +2298,7 @@ export const getReferralLeaderboard = async (
 // END OF SECTION 8/10
 // NEXT SECTION: REPORTS + ANALYTICS + ACTIVITY LOG APIs
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/adminController.ts
 // SECTION 9/10
 // REPORTS + ANALYTICS + ACTIVITY LOGS + EXPORT APIs
@@ -2653,7 +2653,7 @@ export const getDashboardSummary = async (
 // END OF SECTION 9/10
 // NEXT SECTION: SYSTEM SETTINGS + MAINTENANCE + BACKUP APIs
 // ======================================================// ======================================================
-// GOLDTRADE V17 ENTERPRISE
+// GoldTrade V17 ENTERPRISE
 // FILE: backend/src/controllers/adminController.ts
 // SECTION 10/10
 // SYSTEM SETTINGS + MAINTENANCE + BACKUP + HEALTH + LOGOUT
@@ -2949,5 +2949,5 @@ export const adminLogout = async (
 // ======================================================
 // END OF FILE
 // backend/src/controllers/adminController.ts
-// GOLDTRADE V17 ENTERPRISE CONTROLLER COMPLETE
+// GoldTrade V17 ENTERPRISE CONTROLLER COMPLETE
 // ======================================================
