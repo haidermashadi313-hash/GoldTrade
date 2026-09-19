@@ -1,70 +1,98 @@
 "use strict";
 
+// =======================================================
+// GoldTrade V18 - History Routes
+// Linux + Render Compatible
+// =======================================================
+
 const express = require("express");
 const router = express.Router();
 
-// Models
+// =======================================================
+// MODELS
+// =======================================================
+
 const Deposit = require("../models/Deposit");
 const Withdraw = require("../models/Withdraw");
 
-// Middleware
+// =======================================================
+// MIDDLEWARE
+// =======================================================
+
 const { verifyToken, isAdmin } = require("../middleware/auth");
 
-// ======================================================
+// =======================================================
+// HEALTH CHECK
+// GET /api/history/health
+// =======================================================
+
+router.get("/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "History API Working - GoldTrade V18",
+    version: "V18 Enterprise",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// =======================================================
+// ALL REMAINING ROUTES REQUIRE ADMIN LOGIN
+// =======================================================
+
+router.use(verifyToken);
+router.use(isAdmin);
+
+// =======================================================
 // GET COMPLETE HISTORY (ADMIN)
 // GET /api/history
-// ======================================================
+// =======================================================
 
-router.get("/", verifyToken, isAdmin, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const deposits = await Deposit.find().sort({ createdAt: -1 });
-    const withdrawals = await Withdraw.find().sort({ createdAt: -1 });
+    const deposits = await Deposit.find({})
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const withdrawals = await Withdraw.find({})
+      .sort({ createdAt: -1 })
+      .lean();
 
     const history = [
       ...deposits.map((deposit) => ({
-        type: "Deposit",
-        ...deposit.toObject(),
+        ...deposit,
+        type: "DEPOSIT",
       })),
       ...withdrawals.map((withdraw) => ({
-        type: "Withdraw",
-        ...withdraw.toObject(),
+        ...withdraw,
+        type: "WITHDRAW",
       })),
     ].sort(
       (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
     );
 
-    res.json({
+    return res.status(200).json({
       success: true,
-      history,
+
       totalDeposits: deposits.length,
       totalWithdrawals: withdrawals.length,
       totalRecords: history.length,
+
+      history,
     });
+
   } catch (err) {
     console.error("HISTORY ERROR:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Unable to load history.",
+      error: err.message,
     });
   }
 });
 
-// ======================================================
-// HEALTH CHECK
-// GET /api/history/health
-// ======================================================
-
-router.get("/health", (req, res) => {
-  res.json({
-    success: true,
-    message: "History Routes Working - GoldTrade V18",
-    version: "V18",
-  });
-});
-
-// ======================================================
+// =======================================================
 // EXPORT ROUTER
-// ======================================================
+// =======================================================
 
 module.exports = router;

@@ -1,26 +1,51 @@
 "use strict";
 
+// =======================================================
+// GoldTrade V18 - ADMIN USER ROUTES
+// Linux + Render Compatible
+// =======================================================
+
 const express = require("express");
 const router = express.Router();
 
-// =====================================================
+// =======================================================
 // MODEL
-// =====================================================
+// =======================================================
 
 const User = require("../models/User");
 
-// =====================================================
+// =======================================================
 // MIDDLEWARE
-// =====================================================
+// =======================================================
 
 const { verifyToken, isAdmin } = require("../middleware/auth");
 
-// =====================================================
+// =======================================================
+// ALL ROUTES REQUIRE ADMIN LOGIN
+// =======================================================
+
+router.use(verifyToken);
+router.use(isAdmin);
+
+// =======================================================
+// HEALTH CHECK
+// GET /api/admin/users/health
+// =======================================================
+
+router.get("/health", (req, res) => {
+  res.json({
+    success: true,
+    message: "Admin User Routes Working - GoldTrade V18",
+    version: "V18 Enterprise",
+  });
+});
+
+// =======================================================
 // GET ALL USERS
 // GET /api/admin/users
-// =====================================================
+// =======================================================
 
-router.get("/", verifyToken, isAdmin, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const users = await User.find({
       isDeleted: { $ne: true },
@@ -43,12 +68,12 @@ router.get("/", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// =====================================================
+// =======================================================
 // GET SINGLE USER
 // GET /api/admin/users/:id
-// =====================================================
+// =======================================================
 
-router.get("/:id", verifyToken, isAdmin, async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select("-password");
 
@@ -73,21 +98,8 @@ router.get("/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// =====================================================
-// HEALTH CHECK
-// GET /api/admin/users/health
-// =====================================================
-
-router.get("/health", (req, res) => {
-  res.json({
-    success: true,
-    message: "Admin User Routes Working - GoldTrade V18",
-    version: "V18 Enterprise",
-  });
-});
-
-// =====================================================
+// =======================================================
 // EXPORT ROUTER
-// =====================================================
+// =======================================================
 
 module.exports = router;
