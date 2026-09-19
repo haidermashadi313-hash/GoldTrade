@@ -1,23 +1,32 @@
+"use strict";
+
 // =======================================================
-// GoldTrade V18 - ADMIN Usdt ROUTES (PART 1/4)
+// GoldTrade V18 - ADMIN USDT ROUTES
+// Linux + Render Compatible
 // =======================================================
 
 const express = require("express");
 const router = express.Router();
 
-// ================= MODELS =================
+// =======================================================
+// MODELS
+// =======================================================
+
 const User = require("../models/User");
-const wallet = require("../models/Wallet");
+const Wallet = require("../models/Wallet");
 const UsdtRequest = require("../models/UsdtRequest");
 const Transaction = require("../models/Transaction");
 
-// ================= MIDDLEWARE =================
-const verifyToken = require("../middleware/verifyToken");
-const isAdmin = require("../middleware/isAdmin");
+// =======================================================
+// MIDDLEWARE (FINAL)
+// =======================================================
+
+const { verifyToken, isAdmin } = require("../middleware/auth");
 
 // =======================================================
 // ALL ROUTES REQUIRE ADMIN LOGIN
 // =======================================================
+
 router.use(verifyToken);
 router.use(isAdmin);
 
