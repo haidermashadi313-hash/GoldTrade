@@ -1,15 +1,33 @@
+"use strict";
+
 require("dotenv").config();
 
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const path = require("path");
+const multer = require("multer");
 
 const app = express();
-const multer = require("multer");
-const path = require("path");
 
 // ======================================================
-// CORS CONFIG (Vercel + Localhost)
+// APP CONFIGURATION
+// ======================================================
+
+app.use(cors());
+
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ extended: true, limit: "20mb" }));
+
+// ======================================================
+// STATIC UPLOADS
+// ======================================================
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// ======================================================
+// CORS CONFIG (GoldTrade V18)
+// Localhost + Vercel + Custom Domain + Render
 // ======================================================
 
 const allowedOrigins = [
@@ -17,57 +35,79 @@ const allowedOrigins = [
   "https://frontend-cj9o6n761-flextrade-5000.vercel.app",
   "https://infotradewithzoyanet.org",
   "https://www.infotradewithzoyanet.org",
-];
+  process.env.CLIENT_URL,
+  process.env.CORS_ORIGIN,
+].filter(Boolean);
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("CORS Not Allowed"));
+    origin(origin, callback) {
+      // Allow Postman, mobile apps and server-to-server requests
+      if (!origin) {
+        return callback(null, true);
       }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.error("CORS BLOCKED:", origin);
+
+      return callback(new Error("CORS Not Allowed"));
     },
+
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Uploads Folder
-app.use("/uploads", express.static("uploads"));
-
 // ======================================================
-// IMPORT ROUTES (GoldTrade V18 Final)
+// BODY PARSER
 // ======================================================
 
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// ======================================================
+// STATIC UPLOADS
+// ======================================================
+
+const path = require("path");
+
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"))
+);
+
+// ======================================================
+// IMPORT ROUTES (GoldTrade V18 - Linux Safe)
+// ======================================================
+
+// USER ROUTES
 const authRoutes = require("./routes/authRoutes");
-const userRoutes = require("./routes/userRoutes");
-const walletRoutes = require("./routes/walletRoutes");
+const userRoutes = require("./routes/UserRoutes");
+const walletRoutes = require("./routes/WalletRoutes");
+const depositRoutes = require("./routes/DepositRoutes");
+const withdrawRoutes = require("./routes/WithdrawRoutes");
+const goldRoutes = require("./routes/GoldRoutes");
+const usdtRoutes = require("./routes/UsdtRoutes");
+const tradingRoutes = require("./routes/TradingRoutes");
+const marketRoutes = require("./routes/MarketRoutes");
+const settingsRoutes = require("./routes/SettingsRoutes");
+const transactionRoutes = require("./routes/TransactionRoutes");
+const paymentSettingsRoutes = require("./routes/PaymentSettingsRoutes");
+const referralRoutes = require("./routes/ReferralRoutes");
+const historyRoutes = require("./routes/HistoryRoutes");
 
-const depositRoutes = require("./routes/depositRoutes");
-const withdrawRoutes = require("./routes/withdrawRoutes");
-
-const goldRoutes = require("./routes/goldRoutes");
-const UsdtRoutes = require("./routes/UsdtRoutes");
-const tradingRoutes = require("./routes/tradingRoutes");
-
-const marketRoutes = require("./routes/marketRoutes");
-const settingsRoutes = require("./routes/settingsRoutes");
-const transactionRoutes = require("./routes/transactionRoutes");
-
-const paymentSettingsRoutes = require("./routes/paymentSettingsRoutes");
-const referralRoutes = require("./routes/referralRoutes");
-const historyRoutes = require("./routes/historyRoutes");
-
-// ================= ADMIN ROUTES =================
+// ADMIN ROUTES
 const adminRoutes = require("./routes/adminRoutes");
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const adminDepositRoutes = require("./routes/adminDepositRoutes");
 const adminUsdtRoutes = require("./routes/adminUsdtRoutes");
-const adminwalletRoutes = require("./routes/adminwalletRoutes");
+const adminWalletRoutes = require("./routes/adminWalletRoutes");
 const adminUserRoutes = require("./routes/adminUserRoutes");
+const adminWithdrawRoutes = require("./routes/adminWithdrawRoutes");
 
 // ==========================================
 // MongoDB Atlas Connection (GoldTrade V18)
@@ -99,51 +139,90 @@ app.get("/", (req, res) => {
 });
 
 // ======================================================
-// HEALTH ROUTE
+// CORS CONFIG (GoldTrade V18)
+// Localhost + Vercel + Custom Domain + Render
 // ======================================================
 
-app.get("/api/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "GoldTrade API Healthy",
-    mongodb:
-      mongoose.connection.readyState === 1
-        ? "Connected"
-        : "Disconnected",
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-  });
-});
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://frontend-cj9o6n761-flextrade-5000.vercel.app",
+  "https://infotradewithzoyanet.org",
+  "https://www.infotradewithzoyanet.org",
+  process.env.CLIENT_URL,
+  process.env.CORS_ORIGIN,
+].filter(Boolean);
 
-app.get("/api/status", (req, res) => {
-  res.json({
-    success: true,
-    mongodb:
-      mongoose.connection.readyState === 1
-        ? "Connected"
-        : "Disconnected",
-    uptime: process.uptime(),
-    version: "V18 Enterprise",
-  });
-});
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow Postman, mobile apps and server-to-server requests
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.error("CORS BLOCKED:", origin);
+
+      return callback(new Error("CORS Not Allowed"));
+    },
+
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 // ======================================================
-// PUBLIC API ROUTES
+// BODY PARSER
+// ======================================================
+
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// ======================================================
+// STATIC UPLOADS
+// ======================================================
+
+const path = require("path");
+
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"))
+);
+
+// ======================================================
+// PUBLIC API ROUTES (GoldTrade V18 Final)
 // ======================================================
 
 app.use("/api/auth", authRoutes);
+
 app.use("/api/users", userRoutes);
+
 app.use("/api/wallet", walletRoutes);
+
 app.use("/api/deposit", depositRoutes);
-app.use("/api/admin/withdraws", withdrawRoutes);
-app.use("/api/Usdt", UsdtRoutes);
+
+app.use("/api/withdraw", withdrawRoutes);
+
+app.use("/api/usdt", usdtRoutes);
+
 app.use("/api/gold", goldRoutes);
+
 app.use("/api/trading", tradingRoutes);
+
 app.use("/api/market", marketRoutes);
+
 app.use("/api/settings", settingsRoutes);
+
 app.use("/api/transactions", transactionRoutes);
+
 app.use("/api/payment-settings", paymentSettingsRoutes);
+
 app.use("/api/referrals", referralRoutes);
+
 app.use("/api/history", historyRoutes);
 
 // ======================================================
@@ -151,11 +230,18 @@ app.use("/api/history", historyRoutes);
 // ======================================================
 
 app.use("/api/admin", adminRoutes);
+
 app.use("/api/admin/dashboard", adminDashboardRoutes);
+
 app.use("/api/admin/deposits", adminDepositRoutes);
-app.use("/api/admin/wallet", adminwalletRoutes);
+
+app.use("/api/admin/withdraws", adminWithdrawRoutes);
+
+app.use("/api/admin/wallet", adminWalletRoutes);
+
 app.use("/api/admin/users", adminUserRoutes);
-app.use("/api/admin/Usdt", adminUsdtRoutes);
+
+app.use("/api/admin/usdt", adminUsdtRoutes);
 
 // ======================================================
 // 404 API ROUTE
@@ -208,16 +294,22 @@ app.use((err, req, res, next) => {
 });
 
 // ======================================================
-// SERVER START
+// SERVER START (GoldTrade V18)
 // ======================================================
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
+const HOST = process.env.HOST || "0.0.0.0";
 
-app.listen(PORT, () => {
-  console.log("========================================");
-  console.log("🚀 GOLDTRADE BACKEND RUNNING");
-  console.log(`🌐 Server : http://localhost:${PORT}`);
-  console.log(`📦 API    : http://localhost:${PORT}/api`);
-  console.log(`❤️ Health : http://localhost:${PORT}/api/health`);
-  console.log("========================================");
+app.listen(PORT, HOST, () => {
+  console.log("==================================================");
+  console.log("🚀 GoldTrade V18 Backend Started Successfully");
+  console.log("==================================================");
+  console.log(`🌍 Environment : ${process.env.NODE_ENV || "development"}`);
+  console.log(`📡 Host        : ${HOST}`);
+  console.log(`🚪 Port        : ${PORT}`);
+  console.log(`❤️ Health API  : /api/health`);
+  console.log(`📊 Status API  : /api/status`);
+  console.log(`💰 Gold API    : /api/gold/price`);
+  console.log(`💵 USDT API    : /api/usdt/rate`);
+  console.log("==================================================");
 });

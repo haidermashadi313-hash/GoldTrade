@@ -1,37 +1,49 @@
+"use strict";
+
 const mongoose = require("mongoose");
+
+// =====================================================
+// SETTINGS SCHEMA
+// GoldTrade V18
+// =====================================================
 
 const settingsSchema = new mongoose.Schema(
   {
-    // ===============================
-    // GOLD MARKET SETTINGS
-    // ===============================
+    // ================= GOLD MARKET =================
+
     buyGoldPrice: {
       type: Number,
-      default: 31250,
-      min: 1,
+      default: 31200,
+      min: 0,
     },
 
     sellGoldPrice: {
       type: Number,
-      default: 30980,
-      min: 1,
+      default: 30900,
+      min: 0,
     },
 
-    //  REQUIRED FOR PORTFOLIO API
     goldPriceUSD: {
       type: Number,
-      default: 108.45,
+      default: 105,
+      min: 0,
     },
 
-    UsdtoPkr: {
+    usdToPkr: {
       type: Number,
-      default: 290,
+      default: 280,
+      min: 0,
     },
 
-    goldTradingEnabled: {
-      type: Boolean,
-      default: true,
+    // ================= USDT MARKET =================
+
+    usdtRate: {
+      type: Number,
+      default: 280,
+      min: 0,
     },
+
+    // ================= MARKET STATUS =================
 
     marketStatus: {
       type: String,
@@ -39,62 +51,54 @@ const settingsSchema = new mongoose.Schema(
       default: "OPEN",
     },
 
-    // Cashback
-    cashbackEnabled: {
+    goldTradingEnabled: {
       type: Boolean,
       default: true,
     },
 
-    cashbackRate: {
-      type: Number,
-      default: 2,
-    },
-
-    // Referral
-    referralEnabled: {
+    usdtTradingEnabled: {
       type: Boolean,
       default: true,
     },
 
-    referralBonus: {
-      type: Number,
-      default: 500,
-    },
-
-    // Deposit / Withdraw
-    minimumDeposit: {
-      type: Number,
-      default: 1000,
-    },
-
-    minimumWithdraw: {
-      type: Number,
-      default: 1000,
-    },
-
-    withdrawEnabled: {
+    walletEnabled: {
       type: Boolean,
       default: true,
     },
 
-    depositEnabled: {
-      type: Boolean,
-      default: true,
-    },
-
-    // Platform
-    platformName: {
-      type: String,
-      default: "GoldTrade",
-    },
+    // ================= PLATFORM SETTINGS =================
 
     maintenanceMode: {
       type: Boolean,
       default: false,
     },
+
+    maintenanceMessage: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    appVersion: {
+      type: String,
+      default: "V18",
+    },
+
+    lastUpdatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    collection: "settings",
+  }
 );
+
+// =====================================================
+// EXPORT MODEL (Linux + Render Safe)
+// =====================================================
 
 module.exports =
   mongoose.models.Settings ||

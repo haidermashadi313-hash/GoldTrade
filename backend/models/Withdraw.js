@@ -1,4 +1,11 @@
+"use strict";
+
 const mongoose = require("mongoose");
+
+// =====================================================
+// WITHDRAW SCHEMA
+// GoldTrade V18
+// =====================================================
 
 const withdrawSchema = new mongoose.Schema(
   {
@@ -7,23 +14,30 @@ const withdrawSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
 
     username: {
       type: String,
       required: true,
+      trim: true,
+      index: true,
     },
 
-    // ================= WITHDRAW AMOUNT =================
+    // ================= WITHDRAW DETAILS =================
     amount: {
       type: Number,
       required: true,
       min: 1,
+      default: 0,
     },
 
     currency: {
       type: String,
-      default: "Pkr",
+      enum: ["PKR", "USDT"],
+      default: "PKR",
+      uppercase: true,
+      trim: true,
     },
 
     // ================= PAYMENT METHOD =================
@@ -32,44 +46,53 @@ const withdrawSchema = new mongoose.Schema(
       enum: [
         "BANK",
         "EASYPAISA",
-        "NAYAPAY",
         "JAZZCASH",
+        "NAYAPAY",
         "SADAPAY",
         "RAAST",
-        "Usdt_TRC20",
+        "USDT_TRC20",
       ],
       required: true,
+      uppercase: true,
+      trim: true,
     },
 
     // ================= PAYMENT DETAILS =================
     bankName: {
       type: String,
       default: "",
+      trim: true,
     },
 
     accountTitle: {
       type: String,
       required: true,
+      trim: true,
     },
 
     accountNumber: {
       type: String,
       required: true,
+      trim: true,
     },
 
     iban: {
       type: String,
       default: "",
+      trim: true,
     },
 
     walletAddress: {
       type: String,
       default: "",
+      trim: true,
     },
 
     network: {
       type: String,
       default: "",
+      trim: true,
+      uppercase: true,
     },
 
     // ================= STATUS =================
@@ -77,12 +100,15 @@ const withdrawSchema = new mongoose.Schema(
       type: String,
       enum: ["Pending", "Approved", "Rejected"],
       default: "Pending",
+      trim: true,
     },
 
-    // ================= ADMIN =================
+    // ================= ADMIN ACTION =================
     adminNote: {
       type: String,
       default: "",
+      trim: true,
+      maxlength: 500,
     },
 
     approvedBy: {
@@ -107,20 +133,29 @@ const withdrawSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ================= PAYMENT RECEIPT =================
+    // ================= RECEIPT =================
     receiptImage: {
       type: String,
       default: "",
+      trim: true,
     },
 
     transactionId: {
       type: String,
       default: "",
+      trim: true,
     },
   },
   {
     timestamps: true,
+    collection: "withdraws",
   }
 );
 
-module.exports = mongoose.model("Withdraw", withdrawSchema);
+// =====================================================
+// EXPORT MODEL (Linux + Render + Hot Reload Safe)
+// =====================================================
+
+module.exports =
+  mongoose.models.Withdraw ||
+  mongoose.model("Withdraw", withdrawSchema);
