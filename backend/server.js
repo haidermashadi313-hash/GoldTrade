@@ -1,33 +1,24 @@
-"use strict";
-
-// ======================================================
-// GoldTrade V18 SERVER (PART 1/4)
-// Linux + Render + Vercel Compatible
-// ======================================================
+ "use strict";
 
 require("dotenv").config();
 
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const multer = require("multer");
 const path = require("path");
 
 const app = express();
 
 // ======================================================
-// MONGODB CONNECTION
+// MONGODB CONNECTION (GoldTrade V18 FINAL)
 // ======================================================
 
+const MONGODB_URI = process.env.MONGODB_URI;
+
 mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB Connected Successfully");
-  })
-  .catch((err) => {
-    console.error("MongoDB Connection Failed:", err.message);
-    process.exit(1);
-  });
+  .connect(MONGODB_URI)
+  .then(() => console.log("✅ MongoDB Connected Successfully"))
+  .catch((err) => console.error("❌ MongoDB Connection Failed:", err.message));
 
 // ======================================================
 // CORS CONFIG
@@ -60,14 +51,15 @@ app.use(
 );
 
 // ======================================================
-// EXPRESS MIDDLEWARE
+// MIDDLEWARE
 // ======================================================
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Static Upload Folder
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 
 // ======================================================
 // ROUTE IMPORTS (GoldTrade V18 Linux FINAL)
@@ -239,9 +231,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ================= SERVER START =================
+// SERVER START (Render + Local Compatible)
+// ======================================================
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 const HOST = process.env.HOST || "0.0.0.0";
 
 app.listen(PORT, HOST, () => {
