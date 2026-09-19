@@ -9,7 +9,7 @@ const Wallet = require("../models/Wallet");
 const Transaction = require("../models/Transaction");
 
 // ================= MIDDLEWARE =================
-const { verifyToken, isAdmin } = require("../middleware/Auth");
+const { verifyToken, isAdmin } = require("../middleware/auth");
 
 // =======================================
 // GET ALL USERS

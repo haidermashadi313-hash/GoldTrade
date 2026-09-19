@@ -1,22 +1,20 @@
-// ======================================================
-// GoldTrade V18 Enterprise Authentication Middleware
-// File: backend/middleware/auth.js
-// ======================================================
+"use strict";
 
 const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
 // ======================================================
 // VERIFY JWT TOKEN
 // ======================================================
 
-const verifyToken = (req, res, next) => {
+const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "Token missing.",
+        message: "Authorization token missing.",
       });
     }
 
@@ -24,7 +22,33 @@ const verifyToken = (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.user = decoded;
+    const userId = decoded.id || decoded._id || decoded.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token payload.",
+      });
+    }
+
+    const user = await User.findById(userId).select("-password");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    if (user.status === "Blocked" || user.status === "Suspended") {
+      return res.status(403).json({
+        success: false,
+        message: "Account is blocked or suspended.",
+      });
+    }
+
+    req.user = user;
+    req.userId = user._id;
 
     next();
   } catch (error) {
@@ -38,60 +62,44 @@ const verifyToken = (req, res, next) => {
 };
 
 // ======================================================
-// ADMIN CHECK
+// ADMIN ONLY MIDDLEWARE
 // ======================================================
 
 const isAdmin = (req, res, next) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized.",
-      });
-    }
-
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access required.",
-      });
-    }
-
-    next();
-  } catch (error) {
-    console.error("Admin Middleware Error:", error.message);
-
-    return res.status(500).json({
+  if (!req.user) {
+    return res.status(401).json({
       success: false,
-      message: "Authorization failed.",
+      message: "Unauthorized.",
     });
   }
+
+  if (req.user.role !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Admin access only.",
+    });
+  }
+
+  next();
 };
 
 // ======================================================
-// OPTIONAL USER CHECK
+// OPTIONAL USER MIDDLEWARE
 // ======================================================
 
 const isUser = (req, res, next) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized.",
-      });
-    }
-
-    next();
-  } catch (error) {
-    return res.status(500).json({
+  if (!req.user) {
+    return res.status(401).json({
       success: false,
-      message: "Authorization failed.",
+      message: "Unauthorized.",
     });
   }
+
+  next();
 };
 
 // ======================================================
-// EXPORTS
+// EXPORTS (GoldTrade V18 Linux Safe)
 // ======================================================
 
 module.exports = {

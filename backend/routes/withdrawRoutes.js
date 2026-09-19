@@ -16,7 +16,7 @@ const User = require("../models/User");
 // MIDDLEWARE
 // =====================================================
 
-const { verifyToken, isAdmin } = require("../middleware/Auth");
+const { verifyToken, isAdmin } = require("../middleware/auth");
 
 // =====================================================
 // USER CREATE WITHDRAW REQUEST
