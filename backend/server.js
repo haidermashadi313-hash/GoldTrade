@@ -68,14 +68,15 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Static Upload Folder
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 // ======================================================
-// GOLDTRADE V18 SERVER (PART 2/4)
-// ROUTE IMPORTS (Linux + Render Safe)
+// ROUTE IMPORTS (GoldTrade V18 Linux FINAL)
 // ======================================================
 
 // ================= PUBLIC ROUTES =================
 
 const authRoutes = require("./routes/authRoutes");
+
 const userRoutes = require("./routes/UserRoutes");
 const walletRoutes = require("./routes/WalletRoutes");
 
@@ -87,11 +88,11 @@ const usdtRoutes = require("./routes/UsdtRoutes");
 
 const tradingRoutes = require("./routes/TradingRoutes");
 const marketRoutes = require("./routes/MarketRoutes");
+
 const settingsRoutes = require("./routes/SettingsRoutes");
-
 const transactionRoutes = require("./routes/TransactionRoutes");
-const paymentSettingsRoutes = require("./routes/PaymentSettingsRoutes");
 
+const paymentSettingsRoutes = require("./routes/PaymentSettingsRoutes");
 const referralRoutes = require("./routes/ReferralRoutes");
 const historyRoutes = require("./routes/HistoryRoutes");
 
@@ -105,12 +106,13 @@ const adminWalletRoutes = require("./routes/adminWalletRoutes");
 const adminUserRoutes = require("./routes/adminUserRoutes");
 const adminUsdtRoutes = require("./routes/adminUsdtRoutes");
 
+
 // ======================================================
-// REGISTER ROUTES
+// PUBLIC API ROUTES
 // ======================================================
 
-// Public APIs
 app.use("/api/auth", authRoutes);
+
 app.use("/api/users", userRoutes);
 app.use("/api/wallet", walletRoutes);
 
@@ -122,19 +124,24 @@ app.use("/api/usdt", usdtRoutes);
 
 app.use("/api/trading", tradingRoutes);
 app.use("/api/market", marketRoutes);
+
 app.use("/api/settings", settingsRoutes);
-
 app.use("/api/transactions", transactionRoutes);
-app.use("/api/payment-settings", paymentSettingsRoutes);
 
+app.use("/api/payment-settings", paymentSettingsRoutes);
 app.use("/api/referrals", referralRoutes);
 app.use("/api/history", historyRoutes);
 
-// Admin APIs
+// ======================================================
+// ADMIN API ROUTES
+// ======================================================
+
 app.use("/api/admin", adminRoutes);
+
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/admin/deposits", adminDepositRoutes);
 app.use("/api/admin/withdraws", adminWithdrawRoutes);
+
 app.use("/api/admin/wallet", adminWalletRoutes);
 app.use("/api/admin/users", adminUserRoutes);
 app.use("/api/admin/usdt", adminUsdtRoutes);
