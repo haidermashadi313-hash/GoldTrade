@@ -75,7 +75,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ================= PUBLIC ROUTES =================
 
-const authRoutes = require("./routes/AuthRoutes");
+const authRoutes = require("./routes/authRoutes");
 
 const userRoutes = require("./routes/UserRoutes");
 const walletRoutes = require("./routes/WalletRoutes");
