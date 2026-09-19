@@ -238,41 +238,47 @@ app.use((err, req, res, next) => {
 const PORT = Number(process.env.PORT) || 5000;
 const HOST = process.env.HOST || "0.0.0.0";
 
-// MongoDB Connect First
-connectDB();
+const startServer = async () => {
+  try {
+    await connectDB(); // MongoDB connect hone ka wait karo
 
-// Start Server
-app.listen(PORT, HOST, () => {
-  console.log("==============================================");
-  console.log("🚀 GoldTrade V18 Backend Started Successfully");
-  console.log("==============================================");
-  console.log(`🌍 Environment : ${process.env.NODE_ENV || "development"}`);
-  console.log(`📡 Host        : ${HOST}`);
-  console.log(`🚪 Port        : ${PORT}`);
-  console.log("==============================================");
+    app.listen(PORT, HOST, () => {
+      console.log("🚀 GoldTrade V18 Backend Started Successfully");
+      console.log("==============================================");
+      console.log(`🌍 Environment : ${process.env.NODE_ENV || "development"}`);
+      console.log(`📡 Host        : ${HOST}`);
+      console.log(`🚪 Port        : ${PORT}`);
+      console.log("==============================================");
 
-  // Health APIs
-  console.log("❤️ Health API      : /api/health");
-  console.log("📊 Status API      : /api/status");
+      // Health APIs
+      console.log("❤️ Health API      : /api/health");
+      console.log("📊 Status API      : /api/status");
 
-  // Trading APIs
-  console.log("💰 Gold API        : /api/gold/price");
-  console.log("💵 USDT API        : /api/usdt/rate");
-  console.log("📈 Trading API     : /api/trading");
+      // Trading APIs
+      console.log("💰 Gold API        : /api/gold/price");
+      console.log("💵 USDT API        : /api/usdt/rate");
+      console.log("📈 Trading API     : /api/trading");
 
-  // Wallet APIs
-  console.log("👛 Wallet API      : /api/wallet");
-  console.log("💳 Deposit API     : /api/deposit");
-  console.log("💸 Withdraw API    : /api/withdraw");
+      // Wallet APIs
+      console.log("👛 Wallet API      : /api/wallet");
+      console.log("💳 Deposit API     : /api/deposit");
+      console.log("💸 Withdraw API    : /api/withdraw");
 
-  // User APIs
-  console.log("👤 Auth API        : /api/auth");
-  console.log("👥 Users API       : /api/users");
+      // User APIs
+      console.log("👤 Auth API        : /api/auth");
+      console.log("👥 Users API       : /api/users");
 
-  // Admin APIs
-  console.log("🛠️ Admin Dashboard : /api/gold/admin/dashboard");
-  console.log("📥 Admin Deposits  : /api/gold/admin/deposits");
-  console.log("📤 Admin Withdraws : /api/gold/admin/withdraws");
+      // Admin APIs
+      console.log("🛠️ Admin Dashboard : /api/gold/admin/dashboard");
+      console.log("📥 Admin Deposits  : /api/gold/admin/deposits");
+      console.log("📤 Admin Withdraws : /api/gold/admin/withdraws");
 
-  console.log("==============================================");
-});
+      console.log("==============================================");
+    });
+  } catch (error) {
+    console.error("Server startup failed:", error);
+    process.exit(1);
+  }
+};
+
+startServer();

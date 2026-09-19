@@ -105,7 +105,7 @@ router.post("/signup", async (req, res) => {
 });
 
 // =======================================================
-// LOGIN USER
+// LOGIN USER (GoldTrade V18 FINAL FIX)
 // POST /api/auth/login
 // =======================================================
 
@@ -120,6 +120,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    // Find user by username or email
     const user = await User.findOne({
       $or: [
         { username: username.trim() },
@@ -134,6 +135,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    // Verify password
     const matched = await bcrypt.compare(password, user.password);
 
     if (!matched) {
@@ -143,6 +145,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    // Check account status
     if (user.status === "Blocked") {
       return res.status(403).json({
         success: false,
@@ -150,41 +153,41 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    // Generate JWT
     const token = jwt.sign(
       {
         id: user._id,
         username: user.username,
         role: user.role,
       },
-      process.env.JWT_SECRET || "GoldTrade_v18_secret",
+      process.env.JWT_SECRET,
       {
         expiresIn: process.env.JWT_EXPIRE || "30d",
       }
     );
 
+    // Update last login
     user.lastLogin = new Date();
     await user.save();
 
-    const Wallet = await Wallet.findOne({ userId: user._id });
+    // Load wallet safely
+    const wallet = await Wallet.findOne({ userId: user._id });
 
     return res.status(200).json({
       success: true,
       message: "Login successful.",
       token,
-
       user: {
         _id: user._id,
         username: user.username,
         email: user.email,
         role: user.role,
         status: user.status,
-
-        PkrBalance: Wallet?.PkrBalance || 0,
-        goldBalance: Wallet?.goldBalance || 0,
-        UsdtBalance: Wallet?.UsdtBalance || 0,
+        PkrBalance: wallet?.PkrBalance || 0,
+        goldBalance: wallet?.goldBalance || 0,
+        UsdtBalance: wallet?.UsdtBalance || 0,
       },
     });
-
   } catch (err) {
     console.error("LOGIN ERROR:", err);
 
