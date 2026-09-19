@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 // =======================================================
 // GoldTrade V18 - Usdt Wallet history
@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 // =======================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // =======================================================
 // TYPES
@@ -349,7 +349,7 @@ export default function UsdthistoryPage() {
               </h1>
 
               <p className="mt-2 text-cyan-100">
-                GoldTrade V18 • Complete Credit & Debit history
+                GoldTrade V18 鈥?Complete Credit & Debit history
               </p>
 
               <p className="mt-2 text-sm text-cyan-200">
@@ -931,7 +931,7 @@ export default function UsdthistoryPage() {
               <div className="mt-6 rounded-3xl bg-white p-12 text-center shadow-xl">
 
                 <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-teal-100">
-                  <span className="text-5xl">📜</span>
+                  <span className="text-5xl">馃摐</span>
                 </div>
 
                 <h2 className="mt-6 text-2xl font-bold text-gray-700">
@@ -1018,11 +1018,11 @@ export default function UsdthistoryPage() {
               </h3>
 
               <ul className="space-y-2 text-sm text-gray-700">
-                <li>• Every buy and sell transaction is recorded automatically.</li>
-                <li>• Wallet balance updates only after Admin approval.</li>
-                <li>• Credit and Debit history cannot be edited by users.</li>
-                <li>• Transaction timestamps are stored securely.</li>
-                <li>• history is permanently available for Wallet auditing.</li>
+                <li>鈥?Every buy and sell transaction is recorded automatically.</li>
+                <li>鈥?Wallet balance updates only after Admin approval.</li>
+                <li>鈥?Credit and Debit history cannot be edited by users.</li>
+                <li>鈥?Transaction timestamps are stored securely.</li>
+                <li>鈥?history is permanently available for Wallet auditing.</li>
               </ul>
 
             </div>
@@ -1038,7 +1038,7 @@ export default function UsdthistoryPage() {
               </h4>
 
               <p className="mt-2 text-sm text-gray-500">
-                Pkr • Usdt • Gold • Secure Digital Wallet
+                Pkr 鈥?Usdt 鈥?Gold 鈥?Secure Digital Wallet
               </p>
 
               <p className="mt-1 text-xs text-gray-400">
@@ -1054,3 +1054,5 @@ export default function UsdthistoryPage() {
     </div>
   );
 }
+
+

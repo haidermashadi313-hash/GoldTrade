@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 export default function MarketCard() {
   return (
@@ -8,3 +8,5 @@ export default function MarketCard() {
     </div>
   );
 }
+
+

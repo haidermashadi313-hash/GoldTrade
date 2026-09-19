@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
@@ -8,7 +8,7 @@ import axios from "axios";
 // ==========================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // ==========================================
 // TYPES
@@ -393,7 +393,7 @@ const GoldbuyPage: React.FC = () => {
           onClick={fetchPortfolio}
           className="bg-green-600 hover:bg-green-500 text-white font-bold px-5 py-3 rounded-xl transition-all duration-300 hover:scale-105"
         >
-          🔄 Refresh
+          馃攧 Refresh
         </button>
       </div>
 
@@ -628,7 +628,7 @@ const GoldbuyPage: React.FC = () => {
           GoldTrade Enterprise V18
         </p>
 
-        <p>buy Gold Module • Secure JWT • Live Gold Market</p>
+        <p>buy Gold Module 鈥?Secure JWT 鈥?Live Gold Market</p>
 
         <p className="mt-2">
           Powered by GoldTrade Enterprise Backend API
@@ -640,3 +640,5 @@ const GoldbuyPage: React.FC = () => {
 };
 
 export default GoldbuyPage;
+
+

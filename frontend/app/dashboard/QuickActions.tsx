@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Wallet, ArrowUpRight, ArrowDownLeft, Coins } from "lucide-react";
 
@@ -55,3 +55,5 @@ export default function QuickActions() {
     </div>
   );
 }
+
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { RefreshCw, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
@@ -130,3 +130,5 @@ export default function TransactionsPage() {
     </main>
   );
 }
+
+

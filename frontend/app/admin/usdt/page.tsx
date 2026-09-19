@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 // =======================================================
 // GoldTrade V18 - ADMIN Usdt PAGE (PART 1/8)
-// Imports • Types • API • React States
+// Imports 鈥?Types 鈥?API 鈥?React States
 // =======================================================
 
 import { useEffect, useMemo, useState } from "react";
@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 // =======================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // =======================================================
 // TYPES
@@ -542,7 +542,7 @@ export default function AdminUsdtPage() {
               </h1>
 
               <p className="mt-2 text-blue-100">
-                GoldTrade V18 • Manage buy & sell Requests
+                GoldTrade V18 鈥?Manage buy & sell Requests
               </p>
 
               <p className="mt-2 text-sm text-blue-200">
@@ -1147,7 +1147,7 @@ export default function AdminUsdtPage() {
                         </h4>
 
                         <p className="mt-1 text-xs text-gray-500">
-                          {formatDate(order.createdAt)} • {formatTime(order.createdAt)}
+                          {formatDate(order.createdAt)} 鈥?{formatTime(order.createdAt)}
                         </p>
 
                         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -1320,7 +1320,7 @@ export default function AdminUsdtPage() {
               <div className="mt-6 rounded-3xl bg-white p-12 text-center shadow-lg">
 
                 <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-indigo-100">
-                  <span className="text-5xl">📋</span>
+                  <span className="text-5xl">馃搵</span>
                 </div>
 
                 <h2 className="mt-6 text-2xl font-bold text-gray-700">
@@ -1353,11 +1353,11 @@ export default function AdminUsdtPage() {
               </h3>
 
               <ul className="space-y-2 text-sm text-gray-700">
-                <li>• Approve buy requests after verifying payment receipt.</li>
-                <li>• Approve sell requests after verifying Wallet transfer.</li>
-                <li>• Rejected orders remain visible for audit history.</li>
-                <li>• Every approval updates Wallet Balance automatically.</li>
-                <li>• Pkr and Usdt Wallet history is created automatically.</li>
+                <li>鈥?Approve buy requests after verifying payment receipt.</li>
+                <li>鈥?Approve sell requests after verifying Wallet transfer.</li>
+                <li>鈥?Rejected orders remain visible for audit history.</li>
+                <li>鈥?Every approval updates Wallet Balance automatically.</li>
+                <li>鈥?Pkr and Usdt Wallet history is created automatically.</li>
               </ul>
 
             </div>
@@ -1391,11 +1391,11 @@ export default function AdminUsdtPage() {
               </h4>
 
               <p className="mt-2 text-sm text-gray-500">
-                Pkr • Usdt • Gold • Wallet Management
+                Pkr 鈥?Usdt 鈥?Gold 鈥?Wallet Management
               </p>
 
               <p className="mt-1 text-xs text-gray-400">
-                Secure • Fast • Professional Digital Trading Platform
+                Secure 鈥?Fast 鈥?Professional Digital Trading Platform
               </p>
 
             </div>
@@ -1407,3 +1407,5 @@ export default function AdminUsdtPage() {
     </div>
   );
 }
+
+

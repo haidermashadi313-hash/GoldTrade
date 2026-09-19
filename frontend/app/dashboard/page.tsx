@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -14,7 +14,7 @@ import {
 // GoldTrade API V18
 // ==========================================
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // ==========================================
 // TYPES
@@ -370,7 +370,7 @@ const loadDashboard = async () => {
           </div>
 
           <div className="bg-black rounded-2xl p-5 border border-zinc-700">
-            <p className="text-gray-400">USD → Pkr Exchange Rate</p>
+            <p className="text-gray-400">USD 鈫?Pkr Exchange Rate</p>
 
             <h3 className="text-4xl font-black text-green-400 mt-2">
               Pkr {market.UsdtoPkr}
@@ -476,7 +476,7 @@ const loadDashboard = async () => {
 
       {/* FOOTER */}
       <div className="mt-10 border-t border-zinc-800 pt-6 text-center text-sm text-gray-500">
-        <p>     GoldTrade•Inc </p>
+        <p>     GoldTrade鈥nc </p>
 
         <p className="text-green-400 mt-2">
             Pakistan First International Trading Platform.
@@ -486,3 +486,5 @@ const loadDashboard = async () => {
     </main>
   );
 }
+
+

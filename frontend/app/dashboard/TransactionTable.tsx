@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 export default function TransactionTable() {
   return (
@@ -8,3 +8,5 @@ export default function TransactionTable() {
     </div>
   );
 }
+
+

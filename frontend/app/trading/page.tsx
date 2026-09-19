@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import {
   TrendingUp,
   TrendingDown,
-  Wallet,
+  Wallet as WalletIcon,
   Coins,
   DollarSign,
   Activity,
@@ -337,7 +337,7 @@ export default function TradingPage() {
             </h1>
 
             <p className="text-gray-400 mt-2">
-              buy • sell • Live Gold Price
+              buy 鈥?sell 鈥?Live Gold Price
             </p>
 
           </div>
@@ -358,7 +358,7 @@ export default function TradingPage() {
 
           <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
 
-            <Wallet className="text-yellow-400 mb-3"/>
+            <WalletIcon className="text-yellow-400 mb-3"/>
 
             <p className="text-gray-400 text-sm">Pkr Wallet</p>
 
@@ -1042,7 +1042,7 @@ export default function TradingPage() {
               </h3>
 
               <p className="text-gray-400 mt-2">
-                buy • sell • Live Gold Trading Platform
+                buy 鈥?sell 鈥?Live Gold Trading Platform
               </p>
 
             </div>
@@ -1074,7 +1074,7 @@ export default function TradingPage() {
           </div>
 
           <div className="border-t border-zinc-700 mt-6 pt-4 text-center text-gray-500 text-sm">
-            © 2026 GoldTrade international — Live Trading Dashboard
+            漏 2026 GoldTrade international 鈥?Live Trading Dashboard
           </div>
 
         </footer>
@@ -1083,3 +1083,5 @@ export default function TradingPage() {
     </main>
   );
 }
+
+

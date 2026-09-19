@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -18,7 +18,7 @@ import {
 
 // Production (Vercel) + Localhost Compatible API
 const API =
- process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+ process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 interface MarketData {
   goldPriceUSD: number;
@@ -119,7 +119,7 @@ export default function MarketPage() {
           </h1>
 
           <p className="text-gray-400 mt-2 text-lg">
-            GoldTrade Premium Trading Center • Auto Refresh Every 30 Seconds
+            GoldTrade Premium Trading Center 鈥?Auto Refresh Every 30 Seconds
           </p>
 
         </div>
@@ -264,7 +264,7 @@ export default function MarketPage() {
               </h2>
 
               <p className="text-gray-500 mt-3">
-                {gram} Gram × buy Rate
+                {gram} Gram 脳 buy Rate
               </p>
 
             </div>
@@ -280,7 +280,7 @@ export default function MarketPage() {
               </h2>
 
               <p className="text-gray-500 mt-3">
-                {gram} Gram × sell Rate
+                {gram} Gram 脳 sell Rate
               </p>
 
             </div>
@@ -430,3 +430,5 @@ export default function MarketPage() {
     </main>
   );
 }
+
+

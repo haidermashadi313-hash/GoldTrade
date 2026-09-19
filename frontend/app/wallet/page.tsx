@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 // =====================================================
 // GoldTrade V18 DIGITAL Wallet
 // FRONTEND : Wallet PAGE
-// PART 1/8 — IMPORTS + API + TYPES
+// PART 1/8 鈥?IMPORTS + API + TYPES
 // =====================================================
 
 import Link from "next/link";
@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 // =====================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // =====================================================
 // Wallet TYPES
@@ -398,7 +398,7 @@ export default function WalletPage() {
               </h1>
 
               <p className="mt-2 text-cyan-100">
-                Pkr • USDT • GOLD Wallet Dashboard
+                Pkr 鈥?USDT 鈥?GOLD Wallet Dashboard
               </p>
 
               <p className="mt-3 text-sm text-cyan-200">
@@ -646,7 +646,7 @@ export default function WalletPage() {
                   </h3>
 
                   <p className="mt-2 text-xs text-slate-500">
-                    ≈ Rs. {formatCurrency(usdtValue)}
+                    鈮?Rs. {formatCurrency(usdtValue)}
                   </p>
 
                 </div>
@@ -664,7 +664,7 @@ export default function WalletPage() {
                   </h3>
 
                   <p className="mt-2 text-xs text-slate-500">
-                    ≈ Rs. {formatCurrency(goldValue)}
+                    鈮?Rs. {formatCurrency(goldValue)}
                   </p>
 
                 </div>
@@ -705,7 +705,7 @@ export default function WalletPage() {
                   href="/deposit"
                   className="rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 p-6 text-center text-white shadow-lg transition hover:scale-[1.02]"
                 >
-                  <div className="mb-3 text-4xl">💰</div>
+                  <div className="mb-3 text-4xl">馃挵</div>
 
                   <h3 className="text-lg font-bold">
                     Deposit Pkr
@@ -722,7 +722,7 @@ export default function WalletPage() {
                   href="/withdraw"
                   className="rounded-2xl bg-gradient-to-r from-red-600 to-orange-600 p-6 text-center text-white shadow-lg transition hover:scale-[1.02]"
                 >
-                  <div className="mb-3 text-4xl">🏦</div>
+                  <div className="mb-3 text-4xl">馃彟</div>
 
                   <h3 className="text-lg font-bold">
                     Withdraw Pkr
@@ -739,7 +739,7 @@ export default function WalletPage() {
                   href="/usdt/buy-usdt"
                   className="rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-700 p-6 text-center text-white shadow-lg transition hover:scale-[1.02]"
                 >
-                  <div className="mb-3 text-4xl">💵</div>
+                  <div className="mb-3 text-4xl">馃挼</div>
 
                   <h3 className="text-lg font-bold">
                     Buy USDT
@@ -756,7 +756,7 @@ export default function WalletPage() {
                   href="/usdt/sell-usdt"
                   className="rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-700 p-6 text-center text-white shadow-lg transition hover:scale-[1.02]"
                 >
-                  <div className="mb-3 text-4xl">💸</div>
+                  <div className="mb-3 text-4xl">馃捀</div>
 
                   <h3 className="text-lg font-bold">
                     Sell USDT
@@ -842,7 +842,7 @@ export default function WalletPage() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 
                 <div className="rounded-2xl bg-cyan-50 p-5">
-                  <div className="mb-3 text-3xl">💳</div>
+                  <div className="mb-3 text-3xl">馃挸</div>
 
                   <h3 className="font-semibold text-cyan-700">
                     Pkr Digital Wallet
@@ -854,7 +854,7 @@ export default function WalletPage() {
                 </div>
 
                 <div className="rounded-2xl bg-indigo-50 p-5">
-                  <div className="mb-3 text-3xl">💵</div>
+                  <div className="mb-3 text-3xl">馃挼</div>
 
                   <h3 className="font-semibold text-indigo-700">
                     USDT Trading
@@ -866,7 +866,7 @@ export default function WalletPage() {
                 </div>
 
                 <div className="rounded-2xl bg-yellow-50 p-5">
-                  <div className="mb-3 text-3xl">🥇</div>
+                  <div className="mb-3 text-3xl">馃</div>
 
                   <h3 className="font-semibold text-yellow-700">
                     Digital Gold
@@ -878,7 +878,7 @@ export default function WalletPage() {
                 </div>
 
                 <div className="rounded-2xl bg-green-50 p-5">
-                  <div className="mb-3 text-3xl">🔄</div>
+                  <div className="mb-3 text-3xl">馃攧</div>
 
                   <h3 className="font-semibold text-green-700">
                     Instant Refresh
@@ -890,7 +890,7 @@ export default function WalletPage() {
                 </div>
 
                 <div className="rounded-2xl bg-purple-50 p-5">
-                  <div className="mb-3 text-3xl">📈</div>
+                  <div className="mb-3 text-3xl">馃搱</div>
 
                   <h3 className="font-semibold text-purple-700">
                     Live Portfolio
@@ -902,7 +902,7 @@ export default function WalletPage() {
                 </div>
 
                 <div className="rounded-2xl bg-orange-50 p-5">
-                  <div className="mb-3 text-3xl">🛡️</div>
+                  <div className="mb-3 text-3xl">🔒</div>
 
                   <h3 className="font-semibold text-orange-700">
                     Secure Transactions
@@ -1024,7 +1024,7 @@ export default function WalletPage() {
 
                 <div className="rounded-2xl border border-dashed border-slate-300 py-12 text-center">
 
-                  <div className="mb-4 text-5xl">📂</div>
+                  <div className="mb-4 text-5xl">馃搨</div>
 
                   <h3 className="text-xl font-semibold text-slate-700">
                     No Wallet Transactions Yet
@@ -1175,7 +1175,7 @@ export default function WalletPage() {
 
                 <div className="rounded-xl bg-white p-5 shadow-sm">
                   <h3 className="font-semibold text-green-700">
-                    🔒 Secure Authentication
+                    馃敀 Secure Authentication
                   </h3>
 
                   <p className="mt-2 text-sm text-slate-600">
@@ -1186,7 +1186,7 @@ export default function WalletPage() {
 
                 <div className="rounded-xl bg-white p-5 shadow-sm">
                   <h3 className="font-semibold text-green-700">
-                    ✅ Ai-Verified Transactions Program
+                    鉁?Ai-Verified Transactions Program
                   </h3>
 
                   <p className="mt-2 text-sm text-slate-600">
@@ -1197,7 +1197,7 @@ export default function WalletPage() {
 
                 <div className="rounded-xl bg-white p-5 shadow-sm">
                   <h3 className="font-semibold text-green-700">
-                    📜 Transaction History
+                    馃摐 Transaction History
                   </h3>
 
                   <p className="mt-2 text-sm text-slate-600">
@@ -1208,7 +1208,7 @@ export default function WalletPage() {
 
                 <div className="rounded-xl bg-white p-5 shadow-sm">
                   <h3 className="font-semibold text-green-700">
-                    ⚡ Live Market Sync
+                    鈿?Live Market Sync
                   </h3>
 
                   <p className="mt-2 text-sm text-slate-600">
@@ -1340,7 +1340,7 @@ export default function WalletPage() {
                   </p>
 
                   <p className="mt-2 text-sm text-cyan-200">
-                    Secure • Fast • Live Market • Verified Transactions
+                    Secure 鈥?Fast 鈥?Live Market 鈥?Verified Transactions
                   </p>
                 </div>
 
@@ -1375,19 +1375,18 @@ export default function WalletPage() {
               </h3>
 
               <p className="mt-2 text-sm text-slate-300">
-                Pkr • USDT • GOLD Wallet with Live Market Trading
+                Pkr 鈥?USDT 鈥?GOLD Wallet with Live Market Trading
               </p>
 
               <p className="mt-4 text-sm text-slate-400">
-                © 2026 GoldTrade. All Rights Reserved.
+                漏 2026 GoldTrade. All Rights Reserved.
               </p>
 
               <p className="mt-1 text-xs text-slate-500">
-                Secure Authentication •  AI-Verified Transactions Program
+                Secure Authentication 鈥? AI-Verified Transactions Program
               </p>
 
             </div>
-
           </>
         )}
 

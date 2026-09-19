@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 export default function GoldBuyPage() {
   return (
@@ -13,3 +13,5 @@ export default function GoldBuyPage() {
     </div>
   );
 }
+
+

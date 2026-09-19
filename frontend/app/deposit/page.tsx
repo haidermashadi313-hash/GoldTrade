@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { Upload, Wallet, RefreshCw, CheckCircle, Clock, XCircle } from "lucide-react";
@@ -7,7 +7,7 @@ import { Upload, Wallet, RefreshCw, CheckCircle, Clock, XCircle } from "lucide-r
 // GoldTrade API V18
 // ==========================================
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // ==========================================
 // TYPES
@@ -435,7 +435,7 @@ export default function DepositPage() {
                 {uploading
                   ? "Uploading..."
                   : receiptImage
-                  ? "Receipt Uploaded ✔"
+                  ? "Receipt Uploaded ✅"
                   : "Upload Receipt Image"}
               </span>
 
@@ -627,7 +627,7 @@ export default function DepositPage() {
           <p>Deposit Wallet</p>
 
           <p className="mt-2 text-green-400">
-            JWT Authentication • GoldTrade Server.
+            JWT Authentication 鈥?GoldTrade Server.
           </p>
 
         </div>
@@ -637,3 +637,5 @@ export default function DepositPage() {
     </main>
   );
 }
+
+

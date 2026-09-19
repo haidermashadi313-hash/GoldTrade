@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { ArrowLeft, Gift, CheckCircle, Trophy, Users } from "lucide-react";
@@ -104,3 +104,5 @@ export default function TasksPage() {
     </main>
   );
 }
+
+

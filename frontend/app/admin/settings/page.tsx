@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -17,7 +17,7 @@ import {
 // ========================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // ========================================
 // SETTINGS TYPE
@@ -294,7 +294,7 @@ export default function AdminSettingsPage() {
           <div className="flex items-center gap-3">
             <Wallet className="text-green-400" size={28} />
             <h2 className="text-2xl font-black text-green-400">
-              USD → PKR Exchange Rate
+              USD 鈫?PKR Exchange Rate
             </h2>
           </div>
 
@@ -470,7 +470,7 @@ export default function AdminSettingsPage() {
             </div>
 
             <div className="bg-black rounded-xl p-5 border border-green-500">
-              <p className="text-gray-400 text-sm">USD → PKR Rate</p>
+              <p className="text-gray-400 text-sm">USD 鈫?PKR Rate</p>
 
               <h3 className="text-3xl font-black text-green-400 mt-2">
                 PKR {settings.usdToPkr}
@@ -640,3 +640,5 @@ export default function AdminSettingsPage() {
     </main>
   );
 }
+
+

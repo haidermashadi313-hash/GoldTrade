@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
@@ -8,7 +8,7 @@ import axios from "axios";
 // ==========================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // ==========================================
 // TYPES
@@ -252,7 +252,7 @@ const GoldPortfolioPage: React.FC = () => {
           onClick={refreshPortfolio}
           className="bg-yellow-500 hover:bg-yellow-400 text-black px-5 py-3 rounded-xl font-bold transition-all duration-300 hover:scale-105"
         >
-          🔄 Refresh
+          馃攧 Refresh
         </button>
 
       </div>
@@ -372,7 +372,7 @@ const GoldPortfolioPage: React.FC = () => {
           </h2>
 
           <p className="text-xs text-gray-500 mt-3">
-            Gold Balance × Average buy Price
+            Gold Balance 脳 Average buy Price
           </p>
         </div>
 
@@ -386,7 +386,7 @@ const GoldPortfolioPage: React.FC = () => {
           </h2>
 
           <p className="text-xs text-gray-500 mt-3">
-            Gold Balance × Live sell Price
+            Gold Balance 脳 Live sell Price
           </p>
         </div>
 
@@ -510,7 +510,7 @@ const GoldPortfolioPage: React.FC = () => {
 
           <div className="bg-black rounded-2xl p-5 border border-zinc-700">
             <p className="text-gray-400 text-sm mb-2">
-              USD → Pkr Exchange Rate
+              USD 鈫?Pkr Exchange Rate
             </p>
 
             <h3 className="text-2xl font-black text-cyan-400">
@@ -624,7 +624,7 @@ const GoldPortfolioPage: React.FC = () => {
         {portfolio.transactions.length === 0 ? (
 
           <div className="text-center py-12 text-gray-400">
-            <div className="text-6xl mb-4">🪙</div>
+            <div className="text-6xl mb-4">馃獧</div>
 
             <p className="text-xl font-bold">
               No Gold Transactions Found
@@ -799,7 +799,7 @@ const GoldPortfolioPage: React.FC = () => {
         </p>
 
         <p>
-          Live Portfolio • buy & sell history • Profit / Loss • JWT Protected
+          Live Portfolio 鈥?buy & sell history 鈥?Profit / Loss 鈥?JWT Protected
         </p>
 
         <p className="mt-2">
@@ -808,13 +808,13 @@ const GoldPortfolioPage: React.FC = () => {
 
         <div className="mt-4 flex justify-center gap-6 flex-wrap text-xs">
 
-          <span className="text-green-400">🟢 Live Portfolio</span>
+          <span className="text-green-400">馃煝 Live Portfolio</span>
 
-          <span className="text-yellow-400">🟡 Auto Refresh 30 Seconds</span>
+          <span className="text-yellow-400">馃煛 Auto Refresh 30 Seconds</span>
 
-          <span className="text-blue-400">🔒 JWT Secure</span>
+          <span className="text-blue-400">馃敀 JWT Secure</span>
 
-          <span className="text-purple-400">📈 Real-Time Analytics</span>
+          <span className="text-purple-400">馃搱 Real-Time Analytics</span>
 
         </div>
 
@@ -825,3 +825,5 @@ const GoldPortfolioPage: React.FC = () => {
 };
 
 export default GoldPortfolioPage;
+
+

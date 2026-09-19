@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -8,7 +8,7 @@ import axios from "axios";
 // ==============================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // ==============================================
 // TYPES
@@ -418,7 +418,7 @@ useEffect(() => {
           </h1>
 
           <p className="text-gray-400 mt-2">
-            Enterprise GoldTrade V18 • Live Market Control
+            Enterprise GoldTrade V18 鈥?Live Market Control
           </p>
         </div>
 
@@ -426,7 +426,7 @@ useEffect(() => {
           onClick={refreshDashboard}
           className="bg-yellow-500 hover:bg-yellow-400 text-black px-5 py-3 rounded-xl font-bold transition-all duration-300 hover:scale-105"
         >
-          🔄 Refresh
+          馃攧 Refresh
         </button>
 
       </div>
@@ -476,7 +476,7 @@ useEffect(() => {
         </div>
 
         <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">USD → Pkr</p>
+          <p className="text-gray-400 text-sm">USD 鈫?Pkr</p>
 
           <h2 className="text-3xl font-black text-cyan-400 mt-2">
             {settings.UsdtoPkr}
@@ -516,8 +516,8 @@ useEffect(() => {
             }`}
           >
             {settings.tradingEnabled
-              ? "🔒 Close Market"
-              : "🟢 Open Market"}
+              ? "馃敀 Close Market"
+              : "馃煝 Open Market"}
           </button>
 
         </div>
@@ -588,7 +588,7 @@ useEffect(() => {
 
           <div>
             <label className="block text-sm text-gray-400 mb-2">
-              USD → Pkr Exchange Rate
+              USD 鈫?Pkr Exchange Rate
             </label>
 
             <input
@@ -611,7 +611,7 @@ useEffect(() => {
         >
           {saving
             ? "Saving Gold Settings..."
-            : "💾 SAVE MARKET SETTINGS"}
+            : "馃捑 SAVE MARKET SETTINGS"}
         </button>
 
       </div>
@@ -640,7 +640,7 @@ useEffect(() => {
             onClick={searchUser}
             className="bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl font-bold transition-all duration-300"
           >
-            🔍 Search User
+            馃攳 Search User
           </button>
 
         </div>
@@ -817,7 +817,7 @@ useEffect(() => {
             disabled={saving || !selectedUser}
             className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-black text-lg py-4 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
           >
-            🟢 CREDIT GOLD Wallet
+            馃煝 CREDIT GOLD Wallet
           </button>
 
           <button
@@ -825,7 +825,7 @@ useEffect(() => {
             disabled={saving || !selectedUser}
             className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-black text-lg py-4 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
           >
-            🔴 DEBIT GOLD Wallet
+            馃敶 DEBIT GOLD Wallet
           </button>
 
         </div>
@@ -846,7 +846,7 @@ useEffect(() => {
 
           <div className="bg-black border border-green-500 rounded-2xl p-5 text-center">
 
-            <div className="text-4xl mb-3">⚙️</div>
+            <div className="text-4xl mb-3">鈿欙笍</div>
 
             <p className="text-gray-400 text-sm">
               Trading Engine
@@ -863,7 +863,7 @@ useEffect(() => {
           <div className="bg-black border border-yellow-500 rounded-2xl p-5 text-center">
 
             <div className="text-4xl mb-3">
-              {settings.tradingEnabled ? "🟢" : "🔴"}
+              {settings.tradingEnabled ? "馃煝" : "馃敶"}
             </div>
 
             <p className="text-gray-400 text-sm">
@@ -886,7 +886,7 @@ useEffect(() => {
 
           <div className="bg-black border border-blue-500 rounded-2xl p-5 text-center">
 
-            <div className="text-4xl mb-3">🔗</div>
+            <div className="text-4xl mb-3">馃敆</div>
 
             <p className="text-gray-400 text-sm">
               Gold API
@@ -902,7 +902,7 @@ useEffect(() => {
 
           <div className="bg-black border border-purple-500 rounded-2xl p-5 text-center">
 
-            <div className="text-4xl mb-3">🔄</div>
+            <div className="text-4xl mb-3">馃攧</div>
 
             <p className="text-gray-400 text-sm">
               Auto Refresh
@@ -934,7 +934,7 @@ useEffect(() => {
             onClick={refreshDashboard}
             className="bg-green-600 hover:bg-green-500 text-white font-bold py-5 rounded-2xl transition-all duration-300 hover:scale-105"
           >
-            🔄 Refresh Dashboard
+            馃攧 Refresh Dashboard
           </button>
 
           <button
@@ -946,8 +946,8 @@ useEffect(() => {
             }`}
           >
             {settings.tradingEnabled
-              ? "🔒 Close Market"
-              : "🟢 Open Market"}
+              ? "馃敀 Close Market"
+              : "馃煝 Open Market"}
           </button>
 
           <button
@@ -959,7 +959,7 @@ useEffect(() => {
             }}
             className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-5 rounded-2xl transition-all duration-300 hover:scale-105"
           >
-            👤 Clear User
+            馃懁 Clear User
           </button>
 
           <button
@@ -967,7 +967,7 @@ useEffect(() => {
             disabled={saving}
             className="bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black font-bold py-5 rounded-2xl transition-all duration-300 hover:scale-105"
           >
-            💾 Save Settings
+            馃捑 Save Settings
           </button>
 
         </div>
@@ -1014,7 +1014,7 @@ useEffect(() => {
 
           <div className="flex justify-between border-b border-zinc-800 pb-3">
             <span className="text-gray-400">
-              USD → Pkr Rate
+              USD 鈫?Pkr Rate
             </span>
 
             <span className="text-cyan-400 font-bold">
@@ -1053,7 +1053,7 @@ useEffect(() => {
         </p>
 
         <p>
-          Live Gold Market • Wallet Management • Trading Control • Enterprise Security
+          Live Gold Market 鈥?Wallet Management 鈥?Trading Control 鈥?Enterprise Security
         </p>
 
         <p className="mt-2">
@@ -1063,23 +1063,23 @@ useEffect(() => {
         <div className="mt-5 flex justify-center gap-5 flex-wrap text-xs">
 
           <span className="text-green-400">
-            🟢 Live Trading Enabled
+            馃煝 Live Trading Enabled
           </span>
 
           <span className="text-yellow-400">
-            ⚡ Enterprise V18
+            鈿?Enterprise V18
           </span>
 
           <span className="text-blue-400">
-            🔒 JWT Protected
+            馃敀 JWT Protected
           </span>
 
           <span className="text-cyan-400">
-            📊 Auto Refresh 30 Seconds
+            馃搳 Auto Refresh 30 Seconds
           </span>
 
           <span className="text-purple-400">
-            👑 Admin Gold Control
+            馃憫 Admin Gold Control
           </span>
 
         </div>
@@ -1089,3 +1089,5 @@ useEffect(() => {
     </div>
   );
 }
+
+

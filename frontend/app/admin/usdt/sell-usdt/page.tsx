@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -18,7 +18,7 @@ import {
 // ======================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // ======================================================
 // TYPES
@@ -688,7 +688,7 @@ export default function sellUsdtPage() {
             </span>
 
             <span className="text-gray-500 text-sm mt-2">
-              JPG • JPEG • PNG • Max 5 MB
+              JPG 鈥?JPEG 鈥?PNG 鈥?Max 5 MB
             </span>
 
             <input
@@ -772,17 +772,17 @@ export default function sellUsdtPage() {
 
           <ul className="space-y-3 text-gray-300 text-sm">
 
-            <li>• Send Usdt only to the official GoldTrade TRC20 Wallet.</li>
+            <li>鈥?Send Usdt only to the official GoldTrade TRC20 Wallet.</li>
 
-            <li>• Upload a valid payment receipt after sending Usdt.</li>
+            <li>鈥?Upload a valid payment receipt after sending Usdt.</li>
 
-            <li>• Transaction Hash is optional but recommended.</li>
+            <li>鈥?Transaction Hash is optional but recommended.</li>
 
-            <li>• Admin will verify the payment before approval.</li>
+            <li>鈥?Admin will verify the payment before approval.</li>
 
-            <li>• Approved requests will credit Pkr into your Wallet.</li>
+            <li>鈥?Approved requests will credit Pkr into your Wallet.</li>
 
-            <li>• Rejected requests will not credit Pkr.</li>
+            <li>鈥?Rejected requests will not credit Pkr.</li>
 
           </ul>
 
@@ -885,15 +885,15 @@ export default function sellUsdtPage() {
 
           <div className="space-y-3 text-sm text-gray-300">
 
-            <p>• Send Usdt only through the TRC20 network.</p>
+            <p>鈥?Send Usdt only through the TRC20 network.</p>
 
-            <p>• Double-check the company Wallet address before sending.</p>
+            <p>鈥?Double-check the company Wallet address before sending.</p>
 
-            <p>• Upload a clear payment receipt for faster approval.</p>
+            <p>鈥?Upload a clear payment receipt for faster approval.</p>
 
-            <p>• Pkr Wallet is credited only after admin approval.</p>
+            <p>鈥?Pkr Wallet is credited only after admin approval.</p>
 
-            <p>• Fake receipts or incorrect transfers may result in rejection.</p>
+            <p>鈥?Fake receipts or incorrect transfers may result in rejection.</p>
 
           </div>
 
@@ -926,7 +926,7 @@ export default function sellUsdtPage() {
             <div className="flex justify-between border-b border-zinc-700 pb-3">
               <span>Estimated Processing Time</span>
               <span className="font-bold text-yellow-400">
-                1–15 Minutes
+                1鈥?5 Minutes
               </span>
             </div>
 
@@ -1004,7 +1004,7 @@ export default function sellUsdtPage() {
           <div className="border-t border-zinc-700 mt-6 pt-5 flex flex-col md:flex-row justify-between items-center gap-3">
 
             <div className="text-sm text-gray-400">
-              GoldTrade V18 • Secure Usdt sell System
+              GoldTrade V18 鈥?Secure Usdt sell System
             </div>
 
             <div className="flex items-center gap-2 text-green-400 font-semibold">
@@ -1021,3 +1021,5 @@ export default function sellUsdtPage() {
     </main>
   );
 }
+
+

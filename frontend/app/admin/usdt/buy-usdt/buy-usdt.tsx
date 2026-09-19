@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -19,7 +19,7 @@ import Link from "next/link";
 // ======================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // ======================================================
 // TYPES
@@ -727,7 +727,7 @@ const loadWallet = async () => {
             </span>
 
             <span className="text-gray-500 text-sm mt-2">
-              JPG • PNG • JPEG
+              JPG 鈥?PNG 鈥?JPEG
             </span>
 
             <input
@@ -802,17 +802,17 @@ const loadWallet = async () => {
 
           <ul className="space-y-3 text-gray-300 text-sm">
 
-            <li>• Send payment only to the official GoldTrade TRC20 Wallet.</li>
+            <li>鈥?Send payment only to the official GoldTrade TRC20 Wallet.</li>
 
-            <li>• Upload a clear payment screenshot.</li>
+            <li>鈥?Upload a clear payment screenshot.</li>
 
-            <li>• Wallet address must be a valid TRC20 address.</li>
+            <li>鈥?Wallet address must be a valid TRC20 address.</li>
 
-            <li>• Receipt image size must be less than 5 MB.</li>
+            <li>鈥?Receipt image size must be less than 5 MB.</li>
 
-            <li>• Admin verifies payment before approving your request.</li>
+            <li>鈥?Admin verifies payment before approving your request.</li>
 
-            <li>• Approved requests will automatically credit your Usdt Wallet.</li>
+            <li>鈥?Approved requests will automatically credit your Usdt Wallet.</li>
 
           </ul>
 
@@ -916,19 +916,19 @@ const loadWallet = async () => {
           <div className="space-y-3 text-sm text-gray-300">
 
             <p>
-              • Every Usdt request is manually verified by GoldTrade Admin.
+              鈥?Every Usdt request is manually verified by GoldTrade Admin.
             </p>
 
             <p>
-              • Never send funds to any Wallet other than the official company Wallet.
+              鈥?Never send funds to any Wallet other than the official company Wallet.
             </p>
 
             <p>
-              • Fake receipts or invalid Wallet addresses may result in request rejection.
+              鈥?Fake receipts or invalid Wallet addresses may result in request rejection.
             </p>
 
             <p>
-              • Approved Usdt requests are credited directly into your GoldTrade Wallet.
+              鈥?Approved Usdt requests are credited directly into your GoldTrade Wallet.
             </p>
 
           </div>
@@ -962,7 +962,7 @@ const loadWallet = async () => {
             <div className="flex justify-between border-b border-zinc-700 pb-3">
               <span>Processing Time</span>
               <span className="font-bold text-yellow-400">
-                1–15 Minutes
+                1鈥?5 Minutes
               </span>
             </div>
 
@@ -1032,7 +1032,7 @@ const loadWallet = async () => {
           <div className="border-t border-zinc-700 mt-6 pt-5 flex flex-col md:flex-row justify-between items-center gap-3">
 
             <div className="text-sm text-gray-400">
-              GoldTrade V18 • Secure Usdt buy System
+              GoldTrade V18 鈥?Secure Usdt buy System
             </div>
 
             <div className="flex items-center gap-2 text-green-400 font-semibold">
@@ -1068,4 +1068,6 @@ async function loadUsdtRequests(): Promise<unknown[]> {
 function loadWallet() {
   throw new Error("Function not implemented.");
 }
+
+
 

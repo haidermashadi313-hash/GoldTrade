@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -14,7 +14,7 @@ import {
 // GoldTrade API V18
 // ==========================================
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // ==========================================
 // TYPES
@@ -590,3 +590,5 @@ const loadWallet = async () => {
     </div>
   );
 }
+
+

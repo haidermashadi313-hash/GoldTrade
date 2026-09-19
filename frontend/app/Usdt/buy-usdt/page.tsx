@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -16,7 +16,7 @@ import {
 // =====================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // =====================================
 // TYPES
@@ -1079,3 +1079,5 @@ export default function BuyUsdtPage() {
     </main>
   );
 }
+
+

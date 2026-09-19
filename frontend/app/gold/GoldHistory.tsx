@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
@@ -8,7 +8,7 @@ import axios from "axios";
 // ==========================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // ==========================================
 // TYPES
@@ -222,7 +222,7 @@ const GoldhistoryPage = () => {
           onClick={refreshhistory}
           className="bg-yellow-500 hover:bg-yellow-400 text-black px-5 py-3 rounded-xl font-bold transition-all duration-300 hover:scale-105"
         >
-          🔄 Refresh
+          馃攧 Refresh
         </button>
 
       </div>
@@ -347,7 +347,7 @@ const GoldhistoryPage = () => {
 
           <div className="text-center py-12 text-gray-400">
 
-            <div className="text-6xl mb-4">📜</div>
+            <div className="text-6xl mb-4">馃摐</div>
 
             <h3 className="text-2xl font-bold text-white mb-2">
               No Transactions Found
@@ -402,8 +402,8 @@ const GoldhistoryPage = () => {
                         }`}
                       >
                         {trade.tradeType === "buy"
-                          ? "🟢 buy"
-                          : "🔴 sell"}
+                          ? "馃煝 buy"
+                          : "馃敶 sell"}
                       </span>
 
                     </td>
@@ -676,7 +676,7 @@ const GoldhistoryPage = () => {
         </p>
 
         <p>
-          buy & sell history • Profit/Loss • Live Analytics • JWT Protected
+          buy & sell history 鈥?Profit/Loss 鈥?Live Analytics 鈥?JWT Protected
         </p>
 
         <p className="mt-2">
@@ -686,19 +686,19 @@ const GoldhistoryPage = () => {
         <div className="mt-4 flex justify-center gap-6 flex-wrap text-xs">
 
           <span className="text-green-400">
-            🟢 buy history
+            馃煝 buy history
           </span>
 
           <span className="text-red-400">
-            🔴 sell history
+            馃敶 sell history
           </span>
 
           <span className="text-blue-400">
-            🔒 JWT Secure
+            馃敀 JWT Secure
           </span>
 
           <span className="text-yellow-400">
-            📊 Auto Refresh 30 Seconds
+            馃搳 Auto Refresh 30 Seconds
           </span>
 
         </div>
@@ -710,3 +710,5 @@ const GoldhistoryPage = () => {
 };
 
 export default GoldhistoryPage;
+
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -49,7 +49,7 @@ export default function SignupPage() {
     try {
       setLoading(true);
 
-      // 👇 Backend signup endpoint
+      // 馃憞 Backend signup endpoint
       const response = await fetch(`${API}/api/auth/signup`, {
         method: "POST",
         headers: {
@@ -74,7 +74,7 @@ export default function SignupPage() {
       console.log("Signup Response:", data);
 
       if (response.ok) {
-        alert("🎉 Account Created Successfully!");
+        alert("馃帀 Account Created Successfully!");
         window.location.href = "/login";
         return;
       }
@@ -206,7 +206,7 @@ export default function SignupPage() {
 
         <div className="mt-8 border-t border-zinc-700 pt-4 text-center">
           <p className="text-xs text-gray-500">
-            GoldTrade Pakistan • Secure Gold & Usdt TRC20 Platform
+            GoldTrade Pakistan 鈥?Secure Gold & Usdt TRC20 Platform
           </p>
         </div>
 
@@ -214,3 +214,5 @@ export default function SignupPage() {
     </main>
   );
 }
+
+

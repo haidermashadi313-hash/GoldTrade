@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -14,7 +14,7 @@ import {
 // GoldTrade API V18
 // ==========================================
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 // ==========================================
 // TYPES
@@ -312,7 +312,7 @@ return (
         </h1>
 
         <p className="text-gray-400 mt-2">
-          GoldTrade V18 • Manual Wallet Deduction System
+          GoldTrade V18 鈥?Manual Wallet Deduction System
         </p>
       </div>
 
@@ -567,7 +567,7 @@ return (
                 ) : item.status === "Approved" ? (
 
                   <div className="text-green-400 text-sm font-semibold">
-                    ✅ Deducted: {item.currency || "Pkr"}{" "}
+                    鉁?Deducted: {item.currency || "Pkr"}{" "}
                     {Number(
                       item.adminAmount || item.requestAmount || 0
                     ).toLocaleString()}
@@ -576,7 +576,7 @@ return (
                 ) : (
 
                   <div className="text-red-400 text-sm font-semibold">
-                    ❌ {item.adminNote || "Withdraw Rejected"}
+                    鉂?{item.adminNote || "Withdraw Rejected"}
                   </div>
 
                 )}
@@ -598,3 +598,5 @@ return (
 </div>
 );
 }
+
+

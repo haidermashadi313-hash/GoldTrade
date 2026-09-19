@@ -1,4 +1,4 @@
-// =====================================================
+﻿// =====================================================
 // GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 1/10
@@ -893,9 +893,9 @@ export default function ProfilePage() {
                 </p>
 
                 <ul className="space-y-2 text-sm text-white">
-                  <li>• JPG / JPEG / PNG</li>
-                  <li>• Maximum Size: 5 MB</li>
-                  <li>• Square passport-style photo recommended.</li>
+                  <li>鈥?JPG / JPEG / PNG</li>
+                  <li>鈥?Maximum Size: 5 MB</li>
+                  <li>鈥?Square passport-style photo recommended.</li>
                 </ul>
 
               </div>
@@ -1450,15 +1450,15 @@ export default function ProfilePage() {
 
               <ul className="space-y-3 mt-4 text-white text-sm">
 
-                <li>• Manual Deposit Approval</li>
+                <li>鈥?Manual Deposit Approval</li>
 
-                <li>• Manual Withdrawal Approval</li>
+                <li>鈥?Manual Withdrawal Approval</li>
 
-                <li>• Gold buy & sell Trading</li>
+                <li>鈥?Gold buy & sell Trading</li>
 
-                <li>• Referral Reward Program</li>
+                <li>鈥?Referral Reward Program</li>
 
-                <li>• KYC Protected Transactions</li>
+                <li>鈥?KYC Protected Transactions</li>
 
               </ul>
 
@@ -1502,7 +1502,7 @@ export default function ProfilePage() {
                 </p>
 
                 <p className="text-gray-500 text-xs mt-2">
-                  PNG / JPG / PDF • Max 5MB
+                  PNG / JPG / PDF 鈥?Max 5MB
                 </p>
 
                 <input type="file" className="hidden" accept="image/*,.pdf" />
@@ -1524,7 +1524,7 @@ export default function ProfilePage() {
                 </p>
 
                 <p className="text-gray-500 text-xs mt-2">
-                  PNG / JPG / PDF • Max 5MB
+                  PNG / JPG / PDF 鈥?Max 5MB
                 </p>
 
                 <input type="file" className="hidden" accept="image/*,.pdf" />
@@ -1984,10 +1984,10 @@ export default function ProfilePage() {
             </h3>
 
             <ul className="space-y-2 text-gray-300 text-sm">
-              <li>• Enable Two-Factor Authentication.</li>
-              <li>• Change password every 90 days.</li>
-              <li>• Remove devices you no longer use.</li>
-              <li>• Never share OTP or recovery codes.</li>
+              <li>鈥?Enable Two-Factor Authentication.</li>
+              <li>鈥?Change password every 90 days.</li>
+              <li>鈥?Remove devices you no longer use.</li>
+              <li>鈥?Never share OTP or recovery codes.</li>
             </ul>
 
           </div>
@@ -2491,7 +2491,7 @@ export default function ProfilePage() {
               </p>
 
               <p className="text-white font-semibold mt-2">
-                Wallet • Security • KYC • Referral • Privacy
+                Wallet 鈥?Security 鈥?KYC 鈥?Referral 鈥?Privacy
               </p>
 
             </div>
@@ -2503,7 +2503,7 @@ export default function ProfilePage() {
               </p>
 
               <p className="text-green-400 font-semibold mt-2">
-                JWT Protected • MongoDB Stored • Admin Verified
+                JWT Protected 鈥?MongoDB Stored 鈥?Admin Verified
               </p>
 
             </div>
@@ -2512,7 +2512,7 @@ export default function ProfilePage() {
 
           <div className="border-t border-zinc-800 mt-8 pt-5 text-center text-gray-500 text-sm">
 
-            © 2026 GoldTrade Pakistan. All Rights Reserved.
+            漏 2026 GoldTrade Pakistan. All Rights Reserved.
 
           </div>
 
@@ -2522,3 +2522,5 @@ export default function ProfilePage() {
     </main>
   );
 }
+
+

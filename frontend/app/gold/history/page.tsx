@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 export default function GoldHistoryPage() {
   return (
@@ -13,3 +13,5 @@ export default function GoldHistoryPage() {
     </div>
   );
 }
+
+

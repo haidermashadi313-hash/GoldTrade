@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -8,7 +8,7 @@ import {
   Users,
   ArrowDownCircle,
   ArrowUpCircle,
-  history,
+  History,
   Settings,
   LogOut,
   ShieldCheck,
@@ -19,7 +19,7 @@ import {
 
 // Backend API (Production + Local Development)
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 const menu = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -27,7 +27,7 @@ const menu = [
   { name: "Deposit Manager", href: "/admin/deposit", icon: ArrowDownCircle },
   { name: "Withdraw Manager", href: "/admin/withdraw", icon: ArrowUpCircle },
   { name: "Usdt Manager", href: "/admin/Usdt", icon: CircleDollarSign },
-  { name: "Transactions", href: "/admin/transactions", icon: history },
+  { name: "Transactions", href: "/admin/transactions", icon: History },
   { name: "Live Gold Market", href: "/admin/gold-market", icon: TrendingUp },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
@@ -191,7 +191,7 @@ export default function AdminSidebar() {
           </h3>
 
           <p className="text-xs text-green-400 mt-1">
-            Administrator • Online
+            Administrator 鈥?Online
           </p>
         </div>
 
@@ -212,3 +212,5 @@ export default function AdminSidebar() {
     </aside>
   );
 }
+
+

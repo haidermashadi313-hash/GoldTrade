@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
@@ -43,7 +43,7 @@ const GoldChart: React.FC = () => {
   const fetchPrice = async () => {
     try {
       const res = await axios.get(
-        "http://localhost:5000/api/gold/price"
+        "https://goldtrade-api.onrender.com/api/gold/price"
       );
 
       const data = res.data;
@@ -366,7 +366,7 @@ const GoldChart: React.FC = () => {
 
       <div className="mt-12 border-t border-zinc-700 pt-6 text-center text-gray-500 text-sm">
 
-        GoldTrade Enterprise V18 • Live Gold Price Chart
+        GoldTrade Enterprise V18 鈥?Live Gold Price Chart
 
         <div className="mt-2">
           Auto Refresh Every <span className="text-yellow-400 font-bold">30 Seconds</span>
@@ -379,3 +379,5 @@ const GoldChart: React.FC = () => {
 };
 
 export default GoldChart;
+
+

@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -76,7 +76,7 @@ export default function LoginPage() {
       localStorage.setItem("email", data.user.email || "");
       localStorage.setItem("userId", data.user._id || "");
 
-      // ⭐ IMPORTANT: SAVE USER ROLE
+      // 猸?IMPORTANT: SAVE USER ROLE
       const userRole = String(
         data.user.role || "user"
       ).toLowerCase();
@@ -231,7 +231,7 @@ export default function LoginPage() {
 
             <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
               <span className="text-gray-400">Password</span>
-              <span className="text-white font-semibold">••••••••</span>
+              <span className="text-white font-semibold">********</span>
             </div>
 
             <div className="flex justify-between items-center">
@@ -256,11 +256,11 @@ export default function LoginPage() {
         <div className="mt-8 text-center">
 
           <p className="text-gray-500 text-sm">
-            © 2026 GoldTrade — Enterprise Trading Platform
+            漏 2026 GoldTrade 鈥?Enterprise Trading Platform
           </p>
 
           <p className="text-gray-600 text-xs mt-2">
-            Pkr • Gold • Usdt Wallet System
+            Pkr 鈥?Gold 鈥?Usdt Wallet System
           </p>
 
         </div>      </div>
@@ -268,3 +268,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+
