@@ -1,7 +1,4 @@
-// =====================================================
-// GoldTrade V18 - Usdt Routes (PART 1/6)
-// Imports • Models • Middleware • Multer • Rate APIs
-// =====================================================
+"use strict";
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -16,21 +13,19 @@ const router = express.Router();
 // =====================================================
 
 const User = require("../models/User");
-const wallet = require("../models/Wallet");
-const walletTransaction = require("../models/WalletTransaction");
+const Wallet = require("../models/Wallet");
+const WalletTransaction = require("../models/WalletTransaction");
 const UsdtOrder = require("../models/UsdtOrder");
 const Transaction = require("../models/Transaction");
 
 // =====================================================
-// MIDDLEWARE
+// MIDDLEWARE (FINAL)
 // =====================================================
 
-const verifyToken = require("../middleware/verifyToken");
-const isAdmin = require("../middleware/isAdmin");
-
+const { verifyToken, isAdmin } = require("../middleware/auth");
 // =====================================================
 // UPLOAD DIRECTORY
-// uploads/Usdt
+// uploads/Usdtmiddleware/isAdmin
 // =====================================================
 
 const uploadDir = path.join(__dirname, "../uploads/Usdt");

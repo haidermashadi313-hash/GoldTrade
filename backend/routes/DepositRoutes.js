@@ -3,7 +3,7 @@ const router = express.Router();
 
 const Deposit = require("../models/Deposit");
 const User = require("../models/User");
-const verifyToken = require("../middleware/verifyToken");
+const { verifyToken } = require("../middleware/auth");
 
 // =====================================================
 // CREATE DEPOSIT REQUEST
