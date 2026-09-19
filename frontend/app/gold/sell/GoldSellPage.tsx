@@ -25,7 +25,7 @@ interface GoldPrice {
 
 interface Portfolio {
   goldBalance: number;
-  walletBalance: number;
+  WalletBalance: number;
   averagebuyPrice: number;
   currentPrice: number;
   portfolioValue: number;
@@ -62,7 +62,7 @@ const GoldsellPage: React.FC = () => {
 
   const [portfolio, setPortfolio] = useState<Portfolio>({
     goldBalance: 0,
-    walletBalance: 0,
+    WalletBalance: 0,
     averagebuyPrice: 0,
     currentPrice: 0,
     portfolioValue: 0,
@@ -194,11 +194,11 @@ const GoldsellPage: React.FC = () => {
     return qty * (goldPrice.sellPrice - portfolio.averagebuyPrice);
   }, [grams, goldPrice.sellPrice, portfolio.averagebuyPrice]);
 
-  // wallet After selling
+  // Wallet After selling
 
-  const walletAftersell = useMemo(() => {
-    return portfolio.walletBalance + sellValue;
-  }, [portfolio.walletBalance, sellValue]);
+  const WalletAftersell = useMemo(() => {
+    return portfolio.WalletBalance + sellValue;
+  }, [portfolio.WalletBalance, sellValue]);
 
   // Remaining Gold
 
@@ -355,7 +355,7 @@ const GoldsellPage: React.FC = () => {
           </h1>
 
           <p className="text-gray-400 mt-2">
-            sell your gold instantly into your Pkr wallet.
+            sell your gold instantly into your Pkr Wallet.
           </p>
         </div>
 
@@ -433,10 +433,10 @@ const GoldsellPage: React.FC = () => {
         </div>
 
         <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">wallet Balance</p>
+          <p className="text-gray-400 text-sm">Wallet Balance</p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            Pkr {portfolio.walletBalance.toLocaleString()}
+            Pkr {portfolio.WalletBalance.toLocaleString()}
           </h2>
         </div>
 
@@ -553,10 +553,10 @@ const GoldsellPage: React.FC = () => {
           </div>
 
           <div className="flex justify-between text-lg">
-            <span>wallet After selling</span>
+            <span>Wallet After selling</span>
 
             <span className="text-cyan-400 font-black">
-              Pkr {walletAftersell.toLocaleString()}
+              Pkr {WalletAftersell.toLocaleString()}
             </span>
           </div>
 
@@ -593,7 +593,7 @@ const GoldsellPage: React.FC = () => {
 
           <ul className="space-y-3 text-gray-300 text-sm">
             <li>• Gold is sold at the Live sell Price.</li>
-            <li>• Pkr wallet is credited instantly after selling.</li>
+            <li>• Pkr Wallet is credited instantly after selling.</li>
             <li>• Gold balance decreases immediately.</li>
             <li>• Profit/Loss is calculated automatically.</li>
             <li>• Every sell trade is saved in Gold history.</li>
@@ -602,21 +602,21 @@ const GoldsellPage: React.FC = () => {
 
         </div>
 
-        {/* wallet PREVIEW */}
+        {/* Wallet PREVIEW */}
 
         <div className="bg-zinc-900 border border-yellow-600 rounded-3xl p-6">
 
           <h3 className="text-xl font-black text-yellow-400 mb-5">
-            wallet Preview
+            Wallet Preview
           </h3>
 
           <div className="space-y-4">
 
             <div className="flex justify-between">
-              <span className="text-gray-400">Current wallet</span>
+              <span className="text-gray-400">Current Wallet</span>
 
               <span className="text-green-400 font-bold">
-                Pkr {portfolio.walletBalance.toLocaleString()}
+                Pkr {portfolio.WalletBalance.toLocaleString()}
               </span>
             </div>
 
@@ -629,10 +629,10 @@ const GoldsellPage: React.FC = () => {
             </div>
 
             <div className="flex justify-between border-t border-zinc-700 pt-3">
-              <span className="text-gray-400">wallet After sell</span>
+              <span className="text-gray-400">Wallet After sell</span>
 
               <span className="text-cyan-400 font-black">
-                Pkr {walletAftersell.toLocaleString()}
+                Pkr {WalletAftersell.toLocaleString()}
               </span>
             </div>
 
@@ -761,7 +761,7 @@ const GoldsellPage: React.FC = () => {
 
           <span className="text-blue-400">🔒 Secure JWT Authentication</span>
 
-          <span className="text-green-400">💰 Instant wallet Credit</span>
+          <span className="text-green-400">💰 Instant Wallet Credit</span>
 
         </div>
 

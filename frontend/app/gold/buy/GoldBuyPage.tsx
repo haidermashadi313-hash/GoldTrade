@@ -25,7 +25,7 @@ interface GoldPrice {
 
 interface Portfolio {
   goldBalance: number;
-  walletBalance: number;
+  WalletBalance: number;
   averagebuyPrice: number;
   currentPrice: number;
   portfolioValue: number;
@@ -62,7 +62,7 @@ const GoldbuyPage: React.FC = () => {
 
   const [portfolio, setPortfolio] = useState<Portfolio>({
     goldBalance: 0,
-    walletBalance: 0,
+    WalletBalance: 0,
     averagebuyPrice: 0,
     currentPrice: 0,
     portfolioValue: 0,
@@ -206,9 +206,9 @@ const GoldbuyPage: React.FC = () => {
     return qty * goldPrice.buyPrice;
   }, [grams, goldPrice.buyPrice]);
 
-  const remainingwallet = useMemo(() => {
-    return Math.max(portfolio.walletBalance - buyValue, 0);
-  }, [portfolio.walletBalance, buyValue]);
+  const remainingWallet = useMemo(() => {
+    return Math.max(portfolio.WalletBalance - buyValue, 0);
+  }, [portfolio.WalletBalance, buyValue]);
 
   const newGoldBalance = useMemo(() => {
     return portfolio.goldBalance + Number(grams || 0);
@@ -269,8 +269,8 @@ const GoldbuyPage: React.FC = () => {
       return;
     }
 
-    if (buyValue > portfolio.walletBalance) {
-      setMessage("Insufficient Pkr wallet Balance.");
+    if (buyValue > portfolio.WalletBalance) {
+      setMessage("Insufficient Pkr Wallet Balance.");
       setMessageType("error");
       return;
     }
@@ -385,7 +385,7 @@ const GoldbuyPage: React.FC = () => {
           </h1>
 
           <p className="text-gray-400 mt-2">
-            Purchase Gold instantly using your Pkr wallet.
+            Purchase Gold instantly using your Pkr Wallet.
           </p>
         </div>
 
@@ -459,10 +459,10 @@ const GoldbuyPage: React.FC = () => {
         </div>
 
         <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">wallet Balance</p>
+          <p className="text-gray-400 text-sm">Wallet Balance</p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            Pkr {portfolio.walletBalance.toLocaleString()}
+            Pkr {portfolio.WalletBalance.toLocaleString()}
           </h2>
         </div>
 
@@ -540,10 +540,10 @@ const GoldbuyPage: React.FC = () => {
           </div>
 
           <div className="flex justify-between text-lg">
-            <span>wallet After Purchase</span>
+            <span>Wallet After Purchase</span>
 
             <span className="text-yellow-400 font-black">
-              Pkr {remainingwallet.toLocaleString()}
+              Pkr {remainingWallet.toLocaleString()}
             </span>
           </div>
 

@@ -10,19 +10,19 @@ export default function HomePage() {
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
 
-    // Agar login nahi hai to login page
+    // User login nahi hai
     if (!token) {
       router.replace("/login");
       return;
     }
 
-    // Admin ko admin dashboard
+    // Admin login
     if (role === "admin") {
       router.replace("/admin-dashboard");
       return;
     }
 
-    // Normal user ko dashboard
+    // Normal user
     router.replace("/dashboard");
   }, [router]);
 
@@ -38,7 +38,7 @@ export default function HomePage() {
         </p>
 
         <div className="mt-8 flex justify-center">
-          <div className="w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-12 h-12 rounded-full border-4 border-yellow-400 border-t-transparent animate-spin" />
         </div>
       </div>
     </main>

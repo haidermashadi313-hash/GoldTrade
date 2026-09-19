@@ -25,7 +25,7 @@ interface historyTransaction {
 
   username: string;
 
-  walletType: "Usdt";
+  WalletType: "Usdt";
 
   type: TransactionType;
 
@@ -380,7 +380,7 @@ export default function UsdthistoryPage() {
 
             <div>
               <h1 className="text-3xl font-bold">
-                Usdt wallet history
+                Usdt Wallet history
               </h1>
 
               <p className="mt-2 text-cyan-100">
@@ -388,7 +388,7 @@ export default function UsdthistoryPage() {
               </p>
 
               <p className="mt-2 text-sm text-cyan-200">
-                View every Credit and Debit transaction in your Usdt wallet.
+                View every Credit and Debit transaction in your Usdt Wallet.
               </p>
             </div>
 
@@ -520,7 +520,7 @@ export default function UsdthistoryPage() {
                   </h3>
 
                   <p className="text-sm text-gray-500">
-                    Credits, Debits and wallet Activity
+                    Credits, Debits and Wallet Activity
                   </p>
                 </div>
 
@@ -795,7 +795,7 @@ export default function UsdthistoryPage() {
               <div className="mt-6 rounded-3xl bg-white p-6 shadow-xl">
 
                 <h3 className="mb-5 text-xl font-bold text-gray-800">
-                  wallet history Summary
+                  Wallet history Summary
                 </h3>
 
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -860,7 +860,7 @@ export default function UsdthistoryPage() {
                     </h4>
 
                     <p className="text-xs text-cyan-500">
-                      wallet Activity
+                      Wallet Activity
                     </p>
                   </div>
 
@@ -925,7 +925,7 @@ export default function UsdthistoryPage() {
                 </h2>
 
                 <p className="mt-3 text-gray-500">
-                  Your buy, sell and wallet transactions will appear here
+                  Your buy, sell and Wallet transactions will appear here
                   automatically after successful activity.
                 </p>
 
@@ -947,12 +947,12 @@ export default function UsdthistoryPage() {
             <div className="mt-8 rounded-2xl border border-green-200 bg-green-50 p-5">
 
               <h3 className="mb-3 text-lg font-bold text-green-700">
-                GoldTrade Secure wallet history
+                GoldTrade Secure Wallet history
               </h3>
 
               <ul className="space-y-2 text-sm text-gray-700">
                 <li>• Every buy and sell transaction is recorded automatically.</li>
-                <li>• wallet balance updates after Admin approval.</li>
+                <li>• Wallet balance updates after Admin approval.</li>
                 <li>• Credit and Debit history cannot be modified by users.</li>
                 <li>• Transaction timestamps are stored securely.</li>
                 <li>• history remains available for future auditing.</li>
@@ -967,7 +967,7 @@ export default function UsdthistoryPage() {
             <div className="mt-6 rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
 
               <h3 className="mb-3 text-lg font-bold text-cyan-700">
-                wallet Information
+                Wallet Information
               </h3>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -982,11 +982,11 @@ export default function UsdthistoryPage() {
 
                 <div>
                   <p className="text-sm text-gray-500">
-                    wallet Currency
+                    Wallet Currency
                   </p>
 
                   <h4 className="font-bold text-teal-700">
-                    Usdt wallet
+                    Usdt Wallet
                   </h4>
                 </div>
 
@@ -1002,7 +1002,7 @@ export default function UsdthistoryPage() {
 
                 <div>
                   <p className="text-sm text-gray-500">
-                    Total wallet Activity
+                    Total Wallet Activity
                   </p>
 
                   <h4 className="font-bold text-indigo-700">
@@ -1027,7 +1027,7 @@ export default function UsdthistoryPage() {
               <p className="text-sm leading-6 text-gray-700">
                 If you recently submitted a buy or sell request and it is not
                 showing here yet, wait until the Admin approves the request.
-                After approval, your Usdt wallet balance and history update
+                After approval, your Usdt Wallet balance and history update
                 automatically.
               </p>
 
@@ -1040,11 +1040,11 @@ export default function UsdthistoryPage() {
             <div className="mt-10 border-t pt-6 text-center">
 
               <h4 className="text-lg font-bold text-slate-700">
-                GoldTrade V18 Usdt wallet
+                GoldTrade V18 Usdt Wallet
               </h4>
 
               <p className="mt-2 text-sm text-gray-500">
-                Pkr • Usdt • Gold • Secure wallet history
+                Pkr • Usdt • Gold • Secure Wallet history
               </p>
 
               <p className="mt-1 text-xs text-gray-400">

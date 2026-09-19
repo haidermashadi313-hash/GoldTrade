@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  wallet,
+  Wallet,
   RefreshCw,
   Search,
   Clock,
@@ -312,7 +312,7 @@ return (
         </h1>
 
         <p className="text-gray-400 mt-2">
-          GoldTrade V18 • Manual wallet Deduction System
+          GoldTrade V18 • Manual Wallet Deduction System
         </p>
       </div>
 

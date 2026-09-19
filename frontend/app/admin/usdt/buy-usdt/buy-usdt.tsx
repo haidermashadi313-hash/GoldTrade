@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  wallet,
+  Wallet,
   DollarSign,
   RefreshCw,
   Upload,
@@ -25,11 +25,11 @@ const API =
 // TYPES
 // ======================================================
 
-interface walletResponse {
+interface WalletResponse {
   success: boolean;
 
-  wallet?: {
-    walletBalance?: number;
+  Wallet?: {
+    WalletBalance?: number;
     PkrBalance?: number;
     UsdtBalance?: number;
     rate?: number;
@@ -50,8 +50,8 @@ interface buyResponse {
     status: string;
   };
 
-  wallet?: {
-    walletBalance: number;
+  Wallet?: {
+    WalletBalance: number;
     UsdtBalance: number;
   };
 }
@@ -74,10 +74,10 @@ export default function buyUsdtPage() {
   const [token, setToken] = useState("");
 
   // -------------------------
-  // wallet Balances
+  // Wallet Balances
   // -------------------------
 
-  const [walletBalance, setwalletBalance] = useState(0);
+  const [WalletBalance, setWalletBalance] = useState(0);
   const [UsdtBalance, setUsdtBalance] = useState(0);
   const [rate, setRate] = useState(280);
 
@@ -86,7 +86,7 @@ export default function buyUsdtPage() {
   // -------------------------
 
   const [UsdtAmount, setUsdtAmount] = useState("");
-  const [walletAddress, setwalletAddress] = useState("");
+  const [WalletAddress, setWalletAddress] = useState("");
   const [txHash, setTxHash] = useState("");
   const [receipt, setReceipt] = useState<File | null>(null);
 
@@ -128,10 +128,10 @@ export default function buyUsdtPage() {
   }, []);
 
   // ======================================================
-// LOAD USER wallet + LIVE RATE (FINAL V18 FIX)
+// LOAD USER Wallet + LIVE RATE (FINAL V18 FIX)
 // ======================================================
 
-const loadwallet = async () => {
+const loadWallet = async () => {
   if (!username || !token) return;
 
   try {
@@ -143,7 +143,7 @@ const loadwallet = async () => {
     };
 
     const response = await fetch(
-      `${API}/api/wallet/${username}`,
+      `${API}/api/Wallet/${username}`,
       {
         method: "GET",
         headers,
@@ -151,27 +151,27 @@ const loadwallet = async () => {
       }
     );
 
-    const result: walletResponse = await response.json();
+    const result: WalletResponse = await response.json();
 
-    console.log("buy Usdt wallet:", result);
+    console.log("buy Usdt Wallet:", result);
 
     if (!response.ok || !result.success) {
-      throw new Error(result.message || "Unable to load wallet.");
+      throw new Error(result.message || "Unable to load Wallet.");
     }
 
     // ================= SAFE VALUES =================
 
-    setwalletBalance(
+    setWalletBalance(
       Number(
-        result.wallet?.walletBalance ??
-        result.wallet?.PkrBalance ??
+        result.Wallet?.WalletBalance ??
+        result.Wallet?.PkrBalance ??
         0
       )
     );
 
     setUsdtBalance(
       Number(
-        result.wallet?.UsdtBalance ??
+        result.Wallet?.UsdtBalance ??
         0
       )
     );
@@ -179,20 +179,20 @@ const loadwallet = async () => {
     setRate(
       Number(
         result.rate ??
-        result.wallet?.rate ??
+        result.Wallet?.rate ??
         280
       )
     );
 
   } catch (err: any) {
-    console.error("buy wallet ERROR:", err);
+    console.error("buy Wallet ERROR:", err);
 
-    setwalletBalance(0);
+    setWalletBalance(0);
     setUsdtBalance(0);
     setRate(280);
 
     setMessageType("error");
-    setMessage(err.message || "Unable to load wallet.");
+    setMessage(err.message || "Unable to load Wallet.");
   } finally {
     setLoading(false);
   }
@@ -204,19 +204,19 @@ const loadwallet = async () => {
 
   useEffect(() => {
     if (username && token) {
-      loadwallet();
+      loadWallet();
     }
   }, [username, token]);
 
   // ======================================================
-  // AUTO REFRESH wallet
+  // AUTO REFRESH Wallet
   // ======================================================
 
   useEffect(() => {
     if (!username || !token) return;
 
     const timer = setInterval(() => {
-      loadwallet();
+      loadWallet();
     }, 15000);
 
     return () => clearInterval(timer);
@@ -230,37 +230,37 @@ const loadwallet = async () => {
     return Number(UsdtAmount || 0) * rate;
   }, [UsdtAmount, rate]);
     // ======================================================
-  // COMPANY Usdt wallet DETAILS (V18)
+  // COMPANY Usdt Wallet DETAILS (V18)
   // ======================================================
 
-  const companywallet = {
+  const companyWallet = {
     network: "TRC20",
-    address: "TQ9xH8ExamplewalletAddress1234567890",
-    accountName: "GoldTrade Official wallet",
+    address: "TQ9xH8ExampleWalletAddress1234567890",
+    accountName: "GoldTrade Official Wallet",
   };
 
   // ======================================================
-  // COPY wallet ADDRESS
+  // COPY Wallet ADDRESS
   // ======================================================
 
-  const copywalletAddress = async () => {
+  const copyWalletAddress = async () => {
     try {
-      await navigator.clipboard.writeText(companywallet.address);
+      await navigator.clipboard.writeText(companyWallet.address);
 
       setMessageType("success");
-      setMessage("wallet address copied successfully.");
+      setMessage("Wallet address copied successfully.");
     } catch {
       setMessageType("error");
-      setMessage("Unable to copy wallet address.");
+      setMessage("Unable to copy Wallet address.");
     }
   };
 
   // ======================================================
-  // REFRESH wallet BUTTON
+  // REFRESH Wallet BUTTON
   // ======================================================
 
-  const refreshwallet = () => {
-    loadwallet();
+  const refreshWallet = () => {
+    loadWallet();
   };
 
   // ======================================================
@@ -280,8 +280,8 @@ const loadwallet = async () => {
         throw new Error("Enter a valid Usdt amount.");
       }
 
-      if (!walletAddress.trim()) {
-        throw new Error("Please enter your TRC20 wallet address.");
+      if (!WalletAddress.trim()) {
+        throw new Error("Please enter your TRC20 Wallet address.");
       }
 
       if (!receipt) {
@@ -296,7 +296,7 @@ const loadwallet = async () => {
 
       formData.append("username", username);
       formData.append("UsdtAmount", UsdtAmount);
-      formData.append("walletAddress", walletAddress.trim());
+      formData.append("WalletAddress", WalletAddress.trim());
       formData.append("txHash", txHash.trim());
 
       if (receipt) {
@@ -334,12 +334,12 @@ const loadwallet = async () => {
 
       // Reset Form
       setUsdtAmount("");
-      setwalletAddress("");
+      setWalletAddress("");
       setTxHash("");
       setReceipt(null);
 
-      // Refresh wallet
-      await loadwallet();
+      // Refresh Wallet
+      await loadWallet();
 
     } catch (err: any) {
       console.error("buy Usdt ERROR:", err);
@@ -380,7 +380,7 @@ const loadwallet = async () => {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center text-green-400">
         <RefreshCw className="animate-spin mr-3" size={28} />
-        Loading wallet...
+        Loading Wallet...
       </div>
     );
   }
@@ -410,7 +410,7 @@ const loadwallet = async () => {
             </h1>
 
             <p className="text-gray-400 mt-2">
-              Purchase Usdt securely using your Pkr wallet.
+              Purchase Usdt securely using your Pkr Wallet.
             </p>
           </div>
 
@@ -419,7 +419,7 @@ const loadwallet = async () => {
             className="bg-green-500 hover:bg-green-400 text-black font-bold px-5 py-3 rounded-xl flex items-center gap-2"
           >
             <RefreshCw size={18} />
-            Refresh wallet
+            Refresh Wallet
           </button>
 
         </div>
@@ -453,28 +453,28 @@ const loadwallet = async () => {
         )}
 
         {/* ======================================================
-            wallet SUMMARY CARDS
+            Wallet SUMMARY CARDS
         ====================================================== */}
 
         <div className="grid lg:grid-cols-3 gap-5 mb-10">
 
-          {/* Pkr wallet */}
+          {/* Pkr Wallet */}
 
           <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
 
-            <wallet className="text-yellow-400 mb-4" size={34} />
+            <Wallet className="text-yellow-400 mb-4" size={34} />
 
             <p className="text-gray-400 text-sm">
-              Pkr wallet Balance
+              Pkr Wallet Balance
             </p>
 
             <h2 className="text-4xl font-black text-yellow-400 mt-3">
-              Pkr {walletBalance.toLocaleString()}
+              Pkr {WalletBalance.toLocaleString()}
             </h2>
 
           </div>
 
-          {/* Usdt wallet */}
+          {/* Usdt Wallet */}
 
           <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
 
@@ -583,7 +583,7 @@ const loadwallet = async () => {
           </div>
 
         </div>        {/* ======================================================
-            COMPANY PAYMENT wallet (TRC20)
+            COMPANY PAYMENT Wallet (TRC20)
         ====================================================== */}
 
         <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6 mb-8">
@@ -592,7 +592,7 @@ const loadwallet = async () => {
 
             <div>
               <h2 className="text-2xl font-bold text-cyan-400">
-                Company Usdt wallet
+                Company Usdt Wallet
               </h2>
 
               <p className="text-gray-400 mt-1">
@@ -601,29 +601,29 @@ const loadwallet = async () => {
             </div>
 
             <span className="bg-cyan-500/20 text-cyan-400 px-4 py-2 rounded-full text-sm font-semibold">
-              Network : {companywallet.network}
+              Network : {companyWallet.network}
             </span>
 
           </div>
 
-          {/* wallet Address */}
+          {/* Wallet Address */}
 
           <div className="bg-black border border-cyan-500 rounded-2xl p-5 mb-5">
 
             <p className="text-gray-400 text-sm mb-2">
-              wallet Address
+              Wallet Address
             </p>
 
             <p className="text-cyan-300 font-bold break-all text-lg">
-              {companywallet.address}
+              {companyWallet.address}
             </p>
 
             <button
-              onClick={copywalletAddress}
+              onClick={copyWalletAddress}
               className="mt-4 bg-cyan-500 hover:bg-cyan-400 text-black px-4 py-2 rounded-xl flex items-center gap-2 font-bold"
             >
               <Copy size={18} />
-              Copy wallet Address
+              Copy Wallet Address
             </button>
 
           </div>
@@ -647,8 +647,8 @@ const loadwallet = async () => {
             </div>
 
             <p className="text-center text-gray-500 text-sm mt-4">
-              Scan this QR code using Binance, Trust wallet, TronLink,
-              or any TRC20 compatible wallet.
+              Scan this QR code using Binance, Trust Wallet, TronLink,
+              or any TRC20 compatible Wallet.
             </p>
 
           </div>
@@ -656,24 +656,24 @@ const loadwallet = async () => {
         </div>
 
         {/* ======================================================
-            USER RECEIVING wallet
+            USER RECEIVING Wallet
         ====================================================== */}
 
         <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-8">
 
           <h2 className="text-2xl font-bold text-yellow-400 mb-5">
-            Your Receiving wallet
+            Your Receiving Wallet
           </h2>
 
           <p className="text-gray-400 mb-4">
-            Enter your personal TRC20 wallet where GoldTrade will send Usdt.
+            Enter your personal TRC20 Wallet where GoldTrade will send Usdt.
           </p>
 
           <input
             type="text"
-            value={walletAddress}
-            onChange={(e) => setwalletAddress(e.target.value)}
-            placeholder="Enter Your TRC20 wallet Address"
+            value={WalletAddress}
+            onChange={(e) => setWalletAddress(e.target.value)}
+            placeholder="Enter Your TRC20 Wallet Address"
             className="w-full bg-black border border-yellow-500 rounded-2xl p-4 text-white outline-none focus:border-yellow-400"
           />
 
@@ -758,18 +758,18 @@ const loadwallet = async () => {
           )}
 
         </div>        {/* ======================================================
-            wallet VALIDATION
+            Wallet VALIDATION
         ====================================================== */}
 
         {Number(UsdtAmount || 0) > 0 &&
-          totalPkr > walletBalance && (
+          totalPkr > WalletBalance && (
             <div className="bg-red-600/10 border border-red-500 rounded-3xl p-5 mb-8">
 
               <div className="flex items-center gap-3 mb-3">
                 <AlertCircle size={26} className="text-red-400" />
 
                 <h2 className="text-xl font-bold text-red-400">
-                  Insufficient Pkr wallet Balance
+                  Insufficient Pkr Wallet Balance
                 </h2>
               </div>
 
@@ -783,7 +783,7 @@ const loadwallet = async () => {
               <p className="text-red-300 mt-2">
                 Available Pkr:{" "}
                 <span className="font-bold">
-                  {walletBalance.toLocaleString()}
+                  {WalletBalance.toLocaleString()}
                 </span>
               </p>
 
@@ -802,17 +802,17 @@ const loadwallet = async () => {
 
           <ul className="space-y-3 text-gray-300 text-sm">
 
-            <li>• Send payment only to the official GoldTrade TRC20 wallet.</li>
+            <li>• Send payment only to the official GoldTrade TRC20 Wallet.</li>
 
             <li>• Upload a clear payment screenshot.</li>
 
-            <li>• wallet address must be a valid TRC20 address.</li>
+            <li>• Wallet address must be a valid TRC20 address.</li>
 
             <li>• Receipt image size must be less than 5 MB.</li>
 
             <li>• Admin verifies payment before approving your request.</li>
 
-            <li>• Approved requests will automatically credit your Usdt wallet.</li>
+            <li>• Approved requests will automatically credit your Usdt Wallet.</li>
 
           </ul>
 
@@ -847,10 +847,10 @@ const loadwallet = async () => {
             </div>
 
             <div className="flex justify-between">
-              <span className="text-gray-400">Your Pkr wallet</span>
+              <span className="text-gray-400">Your Pkr Wallet</span>
 
               <span className="font-bold text-yellow-400">
-                Pkr {walletBalance.toLocaleString()}
+                Pkr {WalletBalance.toLocaleString()}
               </span>
             </div>
 
@@ -879,13 +879,13 @@ const loadwallet = async () => {
           disabled={
             submitting ||
             Number(UsdtAmount || 0) <= 0 ||
-            totalPkr > walletBalance
+            totalPkr > WalletBalance
           }
           onClick={handlebuyUsdt}
           className={`w-full rounded-3xl py-5 text-xl font-black transition flex items-center justify-center gap-3 ${
             submitting
               ? "bg-zinc-700 cursor-not-allowed"
-              : totalPkr > walletBalance
+              : totalPkr > WalletBalance
               ? "bg-red-600 cursor-not-allowed"
               : "bg-green-500 hover:bg-green-400 text-black"
           }`}
@@ -920,15 +920,15 @@ const loadwallet = async () => {
             </p>
 
             <p>
-              • Never send funds to any wallet other than the official company wallet.
+              • Never send funds to any Wallet other than the official company Wallet.
             </p>
 
             <p>
-              • Fake receipts or invalid wallet addresses may result in request rejection.
+              • Fake receipts or invalid Wallet addresses may result in request rejection.
             </p>
 
             <p>
-              • Approved Usdt requests are credited directly into your GoldTrade wallet.
+              • Approved Usdt requests are credited directly into your GoldTrade Wallet.
             </p>
 
           </div>
@@ -987,14 +987,14 @@ const loadwallet = async () => {
 
             <div className="bg-black rounded-2xl border border-green-700 p-5 text-center">
 
-              <wallet size={32} className="mx-auto text-green-400 mb-3" />
+              <Wallet size={32} className="mx-auto text-green-400 mb-3" />
 
               <p className="text-gray-400 text-sm">
-                wallet Balance
+                Wallet Balance
               </p>
 
               <h3 className="text-2xl font-bold text-green-400 mt-2">
-                Pkr {walletBalance.toLocaleString()}
+                Pkr {WalletBalance.toLocaleString()}
               </h3>
 
             </div>
@@ -1037,7 +1037,7 @@ const loadwallet = async () => {
 
             <div className="flex items-center gap-2 text-green-400 font-semibold">
               <RefreshCw size={16} />
-              wallet Sync Active
+              Wallet Sync Active
             </div>
 
           </div>
@@ -1065,7 +1065,7 @@ async function loadUsdtRequests(): Promise<unknown[]> {
 
   return Array.isArray(result) ? result : result?.requests || [];
 }
-function loadwallet() {
+function loadWallet() {
   throw new Error("Function not implemented.");
 }
 

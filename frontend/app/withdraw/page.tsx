@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  wallet,
+  Wallet,
   ArrowUpRight,
   RefreshCw,
   Clock,
@@ -41,8 +41,8 @@ export default function WithdrawPage() {
   const [token, setToken] = useState("");
   const [username, setUsername] = useState("");
 
-  // ================= wallet =================
-  const [walletBalance, setwalletBalance] = useState(0);
+  // ================= Wallet =================
+  const [WalletBalance, setWalletBalance] = useState(0);
 
   // ================= FORM =================
   const [requestAmount, setRequestAmount] = useState("");
@@ -56,7 +56,7 @@ export default function WithdrawPage() {
   const [note, setNote] = useState("");
 
   // ================= UI =================
-  const [loadingwallet, setLoadingwallet] = useState(true);
+  const [loadingWallet, setLoadingWallet] = useState(true);
   const [loadinghistory, setLoadinghistory] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -83,16 +83,16 @@ export default function WithdrawPage() {
   }, []);
 
   // ==========================================
-// LOAD wallet BALANCE (100% FIXED V18)
+// LOAD Wallet BALANCE (100% FIXED V18)
 // ==========================================
-const loadwallet = async () => {
+const loadWallet = async () => {
   const jwt = localStorage.getItem("token");
   const username = localStorage.getItem("username");
 
   if (!jwt || !username) return;
 
   try {
-    setLoadingwallet(true);
+    setLoadingWallet(true);
 
     const response = await fetch(`${API}/api/users/${username}`, {
       headers: {
@@ -106,17 +106,17 @@ const loadwallet = async () => {
     console.log("USER API RESPONSE:", result);
 
     if (!response.ok || !result.success) {
-      throw new Error(result.message || "Failed to load wallet.");
+      throw new Error(result.message || "Failed to load Wallet.");
     }
 
     // API response uses "data"
-    setwalletBalance(Number(result.data?.walletBalance ?? 0));
+    setWalletBalance(Number(result.data?.WalletBalance ?? 0));
 
   } catch (err) {
-    console.error("wallet Error:", err);
-    setwalletBalance(0);
+    console.error("Wallet Error:", err);
+    setWalletBalance(0);
   } finally {
-    setLoadingwallet(false);
+    setLoadingWallet(false);
   }
 };
 
@@ -155,7 +155,7 @@ const loadwallet = async () => {
 
   useEffect(() => {
     if (token) {
-      loadwallet();
+      loadWallet();
       loadhistory();
     }
   }, [token]);
@@ -177,9 +177,9 @@ const loadwallet = async () => {
       return;
     }
 
-    if (amount > walletBalance) {
+    if (amount > WalletBalance) {
       setMessageType("error");
-      setMessage("Withdraw amount is greater than wallet balance.");
+      setMessage("Withdraw amount is greater than Wallet balance.");
       return;
     }
 
@@ -228,8 +228,8 @@ const loadwallet = async () => {
       setNetwork("TRC20");
       setNote("");
 
-      // Refresh wallet + history
-      loadwallet();
+      // Refresh Wallet + history
+      loadWallet();
       loadhistory();
 
     } catch (err: any) {
@@ -253,7 +253,7 @@ const loadwallet = async () => {
 
         <div>
           <h1 className="text-4xl font-black text-yellow-400">
-            Withdraw wallet
+            Withdraw Wallet
           </h1>
 
           <p className="text-gray-400 mt-1">
@@ -263,7 +263,7 @@ const loadwallet = async () => {
 
         <button
           onClick={() => {
-            loadwallet();
+            loadWallet();
             loadhistory();
           }}
           className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-5 py-3 rounded-xl flex items-center gap-2"
@@ -274,18 +274,18 @@ const loadwallet = async () => {
 
       </div>
 
-      {/* wallet CARD */}
+      {/* Wallet CARD */}
       <div className="border border-green-500 rounded-3xl bg-zinc-900 p-6 mb-10">
 
         <div className="flex items-center gap-4">
 
-          <wallet className="text-green-400" size={38} />
+          <Wallet className="text-green-400" size={38} />
 
           <div>
-            <p className="text-gray-400 text-sm">Available wallet Balance</p>
+            <p className="text-gray-400 text-sm">Available Wallet Balance</p>
 
             <h2 className="text-4xl font-black text-green-400 mt-1">
-              Pkr {walletBalance.toLocaleString()}
+              Pkr {WalletBalance.toLocaleString()}
             </h2>
           </div>
 
@@ -396,7 +396,7 @@ const loadwallet = async () => {
         {/* Bank Name */}
         <div>
           <label className="text-sm text-gray-300 mb-2 block">
-            Bank / wallet Name
+            Bank / Wallet Name
           </label>
 
           <input

@@ -48,7 +48,7 @@ interface UsdtOrder {
 
   PkrAmount: number;
 
-  walletAddress: string;
+  WalletAddress: string;
 
   receiptImage?: string;
 
@@ -502,15 +502,15 @@ export default function AdminUsdtPage() {
     }).format(value);
 
   // =====================================================
-  // COPY wallet ADDRESS
+  // COPY Wallet ADDRESS
   // =====================================================
 
-  const copywallet = async (address: string) => {
+  const copyWallet = async (address: string) => {
     try {
       await navigator.clipboard.writeText(address);
-      setSuccessMessage("wallet address copied successfully.");
+      setSuccessMessage("Wallet address copied successfully.");
     } catch {
-      setErrorMessage("Unable to copy wallet address.");
+      setErrorMessage("Unable to copy Wallet address.");
     }
   };
 
@@ -1085,11 +1085,11 @@ export default function AdminUsdtPage() {
                               <button
                                 type="button"
                                 onClick={() =>
-                                  copywallet(order.walletAddress)
+                                  copyWallet(order.WalletAddress)
                                 }
                                 className="rounded-lg bg-slate-700 py-2 text-xs font-semibold text-white hover:bg-slate-800"
                               >
-                                Copy wallet
+                                Copy Wallet
                               </button>
 
                             </div>
@@ -1203,11 +1203,11 @@ export default function AdminUsdtPage() {
                           <button
                             type="button"
                             onClick={() =>
-                              copywallet(order.walletAddress)
+                              copyWallet(order.WalletAddress)
                             }
                             className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-white"
                           >
-                            Copy wallet
+                            Copy Wallet
                           </button>
 
                         </div>
@@ -1354,10 +1354,10 @@ export default function AdminUsdtPage() {
 
               <ul className="space-y-2 text-sm text-gray-700">
                 <li>• Approve buy requests after verifying payment receipt.</li>
-                <li>• Approve sell requests after verifying wallet transfer.</li>
+                <li>• Approve sell requests after verifying Wallet transfer.</li>
                 <li>• Rejected orders remain visible for audit history.</li>
-                <li>• Every approval updates wallet Balance automatically.</li>
-                <li>• Pkr and Usdt wallet history is created automatically.</li>
+                <li>• Every approval updates Wallet Balance automatically.</li>
+                <li>• Pkr and Usdt Wallet history is created automatically.</li>
               </ul>
 
             </div>
@@ -1374,7 +1374,7 @@ export default function AdminUsdtPage() {
 
               <p className="text-sm leading-6 text-gray-700">
                 Every admin approval or rejection is securely logged inside
-                GoldTrade V18. wallet balances, transaction history and order
+                GoldTrade V18. Wallet balances, transaction history and order
                 status are synchronized automatically after each action.
               </p>
 
@@ -1391,7 +1391,7 @@ export default function AdminUsdtPage() {
               </h4>
 
               <p className="mt-2 text-sm text-gray-500">
-                Pkr • Usdt • Gold • wallet Management
+                Pkr • Usdt • Gold • Wallet Management
               </p>
 
               <p className="mt-1 text-xs text-gray-400">

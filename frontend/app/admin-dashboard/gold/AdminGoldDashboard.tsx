@@ -27,7 +27,7 @@ interface UserData {
   _id: string;
   fullName: string;
   username: string;
-  walletBalance: number;
+  WalletBalance: number;
   goldBalance: number;
   goldAveragePrice: number;
 }
@@ -61,11 +61,11 @@ export default function AdminGoldDashboard() {
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
 
   // ==============================================
-  // GOLD wallet FORM
+  // GOLD Wallet FORM
   // ==============================================
 
   const [goldAmount, setGoldAmount] = useState("");
-  const [walletReason, setwalletReason] = useState("");
+  const [WalletReason, setWalletReason] = useState("");
 
   // ==============================================
   // UI STATES
@@ -284,10 +284,10 @@ useEffect(() => {
   };
 
   // ==============================================
-  // CREDIT / DEBIT GOLD wallet
+  // CREDIT / DEBIT GOLD Wallet
   // ==============================================
 
-  const updateGoldwallet = async (
+  const updateGoldWallet = async (
     action: "credit" | "debit"
   ) => {
 
@@ -307,11 +307,11 @@ useEffect(() => {
       setSaving(true);
 
       const res = await axios.put(
-        `${API}/api/gold/admin/gold/wallet/${selectedUser._id}`,
+        `${API}/api/gold/admin/gold/Wallet/${selectedUser._id}`,
         {
           amount: Number(goldAmount),
           action,
-          reason: walletReason,
+          reason: WalletReason,
         },
         {
           headers: {
@@ -330,17 +330,17 @@ useEffect(() => {
         setMessageType("success");
 
         setGoldAmount("");
-        setwalletReason("");
+        setWalletReason("");
 
         await searchUser();
       }
 
     } catch (error: any) {
-      console.error("GOLD wallet ERROR:", error);
+      console.error("GOLD Wallet ERROR:", error);
 
       setMessage(
         error.response?.data?.message ||
-          "Unable to update Gold wallet."
+          "Unable to update Gold Wallet."
       );
 
       setMessageType("error");
@@ -616,13 +616,13 @@ useEffect(() => {
 
       </div>
             {/* ============================================== */}
-      {/* GOLD wallet MANAGEMENT */}
+      {/* GOLD Wallet MANAGEMENT */}
       {/* ============================================== */}
 
       <div className="bg-zinc-900 border border-blue-500 rounded-3xl p-8 mb-10">
 
         <h2 className="text-3xl font-black text-blue-400 mb-6">
-          Gold wallet Management
+          Gold Wallet Management
         </h2>
 
         {/* SEARCH USER */}
@@ -681,11 +681,11 @@ useEffect(() => {
               </div>
 
               <div className="bg-zinc-900 rounded-xl p-5 border border-green-500">
-                <p className="text-gray-400 text-sm">wallet Balance</p>
+                <p className="text-gray-400 text-sm">Wallet Balance</p>
 
                 <h4 className="text-green-400 font-bold text-xl mt-2">
                   Pkr{" "}
-                  {Number(selectedUser.walletBalance).toLocaleString()}
+                  {Number(selectedUser.WalletBalance).toLocaleString()}
                 </h4>
               </div>
 
@@ -711,7 +711,7 @@ useEffect(() => {
           </div>
         )}
 
-        {/* wallet UPDATE FORM */}
+        {/* Wallet UPDATE FORM */}
 
         <div className="grid md:grid-cols-2 gap-6">
 
@@ -738,8 +738,8 @@ useEffect(() => {
             </label>
 
             <input
-              value={walletReason}
-              onChange={(e) => setwalletReason(e.target.value)}
+              value={WalletReason}
+              onChange={(e) => setWalletReason(e.target.value)}
               placeholder="Bonus / Adjustment / Reward"
               className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-4 text-white outline-none focus:border-blue-500"
             />
@@ -753,7 +753,7 @@ useEffect(() => {
         <div className="mt-8 bg-black border border-zinc-700 rounded-2xl p-6">
 
           <h3 className="text-2xl font-black text-cyan-400 mb-5">
-            Live wallet Preview
+            Live Wallet Preview
           </h3>
 
           <div className="grid md:grid-cols-3 gap-5">
@@ -813,19 +813,19 @@ useEffect(() => {
         <div className="grid md:grid-cols-2 gap-5 mt-8">
 
           <button
-            onClick={() => updateGoldwallet("credit")}
+            onClick={() => updateGoldWallet("credit")}
             disabled={saving || !selectedUser}
             className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-black text-lg py-4 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
           >
-            🟢 CREDIT GOLD wallet
+            🟢 CREDIT GOLD Wallet
           </button>
 
           <button
-            onClick={() => updateGoldwallet("debit")}
+            onClick={() => updateGoldWallet("debit")}
             disabled={saving || !selectedUser}
             className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-black text-lg py-4 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
           >
-            🔴 DEBIT GOLD wallet
+            🔴 DEBIT GOLD Wallet
           </button>
 
         </div>
@@ -955,7 +955,7 @@ useEffect(() => {
               setSearchUsername("");
               setSelectedUser(null);
               setGoldAmount("");
-              setwalletReason("");
+              setWalletReason("");
             }}
             className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-5 rounded-2xl transition-all duration-300 hover:scale-105"
           >
@@ -1053,7 +1053,7 @@ useEffect(() => {
         </p>
 
         <p>
-          Live Gold Market • wallet Management • Trading Control • Enterprise Security
+          Live Gold Market • Wallet Management • Trading Control • Enterprise Security
         </p>
 
         <p className="mt-2">

@@ -1,570 +1,642 @@
 "use client";
 
-// ======================================================
-// GoldTrade V18 - Admin Settings Page (PART 1/4)
-// ======================================================
-
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
-  Save,
-  RotateCcw,
+  ArrowLeft,
   RefreshCw,
+  Save,
+  Coins,
   DollarSign,
-  Gem,
-  Globe,
-  Power,
+  Wallet,
   ShieldCheck,
 } from "lucide-react";
+
+// ========================================
+// API URL (Render + Local Safe)
+// ========================================
 
 const API =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-// ======================================================
-// TYPES
-// ======================================================
+// ========================================
+// SETTINGS TYPE
+// ========================================
 
-interface GoldSettings {
+interface MarketSettings {
   buyGoldPrice: number;
   sellGoldPrice: number;
-  goldPriceUSD: number;
-  UsdtoPkr: number;
+  buyUsdtRate: number;
+  sellUsdtRate: number;
+  usdToPkr: number;
   goldTradingEnabled: boolean;
-  marketStatus: "OPEN" | "CLOSED";
-  maintenanceMode: boolean;
-  updatedAt?: string;
+  usdtTradingEnabled: boolean;
+  marketStatus: boolean;
 }
 
-export default function AdminSettingsPage() {
-  // ======================================================
-  // STATES
-  // ======================================================
+const defaultSettings: MarketSettings = {
+  buyGoldPrice: 31250,
+  sellGoldPrice: 30980,
+  buyUsdtRate: 285,
+  sellUsdtRate: 283,
+  usdToPkr: 285,
+  goldTradingEnabled: true,
+  usdtTradingEnabled: true,
+  marketStatus: true,
+};
 
-  const [token, setToken] = useState("");
+export default function AdminSettingsPage() {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("token") || ""
+      : "";
+
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+
+  const [settings, setSettings] =
+    useState<MarketSettings>(defaultSettings);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<
-    "success" | "error"
-  >("success");
-
-  const [settings, setSettings] = useState<GoldSettings>({
-    buyGoldPrice: 0,
-    sellGoldPrice: 0,
-    goldPriceUSD: 0,
-    UsdtoPkr: 0,
-    goldTradingEnabled: true,
-    marketStatus: "OPEN",
-    maintenanceMode: false,
-  });
-
-  // ======================================================
-  // AUTH HEADER
-  // ======================================================
-
-  const getAdminHeaders = () => ({
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  });
-
-  // ======================================================
-  // LOAD TOKEN
-  // ======================================================
-
-  useEffect(() => {
-    const jwt = localStorage.getItem("token");
-
-    if (!jwt) {
-      window.location.href = "/login";
-      return;
-    }
-
-    setToken(jwt);
-  }, []);
-    // ======================================================
-  // LOAD SETTINGS FROM BACKEND
-  // ======================================================
+  // ========================================
+  // LOAD SETTINGS
+  // ========================================
 
   const loadSettings = async () => {
-    if (!token) return;
-
     try {
       setLoading(true);
 
-      const response = await fetch(`${API}/api/settings`, {
-        method: "GET",
-        headers: getAdminHeaders(),
-        cache: "no-store",
-      });
+      const response = await fetch(
+        `${API}/api/gold/settings`,
+        {
+          headers,
+        }
+      );
 
-      const result = await response.json();
+      const data = await response.json();
 
-      console.log("SETTINGS RESPONSE:", result);
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Unable to load settings.");
+      if (response.ok && data.success) {
+        setSettings({
+          buyGoldPrice: data.settings.buyGoldPrice || 31250,
+          sellGoldPrice: data.settings.sellGoldPrice || 30980,
+          buyUsdtRate: data.settings.buyUsdtRate || 285,
+          sellUsdtRate: data.settings.sellUsdtRate || 283,
+          usdToPkr: data.settings.usdToPkr || 285,
+          goldTradingEnabled:
+            data.settings.goldTradingEnabled ?? true,
+          usdtTradingEnabled:
+            data.settings.usdtTradingEnabled ?? true,
+          marketStatus:
+            data.settings.marketStatus ?? true,
+        });
       }
-
-      setSettings(result.settings);
-    } catch (err: any) {
-      console.error("LOAD SETTINGS ERROR:", err);
-
-      setMessageType("error");
-      setMessage(err.message || "Failed to load settings.");
+    } catch (err) {
+      console.error("Settings Error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // ======================================================
+  useEffect(() => {
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    loadSettings();
+  }, []);
+
+  // ========================================
   // SAVE SETTINGS
-  // ======================================================
+  // ========================================
 
   const saveSettings = async () => {
-    if (!token) return;
-
     try {
       setSaving(true);
 
-      const response = await fetch(`${API}/api/settings/update`, {
-        method: "PUT",
-        headers: getAdminHeaders(),
-        body: JSON.stringify(settings),
-      });
+      const response = await fetch(
+        `${API}/api/gold/settings`,
+        {
+          method: "PUT",
+          headers,
+          body: JSON.stringify(settings),
+        }
+      );
 
-      const result = await response.json();
+      const data = await response.json();
 
-      console.log("SAVE SETTINGS:", result);
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to save settings.");
+      if (response.ok && data.success) {
+        alert("Market Settings Updated Successfully.");
+      } else {
+        alert(data.message || "Update Failed.");
       }
-
-      setSettings(result.settings);
-
-      setMessageType("success");
-      setMessage("Settings saved successfully.");
-    } catch (err: any) {
-      console.error("SAVE SETTINGS ERROR:", err);
-
-      setMessageType("error");
-      setMessage(err.message || "Unable to save settings.");
+    } catch (err) {
+      console.error(err);
+      alert("Server Error");
     } finally {
       setSaving(false);
     }
   };
 
-  // ======================================================
-  // RESET DEFAULT SETTINGS
-  // ======================================================
-
-  const resetSettings = async () => {
-    if (!token) return;
-
-    const confirmReset = window.confirm(
-      "Reset GoldTrade settings to default values?"
-    );
-
-    if (!confirmReset) return;
-
-    try {
-      const response = await fetch(`${API}/api/settings/reset`, {
-        method: "POST",
-        headers: getAdminHeaders(),
-      });
-
-      const result = await response.json();
-
-      console.log("RESET SETTINGS:", result);
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to reset settings.");
-      }
-
-      setSettings(result.settings);
-
-      setMessageType("success");
-      setMessage("Default settings restored.");
-    } catch (err: any) {
-      console.error("RESET SETTINGS ERROR:", err);
-
-      setMessageType("error");
-      setMessage(err.message || "Unable to reset settings.");
-    }
-  };
-
-  // ======================================================
-  // REFRESH DATA
-  // ======================================================
-
-  const refreshData = () => {
-    loadSettings();
-  };
-
-  // ======================================================
-  // AUTO LOAD SETTINGS AFTER TOKEN
-  // ======================================================
-
-  useEffect(() => {
-    if (token) {
-      loadSettings();
-    }
-  }, [token]);
-    // ======================================================
-  // INPUT CHANGE HANDLER
-  // ======================================================
-
-  const updateField = (
-    field: keyof GoldSettings,
-    value: string | number | boolean
-  ) => {
-    setSettings((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  // ======================================================
-  // MARKET OPEN / CLOSE
-  // ======================================================
-
-  const toggleMarket = () => {
-    setSettings((prev) => ({
-      ...prev,
-      marketStatus:
-        prev.marketStatus === "OPEN" ? "CLOSED" : "OPEN",
-    }));
-  };
-
-  // ======================================================
-  // GOLD TRADING ENABLE / DISABLE
-  // ======================================================
-
-  const toggleTrading = () => {
-    setSettings((prev) => ({
-      ...prev,
-      goldTradingEnabled: !prev.goldTradingEnabled,
-    }));
-  };
-
-  // ======================================================
-  // MAINTENANCE MODE
-  // ======================================================
-
-  const toggleMaintenance = () => {
-    setSettings((prev) => ({
-      ...prev,
-      maintenanceMode: !prev.maintenanceMode,
-    }));
-  };
-
-  // ======================================================
-  // CLEAR SUCCESS / ERROR MESSAGE
-  // ======================================================
-
-  useEffect(() => {
-    if (!message) return;
-
-    const timer = setTimeout(() => {
-      setMessage("");
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [message]);
-
-  // ======================================================
-  // LOADING SCREEN
-  // ======================================================
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-white">
-        <div className="text-center space-y-4">
-          <RefreshCw className="animate-spin text-yellow-400 mx-auto" size={42} />
-          <h2 className="text-2xl font-bold text-yellow-400">
-            Loading GoldTrade Settings...
-          </h2>
-        </div>
-      </div>
+      <main className="min-h-screen bg-black flex items-center justify-center text-yellow-400">
+        <RefreshCw className="animate-spin mr-3" size={26} />
+        Loading Market Settings...
+      </main>
     );
-  }
-    // ======================================================
-  // PAGE UI START (FINAL V18)
-  // ======================================================
+  }  return (
+    <main className="min-h-screen bg-black text-white p-6">
+      <div className="max-w-6xl mx-auto space-y-8">
 
-  return (
-    <div className="min-h-screen bg-black text-white p-6">
+        {/* ================= HEADER ================= */}
 
-      {/* ================= HEADER ================= */}
-      <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="flex items-center gap-3 text-4xl font-black text-yellow-400">
+              <ShieldCheck size={38} />
+              GoldTrade Market Settings
+            </h1>
 
-        <div>
-          <h1 className="text-4xl font-black text-yellow-400">
-            GoldTrade Settings
-          </h1>
+            <p className="text-gray-400 mt-2">
+              Control Gold prices, USDT rates and trading status.
+            </p>
+          </div>
 
-          <p className="text-gray-400 mt-2">
-            GoldTrade V18 • Market Control Center
-          </p>
-        </div>
+          <div className="flex gap-3">
+            <Link
+              href="/admin-dashboard"
+              className="bg-zinc-800 hover:bg-zinc-700 px-4 py-3 rounded-xl flex items-center gap-2 font-bold"
+            >
+              <ArrowLeft size={18} />
+              Dashboard
+            </Link>
 
-        <button
-          onClick={refreshData}
-          className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-5 py-3 rounded-xl flex items-center gap-2"
-        >
-          <RefreshCw size={18} />
-          Refresh
-        </button>
+            <button
+              onClick={loadSettings}
+              className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-3 rounded-xl flex items-center gap-2 font-bold"
+            >
+              <RefreshCw size={18} />
+              Refresh
+            </button>
+          </div>
+        </header>
 
-      </div>
+        {/* ================= GOLD PRICE SETTINGS ================= */}
 
-      {/* ================= MESSAGE ================= */}
-      {message && (
-        <div
-          className={`mb-6 rounded-xl px-4 py-3 font-semibold ${
-            messageType === "success"
-              ? "bg-green-600/20 border border-green-500 text-green-400"
-              : "bg-red-600/20 border border-red-500 text-red-400"
-          }`}
-        >
-          {message}
-        </div>
-      )}
+        <section className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <Coins className="text-yellow-400" size={28} />
+            <h2 className="text-2xl font-black text-yellow-400">
+              Gold Price Settings
+            </h2>
+          </div>
 
-      {/* ================= PRICE CARDS ================= */}
-      <div className="grid lg:grid-cols-4 gap-5 mb-10">
+          <div className="grid md:grid-cols-2 gap-5">
 
-        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-5">
-          <Gem className="text-yellow-400 mb-3" size={30} />
-          <p className="text-gray-400 text-sm">Gold buy Price</p>
-          <h2 className="text-2xl font-black text-yellow-400">
-            Pkr {Number(settings.buyGoldPrice).toLocaleString()}
-          </h2>
-        </div>
+            <div>
+              <label className="block text-gray-400 mb-2">
+                Gold Buy Price (PKR)
+              </label>
 
-        <div className="bg-zinc-900 border border-green-500 rounded-3xl p-5">
-          <Gem className="text-green-400 mb-3" size={30} />
-          <p className="text-gray-400 text-sm">Gold sell Price</p>
-          <h2 className="text-2xl font-black text-green-400">
-            Pkr {Number(settings.sellGoldPrice).toLocaleString()}
-          </h2>
-        </div>
+              <input
+                type="number"
+                value={settings.buyGoldPrice}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    buyGoldPrice: Number(e.target.value),
+                  })
+                }
+                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:border-yellow-500 outline-none"
+              />
+            </div>
 
-        <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-5">
-          <DollarSign className="text-cyan-400 mb-3" size={30} />
-          <p className="text-gray-400 text-sm">Gold Price (USD)</p>
-          <h2 className="text-2xl font-black text-cyan-400">
-            ${Number(settings.goldPriceUSD).toLocaleString()}
-          </h2>
-        </div>
+            <div>
+              <label className="block text-gray-400 mb-2">
+                Gold Sell Price (PKR)
+              </label>
 
-        <div className="bg-zinc-900 border border-purple-500 rounded-3xl p-5">
-          <Globe className="text-purple-400 mb-3" size={30} />
-          <p className="text-gray-400 text-sm">USD → Pkr</p>
+              <input
+                type="number"
+                value={settings.sellGoldPrice}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    sellGoldPrice: Number(e.target.value),
+                  })
+                }
+                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:border-yellow-500 outline-none"
+              />
+            </div>
+
+          </div>
+        </section>
+
+        {/* ================= USDT RATE SETTINGS ================= */}
+
+        <section className="bg-zinc-900 border border-blue-500 rounded-2xl p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <DollarSign className="text-blue-400" size={28} />
+            <h2 className="text-2xl font-black text-blue-400">
+              USDT Rate Settings
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-5">
+
+            <div>
+              <label className="block text-gray-400 mb-2">
+                USDT Buy Rate (PKR)
+              </label>
+
+              <input
+                type="number"
+                value={settings.buyUsdtRate}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    buyUsdtRate: Number(e.target.value),
+                  })
+                }
+                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:border-blue-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-gray-400 mb-2">
+                USDT Sell Rate (PKR)
+              </label>
+
+              <input
+                type="number"
+                value={settings.sellUsdtRate}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    sellUsdtRate: Number(e.target.value),
+                  })
+                }
+                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:border-blue-500 outline-none"
+              />
+            </div>
+
+          </div>
+        </section>
+
+        {/* ================= USD TO PKR RATE ================= */}
+
+        <section className="bg-zinc-900 border border-green-500 rounded-2xl p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <Wallet className="text-green-400" size={28} />
+            <h2 className="text-2xl font-black text-green-400">
+              USD → PKR Exchange Rate
+            </h2>
+          </div>
+
+          <div>
+            <label className="block text-gray-400 mb-2">
+              1 USD = PKR
+            </label>
+
+            <input
+              type="number"
+              value={settings.usdToPkr}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  usdToPkr: Number(e.target.value),
+                })
+              }
+              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:border-green-500 outline-none"
+            />
+          </div>
+        </section>
+
+        {/* ================= TRADING SWITCHES ================= */}
+
+        <section className="bg-zinc-900 border border-purple-500 rounded-2xl p-6 space-y-6">
           <h2 className="text-2xl font-black text-purple-400">
-            {Number(settings.UsdtoPkr).toLocaleString()}
+            Trading Controls
           </h2>
-        </div>
 
-      </div>
+          {/* Gold Trading */}
+          <div className="flex justify-between items-center bg-black rounded-xl p-4 border border-zinc-700">
+            <div>
+              <p className="font-semibold text-white">
+                Gold Trading
+              </p>
+              <p className="text-sm text-gray-400">
+                Enable or disable Gold Buy/Sell.
+              </p>
+            </div>
 
-      {/* ================= SETTINGS FORM ================= */}
-      <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-8">
-
-        <h2 className="text-2xl font-black text-yellow-400 mb-6">
-          Gold Market Configuration
-        </h2>
-
-        <div className="grid md:grid-cols-2 gap-6">
-
-          {/* buy Price */}
-          <div>
-            <label className="text-yellow-400 text-sm font-semibold block mb-2">
-              Gold buy Price (Pkr)
-            </label>
-
-            <input
-              type="number"
-              value={settings.buyGoldPrice}
-              onChange={(e) =>
-                updateField("buyGoldPrice", Number(e.target.value))
+            <button
+              onClick={() =>
+                setSettings({
+                  ...settings,
+                  goldTradingEnabled:
+                    !settings.goldTradingEnabled,
+                })
               }
-              className="w-full bg-black border border-yellow-500 rounded-xl px-4 py-3 outline-none text-white focus:border-yellow-400"
-            />
+              className={`px-5 py-2 rounded-full font-bold ${
+                settings.goldTradingEnabled
+                  ? "bg-green-600"
+                  : "bg-red-600"
+              }`}
+            >
+              {settings.goldTradingEnabled
+                ? "Enabled"
+                : "Disabled"}
+            </button>
           </div>
 
-          {/* sell Price */}
-          <div>
-            <label className="text-green-400 text-sm font-semibold block mb-2">
-              Gold sell Price (Pkr)
-            </label>
+          {/* USDT Trading */}
+          <div className="flex justify-between items-center bg-black rounded-xl p-4 border border-zinc-700">
+            <div>
+              <p className="font-semibold text-white">
+                USDT Trading
+              </p>
+              <p className="text-sm text-gray-400">
+                Enable or disable USDT Buy/Sell.
+              </p>
+            </div>
 
-            <input
-              type="number"
-              value={settings.sellGoldPrice}
-              onChange={(e) =>
-                updateField("sellGoldPrice", Number(e.target.value))
+            <button
+              onClick={() =>
+                setSettings({
+                  ...settings,
+                  usdtTradingEnabled:
+                    !settings.usdtTradingEnabled,
+                })
               }
-              className="w-full bg-black border border-green-500 rounded-xl px-4 py-3 outline-none text-white focus:border-green-400"
-            />
+              className={`px-5 py-2 rounded-full font-bold ${
+                settings.usdtTradingEnabled
+                  ? "bg-green-600"
+                  : "bg-red-600"
+              }`}
+            >
+              {settings.usdtTradingEnabled
+                ? "Enabled"
+                : "Disabled"}
+            </button>
           </div>
 
-          {/* USD Price */}
-          <div>
-            <label className="text-cyan-400 text-sm font-semibold block mb-2">
-              Gold Price USD
-            </label>
+          {/* Market Status */}
+          <div className="flex justify-between items-center bg-black rounded-xl p-4 border border-zinc-700">
+            <div>
+              <p className="font-semibold text-white">
+                Complete Market Status
+              </p>
+              <p className="text-sm text-gray-400">
+                Open or close the entire trading market.
+              </p>
+            </div>
 
-            <input
-              type="number"
-              step="0.01"
-              value={settings.goldPriceUSD}
-              onChange={(e) =>
-                updateField("goldPriceUSD", Number(e.target.value))
+            <button
+              onClick={() =>
+                setSettings({
+                  ...settings,
+                  marketStatus: !settings.marketStatus,
+                })
               }
-              className="w-full bg-black border border-cyan-500 rounded-xl px-4 py-3 outline-none text-white focus:border-cyan-400"
-            />
+              className={`px-5 py-2 rounded-full font-bold ${
+                settings.marketStatus
+                  ? "bg-green-600"
+                  : "bg-red-600"
+              }`}
+            >
+              {settings.marketStatus
+                ? "Market Open"
+                : "Market Closed"}
+            </button>
           </div>
 
-          {/* USD Pkr */}
-          <div>
-            <label className="text-purple-400 text-sm font-semibold block mb-2">
-              USD → Pkr Rate
-            </label>
+        </section>        {/* ================= LIVE MARKET PREVIEW ================= */}
 
-            <input
-              type="number"
-              step="0.01"
-              value={settings.UsdtoPkr}
-              onChange={(e) =>
-                updateField("UsdtoPkr", Number(e.target.value))
-              }
-              className="w-full bg-black border border-purple-500 rounded-xl px-4 py-3 outline-none text-white focus:border-purple-400"
-            />
+        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6">
+          <h2 className="text-2xl font-black text-cyan-400 mb-5">
+            Live Market Preview
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-5">
+
+            <div className="bg-black rounded-xl p-5 border border-yellow-500">
+              <p className="text-gray-400 text-sm">Gold Buy Price</p>
+
+              <h3 className="text-3xl font-black text-yellow-400 mt-2">
+                PKR {settings.buyGoldPrice.toLocaleString()}
+              </h3>
+            </div>
+
+            <div className="bg-black rounded-xl p-5 border border-orange-500">
+              <p className="text-gray-400 text-sm">Gold Sell Price</p>
+
+              <h3 className="text-3xl font-black text-orange-400 mt-2">
+                PKR {settings.sellGoldPrice.toLocaleString()}
+              </h3>
+            </div>
+
+            <div className="bg-black rounded-xl p-5 border border-blue-500">
+              <p className="text-gray-400 text-sm">Gold Spread</p>
+
+              <h3 className="text-3xl font-black text-blue-400 mt-2">
+                PKR{" "}
+                {(
+                  settings.buyGoldPrice -
+                  settings.sellGoldPrice
+                ).toLocaleString()}
+              </h3>
+            </div>
+
+            <div className="bg-black rounded-xl p-5 border border-cyan-500">
+              <p className="text-gray-400 text-sm">USDT Buy Rate</p>
+
+              <h3 className="text-3xl font-black text-cyan-400 mt-2">
+                PKR {settings.buyUsdtRate}
+              </h3>
+            </div>
+
+            <div className="bg-black rounded-xl p-5 border border-purple-500">
+              <p className="text-gray-400 text-sm">USDT Sell Rate</p>
+
+              <h3 className="text-3xl font-black text-purple-400 mt-2">
+                PKR {settings.sellUsdtRate}
+              </h3>
+            </div>
+
+            <div className="bg-black rounded-xl p-5 border border-green-500">
+              <p className="text-gray-400 text-sm">USD → PKR Rate</p>
+
+              <h3 className="text-3xl font-black text-green-400 mt-2">
+                PKR {settings.usdToPkr}
+              </h3>
+            </div>
+
           </div>
+        </section>
 
-        </div>
+        {/* ================= MARKET STATUS SUMMARY ================= */}
 
-      </div>
+        <section className="bg-zinc-900 border border-purple-500 rounded-2xl p-6">
+          <h2 className="text-2xl font-black text-purple-400 mb-5">
+            Current Trading Status
+          </h2>
 
-      {/* ================= TOGGLE SWITCHES ================= */}
-      <div className="grid lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid md:grid-cols-3 gap-5">
 
-        {/* Market Status */}
-        <div className="bg-zinc-900 border border-blue-500 rounded-3xl p-5">
+            <div
+              className={`rounded-xl p-5 border ${
+                settings.goldTradingEnabled
+                  ? "bg-green-950 border-green-500"
+                  : "bg-red-950 border-red-500"
+              }`}
+            >
+              <p className="text-gray-300 text-sm">
+                Gold Trading
+              </p>
 
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-blue-400">Market Status</h3>
+              <h3
+                className={`text-2xl font-black mt-2 ${
+                  settings.goldTradingEnabled
+                    ? "text-green-400"
+                    : "text-red-400"
+                }`}
+              >
+                {settings.goldTradingEnabled
+                  ? "Enabled"
+                  : "Disabled"}
+              </h3>
+            </div>
 
-            <Power size={22} className="text-blue-400" />
+            <div
+              className={`rounded-xl p-5 border ${
+                settings.usdtTradingEnabled
+                  ? "bg-green-950 border-green-500"
+                  : "bg-red-950 border-red-500"
+              }`}
+            >
+              <p className="text-gray-300 text-sm">
+                USDT Trading
+              </p>
+
+              <h3
+                className={`text-2xl font-black mt-2 ${
+                  settings.usdtTradingEnabled
+                    ? "text-green-400"
+                    : "text-red-400"
+                }`}
+              >
+                {settings.usdtTradingEnabled
+                  ? "Enabled"
+                  : "Disabled"}
+              </h3>
+            </div>
+
+            <div
+              className={`rounded-xl p-5 border ${
+                settings.marketStatus
+                  ? "bg-green-950 border-green-500"
+                  : "bg-red-950 border-red-500"
+              }`}
+            >
+              <p className="text-gray-300 text-sm">
+                Complete Market
+              </p>
+
+              <h3
+                className={`text-2xl font-black mt-2 ${
+                  settings.marketStatus
+                    ? "text-green-400"
+                    : "text-red-400"
+                }`}
+              >
+                {settings.marketStatus
+                  ? "OPEN"
+                  : "CLOSED"}
+              </h3>
+            </div>
+
           </div>
+        </section>
 
-          <p className="text-sm text-gray-400 mb-4">
-            Current Status
-          </p>
+        {/* ================= SAVE SETTINGS BUTTON ================= */}
 
+        <section className="bg-zinc-900 border border-green-500 rounded-2xl p-6">
           <button
-            onClick={toggleMarket}
-            className={`w-full py-3 rounded-xl font-bold transition ${
-              settings.marketStatus === "OPEN"
-                ? "bg-green-600 hover:bg-green-500 text-white"
-                : "bg-red-600 hover:bg-red-500 text-white"
-            }`}
+            onClick={saveSettings}
+            disabled={saving}
+            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-zinc-700 disabled:text-gray-400 py-4 rounded-xl text-xl font-bold flex items-center justify-center gap-3 transition"
           >
-            {settings.marketStatus}
+            <Save size={22} />
+
+            {saving
+              ? "Saving Market Settings..."
+              : "Save Market Settings"}
           </button>
 
-        </div>
-
-        {/* Trading */}
-        <div className="bg-zinc-900 border border-green-500 rounded-3xl p-5">
-
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-green-400">
-              Gold Trading
-            </h3>
-
-            <ShieldCheck size={22} className="text-green-400" />
-          </div>
-
-          <p className="text-sm text-gray-400 mb-4">
-            Trading Permission
+          <p className="text-center text-gray-400 mt-4 text-sm">
+            Changes will update Gold and USDT prices across the entire GoldTrade platform instantly.
           </p>
+        </section>
 
-          <button
-            onClick={toggleTrading}
-            className={`w-full py-3 rounded-xl font-bold transition ${
-              settings.goldTradingEnabled
-                ? "bg-green-600 hover:bg-green-500 text-white"
-                : "bg-zinc-700 hover:bg-zinc-600 text-white"
-            }`}
-          >
-            {settings.goldTradingEnabled ? "ENABLED" : "DISABLED"}
-          </button>
+        {/* ================= ADMIN NOTES ================= */}
 
-        </div>
+        <section className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6">
+          <h2 className="text-2xl font-black text-yellow-400 mb-5">
+            Admin Notes
+          </h2>
 
-        {/* Maintenance */}
-        <div className="bg-zinc-900 border border-red-500 rounded-3xl p-5">
+          <div className="space-y-4 text-gray-300">
 
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-red-400">
-              Maintenance Mode
-            </h3>
+            <div className="flex items-start gap-3">
+              <ShieldCheck
+                className="text-green-400 mt-1"
+                size={20}
+              />
+              <p>
+                Gold Buy and Sell prices update immediately on the user dashboard.
+              </p>
+            </div>
 
-            <Power size={22} className="text-red-400" />
+            <div className="flex items-start gap-3">
+              <ShieldCheck
+                className="text-green-400 mt-1"
+                size={20}
+              />
+              <p>
+                USDT Buy and Sell rates are applied instantly for all users.
+              </p>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <ShieldCheck
+                className="text-green-400 mt-1"
+                size={20}
+              />
+              <p>
+                Turning Market Status OFF blocks Gold and USDT trading across the platform.
+              </p>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <ShieldCheck
+                className="text-green-400 mt-1"
+                size={20}
+              />
+              <p>
+                Trading switches affect Buy, Sell, Wallet and Dashboard pages instantly after saving.
+              </p>
+            </div>
+
           </div>
-
-          <p className="text-sm text-gray-400 mb-4">
-            Website Maintenance
-          </p>
-
-          <button
-            onClick={toggleMaintenance}
-            className={`w-full py-3 rounded-xl font-bold transition ${
-              settings.maintenanceMode
-                ? "bg-red-600 hover:bg-red-500 text-white"
-                : "bg-zinc-700 hover:bg-zinc-600 text-white"
-            }`}
-          >
-            {settings.maintenanceMode ? "ACTIVE" : "OFF"}
-          </button>
-
-        </div>
+        </section>
 
       </div>
-
-      {/* ================= ACTION BUTTONS ================= */}
-      <div className="flex flex-wrap gap-4">
-
-        <button
-          onClick={saveSettings}
-          disabled={saving}
-          className="bg-yellow-500 hover:bg-yellow-400 disabled:bg-yellow-700 text-black font-black px-8 py-4 rounded-2xl flex items-center gap-3"
-        >
-          <Save size={20} />
-          {saving ? "Saving..." : "Save Settings"}
-        </button>
-
-        <button
-          onClick={resetSettings}
-          className="bg-red-600 hover:bg-red-500 text-white font-black px-8 py-4 rounded-2xl flex items-center gap-3"
-        >
-          <RotateCcw size={20} />
-          Reset Default
-        </button>
-
-      </div>
-
-      {/* ================= LAST UPDATE ================= */}
-      <div className="mt-10 text-sm text-gray-500 border-t border-zinc-800 pt-5">
-        Last Updated:{" "}
-        {settings.updatedAt
-          ? new Date(settings.updatedAt).toLocaleString()
-          : "Never"}
-      </div>
-
-    </div>
+    </main>
   );
 }

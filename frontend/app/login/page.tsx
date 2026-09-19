@@ -260,7 +260,7 @@ export default function LoginPage() {
           </p>
 
           <p className="text-gray-600 text-xs mt-2">
-            Pkr • Gold • Usdt wallet System
+            Pkr • Gold • Usdt Wallet System
           </p>
 
         </div>      </div>

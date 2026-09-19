@@ -2,1235 +2,1080 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import {
+  ArrowLeft,
+  RefreshCw,
+  DollarSign,
+  Wallet,
+  TrendingUp,
+  CheckCircle,
+} from "lucide-react";
 
-// =====================================================
-// GoldTrade V18 BUY Usdt PAGE
-// PART 1/8
-// Imports + API + Types + States
-// =====================================================
-
-// =====================================================
-// API URL
-// =====================================================
+// =====================================
+// API URL (Render + Local Safe)
+// =====================================
 
 const API =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-// =====================================================
+// =====================================
 // TYPES
-// =====================================================
-
-type NetworkType = "TRC20" | "BEP20" | "ERC20";
-type PaymentMethod = "Wallet Transfer" | "Bank Transfer";
+// =====================================
 
 interface WalletData {
-  username?: string;
-  PkrBalance: number;
-  UsdtBalance: number;
-  goldBalance: number;
+  walletBalance: number;
+  usdtBalance: number;
 }
 
-interface WalletResponse {
-  success: boolean;
-  wallet: WalletData;
+interface UsdtRate {
+  buyRate: number;
+  tradingEnabled: boolean;
 }
 
-interface RateResponse {
-  success: boolean;
-  currency: string;
+interface BuyHistory {
+  _id: string;
+  usdtAmount: number;
+  pkrAmount: number;
   rate: number;
-  buyRate?: number;
-  sellRate?: number;
-}
-
-interface HistoryItem {
-  _id?: string;
-  type: string;
-  amount: number;
-  price: number;
-  network: string;
-  paymentMethod: string;
-  status: string;
   createdAt: string;
 }
 
-interface BuyResponse {
-  success: boolean;
-  message: string;
-}
+// =====================================
+// DEFAULT VALUES
+// =====================================
 
-// =====================================================
-// COMPONENT START
-// =====================================================
+const emptyWallet: WalletData = {
+  walletBalance: 0,
+  usdtBalance: 0,
+};
+
+const defaultRate: UsdtRate = {
+  buyRate: 285,
+  tradingEnabled: true,
+};
+
+// =====================================
+// PAGE
+// =====================================
 
 export default function BuyUsdtPage() {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("token") || ""
+      : "";
 
-// ==========================================
-// USER INFO
-// ==========================================
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
 
-const [username, setUsername] = useState("");
-const [token, setToken] = useState("");
-const [mounted, setMounted] = useState(false);
-// ==========================================
-// LOAD USER FROM LOCAL STORAGE
-// ==========================================
+  const [wallet, setWallet] =
+    useState<WalletData>(emptyWallet);
 
-useEffect(() => {
-  if (typeof window === "undefined") return;
+  const [market, setMarket] =
+    useState<UsdtRate>(defaultRate);
 
-  setUsername(localStorage.getItem("username") || "");
-  setToken(localStorage.getItem("token") || "");
-  setMounted(true);
-}, []);
-
-  // ==========================================
-  // LOADING STATES
-  // ==========================================
+  const [history, setHistory] = useState<BuyHistory[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [buyLoading, setBuyLoading] = useState(false);
 
-  // ==========================================
-  // ERROR / SUCCESS
-  // ==========================================
+  const [usdtAmount, setUsdtAmount] = useState(100);
 
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  // =====================================
+  // LOAD DATA
+  // =====================================
 
-  // ==========================================
-  // LIVE RATE
-  // ==========================================
-
-  const [rate, setRate] = useState<number>(0);
-
-  // ==========================================
-  // WALLET DATA
-  // ==========================================
-
-  const [wallet, setWallet] = useState<WalletData>({
-    PkrBalance: 0,
-    UsdtBalance: 0,
-    goldBalance: 0,
-  });
-
-  // ==========================================
-  // BUY FORM
-  // ==========================================
-
-  const [amountPkr, setAmountPkr] = useState<number>(0);
-
-  const [network, setNetwork] =
-    useState<NetworkType>("TRC20");
-
-  const [paymentMethod, setPaymentMethod] =
-    useState<PaymentMethod>("Wallet Transfer");
-
-  const [walletAddress, setWalletAddress] =
-    useState("");
-
-  const [note, setNote] = useState("");
-
-  // ==========================================
-  // HISTORY
-  // ==========================================
-
-  const [transactions, setTransactions] =
-    useState<HistoryItem[]>([]);
-
-  // ==========================================
-  // CALCULATED Usdt
-  // ==========================================
-
-  const UsdtAmount = useMemo(() => {
-    if (!rate || amountPkr <= 0) return 0;
-    return Number((amountPkr / rate).toFixed(4));
-  }, [amountPkr, rate]);
-
-  const portfolioValue = useMemo(() => {
-    return Number((wallet.UsdtBalance * rate).toFixed(2));
-  }, [wallet.UsdtBalance, rate]);
-
-  // =====================================================
-  // PART 2/8
-  // LOAD RATE + WALLET + HISTORY
-  // =====================================================
-
-  // ==========================================
-  // LOAD LIVE Usdt RATE
-  // GET /api/Usdt/rate
-  // ==========================================
-
-  const loadRate = async () => {
+  const loadData = async () => {
     try {
-      const response = await fetch(`${API}/api/Usdt/rate`);
+      setLoading(true);
 
-      if (!response.ok) {
-        throw new Error(`Rate API failed (${response.status})`);
+      const [walletRes, rateRes, historyRes] =
+        await Promise.all([
+          fetch(`${API}/api/wallet/balance`, {
+            headers,
+          }),
+          fetch(`${API}/api/usdt/rate`),
+          fetch(`${API}/api/usdt/history`, {
+            headers,
+          }),
+        ]);
+
+      const walletData = await walletRes.json();
+      const rateData = await rateRes.json();
+      const historyData = await historyRes.json();
+
+      if (walletRes.ok) {
+        setWallet({
+          walletBalance: walletData.walletBalance || 0,
+          usdtBalance: walletData.usdtBalance || 0,
+        });
       }
 
-      const data: RateResponse = await response.json();
-
-      if (data.success) {
-        setRate(Number(data.rate));
+      if (rateRes.ok) {
+        setMarket({
+          buyRate: rateData.buyRate || 285,
+          tradingEnabled:
+            rateData.tradingEnabled ?? true,
+        });
       }
-    } catch (error) {
-      console.error("Usdt RATE ERROR:", error);
-      setErrorMessage("Unable to load Usdt rate.");
+
+      if (historyRes.ok) {
+        setHistory(historyData.history || []);
+      }
+    } catch (err) {
+      console.error("USDT Buy Error:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ==========================================
-  // LOAD USER WALLET
-  // GET /api/wallet/:username
-  // ==========================================
-
-  const loadWallet = async (
-    currentUsername: string,
-    currentToken: string
-  ) => {
-    try {
-      const response = await fetch(
-        `${API}/api/wallet/${currentUsername}`,
-        {
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Wallet API failed (${response.status})`);
-      }
-
-      const data: WalletResponse = await response.json();
-
-      if (data.success) {
-        setWallet(data.wallet);
-      }
-    } catch (error) {
-      console.error("LOAD WALLET ERROR:", error);
-      setErrorMessage("Unable to load wallet.");
+  useEffect(() => {
+    if (!token) {
+      window.location.href = "/login";
+      return;
     }
-  };
 
-  // =====================================================
-  // LOAD BUY HISTORY
-  // GET /api/Usdt/history/:username
-  // =====================================================
+    loadData();
+  }, []);
 
-  const loadHistory = async (
-    currentUsername: string,
-    currentToken: string
-  ) => {
+  // =====================================
+  // CALCULATIONS
+  // =====================================
+
+  const totalPkr = useMemo(() => {
+    return usdtAmount * market.buyRate;
+  }, [usdtAmount, market.buyRate]);
+
+  const enoughBalance = wallet.walletBalance >= totalPkr;
+
+  // =====================================
+  // BUY USDT
+  // =====================================
+
+  const buyUsdt = async () => {
+    if (!market.tradingEnabled) {
+      alert("USDT trading is disabled.");
+      return;
+    }
+
+    if (!enoughBalance) {
+      alert("Insufficient PKR Wallet Balance.");
+      return;
+    }
+
     try {
+      setBuyLoading(true);
+
       const response = await fetch(
-        `${API}/api/Usdt/history/${currentUsername}`,
+        `${API}/api/usdt/buy`,
         {
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-          },
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            usdtAmount,
+          }),
         }
       );
-
-      if (!response.ok) {
-        throw new Error(`History API failed (${response.status})`);
-      }
 
       const data = await response.json();
 
-      if (data.success) {
-        setTransactions(data.history || []);
+      if (response.ok && data.success) {
+        alert("USDT purchased successfully.");
+        await loadData();
+      } else {
+        alert(data.message || "Purchase failed.");
       }
-    } catch (error) {
-      console.error("LOAD HISTORY ERROR:", error);
-    }
-  };
-
-  // =====================================================
-  // LOAD COMPLETE DASHBOARD
-  // =====================================================
-
-  const loadDashboard = async (
-    currentUsername: string,
-    currentToken: string
-  ) => {
-    if (!currentUsername || !currentToken) return;
-
-    setLoading(true);
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    try {
-      await Promise.all([
-        loadRate(),
-        loadWallet(currentUsername, currentToken),
-        loadHistory(currentUsername, currentToken),
-      ]);
-    } catch (error) {
-      console.error("BUY Usdt DASHBOARD ERROR:", error);
-      setErrorMessage("Unable to load dashboard.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // =====================================================
-  // REFRESH DASHBOARD
-  // =====================================================
-
-  const refreshWallet = async () => {
-    if (!username || !token) return;
-
-    await loadDashboard(username, token);
-  };
-
-  // =====================================================
-  // INITIAL LOAD
-  // =====================================================
-
-  useEffect(() => {
-    if (!username || !token) {
-      setLoading(false);
-      setErrorMessage("Please login first.");
-      return;
-    }
-
-    loadDashboard(username, token);
-  }, [username, token]);
-
-  // =====================================================
-  // AUTO CLEAR SUCCESS MESSAGE
-  // =====================================================
-
-  useEffect(() => {
-    if (!successMessage) return;
-
-    const timer = setTimeout(() => {
-      setSuccessMessage("");
-    }, 4000);
-
-    return () => clearTimeout(timer);
-  }, [successMessage]);
-
-  // =====================================================
-  // FORMAT DATE
-  // =====================================================
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString("en-PK", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  };
-
-  // =====================================================
-  // FORMAT CURRENCY
-  // =====================================================
-
-  const formatCurrency = (amount: number) => {
-    return Number(amount || 0).toLocaleString("en-PK");
-  };
-
-  // =====================================================
-  // NETWORK LIST
-  // =====================================================
-
-  const networkOptions: NetworkType[] = [
-    "TRC20",
-    "BEP20",
-    "ERC20",
-  ];
-    // =====================================================
-  // PART 4/8
-  // BUY Usdt REQUEST
-  // POST /api/Usdt/buy
-  // =====================================================
-
-  const submitBuyRequest = async () => {
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    if (!username || !token) {
-      setErrorMessage("Please login first.");
-      return;
-    }
-
-    if (amountPkr <= 0) {
-      setErrorMessage("Enter Pkr amount.");
-      return;
-    }
-
-    if (UsdtAmount <= 0) {
-      setErrorMessage("Invalid Usdt amount.");
-      return;
-    }
-
-    if (!walletAddress.trim()) {
-      setErrorMessage("Enter your Usdt wallet address.");
-      return;
-    }
-
-    if (paymentMethod === "Wallet Transfer" && wallet.PkrBalance < amountPkr) {
-      setErrorMessage("Insufficient Pkr wallet balance.");
-      return;
-    }
-
-    setBuyLoading(true);
-
-    try {
-      const response = await fetch(`${API}/api/Usdt/buy`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          username,
-          amountPkr,
-          UsdtAmount,
-          rate,
-          network,
-          paymentMethod,
-          walletAddress,
-          note,
-        }),
-      });
-
-      const data: BuyResponse = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Buy request failed.");
-      }
-
-      setSuccessMessage(data.message || "Buy request submitted successfully.");
-
-      // Reset form
-      setAmountPkr(0);
-      setWalletAddress("");
-      setNote("");
-      setNetwork("TRC20");
-      setPaymentMethod("Wallet Transfer");
-
-      // Reload dashboard after successful request
-      await Promise.all([
-        loadWallet(username, token),
-        loadHistory(username, token),
-      ]);
-    } catch (error: any) {
-      console.error("BUY Usdt ERROR:", error);
-      setErrorMessage(error.message || "Unable to submit buy request.");
+    } catch (err) {
+      console.error(err);
+      alert("Server Error");
     } finally {
       setBuyLoading(false);
     }
-  };
+  };  // =====================================
+  // LOADING SCREEN
+  // =====================================
 
-  // =====================================================
-  // RESET BUY FORM
-  // =====================================================
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-black flex items-center justify-center text-blue-400">
+        <RefreshCw className="animate-spin mr-3" size={26} />
+        Loading USDT Buy Page...
+      </main>
+    );
+  }
 
-  const resetBuyForm = () => {
-    setAmountPkr(0);
-    setWalletAddress("");
-    setNote("");
-    setNetwork("TRC20");
-    setPaymentMethod("Wallet Transfer");
-    setErrorMessage("");
-    setSuccessMessage("");
-  };  // =====================================================
-  // PART 5/8
-  // RETURN START + HEADER + WALLET CARDS
-  // =====================================================
+  // =====================================
+  // UI
+  // =====================================
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <main className="min-h-screen bg-black text-white p-6">
+      <div className="max-w-6xl mx-auto space-y-8">
 
-      {/* ==========================================
-          HEADER
-      ========================================== */}
+        {/* ================= HEADER ================= */}
 
-      <div className="bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-700 text-white shadow-xl">
-        <div className="mx-auto max-w-7xl px-6 py-8">
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="flex items-center gap-3 text-4xl font-black text-blue-400">
+              <DollarSign size={38} />
+              Buy USDT
+            </h1>
 
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-
-            <div>
-              <p className="text-cyan-200 text-sm font-medium uppercase tracking-widest">
-                GoldTrade Wallet
-              </p>
-
-              <h1 className="mt-2 text-4xl font-bold">
-                Buy Usdt
-              </h1>
-
-              <p className="mt-2 text-blue-100">
-                Purchase Usdt instantly using your Pkr wallet or bank transfer.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-
-              <Link
-                href="/wallet"
-                className="rounded-xl bg-white/20 px-5 py-3 text-sm font-semibold backdrop-blur hover:bg-white/30"
-              >
-                ← Wallet
-              </Link>
-
-              <Link
-                href="/Usdt"
-                className="rounded-xl bg-white/20 px-5 py-3 text-sm font-semibold backdrop-blur hover:bg-white/30"
-              >
-                Usdt Dashboard
-              </Link>
-
-              <button
-                onClick={refreshWallet}
-                disabled={loading}
-                className="rounded-xl bg-green-500 px-5 py-3 text-sm font-semibold hover:bg-green-600 disabled:opacity-50"
-              >
-                {loading ? "Refreshing..." : "Refresh Wallet"}
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-      </div>
-
-      {/* ==========================================
-          PAGE CONTAINER
-      ========================================== */}
-
-      <div className="mx-auto max-w-7xl px-6 py-8 space-y-6">
-
-        {/* ==========================================
-            ERROR MESSAGE
-        ========================================== */}
-
-        {errorMessage && (
-          <div className="rounded-xl border border-red-300 bg-red-100 p-4 text-red-700">
-            {errorMessage}
-          </div>
-        )}
-
-        {/* ==========================================
-            SUCCESS MESSAGE
-        ========================================== */}
-
-        {successMessage && (
-          <div className="rounded-xl border border-green-300 bg-green-100 p-4 text-green-700">
-            {successMessage}
-          </div>
-        )}
-
-        {/* ==========================================
-            WALLET CARDS
-        ========================================== */}
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-
-          {/* Pkr Wallet */}
-
-          <div className="rounded-3xl bg-white p-6 shadow-lg border-l-8 border-green-500">
-
-            <p className="text-gray-500 text-sm uppercase tracking-wide">
-              Pkr Wallet
+            <p className="text-gray-400 mt-2">
+              Purchase USDT directly from your PKR wallet.
             </p>
-
-            <h2 className="mt-3 text-3xl font-bold text-green-600">
-              Rs. {formatCurrency(wallet.PkrBalance)}
-            </h2>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Available balance for Usdt purchases.
-            </p>
-
           </div>
 
-          {/* Usdt Wallet */}
-
-          <div className="rounded-3xl bg-white p-6 shadow-lg border-l-8 border-cyan-500">
-
-            <p className="text-gray-500 text-sm uppercase tracking-wide">
-              Usdt Wallet
-            </p>
-
-            <h2 className="mt-3 text-3xl font-bold text-cyan-600">
-              {wallet.UsdtBalance.toFixed(4)} Usdt
-            </h2>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Current Usdt balance.
-            </p>
-
-          </div>
-
-          {/* GOLD Wallet */}
-
-          <div className="rounded-3xl bg-white p-6 shadow-lg border-l-8 border-yellow-500">
-
-            <p className="text-gray-500 text-sm uppercase tracking-wide">
-              Gold Wallet
-            </p>
-
-            <h2 className="mt-3 text-3xl font-bold text-yellow-600">
-              {wallet.goldBalance.toFixed(4)} g
-            </h2>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Your GoldTrade balance.
-            </p>
-
-          </div>
-
-          {/* Live Rate */}
-
-          <div className="rounded-3xl bg-gradient-to-r from-blue-600 to-cyan-600 p-6 text-white shadow-xl">
-
-            <p className="text-cyan-100 text-sm uppercase tracking-wide">
-              Live Usdt Rate
-            </p>
-
-            <h2 className="mt-3 text-4xl font-bold">
-              Rs. {formatCurrency(rate)}
-            </h2>
-
-            <p className="mt-2 text-sm text-cyan-100">
-              Updated from GoldTrade server.
-            </p>
-
-          </div>
-
-        </div>
-
-        {/* ==========================================
-            PORTFOLIO VALUE CARD
-        ========================================== */}
-
-        <div className="rounded-3xl bg-gradient-to-r from-indigo-700 to-blue-700 p-8 text-white shadow-xl">
-
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-
-            <div>
-
-              <p className="text-blue-200 uppercase text-sm tracking-widest">
-                Estimated Usdt Portfolio
-              </p>
-
-              <h2 className="mt-2 text-4xl font-bold">
-                Rs. {formatCurrency(portfolioValue)}
-              </h2>
-
-              <p className="mt-2 text-blue-100">
-                Current value of your Usdt wallet at the live market rate.
-              </p>
-
-            </div>
-
-            <div className="rounded-2xl bg-white/20 px-6 py-4 backdrop-blur">
-
-              <p className="text-sm text-blue-100">
-                Logged in as
-              </p>
-
-              <h3 className="text-2xl font-bold">
-                {username || "Guest"}
-              </h3>
-
-            </div>
-
-          </div>
-
-        </div>
-
-                {/* ==========================================
-            BUY Usdt FORM
-        ========================================== */}
-
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-
-          {/* ==========================================
-              BUY FORM CARD
-          ========================================== */}
-
-          <div className="xl:col-span-2 rounded-3xl bg-white p-8 shadow-lg">
-
-            <div className="mb-6">
-              <h2 className="text-3xl font-bold text-slate-800">
-                Buy Usdt
-              </h2>
-
-              <p className="mt-2 text-slate-500">
-                Enter Pkr amount and submit a Usdt purchase request.
-              </p>
-            </div>
-
-            <div className="space-y-6">
-
-              {/* Pkr Amount */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Pkr Amount
-                </label>
-
-                <input
-                  type="number"
-                  min={0}
-                  value={amountPkr || ""}
-                  onChange={(e) =>
-                    setAmountPkr(Number(e.target.value))
-                  }
-                  placeholder="Enter Pkr amount"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-lg outline-none focus:border-cyan-500"
-                />
-              </div>
-
-              {/* Live Conversion */}
-
-              <div className="rounded-2xl bg-cyan-50 p-5">
-
-                <div className="flex items-center justify-between">
-
-                  <span className="font-medium text-slate-700">
-                    Live Rate
-                  </span>
-
-                  <span className="font-bold text-cyan-700">
-                    Rs. {formatCurrency(rate)}
-                  </span>
-
-                </div>
-
-                <div className="mt-4 flex items-center justify-between">
-
-                  <span className="font-medium text-slate-700">
-                    You Will Receive
-                  </span>
-
-                  <span className="text-3xl font-bold text-green-600">
-                    {UsdtAmount.toFixed(4)} Usdt
-                  </span>
-
-                </div>
-
-              </div>
-
-              {/* Network */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Network
-                </label>
-
-                <select
-                  value={network}
-                  onChange={(e) =>
-                    setNetwork(e.target.value as NetworkType)
-                  }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-cyan-500"
-                >
-                  {networkOptions.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Payment Method */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Payment Method
-                </label>
-
-                <div className="grid grid-cols-2 gap-4">
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPaymentMethod("Wallet Transfer")
-                    }
-                    className={`rounded-xl border px-4 py-3 font-semibold transition ${
-                      paymentMethod === "Wallet Transfer"
-                        ? "border-cyan-600 bg-cyan-600 text-white"
-                        : "border-slate-300 bg-white text-slate-700"
-                    }`}
-                  >
-                    Wallet Transfer
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPaymentMethod("Bank Transfer")
-                    }
-                    className={`rounded-xl border px-4 py-3 font-semibold transition ${
-                      paymentMethod === "Bank Transfer"
-                        ? "border-indigo-600 bg-indigo-600 text-white"
-                        : "border-slate-300 bg-white text-slate-700"
-                    }`}
-                  >
-                    Bank Transfer
-                  </button>
-
-                </div>
-              </div>
-
-              {/* Wallet Address */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Your Usdt Wallet Address
-                </label>
-
-                <textarea
-                  rows={3}
-                  value={walletAddress}
-                  onChange={(e) =>
-                    setWalletAddress(e.target.value)
-                  }
-                  placeholder="Paste your TRC20 / BEP20 / ERC20 wallet address..."
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-cyan-500"
-                />
-              </div>
-
-              {/* Note */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Note (Optional)
-                </label>
-
-                <textarea
-                  rows={2}
-                  value={note}
-                  onChange={(e) =>
-                    setNote(e.target.value)
-                  }
-                  placeholder="Write an optional note..."
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-cyan-500"
-                />
-              </div>
-
-              {/* Action Buttons */}
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-
-                <button
-                  type="button"
-                  disabled={buyLoading}
-                  onClick={submitBuyRequest}
-                  className="rounded-xl bg-gradient-to-r from-cyan-600 to-blue-700 px-6 py-4 text-lg font-bold text-white transition hover:opacity-90 disabled:opacity-60"
-                >
-                  {buyLoading
-                    ? "Submitting Request..."
-                    : "Buy Usdt Now"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={resetBuyForm}
-                  className="rounded-xl border border-slate-300 px-6 py-4 text-lg font-semibold text-slate-700 transition hover:bg-slate-100"
-                >
-                  Reset Form
-                </button>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* ==========================================
-              PURCHASE SUMMARY CARD
-          ========================================== */}
-
-          <div className="rounded-3xl bg-white p-8 shadow-lg">
-
-            <h3 className="mb-6 text-2xl font-bold text-slate-800">
-              Purchase Summary
-            </h3>
-
-            <div className="space-y-5">
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">
-                  Payment Method
-                </span>
-
-                <span className="font-bold text-slate-700">
-                  {paymentMethod}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">
-                  Selected Network
-                </span>
-
-                <span className="font-bold text-slate-700">
-                  {network}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">
-                  Pkr Amount
-                </span>
-
-                <span className="font-bold text-green-600">
-                  Rs. {formatCurrency(amountPkr)}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">
-                  Usdt Receive
-                </span>
-
-                <span className="text-xl font-bold text-cyan-600">
-                  {UsdtAmount.toFixed(4)} Usdt
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">
-                  Live Rate
-                </span>
-
-                <span className="font-bold text-slate-700">
-                  Rs. {formatCurrency(rate)}
-                </span>
-              </div>
-
-              <hr />
-
-              <div className="rounded-2xl bg-slate-100 p-5">
-
-                <p className="text-sm text-slate-500">
-                  Available Pkr Wallet
-                </p>
-
-                <h2 className="mt-2 text-3xl font-bold text-green-600">
-                  Rs. {formatCurrency(wallet.PkrBalance)}
-                </h2>
-
-              </div>
-
-              <div className="rounded-2xl bg-cyan-50 p-5">
-
-                <p className="text-sm text-slate-500">
-                  Current Usdt Wallet
-                </p>
-
-                <h2 className="mt-2 text-3xl font-bold text-cyan-600">
-                  {wallet.UsdtBalance.toFixed(4)} Usdt
-                </h2>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-                {/* ==========================================
-            BUY Usdt TRANSACTION HISTORY
-        ========================================== */}
-
-        <div className="rounded-3xl bg-white p-8 shadow-lg">
-
-          <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
-            <div>
-              <h2 className="text-3xl font-bold text-slate-800">
-                Buy Usdt History
-              </h2>
-
-              <p className="mt-1 text-slate-500">
-                Your latest Buy Usdt requests and approval status.
-              </p>
-            </div>
+          <div className="flex gap-3">
+            <Link
+              href="/usdt"
+              className="bg-zinc-800 hover:bg-zinc-700 px-4 py-3 rounded-xl flex items-center gap-2 font-bold"
+            >
+              <ArrowLeft size={18} />
+              USDT Dashboard
+            </Link>
 
             <button
-              type="button"
-              onClick={refreshWallet}
-              className="rounded-xl bg-cyan-600 px-5 py-3 font-semibold text-white hover:bg-cyan-700"
+              onClick={loadData}
+              className="bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-xl flex items-center gap-2 font-bold"
             >
-              Refresh History
+              <RefreshCw size={18} />
+              Refresh
             </button>
+          </div>
+        </header>
+
+        {/* ================= TRADING STATUS ================= */}
+
+        <section
+          className={`rounded-2xl p-5 border ${
+            market.tradingEnabled
+              ? "bg-green-950 border-green-500"
+              : "bg-red-950 border-red-500"
+          }`}
+        >
+          <h2 className="text-xl font-bold">
+            {market.tradingEnabled
+              ? "USDT Buying Enabled"
+              : "USDT Buying Disabled"}
+          </h2>
+
+          <p className="text-gray-300 mt-2">
+            {market.tradingEnabled
+              ? "You can purchase USDT using your PKR wallet."
+              : "Buying has been disabled by the administrator."}
+          </p>
+        </section>
+
+        {/* ================= WALLET CARDS ================= */}
+
+        <section className="grid md:grid-cols-2 gap-5">
+
+          <div className="bg-zinc-900 border border-green-500 rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <Wallet className="text-green-400" size={28} />
+
+              <h2 className="text-xl font-bold text-green-400">
+                PKR Wallet Balance
+              </h2>
+            </div>
+
+            <h3 className="text-3xl font-black">
+              PKR {wallet.walletBalance.toLocaleString()}
+            </h3>
+
+            <p className="text-sm text-gray-400 mt-2">
+              Available balance for USDT purchase.
+            </p>
+          </div>
+
+          <div className="bg-zinc-900 border border-blue-500 rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <DollarSign className="text-blue-400" size={28} />
+
+              <h2 className="text-xl font-bold text-blue-400">
+                USDT Wallet Balance
+              </h2>
+            </div>
+
+            <h3 className="text-3xl font-black">
+              {wallet.usdtBalance.toFixed(2)} USDT
+            </h3>
+
+            <p className="text-sm text-gray-400 mt-2">
+              Current USDT available in your wallet.
+            </p>
+          </div>
+
+        </section>
+
+        {/* ================= LIVE BUY RATE ================= */}
+
+        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <TrendingUp className="text-cyan-400" size={28} />
+
+            <h2 className="text-2xl font-black text-cyan-400">
+              Live Buy Rate
+            </h2>
+          </div>
+
+          <h3 className="text-5xl font-black text-cyan-400">
+            PKR {market.buyRate}
+          </h3>
+
+          <p className="text-gray-400 mt-3">
+            Current purchase price of 1 USDT.
+          </p>
+        </section>
+
+        {/* ================= BUY FORM ================= */}
+
+        <section className="bg-zinc-900 border border-blue-500 rounded-2xl p-6 space-y-5">
+
+          <h2 className="text-2xl font-black text-blue-400">
+            Buy USDT
+          </h2>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">
+              Enter USDT Amount
+            </label>
+
+            <input
+              type="number"
+              min={1}
+              value={usdtAmount}
+              onChange={(e) =>
+                setUsdtAmount(Number(e.target.value))
+              }
+              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-lg outline-none focus:border-blue-500"
+              placeholder="Enter USDT amount"
+            />
+          </div>
+
+          {/* Cost Calculation */}
+
+          <div className="bg-zinc-800 rounded-xl p-5 space-y-3">
+
+            <div className="flex justify-between">
+              <span className="text-gray-400">
+                Buy Rate
+              </span>
+
+              <span className="text-cyan-400 font-bold">
+                PKR {market.buyRate}
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-gray-400">
+                USDT Amount
+              </span>
+
+              <span className="text-blue-400 font-bold">
+                {usdtAmount.toFixed(2)} USDT
+              </span>
+            </div>
+
+            <hr className="border-zinc-700" />
+
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-semibold">
+                Total PKR Required
+              </span>
+
+              <span className="text-3xl font-black text-green-400">
+                PKR {totalPkr.toLocaleString()}
+              </span>
+            </div>
 
           </div>
 
-          {/* Empty State */}
+          {/* Balance Check */}
 
-          {transactions.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 py-14 text-center">
+          <div
+            className={`rounded-xl p-4 border ${
+              enoughBalance
+                ? "bg-green-950 border-green-500"
+                : "bg-red-950 border-red-500"
+            }`}
+          >
+            {enoughBalance ? (
+              <div className="flex items-center gap-3 text-green-400">
+                <CheckCircle size={22} />
 
-              <div className="text-6xl">📄</div>
+                <span className="font-semibold">
+                  Sufficient PKR balance available.
+                </span>
+              </div>
+            ) : (
+              <div className="text-red-400 font-semibold">
+                Insufficient PKR Wallet Balance.
+              </div>
+            )}
+          </div>
 
-              <h3 className="mt-4 text-xl font-semibold text-slate-700">
-                No Buy Usdt Transactions
+          {/* Buy Button */}
+
+          <button
+            disabled={
+              buyLoading ||
+              !market.tradingEnabled ||
+              !enoughBalance
+            }
+            onClick={buyUsdt}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:text-gray-400 py-4 rounded-xl text-lg font-bold transition"
+          >
+            {buyLoading ? "Processing Purchase..." : "Buy USDT Now"}
+          </button>
+
+        </section>        {/* ================= PURCHASE SUMMARY ================= */}
+
+        <section className="bg-zinc-900 border border-purple-500 rounded-2xl p-6">
+          <h2 className="text-2xl font-black text-purple-400 mb-5">
+            Purchase Summary
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-5">
+
+            <div className="bg-black rounded-xl p-5 border border-blue-500">
+              <p className="text-gray-400 text-sm">Buying</p>
+
+              <h3 className="text-3xl font-black text-blue-400 mt-2">
+                {usdtAmount.toFixed(2)} USDT
               </h3>
+            </div>
 
-              <p className="mt-2 text-slate-500">
-                Your Buy Usdt history will appear here after submitting a request.
-              </p>
+            <div className="bg-black rounded-xl p-5 border border-green-500">
+              <p className="text-gray-400 text-sm">Buy Rate</p>
 
+              <h3 className="text-3xl font-black text-green-400 mt-2">
+                PKR {market.buyRate}
+              </h3>
+            </div>
+
+            <div className="bg-black rounded-xl p-5 border border-yellow-500">
+              <p className="text-gray-400 text-sm">Total Cost</p>
+
+              <h3 className="text-3xl font-black text-yellow-400 mt-2">
+                PKR {totalPkr.toLocaleString()}
+              </h3>
+            </div>
+
+          </div>
+        </section>
+
+        {/* ================= QUICK BUY BUTTONS ================= */}
+
+        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6">
+          <h2 className="text-2xl font-black text-cyan-400 mb-5">
+            Quick Buy
+          </h2>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+            {[25, 50, 100, 250].map((amount) => (
+              <button
+                key={amount}
+                onClick={() => setUsdtAmount(amount)}
+                className={`rounded-xl p-4 font-bold transition ${
+                  usdtAmount === amount
+                    ? "bg-blue-600 text-white"
+                    : "bg-zinc-800 hover:bg-zinc-700 text-gray-300"
+                }`}
+              >
+                {amount} USDT
+              </button>
+            ))}
+
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+
+            {[500, 1000, 2500, 5000].map((amount) => (
+              <button
+                key={amount}
+                onClick={() => setUsdtAmount(amount)}
+                className={`rounded-xl p-4 font-bold transition ${
+                  usdtAmount === amount
+                    ? "bg-green-600 text-white"
+                    : "bg-zinc-800 hover:bg-zinc-700 text-gray-300"
+                }`}
+              >
+                {amount} USDT
+              </button>
+            ))}
+
+          </div>
+        </section>
+
+        {/* ================= RECENT BUY HISTORY ================= */}
+
+        <section className="bg-zinc-900 border border-blue-500 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-2xl font-black text-blue-400">
+              Recent USDT Purchases
+            </h2>
+
+            <button
+              onClick={loadData}
+              className="text-blue-400 hover:text-blue-300 flex items-center gap-2"
+            >
+              <RefreshCw size={18} />
+              Refresh
+            </button>
+          </div>
+
+          {history.length === 0 ? (
+            <div className="text-center py-10 text-gray-500">
+              No USDT purchases found.
             </div>
           ) : (
+            <div className="space-y-4">
 
-            <div className="overflow-x-auto rounded-2xl border border-slate-200">
+              {history.slice(0, 5).map((item) => (
+                <div
+                  key={item._id}
+                  className="bg-black border border-zinc-700 rounded-xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+                >
+                  <div>
+                    <div className="flex items-center gap-2 text-green-400 font-bold">
+                      <CheckCircle size={18} />
+                      BUY USDT
+                    </div>
 
-              <table className="min-w-full">
+                    <p className="text-gray-400 text-sm mt-2">
+                      {new Date(item.createdAt).toLocaleString()}
+                    </p>
+                  </div>
 
-                <thead className="bg-slate-100">
+                  <div className="text-center">
+                    <p className="text-gray-400 text-sm">
+                      Purchased
+                    </p>
 
-                  <tr className="text-left text-sm uppercase text-slate-600">
+                    <h3 className="text-2xl font-black text-blue-400">
+                      {item.usdtAmount.toFixed(2)} USDT
+                    </h3>
+                  </div>
 
-                    <th className="px-4 py-3">Date</th>
+                  <div className="text-center">
+                    <p className="text-gray-400 text-sm">
+                      Paid
+                    </p>
 
-                    <th className="px-4 py-3">Network</th>
+                    <h3 className="text-2xl font-black text-green-400">
+                      PKR {item.pkrAmount.toLocaleString()}
+                    </h3>
+                  </div>
 
-                    <th className="px-4 py-3">Pkr</th>
+                  <div className="text-center">
+                    <p className="text-gray-400 text-sm">
+                      Rate
+                    </p>
 
-                    <th className="px-4 py-3">Usdt</th>
+                    <h3 className="text-xl font-bold text-yellow-400">
+                      PKR {item.rate}
+                    </h3>
+                  </div>
+                </div>
+              ))}
 
-                    <th className="px-4 py-3">Rate</th>
+            </div>
+          )}
+        </section>        {/* ================= BUY HISTORY STATISTICS ================= */}
 
-                    <th className="px-4 py-3">Payment</th>
+        <section className="bg-zinc-900 border border-green-500 rounded-2xl p-6">
+          <h2 className="text-2xl font-black text-green-400 mb-5">
+            Purchase Statistics
+          </h2>
 
-                    <th className="px-4 py-3 text-center">Status</th>
+          <div className="grid md:grid-cols-4 gap-5">
 
+            <div className="bg-black rounded-xl p-5 border border-blue-500">
+              <p className="text-gray-400 text-sm">Total Purchases</p>
+
+              <h3 className="text-3xl font-black text-blue-400 mt-2">
+                {history.length}
+              </h3>
+            </div>
+
+            <div className="bg-black rounded-xl p-5 border border-green-500">
+              <p className="text-gray-400 text-sm">Total USDT Bought</p>
+
+              <h3 className="text-3xl font-black text-green-400 mt-2">
+                {history
+                  .reduce((sum, item) => sum + item.usdtAmount, 0)
+                  .toFixed(2)}
+              </h3>
+            </div>
+
+            <div className="bg-black rounded-xl p-5 border border-yellow-500">
+              <p className="text-gray-400 text-sm">Total PKR Spent</p>
+
+              <h3 className="text-3xl font-black text-yellow-400 mt-2">
+                PKR{" "}
+                {history
+                  .reduce((sum, item) => sum + item.pkrAmount, 0)
+                  .toLocaleString()}
+              </h3>
+            </div>
+
+            <div className="bg-black rounded-xl p-5 border border-purple-500">
+              <p className="text-gray-400 text-sm">Wallet USDT Value</p>
+
+              <h3 className="text-3xl font-black text-purple-400 mt-2">
+                PKR{" "}
+                {(wallet.usdtBalance * market.buyRate).toLocaleString()}
+              </h3>
+            </div>
+
+          </div>
+        </section>
+
+        {/* ================= SEARCH HISTORY ================= */}
+
+        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6">
+          <div className="flex flex-wrap justify-between items-center gap-4 mb-5">
+            <h2 className="text-2xl font-black text-cyan-400">
+              Complete Buy History
+            </h2>
+
+            <input
+              type="text"
+              placeholder="Search by date or amount..."
+              onChange={(e) => {
+                const value = e.target.value.toLowerCase();
+
+                if (!value) {
+                  loadData();
+                  return;
+                }
+
+                const filtered = history.filter((item) => {
+                  return (
+                    item.usdtAmount
+                      .toString()
+                      .includes(value) ||
+                    item.pkrAmount
+                      .toString()
+                      .includes(value) ||
+                    new Date(item.createdAt)
+                      .toLocaleDateString()
+                      .toLowerCase()
+                      .includes(value)
+                  );
+                });
+
+                setHistory(filtered);
+              }}
+              className="bg-black border border-zinc-700 rounded-xl px-4 py-3 w-full md:w-80 outline-none focus:border-cyan-500"
+            />
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+
+              <thead>
+                <tr className="border-b border-zinc-700 text-cyan-400">
+                  <th className="p-3">#</th>
+                  <th className="p-3">USDT</th>
+                  <th className="p-3">Rate</th>
+                  <th className="p-3">PKR Paid</th>
+                  <th className="p-3">Purchase Date</th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                {history.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="p-6 text-center text-gray-500"
+                    >
+                      No purchase history found.
+                    </td>
                   </tr>
-
-                </thead>
-
-                <tbody>
-
-                  {transactions.map((tx) => (
-
+                ) : (
+                  history.map((item, index) => (
                     <tr
-                      key={tx._id || tx.createdAt}
-                      className="border-t border-slate-200 hover:bg-slate-50"
+                      key={item._id}
+                      className="border-b border-zinc-800 hover:bg-zinc-800 transition"
                     >
 
-                      {/* Date */}
-
-                      <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap">
-                        {formatDate(tx.createdAt)}
+                      <td className="p-3 text-gray-400">
+                        {index + 1}
                       </td>
 
-                      {/* Network */}
-
-                      <td className="px-4 py-4">
-                        <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-bold text-cyan-700">
-                          {tx.network}
-                        </span>
+                      <td className="p-3 text-blue-400 font-bold">
+                        {item.usdtAmount.toFixed(2)} USDT
                       </td>
 
-                      {/* Pkr */}
-
-                      <td className="px-4 py-4 font-semibold text-green-600 whitespace-nowrap">
-                        Rs. {formatCurrency(tx.amount)}
+                      <td className="p-3 text-yellow-400 font-semibold">
+                        PKR {item.rate}
                       </td>
 
-                      {/* Usdt */}
-
-                      <td className="px-4 py-4 font-bold text-cyan-700 whitespace-nowrap">
-                        {(tx.amount / tx.price).toFixed(4)} Usdt
+                      <td className="p-3 text-green-400 font-semibold">
+                        PKR {item.pkrAmount.toLocaleString()}
                       </td>
 
-                      {/* Rate */}
-
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        Rs. {formatCurrency(tx.price)}
-                      </td>
-
-                      {/* Payment */}
-
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        {tx.paymentMethod}
-                      </td>
-
-                      {/* Status */}
-
-                      <td className="px-4 py-4 text-center">
-
-                        {tx.status === "approved" && (
-                          <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">
-                            Approved
-                          </span>
-                        )}
-
-                        {tx.status === "pending" && (
-                          <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold text-yellow-700">
-                            Pending
-                          </span>
-                        )}
-
-                        {tx.status === "rejected" && (
-                          <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
-                            Rejected
-                          </span>
-                        )}
-
+                      <td className="p-3 text-gray-400 whitespace-nowrap">
+                        {new Date(item.createdAt).toLocaleString()}
                       </td>
 
                     </tr>
+                  ))
+                )}
 
-                  ))}
+              </tbody>
 
-                </tbody>
+            </table>
+          </div>
+        </section>        {/* ================= BUY VALIDATION CARD ================= */}
 
-              </table>
-
-            </div>
-
-          )}
-
-        </div>
-
-        {/* ==========================================
-            QUICK ACTION BUTTONS
-        ========================================== */}
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-
-          <Link
-            href="/Usdt"
-            className="rounded-2xl bg-cyan-600 p-5 text-center text-white shadow-lg transition hover:bg-cyan-700"
-          >
-            <div className="mb-2 text-3xl">🏠</div>
-
-            <h3 className="font-bold text-lg">
-              Usdt Dashboard
-            </h3>
-
-            <p className="mt-1 text-sm text-cyan-100">
-              Back to Usdt dashboard.
-            </p>
-          </Link>
-
-          <Link
-            href="/Usdt/sell-Usdt"
-            className="rounded-2xl bg-indigo-600 p-5 text-center text-white shadow-lg transition hover:bg-indigo-700"
-          >
-            <div className="mb-2 text-3xl">💸</div>
-
-            <h3 className="font-bold text-lg">
-              Sell Usdt
-            </h3>
-
-            <p className="mt-1 text-sm text-indigo-100">
-              Sell Usdt using your wallet.
-            </p>
-          </Link>
-
-          <Link
-            href="/wallet"
-            className="rounded-2xl bg-green-600 p-5 text-center text-white shadow-lg transition hover:bg-green-700"
-          >
-            <div className="mb-2 text-3xl">👛</div>
-
-            <h3 className="font-bold text-lg">
-              Wallet
-            </h3>
-
-            <p className="mt-1 text-sm text-green-100">
-              View Pkr, Usdt and Gold wallet.
-            </p>
-          </Link>
-
-        </div>
-
-                {/* ==========================================
-            BUY Usdt INFORMATION
-        ========================================== */}
-
-        <div className="rounded-3xl bg-gradient-to-r from-cyan-700 to-blue-700 p-8 text-white shadow-xl">
-
-          <h2 className="text-3xl font-bold">
-            GoldTrade V18 — Buy Usdt Guide
+        <section className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6">
+          <h2 className="text-2xl font-black text-yellow-400 mb-5">
+            Purchase Validation
           </h2>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-4">
 
-            <div className="rounded-2xl bg-white/10 p-5 backdrop-blur">
-              <h3 className="mb-2 font-bold text-lg">
-                Wallet Transfer
-              </h3>
+            {/* Wallet Balance */}
+            <div className="flex items-center justify-between bg-black rounded-xl p-4 border border-zinc-700">
+              <span className="text-gray-400">PKR Wallet Balance</span>
 
-              <p className="text-cyan-100 text-sm leading-6">
-                Buy Usdt instantly using your available Pkr Wallet balance.
-                Your request is submitted to the GoldTrade admin for approval.
-              </p>
+              <span className="text-green-400 font-bold text-lg">
+                PKR {wallet.walletBalance.toLocaleString()}
+              </span>
             </div>
 
-            <div className="rounded-2xl bg-white/10 p-5 backdrop-blur">
-              <h3 className="mb-2 font-bold text-lg">
-                Bank Transfer
-              </h3>
+            {/* Total Required */}
+            <div className="flex items-center justify-between bg-black rounded-xl p-4 border border-zinc-700">
+              <span className="text-gray-400">Total Required</span>
 
-              <p className="text-cyan-100 text-sm leading-6">
-                Select Bank Transfer if you want to purchase Usdt using an
-                external bank payment. The admin will verify your payment before
-                crediting Usdt.
-              </p>
+              <span className="text-blue-400 font-bold text-lg">
+                PKR {totalPkr.toLocaleString()}
+              </span>
             </div>
 
-          </div>
+            {/* Remaining Balance */}
+            <div className="flex items-center justify-between bg-black rounded-xl p-4 border border-zinc-700">
+              <span className="text-gray-400">Remaining Balance After Purchase</span>
 
-          <div className="mt-6 rounded-2xl bg-white/10 p-5 backdrop-blur">
-
-            <p className="text-cyan-100 text-sm">
-              Supported Networks
-            </p>
-
-            <div className="mt-3 flex flex-wrap gap-3">
-
-              <span className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold">
-                TRC20
+              <span
+                className={`font-bold text-lg ${
+                  wallet.walletBalance - totalPkr >= 0
+                    ? "text-green-400"
+                    : "text-red-400"
+                }`}
+              >
+                PKR {(wallet.walletBalance - totalPkr).toLocaleString()}
               </span>
-
-              <span className="rounded-full bg-yellow-500 px-4 py-2 text-sm font-semibold text-black">
-                BEP20
-              </span>
-
-              <span className="rounded-full bg-purple-500 px-4 py-2 text-sm font-semibold">
-                ERC20
-              </span>
-
             </div>
 
           </div>
 
-        </div>
+          {/* Validation Status */}
 
-        {/* ==========================================
-            FOOTER
-        ========================================== */}
+          <div
+            className={`mt-6 rounded-xl p-5 border ${
+              enoughBalance
+                ? "bg-green-950 border-green-500"
+                : "bg-red-950 border-red-500"
+            }`}
+          >
+            {enoughBalance ? (
+              <div className="flex items-center gap-3 text-green-400">
+                <CheckCircle size={24} />
 
-        <div className="pb-10 pt-4 text-center">
+                <div>
+                  <p className="font-bold text-lg">
+                    Purchase Allowed
+                  </p>
 
-          <p className="text-sm text-slate-500">
-            © {new Date().getFullYear()} GoldTrade Wallet —1ST Pakistan Wallet
-            Wallet for Pkr, GOLD & Usdt.
-          </p>
+                  <p className="text-sm text-gray-300">
+                    You have enough PKR balance to buy this USDT amount.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-red-400">
+                <p className="font-bold text-lg">
+                  Purchase Blocked
+                </p>
 
-          <p className="mt-2 text-xs text-slate-400">
-            Buy requests are processed after AI verifications Program.
-          
-          </p>
+                <p className="text-sm text-gray-300 mt-1">
+                  Your PKR wallet balance is lower than the required amount.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
 
-        </div>
+        {/* ================= SUCCESS INFO CARD ================= */}
+
+        <section className="bg-zinc-900 border border-green-500 rounded-2xl p-6">
+          <h2 className="text-2xl font-black text-green-400 mb-5">
+            What Happens After Buying?
+          </h2>
+
+          <div className="space-y-4">
+
+            <div className="flex items-start gap-3">
+              <CheckCircle
+                className="text-green-400 mt-1"
+                size={22}
+              />
+
+              <div>
+                <p className="font-semibold text-white">
+                  PKR Wallet Deduction
+                </p>
+
+                <p className="text-gray-400 text-sm">
+                  The required PKR amount is automatically deducted from your PKR wallet.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <CheckCircle
+                className="text-green-400 mt-1"
+                size={22}
+              />
+
+              <div>
+                <p className="font-semibold text-white">
+                  USDT Wallet Credit
+                </p>
+
+                <p className="text-gray-400 text-sm">
+                  Purchased USDT is instantly credited to your USDT wallet.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <CheckCircle
+                className="text-green-400 mt-1"
+                size={22}
+              />
+
+              <div>
+                <p className="font-semibold text-white">
+                  Transaction History Updated
+                </p>
+
+                <p className="text-gray-400 text-sm">
+                  Every purchase appears immediately inside your USDT transaction history.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <CheckCircle
+                className="text-green-400 mt-1"
+                size={22}
+              />
+
+              <div>
+                <p className="font-semibold text-white">
+                  Portfolio Updated
+                </p>
+
+                <p className="text-gray-400 text-sm">
+                  Dashboard portfolio value updates automatically after every successful purchase.
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        {/* ================= TRADING RULES ================= */}
+
+        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6">
+          <h2 className="text-2xl font-black text-cyan-400 mb-5">
+            USDT Buying Rules
+          </h2>
+
+          <div className="space-y-4 text-gray-300">
+
+            <div className="flex justify-between border-b border-zinc-800 pb-3">
+              <span>Minimum Buy</span>
+
+              <span className="text-cyan-400 font-bold">
+                1 USDT
+              </span>
+            </div>
+
+            <div className="flex justify-between border-b border-zinc-800 pb-3">
+              <span>Maximum Buy</span>
+
+              <span className="text-cyan-400 font-bold">
+                Wallet Balance Limit
+              </span>
+            </div>
+
+            <div className="flex justify-between border-b border-zinc-800 pb-3">
+              <span>Payment Source</span>
+
+              <span className="text-cyan-400 font-bold">
+                PKR Wallet
+              </span>
+            </div>
+
+            <div className="flex justify-between border-b border-zinc-800 pb-3">
+              <span>Wallet Credit Time</span>
+
+              <span className="text-cyan-400 font-bold">
+                Instant
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span>Trading Status</span>
+
+              <span
+                className={`font-bold ${
+                  market.tradingEnabled
+                    ? "text-green-400"
+                    : "text-red-400"
+                }`}
+              >
+                {market.tradingEnabled
+                  ? "Enabled"
+                  : "Disabled"}
+              </span>
+            </div>
+
+          </div>
+        </section>        {/* ================= WALLET SUMMARY ================= */}
+
+        <section className="bg-zinc-900 border border-purple-500 rounded-2xl p-6">
+          <h2 className="text-2xl font-black text-purple-400 mb-5">
+            Wallet Summary After Purchase
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-5">
+
+            <div className="bg-black rounded-xl p-5 border border-green-500">
+              <p className="text-gray-400 text-sm">
+                Current PKR Wallet
+              </p>
+
+              <h3 className="text-3xl font-black text-green-400 mt-2">
+                PKR {wallet.walletBalance.toLocaleString()}
+              </h3>
+            </div>
+
+            <div className="bg-black rounded-xl p-5 border border-red-500">
+              <p className="text-gray-400 text-sm">
+                Remaining After Buy
+              </p>
+
+              <h3
+                className={`text-3xl font-black mt-2 ${
+                  wallet.walletBalance - totalPkr >= 0
+                    ? "text-red-400"
+                    : "text-red-600"
+                }`}
+              >
+                PKR {(wallet.walletBalance - totalPkr).toLocaleString()}
+              </h3>
+            </div>
+
+            <div className="bg-black rounded-xl p-5 border border-blue-500">
+              <p className="text-gray-400 text-sm">
+                New USDT Balance
+              </p>
+
+              <h3 className="text-3xl font-black text-blue-400 mt-2">
+                {(wallet.usdtBalance + usdtAmount).toFixed(2)} USDT
+              </h3>
+            </div>
+
+          </div>
+        </section>
+
+        {/* ================= MARKET INFORMATION ================= */}
+
+        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6">
+          <h2 className="text-2xl font-black text-cyan-400 mb-5">
+            Live Market Information
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-5">
+
+            <div className="bg-black rounded-xl p-5 border border-cyan-500">
+              <p className="text-gray-400 text-sm">
+                Buy Price
+              </p>
+
+              <h3 className="text-3xl font-black text-cyan-400 mt-2">
+                PKR {market.buyRate}
+              </h3>
+            </div>
+
+            <div className="bg-black rounded-xl p-5 border border-blue-500">
+              <p className="text-gray-400 text-sm">
+                Purchase Amount
+              </p>
+
+              <h3 className="text-3xl font-black text-blue-400 mt-2">
+                {usdtAmount.toFixed(2)} USDT
+              </h3>
+            </div>
+
+            <div className="bg-black rounded-xl p-5 border border-green-500">
+              <p className="text-gray-400 text-sm">
+                Purchase Value
+              </p>
+
+              <h3 className="text-3xl font-black text-green-400 mt-2">
+                PKR {totalPkr.toLocaleString()}
+              </h3>
+            </div>
+
+          </div>
+        </section>
+
+        {/* ================= SECURITY NOTICE ================= */}
+
+        <section className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6">
+          <h2 className="text-2xl font-black text-yellow-400 mb-5">
+            Trading Security
+          </h2>
+
+          <div className="space-y-3 text-gray-300">
+
+            <div className="flex items-start gap-3">
+              <CheckCircle className="text-green-400 mt-1" size={20} />
+              <p>USDT purchases are recorded instantly in transaction history.</p>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <CheckCircle className="text-green-400 mt-1" size={20} />
+              <p>PKR wallet balance is deducted automatically after a successful purchase.</p>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <CheckCircle className="text-green-400 mt-1" size={20} />
+              <p>USDT wallet balance updates immediately after purchase confirmation.</p>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <CheckCircle className="text-green-400 mt-1" size={20} />
+              <p>All trades are stored permanently in your GoldTrade account history.</p>
+            </div>
+
+          </div>
+        </section>
 
       </div>
-    </div>
+    </main>
   );
 }

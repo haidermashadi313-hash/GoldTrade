@@ -36,7 +36,7 @@ interface GoldTransaction {
 
 interface Portfolio {
   goldBalance: number;
-  walletBalance: number;
+  WalletBalance: number;
   averagebuyPrice: number;
   currentPrice: number;
   portfolioValue: number;
@@ -75,7 +75,7 @@ const GoldPortfolioPage: React.FC = () => {
 
   const [portfolio, setPortfolio] = useState<Portfolio>({
     goldBalance: 0,
-    walletBalance: 0,
+    WalletBalance: 0,
     averagebuyPrice: 0,
     currentPrice: 0,
     portfolioValue: 0,
@@ -188,8 +188,8 @@ const GoldPortfolioPage: React.FC = () => {
   }, [unrealizedProfit, totalInvestment]);
 
   const totalAssetsValue = useMemo(() => {
-    return portfolio.walletBalance + currentPortfolioValue;
-  }, [portfolio.walletBalance, currentPortfolioValue]);
+    return portfolio.WalletBalance + currentPortfolioValue;
+  }, [portfolio.WalletBalance, currentPortfolioValue]);
 
   const goldWeightValue = useMemo(() => {
     return portfolio.goldBalance * goldPrice.sellPrice;
@@ -322,10 +322,10 @@ const GoldPortfolioPage: React.FC = () => {
         </div>
 
         <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">wallet Balance</p>
+          <p className="text-gray-400 text-sm">Wallet Balance</p>
 
           <h2 className="text-3xl font-black text-green-400 mt-2">
-            Pkr {portfolio.walletBalance.toLocaleString()}
+            Pkr {portfolio.WalletBalance.toLocaleString()}
           </h2>
         </div>
 
@@ -400,7 +400,7 @@ const GoldPortfolioPage: React.FC = () => {
           </h2>
 
           <p className="text-xs text-gray-500 mt-3">
-            wallet + Gold Portfolio
+            Wallet + Gold Portfolio
           </p>
         </div>
 

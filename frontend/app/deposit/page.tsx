@@ -256,7 +256,7 @@ export default function DepositPage() {
 
           <div>
             <h1 className="text-4xl font-black text-yellow-400">
-              Deposit wallet
+              Deposit Wallet
             </h1>
 
             <p className="text-gray-400 mt-2">
@@ -308,7 +308,7 @@ export default function DepositPage() {
                     : "bg-zinc-800 border border-zinc-700"
                 }`}
               >
-                Pkr wallet
+                Pkr Wallet
               </button>
 
               <button
@@ -320,7 +320,7 @@ export default function DepositPage() {
                     : "bg-zinc-800 border border-zinc-700"
                 }`}
               >
-                Usdt wallet
+                Usdt Wallet
               </button>
 
             </div>
@@ -593,7 +593,7 @@ export default function DepositPage() {
 
                   {deposit.adminAmount > 0 && (
                     <div className="text-green-400 text-sm font-semibold">
-                      wallet Credited: {deposit.adminAmount.toLocaleString()} {deposit.currency}
+                      Wallet Credited: {deposit.adminAmount.toLocaleString()} {deposit.currency}
                     </div>
                   )}
 
@@ -624,7 +624,7 @@ export default function DepositPage() {
         {/* Footer */}
         <div className="text-center text-xs text-gray-500 border-t border-zinc-800 pt-6">
 
-          <p>Deposit wallet</p>
+          <p>Deposit Wallet</p>
 
           <p className="mt-2 text-green-400">
             JWT Authentication • GoldTrade Server.

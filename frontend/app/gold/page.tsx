@@ -27,7 +27,7 @@ interface GoldPrice {
 }
 
 interface Portfolio {
-  walletBalance: number;
+  WalletBalance: number;
   goldBalance: number;
   averagebuyPrice: number;
   currentsellPrice: number;
@@ -53,7 +53,7 @@ export default function GoldDashboard() {
   });
 
   const [portfolio, setPortfolio] = useState<Portfolio>({
-    walletBalance: 0,
+    WalletBalance: 0,
     goldBalance: 0,
     averagebuyPrice: 0,
     currentsellPrice: 0,
@@ -122,7 +122,7 @@ export default function GoldDashboard() {
         const data = portfolioRes.data.portfolio || {};
 
         setPortfolio({
-          walletBalance: Number(data.walletBalance || 0),
+          WalletBalance: Number(data.WalletBalance || 0),
           goldBalance: Number(data.goldBalance || 0),
           averagebuyPrice: Number(data.averagebuyPrice || 0),
           currentsellPrice: Number(data.currentsellPrice || 0),

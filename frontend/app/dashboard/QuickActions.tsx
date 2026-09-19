@@ -1,32 +1,32 @@
 "use client";
 
-import { ArrowDownCircle, ArrowUpCircle, Coins, wallet } from "lucide-react";
+import { Wallet, ArrowUpRight, ArrowDownLeft, Coins } from "lucide-react";
 
 export default function QuickActions() {
   const actions = [
     {
       title: "Deposit",
-      icon: wallet,
+      icon: Wallet,
       link: "/deposit",
-      color: "bg-green-600",
+      color: "bg-green-600 hover:bg-green-700 text-white",
     },
     {
       title: "Withdraw",
-      icon: ArrowDownCircle,
+      icon: ArrowDownLeft,
       link: "/withdraw",
-      color: "bg-red-600",
+      color: "bg-red-600 hover:bg-red-700 text-white",
     },
     {
-      title: "buy Gold",
+      title: "Buy Gold",
       icon: Coins,
       link: "/gold",
-      color: "bg-yellow-500 text-black",
+      color: "bg-yellow-500 hover:bg-yellow-400 text-black",
     },
     {
-      title: "sell Gold",
-      icon: ArrowUpCircle,
+      title: "Sell Gold",
+      icon: ArrowUpRight,
       link: "/gold",
-      color: "bg-blue-600",
+      color: "bg-blue-600 hover:bg-blue-700 text-white",
     },
   ];
 
@@ -44,10 +44,10 @@ export default function QuickActions() {
             <button
               key={item.title}
               onClick={() => (window.location.href = item.link)}
-              className={`${item.color} rounded-xl p-4 font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition`}
+              className={`${item.color} rounded-xl p-4 font-semibold flex items-center justify-center gap-2 transition duration-200`}
             >
               <Icon size={20} />
-              {item.title}
+              <span>{item.title}</span>
             </button>
           );
         })}

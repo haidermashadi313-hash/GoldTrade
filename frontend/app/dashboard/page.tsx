@@ -24,7 +24,7 @@ interface UserData {
   email: string;
   role: string;
 
-  walletBalance: number;
+  WalletBalance: number;
   UsdtBalance: number;
   goldBalance: number;
 
@@ -38,7 +38,7 @@ interface MarketData {
   marketStatus: string;
 }
 
-interface walletTransaction {
+interface WalletTransaction {
   _id: string;
   type: string;
   amount: number;
@@ -64,7 +64,7 @@ export default function DashboardPage() {
     marketStatus: "CLOSED",
   });
 
-  const [transactions, setTransactions] = useState<walletTransaction[]>([]);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
 
   // ==========================================
   // SESSION
@@ -125,7 +125,7 @@ const loadDashboard = async () => {
       "Content-Type": "application/json",
     };
 
-    const [userRes, marketRes, wallethistoryRes] = await Promise.all([
+    const [userRes, marketRes, WallethistoryRes] = await Promise.all([
       fetch(`${API}/api/users/${username}`, {
         method: "GET",
         headers,
@@ -138,7 +138,7 @@ const loadDashboard = async () => {
         cache: "no-store",
       }),
 
-      fetch(`${API}/api/wallet/history/${username}`, {
+      fetch(`${API}/api/Wallet/history/${username}`, {
         method: "GET",
         headers,
         cache: "no-store",
@@ -147,11 +147,11 @@ const loadDashboard = async () => {
     
     const userData = await userRes.json();
     const marketData = await marketRes.json();
-    const wallethistoryData = await wallethistoryRes.json();
+    const WallethistoryData = await WallethistoryRes.json();
 
     console.log("USER API:", userData);
     console.log("MARKET API:", marketData);
-    console.log("wallet history API:", wallethistoryData);
+    console.log("Wallet history API:", WallethistoryData);
 
     // ================= USER =================
     if (userRes.ok && userData.success) {
@@ -182,13 +182,13 @@ const loadDashboard = async () => {
       });
     }
 
-    // ================= wallet history =================
-    if (wallethistoryRes.ok && wallethistoryData.success) {
+    // ================= Wallet history =================
+    if (WallethistoryRes.ok && WallethistoryData.success) {
       setTransactions(
-        Array.isArray(wallethistoryData.transactions)
-          ? wallethistoryData.transactions
-          : Array.isArray(wallethistoryData.data)
-          ? wallethistoryData.data
+        Array.isArray(WallethistoryData.transactions)
+          ? WallethistoryData.transactions
+          : Array.isArray(WallethistoryData.data)
+          ? WallethistoryData.data
           : []
       );
     } else {
@@ -247,7 +247,7 @@ const loadDashboard = async () => {
   // TOTAL ASSETS (LIVE CALCULATION)
   // ==========================================
   const totalAssets =
-    (user?.walletBalance || 0) +
+    (user?.WalletBalance || 0) +
     (user?.UsdtBalance || 0) * market.UsdtoPkr +
     (user?.goldBalance || 0) * market.goldPriceUSD * market.UsdtoPkr;
       // ==========================================
@@ -308,9 +308,9 @@ const loadDashboard = async () => {
 
         <div className="bg-zinc-900 border border-green-500 rounded-3xl p-5">
           <Wallet className="text-green-400 mb-3 h-8 w-8" />
-          <p className="text-gray-400 text-sm">wallet Balance</p>
+          <p className="text-gray-400 text-sm">Wallet Balance</p>
           <h2 className="text-2xl font-black text-green-400">
-            Pkr {money(user?.walletBalance)}
+            Pkr {money(user?.WalletBalance)}
           </h2>
         </div>
 
@@ -380,7 +380,7 @@ const loadDashboard = async () => {
         </div>
       </div>
 
-      {/* wallet SUMMARY */}
+      {/* Wallet SUMMARY */}
       <div className="grid md:grid-cols-2 gap-5 mb-10">
 
         <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
@@ -410,7 +410,7 @@ const loadDashboard = async () => {
 
         <div className="flex justify-between items-center mb-5 flex-wrap gap-3">
           <h2 className="text-2xl font-black text-yellow-400">
-            wallet Transaction history
+            Wallet Transaction history
           </h2>
 
           <span className="text-sm text-gray-400">
@@ -420,7 +420,7 @@ const loadDashboard = async () => {
 
         {transactions.length === 0 ? (
           <div className="text-center py-10 text-gray-400">
-            No wallet transactions.
+            No Wallet transactions.
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-zinc-700">

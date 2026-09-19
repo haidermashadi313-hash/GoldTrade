@@ -10,7 +10,7 @@ import {
   Bitcoin,
   TrendingUp,
   Activity,
-  wallet,
+  Wallet,
   Clock,
   BarChart3,
   Calculator,
@@ -27,7 +27,7 @@ interface MarketData {
   goldSpread: number;
   buyGoldPrice: number;
   sellGoldPrice: number;
-  trc20wallet: string;
+  trc20Wallet: string;
   trc20Qr: string;
 }
 
@@ -39,7 +39,7 @@ export default function MarketPage() {
     goldSpread: 0,
     buyGoldPrice: 0,
     sellGoldPrice: 0,
-    trc20wallet: "",
+    trc20Wallet: "",
     trc20Qr: "",
   });
 
@@ -346,17 +346,17 @@ export default function MarketPage() {
 
           </div>
 
-          {/* wallet */}
+          {/* Wallet */}
           <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-8">
 
-            <wallet className="text-cyan-400 mb-4" size={34}/>
+            <Wallet className="text-cyan-400 mb-4" size={34}/>
 
             <h3 className="text-2xl font-bold text-cyan-400 mb-5">
-              GoldTrade TRC20 wallet
+              GoldTrade TRC20 Wallet
             </h3>
 
             <div className="bg-black rounded-xl p-4 border border-cyan-500 break-all text-sm text-cyan-300">
-              {market.trc20wallet || "wallet Not Added Yet"}
+              {market.trc20Wallet || "Wallet Not Added Yet"}
             </div>
 
             {market.trc20Qr && (

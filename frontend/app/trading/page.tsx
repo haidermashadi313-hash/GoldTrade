@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   TrendingUp,
   TrendingDown,
-  wallet,
+  Wallet,
   Coins,
   DollarSign,
   Activity,
@@ -23,8 +23,8 @@ const API =
    TYPES
 ========================================================== */
 
-interface walletData {
-  walletBalance: number;
+interface WalletData {
+  WalletBalance: number;
   goldBalance: number;
   UsdtBalance: number;
 }
@@ -63,8 +63,8 @@ export default function TradingPage() {
 
   const [loading, setLoading] = useState(true);
 
-  const [wallet, setwallet] = useState<walletData>({
-    walletBalance: 0,
+  const [Wallet, setWallet] = useState<WalletData>({
+    WalletBalance: 0,
     goldBalance: 0,
     UsdtBalance: 0,
   });
@@ -90,21 +90,21 @@ export default function TradingPage() {
   const [marketPrice, setMarketPrice] = useState(35000);
 
   /* ==========================================================
-     LOAD MARKET & wallet
+     LOAD MARKET & Wallet
   ========================================================== */
 
   const loadTradingDashboard = async () => {
     try {
       setLoading(true);
 
-      const walletRes = await fetch(`${API}/api/wallet/me`, {
+      const WalletRes = await fetch(`${API}/api/Wallet/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const walletData = await walletRes.json();
+      const WalletData = await WalletRes.json();
 
-      if (walletData.success) {
-        setwallet(walletData.wallet);
+      if (WalletData.success) {
+        setWallet(WalletData.Wallet);
       }
 
       const marketRes = await fetch(`${API}/api/trading/market`);
@@ -156,11 +156,11 @@ export default function TradingPage() {
 
   const portfolioValue = useMemo(() => {
     return (
-      wallet.walletBalance +
-      wallet.goldBalance * market.livePrice +
-      wallet.UsdtBalance * 285
+      Wallet.WalletBalance +
+      Wallet.goldBalance * market.livePrice +
+      Wallet.UsdtBalance * 285
     );
-  }, [wallet, market]);
+  }, [Wallet, market]);
 
   const marketTrend = useMemo(() => {
     const points: { price: number; hour: string }[] = [];
@@ -208,8 +208,8 @@ export default function TradingPage() {
   ========================================================== */
 
   const profitLoss = useMemo(() => {
-    const currentGoldValue = wallet.goldBalance * market.livePrice;
-    const investedValue = wallet.goldBalance * market.buyPrice;
+    const currentGoldValue = Wallet.goldBalance * market.livePrice;
+    const investedValue = Wallet.goldBalance * market.buyPrice;
     const profit = currentGoldValue - investedValue;
 
     return {
@@ -221,7 +221,7 @@ export default function TradingPage() {
           ? 0
           : Number(((profit / investedValue) * 100).toFixed(2)),
     };
-  }, [wallet.goldBalance, market]);
+  }, [Wallet.goldBalance, market]);
 
   /* ==========================================================
      buy GOLD
@@ -352,18 +352,18 @@ export default function TradingPage() {
 
         </div>
 
-        {/* ================= wallet CARDS ================= */}
+        {/* ================= Wallet CARDS ================= */}
 
         <div className="grid md:grid-cols-3 gap-5 mb-10">
 
           <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
 
-            <wallet className="text-yellow-400 mb-3"/>
+            <Wallet className="text-yellow-400 mb-3"/>
 
-            <p className="text-gray-400 text-sm">Pkr wallet</p>
+            <p className="text-gray-400 text-sm">Pkr Wallet</p>
 
             <h2 className="text-3xl font-black text-yellow-400 mt-2">
-              Pkr {wallet.walletBalance.toLocaleString()}
+              Pkr {Wallet.WalletBalance.toLocaleString()}
             </h2>
 
           </div>
@@ -375,7 +375,7 @@ export default function TradingPage() {
             <p className="text-gray-400 text-sm">Gold Balance</p>
 
             <h2 className="text-3xl font-black text-green-400 mt-2">
-              {wallet.goldBalance.toFixed(4)} g
+              {Wallet.goldBalance.toFixed(4)} g
             </h2>
 
           </div>
@@ -387,7 +387,7 @@ export default function TradingPage() {
             <p className="text-gray-400 text-sm">Usdt Balance</p>
 
             <h2 className="text-3xl font-black text-cyan-400 mt-2">
-              {wallet.UsdtBalance.toFixed(2)} Usdt
+              {Wallet.UsdtBalance.toFixed(2)} Usdt
             </h2>
 
           </div>

@@ -1,568 +1,440 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
-  wallet,
+  ArrowLeft,
+  Wallet,
   Search,
   RefreshCw,
-  PlusCircle,
-  MinusCircle,
   User,
+  DollarSign,
+  Coins,
+  Save,
 } from "lucide-react";
 
-// ==========================================
-// API URL
-// ==========================================
 const API =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-// ==========================================
-// USER TYPE
-// ==========================================
-interface walletUser {
-  PkrBalance: number;
-  goldBalance: number;
-  UsdtBalance: number;
+// ========================================
+// TYPES
+// ========================================
+
+interface UserWallet {
   _id: string;
   username: string;
   email: string;
   walletBalance: number;
-  totalDeposit: number;
-  totalWithdraw: number;
-  role: string;
-  status: string;
+  goldBalance: number;
+  usdtBalance: number;
+  walletFrozen: boolean;
 }
 
-// ==========================================
-// PAGE
-// ==========================================
-export default function walletManagerPage() {
-  const [token, setToken] = useState("");
+export default function WalletManagerPage() {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("token") || ""
+      : "";
 
-  const [users, setUsers] = useState<walletUser[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<walletUser[]>([]);
-
-  const [search, setSearch] = useState("");
-  const [walletTypes, setwalletTypes] = useState<Record<string, string>>({});
-
-  const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
-
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] =
-    useState<"success" | "error">("success");
-
-  // Manual adjustment
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
-  const [notes, setNotes] = useState<Record<string, string>>({});
-
-  // ==========================================
-// LOAD TOKEN
-// ==========================================
-useEffect(() => {
-  const jwt = localStorage.getItem("token");
-
-  if (!jwt) {
-    window.location.href = "/login";
-    return;
-  }
-
-  setToken(jwt);
-}, []);
-
-useEffect(() => {
-  if (token) {
-    loadUsers();
-  }
-}, [token]);
-
-  // ==========================================
-// LOAD wallet USERS (FINAL GoldTrade V18)
-// ==========================================
-const loadUsers = async () => {
-  if (!token) return;
-
-  try {
-    console.log("🔄 1. loadUsers started");
-
-    setLoading(true);
-    setMessage("");
-
-    const response = await fetch(`${API}/api/admin/wallet/all`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
-    });
-
-    console.log("📡 2. API Status:", response.status);
-
-    const result = await response.json();
-
-    console.log("✅ 3. ADMIN wallet RESPONSE:", result);
-
-    if (!response.ok || !result.success) {
-      throw new Error(result.message || "Unable to load wallet users.");
-    }
-
-    // ==========================================
-// BACKEND → FRONTEND wallet MAPPING (FINAL FIX)
-// ==========================================
-
-const wallets: walletUser[] = (
-  Array.isArray(result.wallets) ? result.wallets : []
-).map((user: any) => ({
-  ...user,
-
-  // Pkr wallet
-  walletBalance: Number(
-    user.walletBalance ??
-    user.PkrBalance ??
-    user.Pkr ??
-    0
-  ),
-
-  // Gold wallet
-  goldBalance: Number(
-    user.goldBalance ??
-    user.gold ??
-    0
-  ),
-
-  // Usdt wallet
-  UsdtBalance: Number(
-    user.UsdtBalance ??
-    user.Usdt ??
-    0
-  ),
-}));
-
-setUsers(wallets);
-setFilteredUsers(wallets);
-
-console.log("Loaded wallets:", wallets);
-
-  } catch (err: any) {
-    console.error("❌ LOAD USERS ERROR:", err);
-
-    setUsers([]);
-    setFilteredUsers([]);
-
-    setMessageType("error");
-    setMessage(err.message || "Failed to load wallet users.");
-  } finally {
-    console.log("🏁 4. Loading Finished");
-    setLoading(false);
-  }
-};
-    // ==========================================
-  // SEARCH FILTER
-  // ==========================================
-  useEffect(() => {
-    const keyword = search.trim().toLowerCase();
-
-    if (!keyword) {
-      setFilteredUsers(users);
-      return;
-    }
-
-    setFilteredUsers(
-      users.filter(
-        (user) =>
-          user.username.toLowerCase().includes(keyword) ||
-          user.email.toLowerCase().includes(keyword)
-      )
-    );
-  }, [search, users]);
-
-  // ==========================================
-  // REFRESH USERS
-  // ==========================================
-  const refreshUsers = () => {
-    setMessage("");
-    loadUsers();
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
   };
 
-  // ==========================================
-// CREDIT wallet (FINAL V18)
-// ==========================================
-const handleCredit = async (user: walletUser) => {
-  try {
-    const amount = Number(amounts[user._id] || 0);
-    const walletType = walletTypes[user._id] || "Pkr";
+  const [users, setUsers] = useState<UserWallet[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    console.log("CREDIT CLICK", {
-      username: user.username,
-      walletType,
-      amount,
-    });
+  const [search, setSearch] = useState("");
 
-    if (amount <= 0) {
-      setMessageType("error");
-      setMessage("Enter a valid credit amount.");
-      return;
-    }
+  const [selectedUser, setSelectedUser] =
+    useState<UserWallet | null>(null);
 
-    const response = await fetch(`${API}/api/admin/wallet/credit`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        username: user.username,
-        walletType,
-        amount,
-        note: notes[user._id] || "",
-      }),
-    });
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [goldBalance, setGoldBalance] = useState(0);
+  const [usdtBalance, setUsdtBalance] = useState(0);
+  const [walletFrozen, setWalletFrozen] = useState(false);
 
-    const result = await response.json();
+  const [saving, setSaving] = useState(false);
 
-    console.log("CREDIT RESPONSE:", result);
+  // ========================================
+  // LOAD USERS
+  // ========================================
 
-    if (!response.ok || !result.success) {
-      throw new Error(result.message || "wallet credit failed.");
-    }
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
 
-    setMessageType("success");
-    setMessage(result.message);
-
-    setAmounts((prev) => ({ ...prev, [user._id]: "" }));
-    setNotes((prev) => ({ ...prev, [user._id]: "" }));
-
-    await loadUsers();
-
-  } catch (err: any) {
-    console.error("CREDIT ERROR:", err);
-
-    setMessageType("error");
-    setMessage(err.message || "wallet credit failed.");
-  }
-};
-
-  // ==========================================
-// DEBIT wallet (FINAL V18 FIX)
-// ==========================================
-const handleDebit = async (
-  username: string,
-  walletType: string,
-  amount: number,
-  note: string
-) => {
-  try {
-    if (!amount || amount <= 0) {
-      setMessageType("error");
-      setMessage("Enter a valid debit amount.");
-      return;
-    }
-
-    const response = await fetch(`${API}/api/admin/wallet/debit`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        username,
-        walletType,
-        amount: Number(amount),
-        note,
-      }),
-    });
-
-    const result = await response.json();
-
-    console.log("DEBIT RESPONSE:", result);
-
-    if (!response.ok || !result.success) {
-      throw new Error(result.message || "wallet debit failed.");
-    }
-
-    setMessageType("success");
-    setMessage(result.message);
-
-    // wallet list refresh
-    loadUsers();
-  } catch (err: any) {
-    console.error("DEBIT ERROR:", err);
-
-    setMessageType("error");
-    setMessage(err.message || "wallet debit failed.");
-  }
-};
-// ==========================================
-// PAGE UI START (PART 1/3)
-// ==========================================
-return (
-  <div className="min-h-screen bg-black text-white p-6">
-
-    {/* ================= HEADER ================= */}
-    <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
-
-      <div>
-        <h1 className="text-4xl font-black text-yellow-400">
-          wallet Manager
-        </h1>
-
-        <p className="text-gray-400 mt-2">
-          GoldTrade V18 • Manual Pkr / GOLD / Usdt wallet Control
-        </p>
-      </div>
-
-      <button
-        onClick={refreshUsers}
-        className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-5 py-3 rounded-xl flex items-center gap-2"
-      >
-        <RefreshCw size={18} />
-        Refresh
-      </button>
-
-    </div>
-
-    {/* ================= SUCCESS / ERROR MESSAGE ================= */}
-    {message && (
-      <div
-        className={`mb-6 rounded-xl px-4 py-3 font-semibold ${
-          messageType === "success"
-            ? "bg-green-600/20 border border-green-500 text-green-400"
-            : "bg-red-600/20 border border-red-500 text-red-400"
-        }`}
-      >
-        {message}
-      </div>
-    )}
-
-    {/* ================= SEARCH BAR ================= */}
-    <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-4 mb-8">
-
-      <div className="flex items-center gap-3">
-
-        <Search size={20} className="text-cyan-400" />
-
-        <input
-          type="text"
-          placeholder="Search username or email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="bg-transparent outline-none w-full text-white placeholder:text-gray-500"
-        />
-
-      </div>
-
-    </div>
-
-    {/* ================= USERS TABLE ================= */}
-    <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-5">
-
-      <h2 className="text-2xl font-black text-yellow-400 mb-6">
-        wallet Users
-      </h2>
-
-      {loading ? (
-
-        <div className="text-center py-10 text-gray-400">
-          Loading users...
-        </div>
-
-      ) : filteredUsers.length === 0 ? (
-
-        <div className="text-center py-10 text-gray-500">
-          No users found.
-        </div>
-
-      ) : (
-
-        <div className="overflow-x-auto">
-
-          <table className="w-full min-w-[1450px] text-sm">
-
-            <thead className="border-b border-zinc-700 text-yellow-400">
-
-              <tr className="text-left">
-                <th className="py-3 px-2">User</th>
-                <th className="py-3 px-2">Pkr wallet</th>
-                <th className="py-3 px-2">Gold wallet</th>
-                <th className="py-3 px-2">Usdt wallet</th>
-                <th className="py-3 px-2">Status</th>
-                <th className="py-3 px-2">wallet Action</th>
-
-              </tr>
-
-            </thead>
-
-            
-
-            <tbody>
-              {filteredUsers.map((user) => (
-    
-                 <tr key={user._id} className="border-b border-zinc-800 hover:bg-zinc-800/40">
-                <td className="py-4 px-2">
-                <div className="flex items-center gap-3">
-               <User size={28} className="text-cyan-400" />
-
-               <div>
-               <div className="font-bold text-cyan-400">
-                {user.username}
-               </div>
-
-              <div className="text-xs text-gray-500">
-               {user.email}
-              </div>
-           </div>
-         </div>
-        </td>
-
-      <td className="py-4 px-2">
-        <div className="font-bold text-green-400 text-lg">
-          Pkr {Number(user.walletBalance || user.PkrBalance || 0).toLocaleString()}
-        </div>
-      </td>
-
-      <td className="py-4 px-2">
-        <div className="font-bold text-yellow-400 text-lg">
-          {Number(user.goldBalance || user.goldBalance || 0).toLocaleString()} g
-        </div>
-      </td>
-
-      <td className="py-4 px-2">
-        <div className="font-bold text-cyan-400 text-lg">
-          {Number(user.UsdtBalance || 0).toLocaleString()} Usdt
-        </div>
-      </td>
-       <td className="py-4 px-2">
-        {user.status === "Active" ? (
-          <span className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold">
-            Active
-          </span>
-        ) : (
-          <span className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-xs font-bold">
-            Suspended
-          </span>
-        )}
-      </td>
-                  {/* ==========================================
-    wallet ACTION COLUMN (V18 FINAL BUG FREE)
-========================================== */}
-
-<td className="py-4 px-2 align-top">
-  <div className="flex flex-col gap-3 w-60">
-
-    {/* wallet Type */}
-    <select
-      value={walletTypes[user._id] || "Pkr"}
-      onChange={(e) =>
-        setwalletTypes((prev) => ({
-          ...prev,
-          [user._id]: e.target.value,
-        }))
-      }
-      className="bg-black border border-cyan-500 rounded-lg px-3 py-2 text-white outline-none focus:border-cyan-400"
-    >
-      <option value="Pkr">Pkr wallet</option>
-      <option value="GOLD">Gold wallet</option>
-      <option value="Usdt">Usdt wallet</option>
-    </select>
-
-    {/* Amount */}
-    <input
-      type="number"
-      min="0"
-      step="0.01"
-      value={amounts[user._id] || ""}
-      onChange={(e) =>
-        setAmounts((prev) => ({
-          ...prev,
-          [user._id]: e.target.value,
-        }))
-      }
-      placeholder="Enter amount"
-      className="bg-black border border-yellow-500 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-400"
-    />
-
-    {/* Admin Note */}
-    <textarea
-      rows={2}
-      value={notes[user._id] || ""}
-      onChange={(e) =>
-        setNotes((prev) => ({
-          ...prev,
-          [user._id]: e.target.value,
-        }))
-      }
-      placeholder="Admin note..."
-      className="bg-black border border-zinc-700 rounded-lg px-3 py-2 text-white outline-none resize-none focus:border-cyan-500"
-    />
-
-    {/* Credit / Debit Buttons */}
-    <div className="flex gap-2">
-      <button
-        type="button"
-        onClick={() => handleCredit(user)}
-        className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 px-3 py-2 rounded-lg text-white font-semibold transition-all"
-      >
-        <PlusCircle size={16} />
-        Credit
-      </button>
-
-      <button
-        type="button"
-        onClick={() =>
-          handleDebit(
-            user.username,
-            walletTypes[user._id] || "Pkr",
-            Number(amounts[user._id] || 0),
-            notes[user._id] || ""
-          )
+      const response = await fetch(
+        `${API}/api/admin/users`,
+        {
+          headers,
         }
-        className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 px-3 py-2 rounded-lg text-white font-semibold transition-all"
-      >
-        <MinusCircle size={16} />
-        Debit
-      </button>
-    </div>
+      );
 
-    {/* wallet Preview */}
-    <div className="border-t border-zinc-800 pt-2 text-xs text-gray-400">
-      <div className="flex justify-between">
-        <span>Selected wallet</span>
+      const data = await response.json();
 
-        <span className="font-semibold text-cyan-400">
-          {walletTypes[user._id] || "Pkr"}
-        </span>
+      if (response.ok && data.success) {
+        setUsers(data.users || []);
+      } else {
+        setUsers([]);
+      }
+    } catch (err) {
+      console.error("Wallet Manager Error:", err);
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (token) {
+      loadUsers();
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  // ========================================
+  // SEARCH USERS
+  // ========================================
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) =>
+      `${user.username} ${user.email}`
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    );
+  }, [users, search]);
+
+  // ========================================
+  // SELECT USER
+  // ========================================
+
+  const selectUser = (user: UserWallet) => {
+    setSelectedUser(user);
+    setWalletBalance(user.walletBalance);
+    setGoldBalance(user.goldBalance);
+    setUsdtBalance(user.usdtBalance);
+    setWalletFrozen(user.walletFrozen);
+  };
+
+  // ========================================
+  // UPDATE WALLET
+  // ========================================
+
+  const updateWallet = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setSaving(true);
+
+      const response = await fetch(
+        `${API}/api/admin/wallet/update/${selectedUser._id}`,
+        {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({
+            walletBalance,
+            goldBalance,
+            usdtBalance,
+            walletFrozen,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        await loadUsers();
+        alert("Wallet updated successfully.");
+      } else {
+        alert(data.message || "Wallet update failed.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server Error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-black flex items-center justify-center text-yellow-400">
+        <RefreshCw className="animate-spin mr-3" size={26} />
+        Loading Wallet Manager...
+      </main>
+    );
+  }  return (
+    <main className="min-h-screen bg-black text-white p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
+
+        {/* ================= HEADER ================= */}
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="flex items-center gap-3 text-4xl font-black text-yellow-400">
+              <Wallet size={38} />
+              Wallet Manager
+            </h1>
+
+            <p className="text-gray-400 mt-2">
+              Manage PKR, Gold & USDT wallet balances for all users.
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <Link
+              href="/admin-dashboard"
+              className="bg-zinc-800 hover:bg-zinc-700 px-4 py-3 rounded-xl flex items-center gap-2 font-bold"
+            >
+              <ArrowLeft size={18} />
+              Dashboard
+            </Link>
+
+            <button
+              onClick={loadUsers}
+              className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-3 rounded-xl flex items-center gap-2 font-bold"
+            >
+              <RefreshCw size={18} />
+              Refresh
+            </button>
+          </div>
+        </header>
+
+        {/* ================= SEARCH ================= */}
+        <section className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5">
+          <div className="relative">
+            <Search
+              className="absolute left-3 top-3 text-gray-500"
+              size={18}
+            />
+
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search username or email..."
+              className="w-full bg-black border border-zinc-700 rounded-xl pl-10 pr-4 py-3 outline-none focus:border-yellow-500"
+            />
+          </div>
+        </section>
+
+        {/* ================= USER LIST + EDIT PANEL ================= */}
+
+        <section className="grid lg:grid-cols-2 gap-6">
+
+          {/* USER LIST */}
+          <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-5">
+            <h2 className="text-2xl font-black text-cyan-400 mb-5">
+              Users
+            </h2>
+
+            <div className="space-y-3 max-h-[600px] overflow-y-auto">
+
+              {filteredUsers.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  No users found.
+                </p>
+              ) : (
+                filteredUsers.map((user) => (
+                  <button
+                    key={user._id}
+                    onClick={() => selectUser(user)}
+                    className={`w-full text-left rounded-xl border p-4 transition ${
+                      selectedUser?._id === user._id
+                        ? "border-yellow-500 bg-yellow-500/10"
+                        : "border-zinc-700 hover:border-yellow-500"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-yellow-400">
+                          {user.username}
+                        </p>
+
+                        <p className="text-sm text-gray-400">
+                          {user.email}
+                        </p>
+                      </div>
+
+                      <User className="text-cyan-400" size={22} />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 mt-4 text-xs">
+
+                      <div className="bg-zinc-800 rounded-lg p-2 text-center">
+                        <p className="text-gray-500">PKR</p>
+
+                        <p className="text-green-400 font-bold">
+                          {user.walletBalance.toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div className="bg-zinc-800 rounded-lg p-2 text-center">
+                        <p className="text-gray-500">Gold</p>
+
+                        <p className="text-yellow-400 font-bold">
+                          {user.goldBalance.toFixed(2)}
+                        </p>
+                      </div>
+
+                      <div className="bg-zinc-800 rounded-lg p-2 text-center">
+                        <p className="text-gray-500">USDT</p>
+
+                        <p className="text-blue-400 font-bold">
+                          {user.usdtBalance.toFixed(2)}
+                        </p>
+                      </div>
+
+                    </div>
+                  </button>
+                ))
+              )}
+
+            </div>
+          </div>
+
+          {/* EDIT PANEL */}
+          <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5">
+
+            <h2 className="text-2xl font-black text-green-400 mb-5">
+              Wallet Editor
+            </h2>
+
+            {!selectedUser ? (
+              <div className="text-center py-16 text-gray-500">
+                Select a user to edit wallet balances.
+              </div>
+            ) : (
+              <div className="space-y-5">
+
+                <div className="bg-zinc-800 rounded-xl p-4">
+                  <p className="text-sm text-gray-500">Selected User</p>
+
+                  <h3 className="text-xl font-bold text-yellow-400 mt-1">
+                    {selectedUser.username}
+                  </h3>
+
+                  <p className="text-gray-400 text-sm">
+                    {selectedUser.email}
+                  </p>
+                </div>
+
+                {/* PKR */}
+                <div>
+                  <label className="block mb-2 text-green-400 font-semibold">
+                    PKR Wallet Balance
+                  </label>
+
+                  <div className="relative">
+                    <DollarSign
+                      className="absolute left-3 top-3 text-green-400"
+                      size={18}
+                    />
+
+                    <input
+                      type="number"
+                      value={walletBalance}
+                      onChange={(e) =>
+                        setWalletBalance(Number(e.target.value))
+                      }
+                      className="w-full bg-black border border-zinc-700 rounded-xl pl-10 pr-4 py-3"
+                    />
+                  </div>
+                </div>
+
+                {/* GOLD */}
+                <div>
+                  <label className="block mb-2 text-yellow-400 font-semibold">
+                    Gold Balance (grams)
+                  </label>
+
+                  <div className="relative">
+                    <Coins
+                      className="absolute left-3 top-3 text-yellow-400"
+                      size={18}
+                    />
+
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={goldBalance}
+                      onChange={(e) =>
+                        setGoldBalance(Number(e.target.value))
+                      }
+                      className="w-full bg-black border border-zinc-700 rounded-xl pl-10 pr-4 py-3"
+                    />
+                  </div>
+                </div>
+
+                {/* USDT */}
+                <div>
+                  <label className="block mb-2 text-blue-400 font-semibold">
+                    USDT Balance
+                  </label>
+
+                  <div className="relative">
+                    <Wallet
+                      className="absolute left-3 top-3 text-blue-400"
+                      size={18}
+                    />
+
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={usdtBalance}
+                      onChange={(e) =>
+                        setUsdtBalance(Number(e.target.value))
+                      }
+                      className="w-full bg-black border border-zinc-700 rounded-xl pl-10 pr-4 py-3"
+                    />
+                  </div>
+                </div>
+
+                {/* Freeze Wallet */}
+                <div className="flex items-center justify-between bg-zinc-800 rounded-xl p-4">
+                  <div>
+                    <p className="font-semibold">Freeze Wallet</p>
+
+                    <p className="text-sm text-gray-500">
+                      Block deposits, withdrawals and trading.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      setWalletFrozen(!walletFrozen)
+                    }
+                    className={`px-4 py-2 rounded-xl font-bold transition ${
+                      walletFrozen
+                        ? "bg-red-600 hover:bg-red-700"
+                        : "bg-green-600 hover:bg-green-700"
+                    }`}
+                  >
+                    {walletFrozen ? "Frozen" : "Active"}
+                  </button>
+                </div>
+
+                {/* Save Button */}
+                <button
+                  disabled={saving}
+                  onClick={updateWallet}
+                  className="w-full bg-yellow-500 hover:bg-yellow-400 text-black py-3 rounded-xl flex items-center justify-center gap-3 font-bold transition"
+                >
+                  <Save size={18} />
+
+                  {saving
+                    ? "Saving Changes..."
+                    : "Save Wallet Changes"}
+                </button>
+
+              </div>
+            )}
+
+          </div>
+
+        </section>
+
       </div>
-
-      <div className="flex justify-between mt-2">
-        <span>Current Balance</span>
-
-        <span className="font-semibold text-white">
-          {walletTypes[user._id] === "GOLD"
-            ? `${Number(user.goldBalance || 0).toLocaleString()} g`
-            : walletTypes[user._id] === "Usdt"
-            ? `${Number(user.UsdtBalance || 0).toLocaleString()} Usdt`
-            : `Pkr ${Number(user.PkrBalance || 0).toLocaleString()}`}
-        </span>
-      </div>
-    </div>
-
-  </div>
-</td>
-                </tr>
-
-              ))}
-
-            </tbody>
-
-          </table>
-
-        </div>
-
-      )}
-
-    </div>
-
-  </div>
-);
+    </main>
+  );
 }

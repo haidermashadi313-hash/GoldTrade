@@ -1,8 +1,8 @@
 "use client";
 
 // =====================================================
-// GoldTrade V18 DIGITAL WALLET
-// FRONTEND : WALLET PAGE
+// GoldTrade V18 DIGITAL Wallet
+// FRONTEND : Wallet PAGE
 // PART 1/8 — IMPORTS + API + TYPES
 // =====================================================
 
@@ -17,7 +17,7 @@ const API =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 // =====================================================
-// WALLET TYPES
+// Wallet TYPES
 // =====================================================
 
 interface WalletData {
@@ -28,7 +28,7 @@ interface WalletData {
 
 interface WalletResponse {
   success: boolean;
-  wallet: WalletData;
+  Wallet: WalletData;
 }
 
 interface GoldPriceResponse {
@@ -57,7 +57,7 @@ interface WalletHistoryResponse {
 }
 
 // =====================================================
-// WALLET PAGE COMPONENT
+// Wallet PAGE COMPONENT
 // =====================================================
 
 export default function WalletPage() {
@@ -69,10 +69,10 @@ export default function WalletPage() {
   const [token, setToken] = useState<string>("");
 
   // =====================================================
-  // WALLET STATE
+  // Wallet STATE
   // =====================================================
 
-  const [wallet, setWallet] = useState<WalletData>({
+  const [Wallet, setWallet] = useState<WalletData>({
     PkrBalance: 0,
     usdtBalance: 0,
     goldBalance: 0,
@@ -86,7 +86,7 @@ export default function WalletPage() {
   const [goldPrice, setGoldPrice] = useState<number>(0);
 
   // =====================================================
-  // WALLET HISTORY STATE
+  // Wallet HISTORY STATE
   // =====================================================
 
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -106,16 +106,16 @@ export default function WalletPage() {
   // =====================================================
 
   const usdtValue = useMemo(() => {
-    return wallet.usdtBalance * usdtRate;
-  }, [wallet.usdtBalance, usdtRate]);
+    return Wallet.usdtBalance * usdtRate;
+  }, [Wallet.usdtBalance, usdtRate]);
 
   const goldValue = useMemo(() => {
-    return wallet.goldBalance * goldPrice;
-  }, [wallet.goldBalance, goldPrice]);
+    return Wallet.goldBalance * goldPrice;
+  }, [Wallet.goldBalance, goldPrice]);
 
   const totalPortfolioValue = useMemo(() => {
-    return wallet.PkrBalance + usdtValue + goldValue;
-  }, [wallet.PkrBalance, usdtValue, goldValue]);
+    return Wallet.PkrBalance + usdtValue + goldValue;
+  }, [Wallet.PkrBalance, usdtValue, goldValue]);
 
   // =====================================================
   // TRANSACTION STATISTICS
@@ -160,8 +160,8 @@ export default function WalletPage() {
     });
   };
     // =====================================================
-  // LOAD USER WALLET
-  // GET /api/wallet/:username
+  // LOAD USER Wallet
+  // GET /api/Wallet/:username
   // =====================================================
 
   const loadWallet = async (
@@ -170,7 +170,7 @@ export default function WalletPage() {
   ) => {
     try {
       const response = await fetch(
-        `${API}/api/wallet/${currentUsername}`,
+        `${API}/api/Wallet/${currentUsername}`,
         {
           headers: {
             Authorization: `Bearer ${currentToken}`,
@@ -186,14 +186,14 @@ export default function WalletPage() {
 
       if (data.success) {
         setWallet({
-          PkrBalance: Number(data.wallet?.PkrBalance ?? 0),
-          usdtBalance: Number(data.wallet?.usdtBalance ?? 0),
-          goldBalance: Number(data.wallet?.goldBalance ?? 0),
+          PkrBalance: Number(data.Wallet?.PkrBalance ?? 0),
+          usdtBalance: Number(data.Wallet?.usdtBalance ?? 0),
+          goldBalance: Number(data.Wallet?.goldBalance ?? 0),
         });
       }
     } catch (error) {
-      console.error("LOAD WALLET ERROR:", error);
-      setErrorMessage("Unable to load wallet balance.");
+      console.error("LOAD Wallet ERROR:", error);
+      setErrorMessage("Unable to load Wallet balance.");
     }
   };
 
@@ -244,8 +244,8 @@ export default function WalletPage() {
   };
 
   // =====================================================
-  // LOAD WALLET HISTORY
-  // GET /api/wallet/history/:username
+  // LOAD Wallet HISTORY
+  // GET /api/Wallet/history/:username
   // =====================================================
 
   const loadHistory = async (
@@ -254,7 +254,7 @@ export default function WalletPage() {
   ) => {
     try {
       const response = await fetch(
-        `${API}/api/wallet/history/${currentUsername}`,
+        `${API}/api/Wallet/history/${currentUsername}`,
         {
           headers: {
             Authorization: `Bearer ${currentToken}`,
@@ -274,12 +274,12 @@ export default function WalletPage() {
         setTransactions([]);
       }
     } catch (error) {
-      console.error("WALLET HISTORY ERROR:", error);
+      console.error("Wallet HISTORY ERROR:", error);
       setTransactions([]);
     }
   };
     // =====================================================
-  // LOAD COMPLETE WALLET DASHBOARD
+  // LOAD COMPLETE Wallet DASHBOARD
   // =====================================================
 
   const loadDashboard = async (
@@ -300,15 +300,15 @@ export default function WalletPage() {
         loadHistory(currentUsername, currentToken),
       ]);
     } catch (error) {
-      console.error("WALLET DASHBOARD ERROR:", error);
-      setErrorMessage("Unable to load wallet dashboard.");
+      console.error("Wallet DASHBOARD ERROR:", error);
+      setErrorMessage("Unable to load Wallet dashboard.");
     } finally {
       setLoading(false);
     }
   };
 
   // =====================================================
-  // REFRESH WALLET DASHBOARD
+  // REFRESH Wallet DASHBOARD
   // =====================================================
 
   const refreshWallet = async () => {
@@ -322,8 +322,8 @@ export default function WalletPage() {
       await loadDashboard(username, token);
       setSuccessMessage("Wallet refreshed successfully.");
     } catch (error) {
-      console.error("REFRESH WALLET ERROR:", error);
-      setErrorMessage("Unable to refresh wallet.");
+      console.error("REFRESH Wallet ERROR:", error);
+      setErrorMessage("Unable to refresh Wallet.");
     } finally {
       setRefreshing(false);
     }
@@ -385,7 +385,7 @@ export default function WalletPage() {
       <div className="mx-auto max-w-7xl">
 
         {/* =====================================================
-            WALLET HEADER
+            Wallet HEADER
         ===================================================== */}
 
         <div className="mb-6 rounded-3xl bg-gradient-to-r from-emerald-700 via-cyan-700 to-blue-700 p-6 text-white shadow-xl">
@@ -460,7 +460,7 @@ export default function WalletPage() {
           <>
 
             {/* =====================================================
-                WALLET BALANCE CARDS
+                Wallet BALANCE CARDS
             ===================================================== */}
 
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -474,7 +474,7 @@ export default function WalletPage() {
                 </p>
 
                 <h2 className="mt-3 text-4xl font-bold text-green-600">
-                  Rs. {formatCurrency(wallet.PkrBalance)}
+                  Rs. {formatCurrency(Wallet.PkrBalance)}
                 </h2>
 
                 <p className="mt-3 text-xs text-gray-400">
@@ -492,7 +492,7 @@ export default function WalletPage() {
                 </p>
 
                 <h2 className="mt-3 text-4xl font-bold text-cyan-700">
-                  {wallet.usdtBalance.toFixed(2)} USDT
+                  {Wallet.usdtBalance.toFixed(2)} USDT
                 </h2>
 
                 <p className="mt-3 text-xs text-gray-400">
@@ -510,7 +510,7 @@ export default function WalletPage() {
                 </p>
 
                 <h2 className="mt-3 text-4xl font-bold text-yellow-600">
-                  {wallet.goldBalance.toFixed(4)} g
+                  {Wallet.goldBalance.toFixed(4)} g
                 </h2>
 
                 <p className="mt-3 text-xs text-gray-400">
@@ -628,7 +628,7 @@ export default function WalletPage() {
                   </p>
 
                   <h3 className="mt-2 text-2xl font-bold text-green-600">
-                    Rs. {formatCurrency(wallet.PkrBalance)}
+                    Rs. {formatCurrency(Wallet.PkrBalance)}
                   </h3>
 
                 </div>
@@ -642,7 +642,7 @@ export default function WalletPage() {
                   </p>
 
                   <h3 className="mt-2 text-2xl font-bold text-cyan-700">
-                    {wallet.usdtBalance.toFixed(2)} USDT
+                    {Wallet.usdtBalance.toFixed(2)} USDT
                   </h3>
 
                   <p className="mt-2 text-xs text-slate-500">
@@ -660,7 +660,7 @@ export default function WalletPage() {
                   </p>
 
                   <h3 className="mt-2 text-2xl font-bold text-yellow-600">
-                    {wallet.goldBalance.toFixed(4)} g
+                    {Wallet.goldBalance.toFixed(4)} g
                   </h3>
 
                   <p className="mt-2 text-xs text-slate-500">
@@ -688,7 +688,7 @@ export default function WalletPage() {
             </div>
 
                         {/* =====================================================
-                QUICK WALLET ACTIONS
+                QUICK Wallet ACTIONS
             ===================================================== */}
 
             <div className="mt-6 rounded-3xl bg-white p-6 shadow-xl">
@@ -712,7 +712,7 @@ export default function WalletPage() {
                   </h3>
 
                   <p className="mt-2 text-sm text-green-100">
-                    Add funds to your Pkr wallet.
+                    Add funds to your Pkr Wallet.
                   </p>
                 </Link>
 
@@ -746,7 +746,7 @@ export default function WalletPage() {
                   </h3>
 
                   <p className="mt-2 text-sm text-cyan-100">
-                    Purchase USDT using your Pkr wallet.
+                    Purchase USDT using your Pkr Wallet.
                   </p>
                 </Link>
 
@@ -830,7 +830,7 @@ export default function WalletPage() {
             </div>
 
             {/* =====================================================
-                WALLET FEATURES
+                Wallet FEATURES
             ===================================================== */}
 
             <div className="mt-6 rounded-3xl bg-white p-6 shadow-xl">
@@ -988,7 +988,7 @@ export default function WalletPage() {
             </div>
 
             {/* =====================================================
-                RECENT WALLET ACTIVITY
+                RECENT Wallet ACTIVITY
             ===================================================== */}
 
             <div className="mt-6 rounded-3xl bg-white p-6 shadow-xl">
@@ -1002,7 +1002,7 @@ export default function WalletPage() {
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    Latest Pkr, USDT and Gold wallet transactions.
+                    Latest Pkr, USDT and Gold Wallet transactions.
                   </p>
 
                 </div>
@@ -1162,7 +1162,7 @@ export default function WalletPage() {
             </div>
 
                         {/* =====================================================
-                WALLET SECURITY
+                Wallet SECURITY
             ===================================================== */}
 
             <div className="mt-6 rounded-3xl border border-green-200 bg-green-50 p-6">
@@ -1179,7 +1179,7 @@ export default function WalletPage() {
                   </h3>
 
                   <p className="mt-2 text-sm text-slate-600">
-                    Your wallet is protected with JWT authentication.
+                    Your Wallet is protected with JWT authentication.
                     
                   </p>
                 </div>
@@ -1201,7 +1201,7 @@ export default function WalletPage() {
                   </h3>
 
                   <p className="mt-2 text-sm text-slate-600">
-                    Every wallet activity is stored with date, amount, currency
+                    Every Wallet activity is stored with date, amount, currency
                     and approval status.
                   </p>
                 </div>

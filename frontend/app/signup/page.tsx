@@ -108,7 +108,7 @@ export default function SignupPage() {
         </h1>
 
         <p className="text-center text-gray-400 mt-2 mb-8">
-          Create your secure GoldTrade wallet account.
+          Create your secure GoldTrade Wallet account.
         </p>
 
         <div className="relative mb-4">

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  wallet,
+  Wallet,
   DollarSign,
   ArrowLeft,
   RefreshCw,
@@ -24,10 +24,10 @@ const API =
 // TYPES
 // ======================================================
 
-interface walletResponse {
+interface WalletResponse {
   success: boolean;
-  wallet?: {
-    walletBalance?: number;
+  Wallet?: {
+    WalletBalance?: number;
     PkrBalance?: number;
     UsdtBalance?: number;
     rate?: number;
@@ -39,8 +39,8 @@ interface walletResponse {
 interface sellResponse {
   success: boolean;
   message: string;
-  wallet?: {
-    walletBalance: number;
+  Wallet?: {
+    WalletBalance: number;
     UsdtBalance: number;
   };
 }
@@ -54,8 +54,8 @@ export default function sellUsdtPage() {
   const [username, setUsername] = useState("");
   const [token, setToken] = useState("");
 
-  // wallet Balances
-  const [walletBalance, setwalletBalance] = useState(0);
+  // Wallet Balances
+  const [WalletBalance, setWalletBalance] = useState(0);
   const [UsdtBalance, setUsdtBalance] = useState(0);
   const [rate, setRate] = useState(280);
 
@@ -73,12 +73,12 @@ export default function sellUsdtPage() {
     useState<"success" | "error">("success");
 
   // ======================================================
-  // COMPANY wallet (TRC20 ONLY)
+  // COMPANY Wallet (TRC20 ONLY)
   // ======================================================
 
-  const companywallet = {
+  const companyWallet = {
     network: "TRC20",
-    address: "TQ9xH8ExamplewalletAddress1234567890",
+    address: "TQ9xH8ExampleWalletAddress1234567890",
   };
 
   // ======================================================
@@ -107,17 +107,17 @@ export default function sellUsdtPage() {
   }, []);
 
   // ======================================================
-  // LOAD wallet + LIVE RATE
+  // LOAD Wallet + LIVE RATE
   // ======================================================
 
-  const loadwallet = async () => {
+  const loadWallet = async () => {
     if (!username || !token) return;
 
     try {
       setLoading(true);
 
       const response = await fetch(
-        `${API}/api/wallet/${username}`,
+        `${API}/api/Wallet/${username}`,
         {
           method: "GET",
           headers: getHeaders(),
@@ -125,40 +125,40 @@ export default function sellUsdtPage() {
         }
       );
 
-      const result: walletResponse = await response.json();
+      const result: WalletResponse = await response.json();
 
-      console.log("sell Usdt wallet:", result);
+      console.log("sell Usdt Wallet:", result);
 
       if (!response.ok || !result.success) {
         throw new Error(
-          result.message || "Unable to load wallet."
+          result.message || "Unable to load Wallet."
         );
       }
 
-      setwalletBalance(
+      setWalletBalance(
         Number(
-          result.wallet?.walletBalance ??
-            result.wallet?.PkrBalance ??
+          result.Wallet?.WalletBalance ??
+            result.Wallet?.PkrBalance ??
             0
         )
       );
 
       setUsdtBalance(
-        Number(result.wallet?.UsdtBalance ?? 0)
+        Number(result.Wallet?.UsdtBalance ?? 0)
       );
 
       setRate(
-        Number(result.rate ?? result.wallet?.rate ?? 280)
+        Number(result.rate ?? result.Wallet?.rate ?? 280)
       );
     } catch (err: any) {
-      console.error("sell wallet ERROR:", err);
+      console.error("sell Wallet ERROR:", err);
 
-      setwalletBalance(0);
+      setWalletBalance(0);
       setUsdtBalance(0);
       setRate(280);
 
       setMessageType("error");
-      setMessage(err.message || "Unable to load wallet.");
+      setMessage(err.message || "Unable to load Wallet.");
     } finally {
       setLoading(false);
     }
@@ -170,19 +170,19 @@ export default function sellUsdtPage() {
 
   useEffect(() => {
     if (username && token) {
-      loadwallet();
+      loadWallet();
     }
   }, [username, token]);
 
   // ======================================================
-  // AUTO REFRESH wallet
+  // AUTO REFRESH Wallet
   // ======================================================
 
   useEffect(() => {
     if (!username || !token) return;
 
     const timer = setInterval(() => {
-      loadwallet();
+      loadWallet();
     }, 15000);
 
     return () => clearInterval(timer);
@@ -197,26 +197,26 @@ export default function sellUsdtPage() {
   }, [UsdtAmount, rate]);
 
   // ======================================================
-  // COPY COMPANY wallet ADDRESS
+  // COPY COMPANY Wallet ADDRESS
   // ======================================================
 
-  const copywalletAddress = async () => {
+  const copyWalletAddress = async () => {
     try {
-      await navigator.clipboard.writeText(companywallet.address);
+      await navigator.clipboard.writeText(companyWallet.address);
 
       setMessageType("success");
-      setMessage("Company wallet address copied.");
+      setMessage("Company Wallet address copied.");
     } catch {
       setMessageType("error");
-      setMessage("Unable to copy wallet address.");
+      setMessage("Unable to copy Wallet address.");
     }
   };
     // ======================================================
-  // REFRESH wallet BUTTON
+  // REFRESH Wallet BUTTON
   // ======================================================
 
-  const refreshwallet = () => {
-    loadwallet();
+  const refreshWallet = () => {
+    loadWallet();
   };
 
   // ======================================================
@@ -237,7 +237,7 @@ export default function sellUsdtPage() {
       }
 
       if (Number(UsdtAmount) > UsdtBalance) {
-        throw new Error("Insufficient Usdt wallet balance.");
+        throw new Error("Insufficient Usdt Wallet balance.");
       }
 
       if (!receipt) {
@@ -253,8 +253,8 @@ export default function sellUsdtPage() {
       formData.append("username", username);
       formData.append("UsdtAmount", UsdtAmount);
       formData.append("PkrAmount", String(totalPkr));
-      formData.append("walletAddress", companywallet.address);
-      formData.append("network", companywallet.network);
+      formData.append("WalletAddress", companyWallet.address);
+      formData.append("network", companyWallet.network);
       formData.append("txHash", txHash.trim());
 
       if (receipt) {
@@ -295,8 +295,8 @@ export default function sellUsdtPage() {
       setTxHash("");
       setReceipt(null);
 
-      // Refresh wallet
-      await loadwallet();
+      // Refresh Wallet
+      await loadWallet();
 
     } catch (err: any) {
       console.error("sell Usdt ERROR:", err);
@@ -337,7 +337,7 @@ export default function sellUsdtPage() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center text-cyan-400">
         <RefreshCw className="animate-spin mr-3" size={28} />
-        Loading wallet...
+        Loading Wallet...
       </div>
     );
   }
@@ -368,7 +368,7 @@ export default function sellUsdtPage() {
             </h1>
 
             <p className="text-gray-400 mt-2">
-              sell your Usdt and receive Pkr in your GoldTrade wallet.
+              sell your Usdt and receive Pkr in your GoldTrade Wallet.
             </p>
 
           </div>
@@ -378,7 +378,7 @@ export default function sellUsdtPage() {
             className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-5 py-3 rounded-xl flex items-center gap-2"
           >
             <RefreshCw size={18} />
-            Refresh wallet
+            Refresh Wallet
           </button>
 
         </div>
@@ -415,28 +415,28 @@ export default function sellUsdtPage() {
         )}
 
         {/* ======================================================
-            wallet SUMMARY CARDS
+            Wallet SUMMARY CARDS
         ====================================================== */}
 
         <div className="grid lg:grid-cols-3 gap-5 mb-10">
 
-          {/* Pkr wallet */}
+          {/* Pkr Wallet */}
 
           <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
 
-            <wallet className="text-yellow-400 mb-4" size={34} />
+            <Wallet className="text-yellow-400 mb-4" size={34} />
 
             <p className="text-gray-400 text-sm">
-              Pkr wallet Balance
+              Pkr Wallet Balance
             </p>
 
             <h2 className="text-4xl font-black text-yellow-400 mt-3">
-              Pkr {walletBalance.toLocaleString()}
+              Pkr {WalletBalance.toLocaleString()}
             </h2>
 
           </div>
 
-          {/* Usdt wallet */}
+          {/* Usdt Wallet */}
 
           <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
 
@@ -559,7 +559,7 @@ export default function sellUsdtPage() {
           </div>
 
         </div>        {/* ======================================================
-            COMPANY wallet ADDRESS (TRC20 ONLY)
+            COMPANY Wallet ADDRESS (TRC20 ONLY)
         ====================================================== */}
 
         <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6 mb-8">
@@ -568,11 +568,11 @@ export default function sellUsdtPage() {
 
             <div>
               <h2 className="text-2xl font-bold text-cyan-400">
-                Company Usdt wallet
+                Company Usdt Wallet
               </h2>
 
               <p className="text-gray-400 mt-1">
-                Send your Usdt only to the official GoldTrade TRC20 wallet.
+                Send your Usdt only to the official GoldTrade TRC20 Wallet.
               </p>
             </div>
 
@@ -582,29 +582,29 @@ export default function sellUsdtPage() {
 
           </div>
 
-          {/* wallet Address Card */}
+          {/* Wallet Address Card */}
 
           <div className="bg-black border border-cyan-500 rounded-2xl p-5">
 
             <p className="text-gray-400 text-sm mb-2">
-              Official Company wallet Address
+              Official Company Wallet Address
             </p>
 
             <div className="bg-zinc-900 border border-cyan-700 rounded-xl p-4 mb-4">
 
               <p className="text-cyan-300 text-lg font-bold break-all">
-                {companywallet.address}
+                {companyWallet.address}
               </p>
 
             </div>
 
             <button
               type="button"
-              onClick={copywalletAddress}
+              onClick={copyWalletAddress}
               className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-4 py-3 rounded-xl flex items-center gap-2"
             >
               <Copy size={18} />
-              Copy wallet Address
+              Copy Wallet Address
             </button>
 
           </div>
@@ -628,11 +628,11 @@ export default function sellUsdtPage() {
             <div className="flex justify-between items-center">
 
               <span className="text-gray-400">
-                wallet Owner
+                Wallet Owner
               </span>
 
               <span className="text-white font-semibold">
-                GoldTrade Official wallet
+                GoldTrade Official Wallet
               </span>
 
             </div>
@@ -739,7 +739,7 @@ export default function sellUsdtPage() {
               <AlertCircle size={26} className="text-red-400" />
 
               <h2 className="text-xl font-bold text-red-400">
-                Insufficient Usdt wallet Balance
+                Insufficient Usdt Wallet Balance
               </h2>
             </div>
 
@@ -772,7 +772,7 @@ export default function sellUsdtPage() {
 
           <ul className="space-y-3 text-gray-300 text-sm">
 
-            <li>• Send Usdt only to the official GoldTrade TRC20 wallet.</li>
+            <li>• Send Usdt only to the official GoldTrade TRC20 Wallet.</li>
 
             <li>• Upload a valid payment receipt after sending Usdt.</li>
 
@@ -780,7 +780,7 @@ export default function sellUsdtPage() {
 
             <li>• Admin will verify the payment before approval.</li>
 
-            <li>• Approved requests will credit Pkr into your wallet.</li>
+            <li>• Approved requests will credit Pkr into your Wallet.</li>
 
             <li>• Rejected requests will not credit Pkr.</li>
 
@@ -887,11 +887,11 @@ export default function sellUsdtPage() {
 
             <p>• Send Usdt only through the TRC20 network.</p>
 
-            <p>• Double-check the company wallet address before sending.</p>
+            <p>• Double-check the company Wallet address before sending.</p>
 
             <p>• Upload a clear payment receipt for faster approval.</p>
 
-            <p>• Pkr wallet is credited only after admin approval.</p>
+            <p>• Pkr Wallet is credited only after admin approval.</p>
 
             <p>• Fake receipts or incorrect transfers may result in rejection.</p>
 
@@ -949,23 +949,23 @@ export default function sellUsdtPage() {
 
           <div className="grid md:grid-cols-3 gap-5">
 
-            {/* Pkr wallet */}
+            {/* Pkr Wallet */}
 
             <div className="bg-black border border-yellow-700 rounded-2xl p-5 text-center">
 
-              <wallet size={32} className="mx-auto text-yellow-400 mb-3" />
+              <Wallet size={32} className="mx-auto text-yellow-400 mb-3" />
 
               <p className="text-gray-400 text-sm">
-                Pkr wallet Balance
+                Pkr Wallet Balance
               </p>
 
               <h3 className="text-2xl font-bold text-yellow-400 mt-2">
-                Pkr {walletBalance.toLocaleString()}
+                Pkr {WalletBalance.toLocaleString()}
               </h3>
 
             </div>
 
-            {/* Usdt wallet */}
+            {/* Usdt Wallet */}
 
             <div className="bg-black border border-green-700 rounded-2xl p-5 text-center">
 
@@ -1009,7 +1009,7 @@ export default function sellUsdtPage() {
 
             <div className="flex items-center gap-2 text-green-400 font-semibold">
               <RefreshCw size={16} />
-              wallet Sync Active (Every 15 Seconds)
+              Wallet Sync Active (Every 15 Seconds)
             </div>
 
           </div>
