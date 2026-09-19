@@ -6,7 +6,7 @@ const Referral = require("../models/Referral");
 const walletTransaction = require("../models/WalletTransaction");
 const Transaction = require("../models/Transaction");
 
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/auth");;
 
 // =====================================================
 // Generate Unique Referral Code

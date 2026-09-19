@@ -6,7 +6,7 @@ const User = require("../models/User");
 const Settings = require("../models/Settings");
 const GoldTransaction = require("../models/GoldTransaction");
 
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/auth");;
 
 /* ===========================================
    GET USER TRADING history

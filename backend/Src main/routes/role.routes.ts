@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { adminOnly, superAdminOnly, requirePermission, checkAccountStatus } from "../middleware/role.middleware";
+import { isAdmin, superisAdmin, requirePermission, checkAccountStatus } from "../middleware/role.middleware";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const authMiddleware = (() => {
@@ -80,7 +80,7 @@ router.get(
 router.get(
   "/admin/users",
   authenticate,
-  adminOnly,
+  isAdmin,
   requirePermission("VIEW_USERS"),
   getAllUsers
 );
@@ -88,7 +88,7 @@ router.get(
 router.patch(
   "/admin/gold-price",
   authenticate,
-  adminOnly,
+  isAdmin,
   requirePermission("UPDATE_GOLD_PRICE"),
   updateGoldPrice
 );
@@ -96,7 +96,7 @@ router.patch(
 router.delete(
   "/admin/user/:id",
   authenticate,
-  superAdminOnly,
+  superisAdmin,
   requirePermission("DELETE_USER"),
   deleteUser
 );

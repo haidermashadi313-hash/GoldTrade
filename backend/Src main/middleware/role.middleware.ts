@@ -77,7 +77,7 @@ export const authorizeRoles =
 // ADMIN ONLY
 // ------------------------------------------------------
 
-export const adminOnly = authorizeRoles(
+export const isAdmin = authorizeRoles(
   "ADMIN",
   "SUPER_ADMIN"
 );
@@ -86,7 +86,7 @@ export const adminOnly = authorizeRoles(
 // SUPER ADMIN ONLY
 // ------------------------------------------------------
 
-export const superAdminOnly = authorizeRoles(
+export const superisAdmin = authorizeRoles(
   "SUPER_ADMIN"
 );
 

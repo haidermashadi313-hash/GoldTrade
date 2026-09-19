@@ -1,44 +1,44 @@
+"use strict";
+
 const express = require("express");
 const router = express.Router();
 
+// =====================================================
+// MODELS
+// =====================================================
+
 const User = require("../models/User");
 const GoldTransaction = require("../models/GoldTransaction");
-const walletTransaction = require("../models/WalletTransaction");
+const WalletTransaction = require("../models/WalletTransaction");
+const Settings = require("../models/Settings");
+const GoldTrade = require("../models/GoldTrade");
+const Transaction = require("../models/Transaction");
 
-const { verifyToken } = require("../middleware/authMiddleware");
+// =====================================================
+// MIDDLEWARE
+// =====================================================
 
-// =====================================
-// ADMIN MIDDLEWARE
-// =====================================
-const adminOnly = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin access only.",
-    });
-  }
+const { verifyToken, isAdmin } = require("../middleware/auth");
 
-  next();
-};
-
-// =====================================
+// =====================================================
 // GET ALL USERS
-// GET /api/gold/admin/users
-// =====================================
-router.get("/users", verifyToken, adminOnly, async (req, res) => {
+// GET /api/admin/users
+// =====================================================
+
+router.get("/users", verifyToken, isAdmin, async (req, res) => {
   try {
-    const users = await User.find({ isDeleted: false })
+    const users = await User.find()
       .select("-password")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({
+    res.json({
       success: true,
       users,
       stats: {
         totalUsers: users.length,
         activeUsers: users.filter((u) => u.status === "Active").length,
         blockedUsers: users.filter((u) => u.status === "Blocked").length,
-        frozenwallets: users.filter((u) => u.walletFrozen).length,
+        suspendedUsers: users.filter((u) => u.status === "Suspended").length,
       },
     });
   } catch (error) {
@@ -51,11 +51,12 @@ router.get("/users", verifyToken, adminOnly, async (req, res) => {
   }
 });
 
-// =====================================
+// =====================================================
 // GET USER PROFILE
-// GET /api/gold/admin/profile/:id
-// =====================================
-router.get("/profile/:id", verifyToken, adminOnly, async (req, res) => {
+// GET /api/admin/profile/:id
+// =====================================================
+
+router.get("/profile/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select("-password");
 
@@ -66,23 +67,23 @@ router.get("/profile/:id", verifyToken, adminOnly, async (req, res) => {
       });
     }
 
-    const goldhistory = await GoldTransaction.find({
+    const goldHistory = await GoldTransaction.find({
       userId: user._id,
     })
       .sort({ createdAt: -1 })
       .limit(20);
 
-    const wallethistory = await walletTransaction.find({
-      userId: user._id,
+    const walletHistory = await WalletTransaction.find({
+      username: user.username,
     })
       .sort({ createdAt: -1 })
       .limit(20);
 
-    res.status(200).json({
+    res.json({
       success: true,
       profile: user,
-      goldhistory,
-      wallethistory,
+      goldHistory,
+      walletHistory,
     });
   } catch (error) {
     console.error("PROFILE ERROR:", error);
@@ -93,12 +94,12 @@ router.get("/profile/:id", verifyToken, adminOnly, async (req, res) => {
     });
   }
 });
-
-// =====================================
+// =====================================================
 // BLOCK / UNBLOCK USER
-// PUT /api/gold/admin/block/:id
-// =====================================
-router.put("/block/:id", verifyToken, adminOnly, async (req, res) => {
+// PUT /api/admin/block/:id
+// =====================================================
+
+router.put("/block/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -110,16 +111,15 @@ router.put("/block/:id", verifyToken, adminOnly, async (req, res) => {
     }
 
     user.status = user.status === "Active" ? "Blocked" : "Active";
-
     await user.save();
 
-    res.status(200).json({
+    res.json({
       success: true,
-      status: user.status,
       message: `User ${user.status} successfully.`,
+      status: user.status,
     });
   } catch (error) {
-    console.error("BLOCK ERROR:", error);
+    console.error("BLOCK USER ERROR:", error);
 
     res.status(500).json({
       success: false,
@@ -128,11 +128,12 @@ router.put("/block/:id", verifyToken, adminOnly, async (req, res) => {
   }
 });
 
-// =====================================
-// FREEZE / UNFREEZE wallet
-// PUT /api/gold/admin/freeze/:id
-// =====================================
-router.put("/freeze/:id", verifyToken, adminOnly, async (req, res) => {
+// =====================================================
+// FREEZE / UNFREEZE WALLET
+// PUT /api/admin/freeze/:id
+// =====================================================
+
+router.put("/freeze/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -143,19 +144,18 @@ router.put("/freeze/:id", verifyToken, adminOnly, async (req, res) => {
       });
     }
 
-    user.walletFrozen = !user.walletFrozen;
-
+    user.isWalletFrozen = !user.isWalletFrozen;
     await user.save();
 
-    res.status(200).json({
+    res.json({
       success: true,
-      walletFrozen: user.walletFrozen,
-      message: user.walletFrozen
-        ? "wallet frozen successfully."
-        : "wallet unfrozen successfully.",
+      message: user.isWalletFrozen
+        ? "Wallet frozen successfully."
+        : "Wallet unfrozen successfully.",
+      walletFrozen: user.isWalletFrozen,
     });
   } catch (error) {
-    console.error("FREEZE ERROR:", error);
+    console.error("FREEZE WALLET ERROR:", error);
 
     res.status(500).json({
       success: false,
@@ -164,11 +164,12 @@ router.put("/freeze/:id", verifyToken, adminOnly, async (req, res) => {
   }
 });
 
-// =====================================
-// SOFT DELETE USER
-// DELETE /api/gold/admin/delete/:id
-// =====================================
-router.delete("/delete/:id", verifyToken, adminOnly, async (req, res) => {
+// =====================================================
+// DELETE USER
+// DELETE /api/admin/delete/:id
+// =====================================================
+
+router.delete("/delete/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -179,18 +180,21 @@ router.delete("/delete/:id", verifyToken, adminOnly, async (req, res) => {
       });
     }
 
-    user.isDeleted = true;
-    user.deletedAt = new Date();
-    user.status = "Blocked";
+    if (user.role === "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin account cannot be deleted.",
+      });
+    }
 
-    await user.save();
+    await User.findByIdAndDelete(user._id);
 
-    res.status(200).json({
+    res.json({
       success: true,
       message: "User deleted successfully.",
     });
   } catch (error) {
-    console.error("DELETE ERROR:", error);
+    console.error("DELETE USER ERROR:", error);
 
     res.status(500).json({
       success: false,
@@ -199,63 +203,28 @@ router.delete("/delete/:id", verifyToken, adminOnly, async (req, res) => {
   }
 });
 
-// =====================================
-// RESTORE USER
-// PUT /api/gold/admin/restore/:id
-// =====================================
-router.put("/restore/:id", verifyToken, adminOnly, async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    user.isDeleted = false;
-    user.deletedAt = null;
-    user.status = "Active";
-
-    await user.save();
-
-    res.status(200).json({
-      success: true,
-      message: "User restored successfully.",
-    });
-  } catch (error) {
-    console.error("RESTORE ERROR:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Unable to restore user.",
-    });
-  }
-});
-
-// =====================================
+// =====================================================
 // SEARCH USERS
-// GET /api/gold/admin/search?q=hashi
-// =====================================
-router.get("/search", verifyToken, adminOnly, async (req, res) => {
+// GET /api/admin/search?q=hashi
+// =====================================================
+
+router.get("/search", verifyToken, isAdmin, async (req, res) => {
   try {
     const keyword = req.query.q || "";
 
     const users = await User.find({
-      isDeleted: false,
       $or: [
         { username: { $regex: keyword, $options: "i" } },
         { email: { $regex: keyword, $options: "i" } },
       ],
     }).select("-password");
 
-    res.status(200).json({
+    res.json({
       success: true,
       users,
     });
   } catch (error) {
-    console.error("SEARCH ERROR:", error);
+    console.error("SEARCH USER ERROR:", error);
 
     res.status(500).json({
       success: false,
@@ -263,12 +232,13 @@ router.get("/search", verifyToken, adminOnly, async (req, res) => {
     });
   }
 });
-// ==============================================
-// UPDATE GOLD MARKET SETTINGS (ADMIN)
-// PUT /api/gold/admin/gold/settings
-// ==============================================
 
-router.put("/gold/settings", verifyToken, adminOnly, async (req, res) => {
+// =====================================================
+// UPDATE GOLD MARKET SETTINGS (ONLY ONE ROUTE)
+// PUT /api/admin/gold/settings
+// =====================================================
+
+router.put("/gold/settings", verifyToken, isAdmin, async (req, res) => {
   try {
     let settings = await Settings.findOne();
 
@@ -276,12 +246,14 @@ router.put("/gold/settings", verifyToken, adminOnly, async (req, res) => {
       settings = await Settings.create({});
     }
 
-    settings.buyGoldPrice = Number(req.body.buyGoldPrice);
-    settings.sellGoldPrice = Number(req.body.sellGoldPrice);
-    settings.goldPriceUSD = Number(req.body.goldPriceUSD);
-    settings.UsdtoPkr = Number(req.body.UsdtoPkr);
-    settings.goldTradingEnabled = req.body.goldTradingEnabled;
-    settings.marketStatus = req.body.marketStatus;
+    settings.buyGoldPrice = Number(req.body.buyGoldPrice || 0);
+    settings.sellGoldPrice = Number(req.body.sellGoldPrice || 0);
+    settings.goldPriceUSD = Number(req.body.goldPriceUSD || 0);
+    settings.usdToPkr = Number(req.body.usdToPkr || 0);
+    settings.goldTradingEnabled =
+      req.body.goldTradingEnabled === true ||
+      req.body.goldTradingEnabled === "true";
+    settings.marketStatus = req.body.marketStatus || "OPEN";
 
     await settings.save();
 
@@ -290,69 +262,22 @@ router.put("/gold/settings", verifyToken, adminOnly, async (req, res) => {
       message: "Gold market settings updated successfully.",
       settings,
     });
-
   } catch (error) {
-    console.error("ADMIN GOLD SETTINGS ERROR:", error);
+    console.error("GOLD SETTINGS ERROR:", error);
 
     res.status(500).json({
       success: false,
-      message: "Server Error",
+      message: "Unable to update Gold market settings.",
     });
   }
 });
+
 // =====================================================
-// UPDATE GOLD MARKET SETTINGS (ADMIN)
-// PUT /api/gold/admin/gold/settings
-// =====================================================
-
-router.put("/gold/settings", verifyToken, adminOnly, async (req, res) => {
-  try {
-    let settings = await Settings.findOne();
-
-    if (!settings) {
-      settings = await Settings.create({});
-    }
-
-    settings.buyGoldPrice = Number(req.body.buyGoldPrice);
-    settings.sellGoldPrice = Number(req.body.sellGoldPrice);
-    settings.goldPriceUSD = Number(req.body.goldPriceUSD);
-    settings.UsdtoPkr = Number(req.body.UsdtoPkr);
-    settings.goldTradingEnabled = Boolean(req.body.goldTradingEnabled);
-    settings.marketStatus = req.body.marketStatus;
-
-    await settings.save();
-
-    return res.json({
-      success: true,
-      message: "Gold Market Settings Updated Successfully.",
-      data: {
-        buyPrice: settings.buyGoldPrice,
-        sellPrice: settings.sellGoldPrice,
-        goldPriceUSD: settings.goldPriceUSD,
-        UsdtoPkr: settings.UsdtoPkr,
-        tradingEnabled: settings.goldTradingEnabled,
-        marketStatus: settings.marketStatus,
-      },
-    });
-
-  } catch (error) {
-    console.error("ADMIN GOLD SETTINGS ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to update Gold Market Settings.",
-    });
-  }
-});
-// =====================================================
-// ADMIN GOLD wallet CREDIT / DEBIT
-// PUT /api/gold/admin/gold/wallet/:id
+// ADMIN GOLD WALLET CREDIT / DEBIT
+// PUT /api/admin/gold/wallet/:id
 // =====================================================
 
-const GoldTrade = require("../models/Goldtrade");
-const Transaction = require("../models/Transaction");
-
-router.put("/gold/wallet/:id", verifyToken, adminOnly, async (req, res) => {
+router.put("/gold/wallet/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const { amount, action, reason } = req.body;
 
@@ -361,7 +286,7 @@ router.put("/gold/wallet/:id", verifyToken, adminOnly, async (req, res) => {
     if (!grams || grams <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Enter a valid gold amount.",
+        message: "Invalid gold amount.",
       });
     }
 
@@ -375,21 +300,16 @@ router.put("/gold/wallet/:id", verifyToken, adminOnly, async (req, res) => {
     }
 
     if (action === "credit") {
-      user.goldBalance = Number(user.goldBalance || 0) + grams;
+      user.goldBalance += grams;
     } else if (action === "debit") {
-      if (Number(user.goldBalance || 0) < grams) {
+      if (user.goldBalance < grams) {
         return res.status(400).json({
           success: false,
-          message: "Insufficient Gold Balance.",
+          message: "Insufficient Gold balance.",
         });
       }
 
-      user.goldBalance = Number(user.goldBalance) - grams;
-
-      if (user.goldBalance <= 0) {
-        user.goldBalance = 0;
-        user.goldAveragePrice = 0;
-      }
+      user.goldBalance -= grams;
     } else {
       return res.status(400).json({
         success: false,
@@ -400,40 +320,52 @@ router.put("/gold/wallet/:id", verifyToken, adminOnly, async (req, res) => {
     await user.save();
 
     await GoldTrade.create({
-      user: user._id,
+      userId: user._id,
       username: user.username,
-      tradeType: action === "credit" ? "ADMIN CREDIT" : "ADMIN DEBIT",
+      type: action === "credit" ? "ADMIN CREDIT" : "ADMIN DEBIT",
       grams,
-      pricePerGram: 0,
-      totalPkr: 0,
-      averagebuyPrice: user.goldAveragePrice,
-      profitLoss: 0,
       status: "Completed",
     });
 
     await Transaction.create({
+      userId: user._id,
       username: user.username,
-      type: "Admin Gold wallet",
+      type: action === "credit" ? "CREDIT" : "DEBIT",
       amount: grams,
-      transactionId: `AG${Date.now()}`,
       status: "Completed",
-      reason: reason || "Admin Gold wallet Update",
+      note: reason || "Admin Gold Wallet Update",
     });
 
-    return res.json({
+    res.json({
       success: true,
       message: `Gold wallet ${action} successful.`,
       goldBalance: user.goldBalance,
     });
-
   } catch (error) {
-    console.error("ADMIN GOLD wallet ERROR:", error);
+    console.error("GOLD WALLET ERROR:", error);
 
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-      message: "Server Error",
+      message: "Unable to update Gold wallet.",
     });
   }
 });
+
+// =====================================================
+// HEALTH CHECK
+// GET /api/admin/health
+// =====================================================
+
+router.get("/health", (req, res) => {
+  res.json({
+    success: true,
+    message: "Admin Routes Working - GoldTrade V18",
+    version: "V18 Enterprise",
+  });
+});
+
+// =====================================================
+// EXPORT ROUTER
+// =====================================================
 
 module.exports = router;

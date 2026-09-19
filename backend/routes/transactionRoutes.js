@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const Transaction = require("../models/Transaction");
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/auth");;
 
 // ==========================================
 // GET USER TRANSACTIONS

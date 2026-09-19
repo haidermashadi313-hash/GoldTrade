@@ -1,28 +1,18 @@
+"use strict";
+
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const path = require("path");
 
+// Models
 const PaymentSettings = require("../models/PaymentSettings");
-const { verifyToken } = require("../middleware/authMiddleware");
+
+// Middleware
+const { verifyToken, isAdmin } = require("../middleware/auth");
 
 // ======================================================
-// ADMIN MIDDLEWARE
-// ======================================================
-
-const adminOnly = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin access only.",
-    });
-  }
-  next();
-};
-
-// ======================================================
-// QR CODE UPLOAD
-// uploads/payment/
+// MULTER STORAGE
 // ======================================================
 
 const storage = multer.diskStorage({
@@ -31,24 +21,22 @@ const storage = multer.diskStorage({
   },
 
   filename: (req, file, cb) => {
-    const unique =
-      Date.now() + "-" + Math.round(Math.random() * 1000000);
+    const unique = Date.now() + "-" + Math.round(Math.random() * 1000000);
 
-    cb(
-      null,
-      "payment-" + unique + path.extname(file.originalname)
-    );
+    cb(null, "payment-" + unique + path.extname(file.originalname));
   },
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
 });
 
 // ======================================================
 // GET PAYMENT SETTINGS
-// GET /api/gold/admin/payment-settings
+// GET /api/payment-settings
 // ======================================================
 
 router.get("/", async (req, res) => {
@@ -56,7 +44,7 @@ router.get("/", async (req, res) => {
     let settings = await PaymentSettings.findOne({ active: true });
 
     if (!settings) {
-      settings = await PaymentSettings.create({});
+      settings = await PaymentSettings.create({ active: true });
     }
 
     res.json({
@@ -64,7 +52,7 @@ router.get("/", async (req, res) => {
       settings,
     });
   } catch (err) {
-    console.error(err);
+    console.error("GET PAYMENT SETTINGS ERROR:", err);
 
     res.status(500).json({
       success: false,
@@ -75,13 +63,13 @@ router.get("/", async (req, res) => {
 
 // ======================================================
 // UPDATE PAYMENT SETTINGS
-// PUT /api/gold/admin/payment-settings
+// PUT /api/payment-settings
 // ======================================================
 
 router.put(
   "/",
   verifyToken,
-  adminOnly,
+  isAdmin,
   upload.fields([
     { name: "bankQR", maxCount: 1 },
     { name: "easyPaisaQR", maxCount: 1 },
@@ -93,48 +81,48 @@ router.put(
       let settings = await PaymentSettings.findOne({ active: true });
 
       if (!settings) {
-        settings = new PaymentSettings();
+        settings = new PaymentSettings({ active: true });
       }
 
-      // Usdt Rates
-      settings.UsdtbuyRate = req.body.UsdtbuyRate;
-      settings.UsdtsellRate = req.body.UsdtsellRate;
+      // USDT Rates
+      settings.UsdtbuyRate = Number(req.body.UsdtbuyRate || 0);
+      settings.UsdtsellRate = Number(req.body.UsdtsellRate || 0);
 
       // Bank
-      settings.bank.bankName = req.body.bankName;
-      settings.bank.accountTitle = req.body.bankTitle;
-      settings.bank.accountNumber = req.body.bankAccount;
-      settings.bank.iban = req.body.bankIBAN;
+      settings.bank.bankName = req.body.bankName || "";
+      settings.bank.accountTitle = req.body.bankTitle || "";
+      settings.bank.accountNumber = req.body.bankAccount || "";
+      settings.bank.iban = req.body.bankIBAN || "";
 
       // EasyPaisa
-      settings.easyPaisa.accountTitle = req.body.easyTitle;
-      settings.easyPaisa.mobileNumber = req.body.easyNumber;
+      settings.easyPaisa.accountTitle = req.body.easyTitle || "";
+      settings.easyPaisa.mobileNumber = req.body.easyNumber || "";
 
       // NayaPay
-      settings.nayaPay.accountTitle = req.body.nayaTitle;
-      settings.nayaPay.mobileNumber = req.body.nayaNumber;
+      settings.nayaPay.accountTitle = req.body.nayaTitle || "";
+      settings.nayaPay.mobileNumber = req.body.nayaNumber || "";
 
-      // Usdt wallet
-      settings.Usdtwallet.network = req.body.network;
-      settings.Usdtwallet.walletAddress = req.body.walletAddress;
+      // USDT Wallet
+      settings.Usdtwallet.network = req.body.network || "";
+      settings.Usdtwallet.walletAddress = req.body.walletAddress || "";
 
       // QR Uploads
-      if (req.files.bankQR) {
+      if (req.files?.bankQR?.length) {
         settings.bank.qrCode =
           "/uploads/payment/" + req.files.bankQR[0].filename;
       }
 
-      if (req.files.easyPaisaQR) {
+      if (req.files?.easyPaisaQR?.length) {
         settings.easyPaisa.qrCode =
           "/uploads/payment/" + req.files.easyPaisaQR[0].filename;
       }
 
-      if (req.files.nayaPayQR) {
+      if (req.files?.nayaPayQR?.length) {
         settings.nayaPay.qrCode =
           "/uploads/payment/" + req.files.nayaPayQR[0].filename;
       }
 
-      if (req.files.UsdtQR) {
+      if (req.files?.UsdtQR?.length) {
         settings.Usdtwallet.qrCode =
           "/uploads/payment/" + req.files.UsdtQR[0].filename;
       }
@@ -148,9 +136,8 @@ router.put(
         message: "Payment settings updated successfully.",
         settings,
       });
-
     } catch (err) {
-      console.error(err);
+      console.error("UPDATE PAYMENT SETTINGS ERROR:", err);
 
       res.status(500).json({
         success: false,
@@ -159,5 +146,16 @@ router.put(
     }
   }
 );
+
+// ======================================================
+// HEALTH CHECK
+// ======================================================
+
+router.get("/health", (req, res) => {
+  res.json({
+    success: true,
+    message: "Payment Settings Routes Working - GoldTrade V18",
+  });
+});
 
 module.exports = router;

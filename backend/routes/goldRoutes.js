@@ -13,7 +13,7 @@ const GoldTrade = require("../models/Goldtrade");
 const Transaction = require("../models/Transaction");
 
 // ================= Middleware =================
-const { verifyToken, adminOnly } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/auth");
 
 // =====================================================
 // TEST ROUTE
@@ -115,7 +115,7 @@ router.get("/price", async (req, res) => {
 // PUT /api/gold/price
 // ADMIN ONLY
 // =====================================================
-router.put("/price", verifyToken,adminOnly, async (req, res) => {
+router.put("/price", verifyToken,isAdmin, async (req, res) => {
   try {
     console.log("✅ PUT /api/gold/price HIT");
 
@@ -180,7 +180,7 @@ router.put("/price", verifyToken,adminOnly, async (req, res) => {
 // PUT /api/gold/market/status
 // ADMIN ONLY
 // =====================================================
-router.put("/market/status", verifyToken, adminOnly, async (req, res) => {
+router.put("/market/status", verifyToken, isAdmin, async (req, res) => {
   try {
     const settings = await getOrCreateSettings();
 
@@ -209,7 +209,7 @@ router.put("/market/status", verifyToken, adminOnly, async (req, res) => {
 // PUT /api/gold/trading/toggle
 // ADMIN ONLY
 // =====================================================
-router.put("/trading/toggle", verifyToken, adminOnly, async (req, res) => {
+router.put("/trading/toggle", verifyToken, isAdmin, async (req, res) => {
   try {
     const settings = await getOrCreateSettings();
 
@@ -632,7 +632,7 @@ router.get("/profit-loss", verifyToken, async (req, res) => {
 // GET /api/gold/admin/dashboard
 // =====================================================
 
-router.get("/admin/dashboard", verifyToken, adminOnly, async (req, res) => {
+router.get("/admin/dashboard", verifyToken, isAdmin, async (req, res) => {
   try {
     const settings = await getOrCreateSettings();
 
@@ -721,7 +721,7 @@ router.get("/admin/dashboard", verifyToken, adminOnly, async (req, res) => {
 // GET /api/gold/admin/market
 // =====================================================
 
-router.get("/admin/market", verifyToken, adminOnly, async (req, res) => {
+router.get("/admin/market", verifyToken, isAdmin, async (req, res) => {
   try {
     const settings = await getOrCreateSettings();
 
@@ -753,7 +753,7 @@ router.get("/admin/market", verifyToken, adminOnly, async (req, res) => {
 // GET /api/gold/admin/recent-trades
 // =====================================================
 
-router.get("/admin/recent-trades", verifyToken, adminOnly, async (req, res) => {
+router.get("/admin/recent-trades", verifyToken, isAdmin, async (req, res) => {
   try {
     const trades = await GoldTrade.find()
       .populate("userId", "username email phone")
@@ -781,7 +781,7 @@ router.get("/admin/recent-trades", verifyToken, adminOnly, async (req, res) => {
 // GET /api/gold/admin/volume
 // =====================================================
 
-router.get("/admin/volume", verifyToken, adminOnly, async (req, res) => {
+router.get("/admin/volume", verifyToken, isAdmin, async (req, res) => {
   try {
     const buyTrades = await GoldTrade.find({
       type: "buy",
@@ -832,7 +832,7 @@ router.get("/admin/volume", verifyToken, adminOnly, async (req, res) => {
 // GET /api/gold/admin/user/search?q=username/email/phone
 // =====================================================
 
-router.get("/admin/user/search", verifyToken, adminOnly, async (req, res) => {
+router.get("/admin/user/search", verifyToken, isAdmin, async (req, res) => {
   try {
     const query = (req.query.q || "").trim();
 
@@ -879,7 +879,7 @@ router.get("/admin/user/search", verifyToken, adminOnly, async (req, res) => {
 // GET /api/gold/admin/user/:id
 // =====================================================
 
-router.get("/admin/user/:id", verifyToken, adminOnly, async (req, res) => {
+router.get("/admin/user/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select("-password");
 
@@ -935,7 +935,7 @@ router.get("/admin/user/:id", verifyToken, adminOnly, async (req, res) => {
 router.get(
   "/admin/user/:id/history",
   verifyToken,
-  adminOnly,
+  isAdmin,
   async (req, res) => {
     try {
       const trades = await GoldTrade.find({
@@ -967,7 +967,7 @@ router.get(
 router.get(
   "/admin/user/:id/transactions",
   verifyToken,
-  adminOnly,
+  isAdmin,
   async (req, res) => {
     try {
       const transactions = await Transaction.find({
@@ -1000,7 +1000,7 @@ router.get(
 router.get(
   "/admin/user/:id/summary",
   verifyToken,
-  adminOnly,
+  isAdmin,
   async (req, res) => {
     try {
       const user = await User.findById(req.params.id).select("-password");
@@ -1070,7 +1070,7 @@ router.get(
 router.put(
   "/admin/user/:id/wallet",
   verifyToken,
-  adminOnly,
+  isAdmin,
   async (req, res) => {
     try {
       const { amount, action, reason } = req.body;
@@ -1180,7 +1180,7 @@ router.put(
 router.get(
   "/admin/wallet/logs",
   verifyToken,
-  adminOnly,
+  isAdmin,
   async (req, res) => {
     try {
       const logs = await Transaction.find({
@@ -1221,7 +1221,7 @@ router.get(
 router.delete(
   "/admin/trade/:id",
   verifyToken,
-  adminOnly,
+  isAdmin,
   async (req, res) => {
     try {
       const trade = await GoldTrade.findById(req.params.id);
@@ -1260,7 +1260,7 @@ router.delete(
 router.put(
   "/admin/reset-market",
   verifyToken,
-  adminOnly,
+  isAdmin,
   async (req, res) => {
     try {
       let settings = await getOrCreateSettings();
