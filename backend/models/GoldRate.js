@@ -15,7 +15,7 @@ const GoldTradeSchema = new mongoose.Schema(
 
     totalPkr: Number,
 
-    walletUsed: {
+    WalletUsed: {
       type: String,
       default: "Pkr",
     },

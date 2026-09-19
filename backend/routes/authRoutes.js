@@ -165,7 +165,7 @@ router.post("/login", async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    const wallet = await Wallet.findOne({ userId: user._id });
+    const Wallet = await Wallet.findOne({ userId: user._id });
 
     return res.status(200).json({
       success: true,
@@ -179,9 +179,9 @@ router.post("/login", async (req, res) => {
         role: user.role,
         status: user.status,
 
-        PkrBalance: wallet?.PkrBalance || 0,
-        goldBalance: wallet?.goldBalance || 0,
-        UsdtBalance: wallet?.UsdtBalance || 0,
+        PkrBalance: Wallet?.PkrBalance || 0,
+        goldBalance: Wallet?.goldBalance || 0,
+        UsdtBalance: Wallet?.UsdtBalance || 0,
       },
     });
 
@@ -211,7 +211,7 @@ router.get("/me", verifyToken, async (req, res) => {
       });
     }
 
-    const wallet = await Wallet.findOne({ userId: user._id }).lean();
+    const Wallet = await Wallet.findOne({ userId: user._id }).lean();
 
     return res.status(200).json({
       success: true,
@@ -225,9 +225,9 @@ router.get("/me", verifyToken, async (req, res) => {
         status: user.status,
         lastLogin: user.lastLogin,
 
-        PkrBalance: Number(wallet?.PkrBalance ?? 0),
-        goldBalance: Number(wallet?.goldBalance ?? 0),
-        UsdtBalance: Number(wallet?.UsdtBalance ?? 0),
+        PkrBalance: Number(Wallet?.PkrBalance ?? 0),
+        goldBalance: Number(Wallet?.goldBalance ?? 0),
+        UsdtBalance: Number(Wallet?.UsdtBalance ?? 0),
       },
     });
 

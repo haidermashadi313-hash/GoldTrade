@@ -73,10 +73,10 @@ const userSchema = new mongoose.Schema(
     },
 
     // =====================================================
-    // WALLET BALANCES (V18 Compatibility)
+    // Wallet BALANCES (V18 Compatibility)
     // =====================================================
 
-    walletBalance: {
+    WalletBalance: {
       type: Number,
       default: 0,
       min: 0,

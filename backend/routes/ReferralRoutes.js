@@ -242,10 +242,10 @@ router.post("/approve/:id", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    let wallet = await Wallet.findOne({ userId: referrer._id });
+    let Wallet = await Wallet.findOne({ userId: referrer._id });
 
-    if (!wallet) {
-      wallet = await Wallet.create({
+    if (!Wallet) {
+      Wallet = await Wallet.create({
         userId: referrer._id,
         PkrBalance: 0,
         goldBalance: 0,
@@ -253,11 +253,11 @@ router.post("/approve/:id", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    const previousBalance = Number(wallet.PkrBalance || 0);
+    const previousBalance = Number(Wallet.PkrBalance || 0);
     const newBalance = previousBalance + Number(referral.bonusAmount);
 
-    wallet.PkrBalance = newBalance;
-    await wallet.save();
+    Wallet.PkrBalance = newBalance;
+    await Wallet.save();
 
     referrer.pendingReferralBonus = Math.max(
       0,
@@ -279,7 +279,7 @@ router.post("/approve/:id", verifyToken, isAdmin, async (req, res) => {
       userId: referrer._id,
       username: referrer.username,
 
-      walletType: "PKR",
+      WalletType: "PKR",
       type: "CREDIT",
 
       amount: referral.bonusAmount,
@@ -308,7 +308,7 @@ router.post("/approve/:id", verifyToken, isAdmin, async (req, res) => {
     return res.json({
       success: true,
       message: "Referral bonus approved and credited successfully.",
-      walletBalance: newBalance,
+      WalletBalance: newBalance,
     });
 
   } catch (err) {

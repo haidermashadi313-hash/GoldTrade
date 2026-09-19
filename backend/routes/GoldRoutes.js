@@ -280,15 +280,15 @@ router.post("/buy", verifyToken, async (req, res) => {
     const pricePerGram = Number(settings.buyPrice);
     const totalAmount = Number((quantity * pricePerGram).toFixed(2));
 
-    if ((user.Pkrwallet || 0) < totalAmount) {
+    if ((user.PkrWallet || 0) < totalAmount) {
       return res.status(400).json({
         success: false,
-        message: "Insufficient Pkr wallet balance.",
+        message: "Insufficient Pkr Wallet balance.",
       });
     }
 
-    user.Pkrwallet = Number(user.Pkrwallet || 0) - totalAmount;
-    user.goldwallet = Number(user.goldwallet || 0) + quantity;
+    user.PkrWallet = Number(user.PkrWallet || 0) - totalAmount;
+    user.goldWallet = Number(user.goldWallet || 0) + quantity;
 
     await user.save();
 
@@ -314,9 +314,9 @@ router.post("/buy", verifyToken, async (req, res) => {
       success: true,
       message: "Gold purchased successfully.",
       trade,
-      wallet: {
-        Pkrwallet: user.Pkrwallet,
-        goldwallet: user.goldwallet,
+      Wallet: {
+        PkrWallet: user.PkrWallet,
+        goldWallet: user.goldWallet,
       },
     });
   } catch (error) {
@@ -376,20 +376,20 @@ router.post("/sell", verifyToken, async (req, res) => {
 
     const quantity = Number(grams);
 
-    // Gold wallet balance check
-    if ((user.goldwallet || 0) < quantity) {
+    // Gold Wallet balance check
+    if ((user.goldWallet || 0) < quantity) {
       return res.status(400).json({
         success: false,
-        message: "Insufficient gold wallet balance.",
+        message: "Insufficient gold Wallet balance.",
       });
     }
 
     const pricePerGram = Number(settings.sellPrice);
     const totalAmount = Number((quantity * pricePerGram).toFixed(2));
 
-    // ---------------- wallet Update ----------------
-    user.goldwallet = Number(user.goldwallet || 0) - quantity;
-    user.Pkrwallet = Number(user.Pkrwallet || 0) + totalAmount;
+    // ---------------- Wallet Update ----------------
+    user.goldWallet = Number(user.goldWallet || 0) - quantity;
+    user.PkrWallet = Number(user.PkrWallet || 0) + totalAmount;
 
     await user.save();
 
@@ -418,9 +418,9 @@ router.post("/sell", verifyToken, async (req, res) => {
       success: true,
       message: "Gold sold successfully.",
       trade,
-      wallet: {
-        Pkrwallet: Number(user.Pkrwallet.toFixed(2)),
-        goldwallet: Number(user.goldwallet.toFixed(4)),
+      Wallet: {
+        PkrWallet: Number(user.PkrWallet.toFixed(2)),
+        goldWallet: Number(user.goldWallet.toFixed(4)),
       },
     });
 
@@ -458,7 +458,7 @@ router.get("/portfolio", verifyToken, async (req, res) => {
 
     const settings = await getOrCreateSettings();
 
-    const goldBalance = Number(user.goldwallet || 0);
+    const goldBalance = Number(user.goldWallet || 0);
     const currentbuyPrice = Number(settings.buyPrice || 0);
     const currentsellPrice = Number(settings.sellPrice || 0);
 
@@ -470,8 +470,8 @@ router.get("/portfolio", verifyToken, async (req, res) => {
       portfolio: {
         username: user.username,
         email: user.email,
-        goldwallet: goldBalance,
-        Pkrwallet: Number(user.Pkrwallet || 0),
+        goldWallet: goldBalance,
+        PkrWallet: Number(user.PkrWallet || 0),
         currentbuyPrice,
         currentsellPrice,
         totalbuyValue,
@@ -649,15 +649,15 @@ router.get("/admin/dashboard", verifyToken, isAdmin, async (req, res) => {
       GoldTrade.countDocuments({ status: "COMPLETED" }),
       GoldTrade.find({ type: "buy", status: "COMPLETED" }),
       GoldTrade.find({ type: "sell", status: "COMPLETED" }),
-      User.find({}, "goldwallet Pkrwallet"),
+      User.find({}, "goldWallet PkrWallet"),
     ]);
 
-    let totalGoldInwallets = 0;
-    let totalPkrInwallets = 0;
+    let totalGoldInWallets = 0;
+    let totalPkrInWallets = 0;
 
     users.forEach((user) => {
-      totalGoldInwallets += Number(user.goldwallet || 0);
-      totalPkrInwallets += Number(user.Pkrwallet || 0);
+      totalGoldInWallets += Number(user.goldWallet || 0);
+      totalPkrInWallets += Number(user.PkrWallet || 0);
     });
 
     const totalGoldBought = buyTrades.reduce(
@@ -697,11 +697,11 @@ router.get("/admin/dashboard", verifyToken, isAdmin, async (req, res) => {
 
         totalGoldBought: Number(totalGoldBought.toFixed(4)),
         totalGoldSold: Number(totalGoldSold.toFixed(4)),
-        totalGoldInwallets: Number(totalGoldInwallets.toFixed(4)),
+        totalGoldInWallets: Number(totalGoldInWallets.toFixed(4)),
 
         totalbuyAmount: Number(totalbuyAmount.toFixed(2)),
         totalsellAmount: Number(totalsellAmount.toFixed(2)),
-        totalPkrInwallets: Number(totalPkrInwallets.toFixed(2)),
+        totalPkrInWallets: Number(totalPkrInWallets.toFixed(2)),
       },
     });
 
@@ -875,7 +875,7 @@ router.get("/admin/user/search", verifyToken, isAdmin, async (req, res) => {
 });
 
 // =====================================================
-// ADMIN GET USER GOLD wallet
+// ADMIN GET USER GOLD Wallet
 // GET /api/gold/admin/user/:id
 // =====================================================
 
@@ -892,7 +892,7 @@ router.get("/admin/user/:id", verifyToken, isAdmin, async (req, res) => {
 
     const settings = await getOrCreateSettings();
 
-    const goldBalance = Number(user.goldwallet || 0);
+    const goldBalance = Number(user.goldWallet || 0);
 
     return res.status(200).json({
       success: true,
@@ -902,8 +902,8 @@ router.get("/admin/user/:id", verifyToken, isAdmin, async (req, res) => {
         email: user.email,
         phone: user.phone,
 
-        goldwallet: goldBalance,
-        Pkrwallet: Number(user.Pkrwallet || 0),
+        goldWallet: goldBalance,
+        PkrWallet: Number(user.PkrWallet || 0),
 
         currentbuyValue: Number(
           (goldBalance * settings.buyPrice).toFixed(2)
@@ -922,7 +922,7 @@ router.get("/admin/user/:id", verifyToken, isAdmin, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load user wallet.",
+      message: "Unable to load user Wallet.",
     });
   }
 });
@@ -1027,7 +1027,7 @@ router.get(
         if (trade.type === "sell") totalSold += Number(trade.grams);
       });
 
-      const balance = Number(user.goldwallet || 0);
+      const balance = Number(user.goldWallet || 0);
 
       return res.status(200).json({
         success: true,
@@ -1035,8 +1035,8 @@ router.get(
           username: user.username,
           email: user.email,
 
-          goldwallet: balance,
-          Pkrwallet: Number(user.Pkrwallet || 0),
+          goldWallet: balance,
+          PkrWallet: Number(user.PkrWallet || 0),
 
           totalBought: Number(totalBought.toFixed(4)),
           totalSold: Number(totalSold.toFixed(4)),
@@ -1063,12 +1063,12 @@ router.get(
 
 // =====================================================
 // GoldTrade V19 - PART 7/8
-// ADMIN CREDIT / DEBIT GOLD wallet
-// PUT /api/gold/admin/user/:id/wallet
+// ADMIN CREDIT / DEBIT GOLD Wallet
+// PUT /api/gold/admin/user/:id/Wallet
 // =====================================================
 
 router.put(
-  "/admin/user/:id/wallet",
+  "/admin/user/:id/Wallet",
   verifyToken,
   isAdmin,
   async (req, res) => {
@@ -1086,7 +1086,7 @@ router.put(
       if (!["credit", "debit"].includes(action)) {
         return res.status(400).json({
           success: false,
-          message: "Invalid wallet action.",
+          message: "Invalid Wallet action.",
         });
       }
 
@@ -1104,19 +1104,19 @@ router.put(
 
       // ---------------- Credit ----------------
       if (action === "credit") {
-        user.goldwallet = Number(user.goldwallet || 0) + goldAmount;
+        user.goldWallet = Number(user.goldWallet || 0) + goldAmount;
       }
 
       // ---------------- Debit ----------------
       if (action === "debit") {
-        if (Number(user.goldwallet || 0) < goldAmount) {
+        if (Number(user.goldWallet || 0) < goldAmount) {
           return res.status(400).json({
             success: false,
             message: "User has insufficient gold balance.",
           });
         }
 
-        user.goldwallet = Number(user.goldwallet || 0) - goldAmount;
+        user.goldWallet = Number(user.goldWallet || 0) - goldAmount;
       }
 
       await user.save();
@@ -1154,18 +1154,18 @@ router.put(
             ? "Gold credited successfully."
             : "Gold debited successfully.",
 
-        wallet: {
-          goldwallet: Number(user.goldwallet.toFixed(4)),
-          Pkrwallet: Number((user.Pkrwallet || 0).toFixed(2)),
+        Wallet: {
+          goldWallet: Number(user.goldWallet.toFixed(4)),
+          PkrWallet: Number((user.PkrWallet || 0).toFixed(2)),
         },
       });
 
     } catch (error) {
-      console.error("ADMIN GOLD wallet ERROR:", error);
+      console.error("ADMIN GOLD Wallet ERROR:", error);
 
       return res.status(500).json({
         success: false,
-        message: "Unable to update gold wallet.",
+        message: "Unable to update gold Wallet.",
         error: error.message,
       });
     }
@@ -1173,12 +1173,12 @@ router.put(
 );
 
 // =====================================================
-// ADMIN GET GOLD wallet LOGS
-// GET /api/gold/admin/wallet/logs
+// ADMIN GET GOLD Wallet LOGS
+// GET /api/gold/admin/Wallet/logs
 // =====================================================
 
 router.get(
-  "/admin/wallet/logs",
+  "/admin/Wallet/logs",
   verifyToken,
   isAdmin,
   async (req, res) => {
@@ -1198,11 +1198,11 @@ router.get(
       });
 
     } catch (error) {
-      console.error("ADMIN wallet LOG ERROR:", error);
+      console.error("ADMIN Wallet LOG ERROR:", error);
 
       return res.status(500).json({
         success: false,
-        message: "Unable to load wallet logs.",
+        message: "Unable to load Wallet logs.",
       });
     }
   }
@@ -1312,7 +1312,7 @@ router.get("/info", async (req, res) => {
         portfolio: "/api/gold/portfolio",
         history: "/api/gold/history",
         adminDashboard: "/api/gold/admin/dashboard",
-        adminwallet: "/api/gold/admin/user/:id/wallet",
+        adminWallet: "/api/gold/admin/user/:id/Wallet",
       },
       market: {
         buyPrice: settings.buyPrice,

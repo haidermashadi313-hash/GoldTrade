@@ -13,11 +13,11 @@ const router = express.Router();
 const User = require("../models/User");
 const Deposit = require("../models/Deposit");
 
-// wallet history model (create if not exists)
-const wallethistory =
-  mongoose.models.wallethistory ||
+// Wallet history model (create if not exists)
+const Wallethistory =
+  mongoose.models.Wallethistory ||
   mongoose.model(
-    "wallethistory",
+    "Wallethistory",
     new mongoose.Schema(
       {
         username: String,
@@ -61,10 +61,10 @@ const errorResponse = (res, message, status = 500) => {
 };
 
 // ======================================================
-// CREATE wallet history
+// CREATE Wallet history
 // ======================================================
 
-const createwallethistory = async ({
+const createWallethistory = async ({
   username,
   amount,
   balanceBefore,
@@ -72,7 +72,7 @@ const createwallethistory = async ({
   note,
   createdBy,
 }) => {
-  await wallethistory.create({
+  await Wallethistory.create({
     username,
     type: "Deposit",
     action: "credit",
@@ -179,7 +179,7 @@ router.get("/:id", async (req, res) => {
 
 // ======================================================
 // POST /api/admin/deposits/:id/approve
-// Approve Deposit + Credit wallet
+// Approve Deposit + Credit Wallet
 // ======================================================
 
 router.post("/:id/approve", async (req, res) => {
@@ -209,13 +209,13 @@ router.post("/:id/approve", async (req, res) => {
       return errorResponse(res, "User not found.", 404);
     }
 
-    const balanceBefore = Number(user.walletBalance || 0);
+    const balanceBefore = Number(user.WalletBalance || 0);
     const depositAmount = Number(deposit.requestAmount || 0);
 
     const balanceAfter = balanceBefore + depositAmount;
 
-    // wallet Credit
-    user.walletBalance = balanceAfter;
+    // Wallet Credit
+    user.WalletBalance = balanceAfter;
 
     // Deposit Statistics
     user.totalDeposit = Number(user.totalDeposit || 0) + depositAmount;
@@ -229,8 +229,8 @@ router.post("/:id/approve", async (req, res) => {
 
     await deposit.save({ session });
 
-    // wallet history
-    await createwallethistory({
+    // Wallet history
+    await createWallethistory({
       username: user.username,
       amount: depositAmount,
       balanceBefore,
@@ -243,7 +243,7 @@ router.post("/:id/approve", async (req, res) => {
 
     return successResponse(res, "Deposit approved successfully.", {
       username: user.username,
-      walletBalance: balanceAfter,
+      WalletBalance: balanceAfter,
       depositStatus: deposit.status,
       amount: depositAmount,
     });

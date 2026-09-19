@@ -73,7 +73,7 @@ router.get("/profile/:id", verifyToken, isAdmin, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(20);
 
-    const walletHistory = await WalletTransaction.find({
+    const WalletHistory = await WalletTransaction.find({
       username: user.username,
     })
       .sort({ createdAt: -1 })
@@ -83,7 +83,7 @@ router.get("/profile/:id", verifyToken, isAdmin, async (req, res) => {
       success: true,
       profile: user,
       goldHistory,
-      walletHistory,
+      WalletHistory,
     });
   } catch (error) {
     console.error("PROFILE ERROR:", error);
@@ -129,7 +129,7 @@ router.put("/block/:id", verifyToken, isAdmin, async (req, res) => {
 });
 
 // =====================================================
-// FREEZE / UNFREEZE WALLET
+// FREEZE / UNFREEZE Wallet
 // PUT /api/admin/freeze/:id
 // =====================================================
 
@@ -152,14 +152,14 @@ router.put("/freeze/:id", verifyToken, isAdmin, async (req, res) => {
       message: user.isWalletFrozen
         ? "Wallet frozen successfully."
         : "Wallet unfrozen successfully.",
-      walletFrozen: user.isWalletFrozen,
+      WalletFrozen: user.isWalletFrozen,
     });
   } catch (error) {
-    console.error("FREEZE WALLET ERROR:", error);
+    console.error("FREEZE Wallet ERROR:", error);
 
     res.status(500).json({
       success: false,
-      message: "Unable to update wallet status.",
+      message: "Unable to update Wallet status.",
     });
   }
 });
@@ -273,11 +273,11 @@ router.put("/gold/settings", verifyToken, isAdmin, async (req, res) => {
 });
 
 // =====================================================
-// ADMIN GOLD WALLET CREDIT / DEBIT
-// PUT /api/admin/gold/wallet/:id
+// ADMIN GOLD Wallet CREDIT / DEBIT
+// PUT /api/admin/gold/Wallet/:id
 // =====================================================
 
-router.put("/gold/wallet/:id", verifyToken, isAdmin, async (req, res) => {
+router.put("/gold/Wallet/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const { amount, action, reason } = req.body;
 
@@ -338,15 +338,15 @@ router.put("/gold/wallet/:id", verifyToken, isAdmin, async (req, res) => {
 
     res.json({
       success: true,
-      message: `Gold wallet ${action} successful.`,
+      message: `Gold Wallet ${action} successful.`,
       goldBalance: user.goldBalance,
     });
   } catch (error) {
-    console.error("GOLD WALLET ERROR:", error);
+    console.error("GOLD Wallet ERROR:", error);
 
     res.status(500).json({
       success: false,
-      message: "Unable to update Gold wallet.",
+      message: "Unable to update Gold Wallet.",
     });
   }
 });

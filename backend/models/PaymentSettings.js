@@ -77,14 +77,14 @@ const paymentSettingsSchema = new mongoose.Schema(
       },
     },
 
-    // ================= Usdt wallet =================
-    Usdtwallet: {
+    // ================= Usdt Wallet =================
+    UsdtWallet: {
       network: {
         type: String,
         default: "TRC20",
       },
 
-      walletAddress: {
+      WalletAddress: {
         type: String,
         default: "",
       },

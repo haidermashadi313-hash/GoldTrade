@@ -13,12 +13,12 @@ const router = express.Router();
 const User = require("../models/User");
 const Withdraw = require("../models/Withdraw");
 
-// wallet history Model (Reuse existing model if already loaded)
+// Wallet history Model (Reuse existing model if already loaded)
 
-const wallethistory =
-  mongoose.models.wallethistory ||
+const Wallethistory =
+  mongoose.models.Wallethistory ||
   mongoose.model(
-    "wallethistory",
+    "Wallethistory",
     new mongoose.Schema(
       {
         username: String,
@@ -62,10 +62,10 @@ const errorResponse = (res, message, status = 500) => {
 };
 
 // ======================================================
-// CREATE wallet history
+// CREATE Wallet history
 // ======================================================
 
-const createwallethistory = async ({
+const createWallethistory = async ({
   username,
   amount,
   balanceBefore,
@@ -73,7 +73,7 @@ const createwallethistory = async ({
   note,
   createdBy,
 }) => {
-  await wallethistory.create({
+  await Wallethistory.create({
     username,
     type: "Withdraw",
     action: "deduct",
@@ -180,7 +180,7 @@ router.get("/:id", async (req, res) => {
 
 // ======================================================
 // POST /api/admin/withdraws/:id/approve
-// Approve Withdraw + Deduct wallet
+// Approve Withdraw + Deduct Wallet
 // ======================================================
 
 router.post("/:id/approve", async (req, res) => {
@@ -212,7 +212,7 @@ router.post("/:id/approve", async (req, res) => {
       return errorResponse(res, "User not found.", 404);
     }
 
-    const balanceBefore = Number(user.walletBalance || 0);
+    const balanceBefore = Number(user.WalletBalance || 0);
     const withdrawAmount = Number(withdraw.requestAmount || 0);
 
     // Balance Check
@@ -220,15 +220,15 @@ router.post("/:id/approve", async (req, res) => {
       await session.abortTransaction();
       return errorResponse(
         res,
-        "Insufficient wallet balance for withdrawal.",
+        "Insufficient Wallet balance for withdrawal.",
         400
       );
     }
 
     const balanceAfter = balanceBefore - withdrawAmount;
 
-    // Deduct wallet
-    user.walletBalance = balanceAfter;
+    // Deduct Wallet
+    user.WalletBalance = balanceAfter;
 
     // Update User Statistics
     user.totalWithdraw =
@@ -243,8 +243,8 @@ router.post("/:id/approve", async (req, res) => {
 
     await withdraw.save({ session });
 
-    // Save wallet history
-    await createwallethistory({
+    // Save Wallet history
+    await createWallethistory({
       username: user.username,
       amount: withdrawAmount,
       balanceBefore,
@@ -257,7 +257,7 @@ router.post("/:id/approve", async (req, res) => {
 
     return successResponse(res, "Withdraw approved successfully.", {
       username: user.username,
-      walletBalance: balanceAfter,
+      WalletBalance: balanceAfter,
       withdrawStatus: withdraw.status,
       amount: withdrawAmount,
     });

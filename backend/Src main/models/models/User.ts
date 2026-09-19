@@ -205,7 +205,7 @@ export interface IUser extends Document {
 
   lastSeen?: Date;
 
-  wallet?: mongoose.Types.ObjectId;
+  Wallet?: mongoose.Types.ObjectId;
 
   kyc: IKYC;
 
@@ -216,7 +216,7 @@ export interface IUser extends Document {
     createdAt?: Date;
   }>;
 
-  walletBalance?: number;
+  WalletBalance?: number;
 
   goldBalance?: number;
 
@@ -232,7 +232,7 @@ export interface IUser extends Document {
 
   totalLoss?: number;
 
-  walletCurrency?: string;
+  WalletCurrency?: string;
 
   trading: ITradingProfile;
 
@@ -302,7 +302,7 @@ export interface IUser extends Document {
   permissions?: {
     dashboard?: boolean;
     userManagement?: boolean;
-    walletManagement?: boolean;
+    WalletManagement?: boolean;
     kycManagement?: boolean;
     depositManagement?: boolean;
     withdrawalManagement?: boolean;
@@ -506,9 +506,9 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
       default: Date.now,
     },
 
-    wallet: {
+    Wallet: {
       type: Schema.Types.ObjectId,
-      ref: "wallet",
+      ref: "Wallet",
       index: true,
     },
 
@@ -642,19 +642,19 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
 
 // ======================================================
 // END OF SECTION 3/10
-// NEXT SECTION: wallet + TRADING SCHEMA
+// NEXT SECTION: Wallet + TRADING SCHEMA
 // ======================================================// ======================================================
 // GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/User.ts
 // SECTION 4/10
-// wallet + TRADING SCHEMA
+// Wallet + TRADING SCHEMA
 // ======================================================
 
     // ==================================================
-    // wallet INFORMATION
+    // Wallet INFORMATION
     // ==================================================
 
-    walletBalance: {
+    WalletBalance: {
       type: Number,
       default: 0,
       min: 0,
@@ -700,7 +700,7 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
       default: 0,
     },
 
-    walletCurrency: {
+    WalletCurrency: {
       type: String,
       default: "Pkr",
       uppercase: true,
@@ -1265,7 +1265,7 @@ const UserSchema: Schema<IUser, IUserModel, IUserMethods> = new Schema<IUser, IU
         default: false,
       },
 
-      walletManagement: {
+      WalletManagement: {
         type: Boolean,
         default: false,
       },
@@ -1518,7 +1518,7 @@ UserSchema.index({ lastSeen: -1 });
 
 // Trading
 UserSchema.index({ "trading.tradingVolume": -1 });
-UserSchema.index({ walletBalance: -1 });
+UserSchema.index({ WalletBalance: -1 });
 UserSchema.index({ goldBalance: -1 });
 
 // ======================================================
@@ -1533,15 +1533,15 @@ UserSchema.virtual("isAccountLocked").get(function () {
 });
 
 // ======================================================
-// VIRTUAL FIELD : FULL wallet VALUE
+// VIRTUAL FIELD : FULL Wallet VALUE
 // ======================================================
 
-UserSchema.virtual("totalwalletValue").get(function () {
-  const walletBalance = Number(this.walletBalance ?? 0);
+UserSchema.virtual("totalWalletValue").get(function () {
+  const WalletBalance = Number(this.WalletBalance ?? 0);
   const bonusBalance = Number(this.bonusBalance ?? 0);
   const goldMarketValue = Number(this.portfolio?.goldMarketValue ?? 0);
 
-  return walletBalance + bonusBalance + goldMarketValue;
+  return WalletBalance + bonusBalance + goldMarketValue;
 });
 
 // ======================================================

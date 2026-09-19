@@ -85,7 +85,7 @@ router.get("/", async (req, res) => {
         bank: {},
         easyPaisa: {},
         nayaPay: {},
-        Usdtwallet: {},
+        UsdtWallet: {},
       });
 
       settings = settings.toObject();
@@ -134,7 +134,7 @@ router.put(
       settings.bank = settings.bank || {};
       settings.easyPaisa = settings.easyPaisa || {};
       settings.nayaPay = settings.nayaPay || {};
-      settings.Usdtwallet = settings.Usdtwallet || {};
+      settings.UsdtWallet = settings.UsdtWallet || {};
 
       // USDT Rates
       if (req.body.UsdtbuyRate !== undefined)
@@ -164,10 +164,10 @@ router.put(
         req.body.nayaNumber || settings.nayaPay.mobileNumber;
 
       // USDT Wallet
-      settings.Usdtwallet.network =
-        req.body.network || settings.Usdtwallet.network;
-      settings.Usdtwallet.walletAddress =
-        req.body.walletAddress || settings.Usdtwallet.walletAddress;
+      settings.UsdtWallet.network =
+        req.body.network || settings.UsdtWallet.network;
+      settings.UsdtWallet.WalletAddress =
+        req.body.WalletAddress || settings.UsdtWallet.WalletAddress;
 
       // QR Uploads
       if (req.files?.bankQR?.length) {
@@ -186,7 +186,7 @@ router.put(
       }
 
       if (req.files?.UsdtQR?.length) {
-        settings.Usdtwallet.qrCode =
+        settings.UsdtWallet.qrCode =
           "/uploads/payment/" + req.files.UsdtQR[0].filename;
       }
 

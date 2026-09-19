@@ -69,7 +69,7 @@ export interface IRewardBalance {
 }
 
 export interface ILinkedAccounts {
-  wallet?: mongoose.Types.ObjectId;
+  Wallet?: mongoose.Types.ObjectId;
   goldVaults: mongoose.Types.ObjectId[];
   bankAccounts: mongoose.Types.ObjectId[];
   tradeOrders: mongoose.Types.ObjectId[];
@@ -104,7 +104,7 @@ export interface IPortfolioMethods {
   updateDashboardSummary(): void;
   createDailySnapshot(): void;
   syncReferences(data: {
-    walletId?: mongoose.Types.ObjectId;
+    WalletId?: mongoose.Types.ObjectId;
     vaultIds?: mongoose.Types.ObjectId[];
     bankIds?: mongoose.Types.ObjectId[];
   }): void;
@@ -179,7 +179,7 @@ const PortfolioSchema = new Schema<IPortfolio, IPortfolioModel, IPortfolioMethod
     },
 
     linkedAccounts: {
-      wallet: { type: Schema.Types.ObjectId, ref: "wallet" },
+      Wallet: { type: Schema.Types.ObjectId, ref: "Wallet" },
       goldVaults: [{ type: Schema.Types.ObjectId, ref: "GoldVault" }],
       bankAccounts: [{ type: Schema.Types.ObjectId, ref: "BankAccount" }],
       tradeOrders: [{ type: Schema.Types.ObjectId, ref: "TradeOrder" }],
@@ -464,7 +464,7 @@ PortfolioSchema.virtual("portfolioCompletion").get(function (this: any) {
   let completed = 0;
   if ((this.goldBalances?.totalGrams || 0) > 0) completed += 25;
   if ((this.cashValuation?.totalCashPkr || 0) > 0) completed += 20;
-  if (this.linkedAccounts?.wallet) completed += 15;
+  if (this.linkedAccounts?.Wallet) completed += 15;
   if ((this.linkedAccounts?.bankAccounts?.length || 0) > 0) completed += 15;
   if ((this.linkedAccounts?.goldVaults?.length || 0) > 0) completed += 15;
   if ((this.tradeAnalytics?.totalTrades || 0) > 0) completed += 10;
@@ -666,8 +666,8 @@ PortfolioSchema.methods.createDailySnapshot = function () {
   this.dailySnapshots = this.dailySnapshots.slice(0, 365);
 };
 
-PortfolioSchema.methods.syncReferences = function ({ walletId, vaultIds, bankIds }: any) {
-  if (walletId) this.linkedAccounts.wallet = walletId;
+PortfolioSchema.methods.syncReferences = function ({ WalletId, vaultIds, bankIds }: any) {
+  if (WalletId) this.linkedAccounts.Wallet = WalletId;
   if (vaultIds) this.linkedAccounts.goldVaults = vaultIds;
   if (bankIds) this.linkedAccounts.bankAccounts = bankIds;
 };

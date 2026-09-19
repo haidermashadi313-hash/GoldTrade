@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const walletSchema = new mongoose.Schema(
+const WalletSchema = new mongoose.Schema(
   {
     // User Link
     userId: {
@@ -52,10 +52,10 @@ const walletSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    collection: "wallets",
+    collection: "Wallets",
   }
 );
 
 // Render / Hot Reload Safe Export
 module.exports =
-  mongoose.models.Wallet || mongoose.model("Wallet", walletSchema);
+  mongoose.models.Wallet || mongoose.model("Wallet", WalletSchema);

@@ -70,17 +70,17 @@ router.get("/:username", verifyToken, async (req, res) => {
 });
 
 // =======================================
-// ADMIN UPDATE WALLET
-// PUT /api/users/:id/wallet
+// ADMIN UPDATE Wallet
+// PUT /api/users/:id/Wallet
 // =======================================
 
-router.put("/:id/wallet", verifyToken, isAdmin, async (req, res) => {
+router.put("/:id/Wallet", verifyToken, isAdmin, async (req, res) => {
   try {
-    const { walletType, action, amount, reason } = req.body;
+    const { WalletType, action, amount, reason } = req.body;
 
-    const wallet = await Wallet.findOne({ userId: req.params.id });
+    const Wallet = await Wallet.findOne({ userId: req.params.id });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
         message: "Wallet not found.",
@@ -96,24 +96,24 @@ router.put("/:id/wallet", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    if (!["PkrBalance", "UsdtBalance", "goldBalance"].includes(walletType)) {
+    if (!["PkrBalance", "UsdtBalance", "goldBalance"].includes(WalletType)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid wallet type.",
+        message: "Invalid Wallet type.",
       });
     }
 
     if (action === "add") {
-      wallet[walletType] += value;
+      Wallet[WalletType] += value;
     } else if (action === "deduct") {
-      if (wallet[walletType] < value) {
+      if (Wallet[WalletType] < value) {
         return res.status(400).json({
           success: false,
           message: "Insufficient balance.",
         });
       }
 
-      wallet[walletType] -= value;
+      Wallet[WalletType] -= value;
     } else {
       return res.status(400).json({
         success: false,
@@ -121,14 +121,14 @@ router.put("/:id/wallet", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    await wallet.save();
+    await Wallet.save();
 
     const user = await User.findById(req.params.id);
 
     await Transaction.create({
       userId: user._id,
       username: user.username,
-      wallet: walletType,
+      Wallet: WalletType,
       type: action === "add" ? "CREDIT" : "DEBIT",
       amount: value,
       status: "Completed",
@@ -138,10 +138,10 @@ router.put("/:id/wallet", verifyToken, isAdmin, async (req, res) => {
     res.json({
       success: true,
       message: "Wallet updated successfully.",
-      wallet,
+      Wallet,
     });
   } catch (err) {
-    console.error("UPDATE WALLET ERROR:", err);
+    console.error("UPDATE Wallet ERROR:", err);
 
     res.status(500).json({
       success: false,

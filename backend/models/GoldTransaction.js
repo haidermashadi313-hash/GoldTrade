@@ -40,7 +40,7 @@ const goldTransactionSchema = new mongoose.Schema(
       min: 1,
     },
 
-    walletType: {
+    WalletType: {
       type: String,
       default: "Pkr",
     },

@@ -1,19 +1,19 @@
 // ======================================================
 // GoldTrade V17 ENTERPRISE
-// FILE: backend/src/controllers/wallet.controller.ts
+// FILE: backend/src/controllers/Wallet.controller.ts
 // SECTION 1/10
-// wallet FOUNDATION + MULTI-CURRENCY DASHBOARD
+// Wallet FOUNDATION + MULTI-CURRENCY DASHBOARD
 // ======================================================
 
 import { Request, Response } from "express";
-import wallet from "../models/Wallet";
+import Wallet from "../models/Wallet";
 import Transaction from "../models/Transaction";
 import { TransactionStatus } from "../models/Transaction";
 import Portfolio from "../models/Portfolio";
 import User from "../models/User";
 import GoldPrice from "../models/GoldPrice";
 
-// wallet.goldBalance is stored as a numeric gram balance.
+// Wallet.goldBalance is stored as a numeric gram balance.
 const goldGrams = (balance: number) => ({
   totalGrams: balance,
   availableGrams: balance,
@@ -21,29 +21,29 @@ const goldGrams = (balance: number) => ({
 });
 
 // ======================================================
-// GET USER wallet
-// GET /api/v1/wallet
+// GET USER Wallet
+// GET /api/v1/Wallet
 // ======================================================
 
-export const getwallet = async (
+export const getWallet = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
     return res.json({
       success: true,
-      wallet,
+      Wallet,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -54,16 +54,16 @@ export const getwallet = async (
 };
 
 // ======================================================
-// GET wallet DASHBOARD
-// GET /api/v1/wallet/dashboard
+// GET Wallet DASHBOARD
+// GET /api/v1/Wallet/dashboard
 // ======================================================
 
-export const getwalletDashboard = async (
+export const getWalletDashboard = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
@@ -71,10 +71,10 @@ export const getwalletDashboard = async (
       user: req.user.id,
     });
 
-    if (!wallet || !portfolio) {
+    if (!Wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "wallet data not found.",
+        message: "Wallet data not found.",
       });
     }
 
@@ -82,24 +82,24 @@ export const getwalletDashboard = async (
       success: true,
 
       dashboard: {
-        totalBalancePkr: wallet.balances.Pkr,
-        totalBalanceUSD: wallet.balances.USD,
-        totalBalanceAED: wallet.balances.AED,
-        totalBalanceSAR: wallet.balances.SAR,
-        totalBalanceEUR: wallet.balances.EUR,
-        totalBalanceGBP: wallet.balances.GBP,
-        totalBalanceUsdt: wallet.balances.Usdt,
+        totalBalancePkr: Wallet.balances.Pkr,
+        totalBalanceUSD: Wallet.balances.USD,
+        totalBalanceAED: Wallet.balances.AED,
+        totalBalanceSAR: Wallet.balances.SAR,
+        totalBalanceEUR: Wallet.balances.EUR,
+        totalBalanceGBP: Wallet.balances.GBP,
+        totalBalanceUsdt: Wallet.balances.Usdt,
 
-        goldGrams: goldGrams(wallet.goldBalance).totalGrams,
-        availableGold: goldGrams(wallet.goldBalance).availableGrams,
-        lockedGold: goldGrams(wallet.goldBalance).lockedGrams,
+        goldGrams: goldGrams(Wallet.goldBalance).totalGrams,
+        availableGold: goldGrams(Wallet.goldBalance).availableGrams,
+        lockedGold: goldGrams(Wallet.goldBalance).lockedGrams,
 
         portfolioValue:
           portfolio.portfolioValuation.totalValuePkr,
 
         netWorth: portfolio.wealthSummary.netWorthPkr,
 
-        updatedAt: wallet.updatedAt,
+        updatedAt: Wallet.updatedAt,
       },
     });
   } catch (error: any) {
@@ -112,7 +112,7 @@ export const getwalletDashboard = async (
 
 // ======================================================
 // GET MULTI-CURRENCY BALANCES
-// GET /api/v1/wallet/balances
+// GET /api/v1/Wallet/balances
 // ======================================================
 
 export const getBalances = async (
@@ -120,14 +120,14 @@ export const getBalances = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     }).select("balances goldBalance");
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
@@ -135,15 +135,15 @@ export const getBalances = async (
       success: true,
 
       balances: {
-        Pkr: wallet.balances.Pkr,
-        USD: wallet.balances.USD,
-        AED: wallet.balances.AED,
-        SAR: wallet.balances.SAR,
-        EUR: wallet.balances.EUR,
-        GBP: wallet.balances.GBP,
-        Usdt: wallet.balances.Usdt,
+        Pkr: Wallet.balances.Pkr,
+        USD: Wallet.balances.USD,
+        AED: Wallet.balances.AED,
+        SAR: Wallet.balances.SAR,
+        EUR: Wallet.balances.EUR,
+        GBP: Wallet.balances.GBP,
+        Usdt: Wallet.balances.Usdt,
 
-        gold: goldGrams(wallet.goldBalance),
+        gold: goldGrams(Wallet.goldBalance),
       },
     });
   } catch (error: any) {
@@ -156,7 +156,7 @@ export const getBalances = async (
 
 // ======================================================
 // GET GOLD BALANCE
-// GET /api/v1/wallet/gold-balance
+// GET /api/v1/Wallet/gold-balance
 // ======================================================
 
 export const getGoldBalance = async (
@@ -164,20 +164,20 @@ export const getGoldBalance = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     }).select("goldBalance");
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
     return res.json({
       success: true,
-      goldBalance: wallet.goldBalance,
+      goldBalance: Wallet.goldBalance,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -188,34 +188,34 @@ export const getGoldBalance = async (
 };
 
 // ======================================================
-// GET wallet SUMMARY
-// GET /api/v1/wallet/summary
+// GET Wallet SUMMARY
+// GET /api/v1/Wallet/summary
 // ======================================================
 
-export const getwalletSummary = async (
+export const getWalletSummary = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
     const transactionCount =
       await Transaction.countDocuments({
-        wallet: wallet._id,
+        Wallet: Wallet._id,
       });
 
     const completedTransactions =
       await Transaction.countDocuments({
-        wallet: wallet._id,
+        Wallet: Wallet._id,
         status: "COMPLETED",
       });
 
@@ -223,23 +223,23 @@ export const getwalletSummary = async (
       success: true,
 
       summary: {
-        walletStatus: wallet.walletStatus,
+        WalletStatus: Wallet.WalletStatus,
         transactionCount,
         completedTransactions,
 
         totalCashBalance:
-          wallet.balances.Pkr +
-          wallet.balances.USD +
-          wallet.balances.AED +
-          wallet.balances.SAR +
-          wallet.balances.EUR +
-          wallet.balances.GBP,
+          Wallet.balances.Pkr +
+          Wallet.balances.USD +
+          Wallet.balances.AED +
+          Wallet.balances.SAR +
+          Wallet.balances.EUR +
+          Wallet.balances.GBP,
 
-        totalCryptoBalance: wallet.balances.Usdt,
+        totalCryptoBalance: Wallet.balances.Usdt,
 
-        totalGoldGram: wallet.goldBalance,
+        totalGoldGram: Wallet.goldBalance,
 
-        availableGold: wallet.goldBalance,
+        availableGold: Wallet.goldBalance,
 
         lockedGold: 0,
       },
@@ -253,23 +253,23 @@ export const getwalletSummary = async (
 };
 
 // ======================================================
-// wallet HEALTH CHECK
-// GET /api/v1/wallet/health
+// Wallet HEALTH CHECK
+// GET /api/v1/Wallet/health
 // ======================================================
 
-export const walletHealth = async (
+export const WalletHealth = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
@@ -277,16 +277,16 @@ export const walletHealth = async (
       success: true,
 
       health: {
-        walletStatus: wallet.walletStatus,
+        WalletStatus: Wallet.WalletStatus,
 
         isActive:
-          wallet.walletStatus === "ACTIVE",
+          Wallet.WalletStatus === "ACTIVE",
 
-        availableGold: wallet.goldBalance,
+        availableGold: Wallet.goldBalance,
 
         lockedGold: 0,
 
-        lastUpdated: wallet.updatedAt,
+        lastUpdated: Wallet.updatedAt,
 
         supportedCurrencies: [
           "Pkr",
@@ -308,29 +308,29 @@ export const walletHealth = async (
 };
 
 // ======================================================
-// wallet STATISTICS
-// GET /api/v1/wallet/statistics
+// Wallet STATISTICS
+// GET /api/v1/Wallet/statistics
 // ======================================================
 
-export const walletStatistics = async (
+export const WalletStatistics = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
     const transactions =
       await Transaction.find({
-        wallet: wallet._id,
+        Wallet: Wallet._id,
       }).sort({ createdAt: -1 });
 
     const deposits = transactions.filter(
@@ -348,8 +348,8 @@ export const walletStatistics = async (
         totalTransactions: transactions.length,
         deposits,
         withdrawals,
-        currentwalletStatus: wallet.walletStatus,
-        updatedAt: wallet.updatedAt,
+        currentWalletStatus: Wallet.WalletStatus,
+        updatedAt: Wallet.updatedAt,
       },
     });
   } catch (error: any) {
@@ -396,7 +396,7 @@ const generateDepositReference = () => {
 
 // ======================================================
 // CREATE Pkr DEPOSIT REQUEST
-// POST /api/v1/wallet/deposit/Pkr
+// POST /api/v1/Wallet/deposit/Pkr
 // ======================================================
 
 export const createPkrDepositRequest = async (
@@ -420,12 +420,12 @@ export const createPkrDepositRequest = async (
       });
     }
 
-    const wallet = await wallet.findOne({ user: req.user.id });
+    const Wallet = await Wallet.findOne({ user: req.user.id });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
@@ -433,7 +433,7 @@ export const createPkrDepositRequest = async (
 
     const transaction = await Transaction.create({
       user: req.user.id,
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "DEPOSIT",
       currency: "Pkr",
       amountPkr: amount,
@@ -462,7 +462,7 @@ export const createPkrDepositRequest = async (
 
 // ======================================================
 // GET USER DEPOSIT REQUESTS
-// GET /api/v1/wallet/deposits
+// GET /api/v1/Wallet/deposits
 // ======================================================
 
 export const getDepositRequests = async (
@@ -470,17 +470,17 @@ export const getDepositRequests = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({ user: req.user.id });
+    const Wallet = await Wallet.findOne({ user: req.user.id });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
     const deposits = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "DEPOSIT",
     }).sort({ createdAt: -1 });
 
@@ -499,7 +499,7 @@ export const getDepositRequests = async (
 
 // ======================================================
 // GET DEPOSIT BY REFERENCE
-// GET /api/v1/wallet/deposit/:reference
+// GET /api/v1/Wallet/deposit/:reference
 // ======================================================
 
 export const getDepositByReference = async (
@@ -533,7 +533,7 @@ export const getDepositByReference = async (
 
 // ======================================================
 // CANCEL PENDING DEPOSIT
-// DELETE /api/v1/wallet/deposit/:reference
+// DELETE /api/v1/Wallet/deposit/:reference
 // ======================================================
 
 export const cancelDepositRequest = async (
@@ -581,7 +581,7 @@ export const cancelDepositRequest = async (
 
 // ======================================================
 // ADMIN APPROVE DEPOSIT
-// PATCH /api/v1/wallet/admin/deposit/:transactionId/approve
+// PATCH /api/v1/Wallet/admin/deposit/:transactionId/approve
 // ======================================================
 
 export const approveDepositRequest = async (
@@ -616,28 +616,28 @@ export const approveDepositRequest = async (
       });
     }
 
-    const wallet = await wallet.findById(transaction.wallet);
+    const Wallet = await Wallet.findById(transaction.Wallet);
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
-    wallet.balances.Pkr += transaction.amountPkr;
+    Wallet.balances.Pkr += transaction.amountPkr;
 
     transaction.status = TransactionStatus.COMPLETED;
     transaction.completedAt = new Date();
     transaction.approvedBy = admin._id;
 
-    await wallet.save();
+    await Wallet.save();
     await transaction.save();
 
     return res.json({
       success: true,
       message: "Deposit approved successfully.",
-      newBalancePkr: wallet.balances.Pkr,
+      newBalancePkr: Wallet.balances.Pkr,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -649,7 +649,7 @@ export const approveDepositRequest = async (
 
 // ======================================================
 // ADMIN REJECT DEPOSIT
-// PATCH /api/v1/wallet/admin/deposit/:transactionId/reject
+// PATCH /api/v1/Wallet/admin/deposit/:transactionId/reject
 // ======================================================
 
 export const rejectDepositRequest = async (
@@ -707,7 +707,7 @@ export const rejectDepositRequest = async (
 
 // ======================================================
 // LIST SUPPORTED Pkr PROVIDERS
-// GET /api/v1/wallet/deposit/providers
+// GET /api/v1/Wallet/deposit/providers
 // ======================================================
 
 export const getPkrDepositProviders = async (
@@ -759,7 +759,7 @@ const generateWithdrawReference = () => {
 
 // ======================================================
 // CREATE WITHDRAW REQUEST
-// POST /api/v1/wallet/withdraw/Pkr
+// POST /api/v1/Wallet/withdraw/Pkr
 // ======================================================
 
 export const createPkrWithdrawRequest = async (
@@ -789,25 +789,25 @@ export const createPkrWithdrawRequest = async (
       });
     }
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
-    if (wallet.walletStatus !== "ACTIVE") {
+    if (Wallet.WalletStatus !== "ACTIVE") {
       return res.status(403).json({
         success: false,
-        message: "wallet is not active.",
+        message: "Wallet is not active.",
       });
     }
 
-    if (wallet.balances.Pkr < amount) {
+    if (Wallet.balances.Pkr < amount) {
       return res.status(400).json({
         success: false,
         message: "Insufficient Pkr balance.",
@@ -818,7 +818,7 @@ export const createPkrWithdrawRequest = async (
 
     const transaction = await Transaction.create({
       user: req.user.id,
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "WITHDRAW",
       currency: "Pkr",
       amountPkr: amount,
@@ -831,10 +831,10 @@ export const createPkrWithdrawRequest = async (
       description: `Withdrawal request via ${provider}`,
     });
 
-    wallet.balances.Pkr -= amount;
-    wallet.pendingWithdrawalPkr += amount;
+    Wallet.balances.Pkr -= amount;
+    Wallet.pendingWithdrawalPkr += amount;
 
-    await wallet.save();
+    await Wallet.save();
 
     return res.status(201).json({
       success: true,
@@ -842,7 +842,7 @@ export const createPkrWithdrawRequest = async (
       reference,
       transactionId: transaction._id,
       status: "PENDING",
-      remainingBalance: wallet.balances.Pkr,
+      remainingBalance: Wallet.balances.Pkr,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -854,7 +854,7 @@ export const createPkrWithdrawRequest = async (
 
 // ======================================================
 // GET USER WITHDRAW REQUESTS
-// GET /api/v1/wallet/withdrawals
+// GET /api/v1/Wallet/withdrawals
 // ======================================================
 
 export const getWithdrawRequests = async (
@@ -862,19 +862,19 @@ export const getWithdrawRequests = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
     const withdrawals = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "WITHDRAW",
     }).sort({
       createdAt: -1,
@@ -895,7 +895,7 @@ export const getWithdrawRequests = async (
 
 // ======================================================
 // GET WITHDRAW REQUEST BY REFERENCE
-// GET /api/v1/wallet/withdraw/:reference
+// GET /api/v1/Wallet/withdraw/:reference
 // ======================================================
 
 export const getWithdrawByReference = async (
@@ -930,7 +930,7 @@ export const getWithdrawByReference = async (
 
 // ======================================================
 // CANCEL PENDING WITHDRAWAL
-// DELETE /api/v1/wallet/withdraw/:reference
+// DELETE /api/v1/Wallet/withdraw/:reference
 // ======================================================
 
 export const cancelWithdrawRequest = async (
@@ -958,21 +958,21 @@ export const cancelWithdrawRequest = async (
       });
     }
 
-    const wallet = await wallet.findById(transaction.wallet);
+    const Wallet = await Wallet.findById(transaction.Wallet);
 
-    wallet.balances.Pkr += transaction.amountPkr;
-    wallet.pendingWithdrawalPkr -= transaction.amountPkr;
+    Wallet.balances.Pkr += transaction.amountPkr;
+    Wallet.pendingWithdrawalPkr -= transaction.amountPkr;
 
     transaction.status = TransactionStatus.CANCELLED;
     transaction.cancelledAt = new Date();
 
-    await wallet.save();
+    await Wallet.save();
     await transaction.save();
 
     return res.json({
       success: true,
       message: "Withdrawal cancelled successfully.",
-      restoredBalance: wallet.balances.Pkr,
+      restoredBalance: Wallet.balances.Pkr,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -984,7 +984,7 @@ export const cancelWithdrawRequest = async (
 
 // ======================================================
 // ADMIN APPROVE WITHDRAWAL
-// PATCH /api/v1/wallet/admin/withdraw/:transactionId/approve
+// PATCH /api/v1/Wallet/admin/withdraw/:transactionId/approve
 // ======================================================
 
 export const approveWithdrawRequest = async (
@@ -1019,15 +1019,15 @@ export const approveWithdrawRequest = async (
       });
     }
 
-    const wallet = await wallet.findById(transaction.wallet);
+    const Wallet = await Wallet.findById(transaction.Wallet);
 
-    wallet.pendingWithdrawalPkr -= transaction.amountPkr;
+    Wallet.pendingWithdrawalPkr -= transaction.amountPkr;
 
     transaction.status = TransactionStatus.COMPLETED;
     transaction.completedAt = new Date();
     transaction.approvedBy = admin._id;
 
-    await wallet.save();
+    await Wallet.save();
     await transaction.save();
 
     return res.json({
@@ -1044,7 +1044,7 @@ export const approveWithdrawRequest = async (
 
 // ======================================================
 // ADMIN REJECT WITHDRAWAL
-// PATCH /api/v1/wallet/admin/withdraw/:transactionId/reject
+// PATCH /api/v1/Wallet/admin/withdraw/:transactionId/reject
 // ======================================================
 
 export const rejectWithdrawRequest = async (
@@ -1079,10 +1079,10 @@ export const rejectWithdrawRequest = async (
       });
     }
 
-    const wallet = await wallet.findById(transaction.wallet);
+    const Wallet = await Wallet.findById(transaction.Wallet);
 
-    wallet.balances.Pkr += transaction.amountPkr;
-    wallet.pendingWithdrawalPkr -= transaction.amountPkr;
+    Wallet.balances.Pkr += transaction.amountPkr;
+    Wallet.pendingWithdrawalPkr -= transaction.amountPkr;
 
     transaction.status = TransactionStatus.REJECTED;
     transaction.rejectedAt = new Date();
@@ -1090,13 +1090,13 @@ export const rejectWithdrawRequest = async (
       req.body.reason || "Rejected by admin.";
     transaction.approvedBy = admin._id;
 
-    await wallet.save();
+    await Wallet.save();
     await transaction.save();
 
     return res.json({
       success: true,
-      message: "Withdrawal rejected and amount returned to wallet.",
-      currentBalance: wallet.balances.Pkr,
+      message: "Withdrawal rejected and amount returned to Wallet.",
+      currentBalance: Wallet.balances.Pkr,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -1108,7 +1108,7 @@ export const rejectWithdrawRequest = async (
 
 // ======================================================
 // LIST SUPPORTED WITHDRAW PROVIDERS
-// GET /api/v1/wallet/withdraw/providers
+// GET /api/v1/Wallet/withdraw/providers
 // ======================================================
 
 export const getWithdrawProviders = async (
@@ -1126,7 +1126,7 @@ export const getWithdrawProviders = async (
 // SECTION 3/10 END
 // ======================================================// ======================================================
 // SECTION 4/10 START
-// INTERNAL wallet TRANSFER + RAAST TRANSFER ENGINE
+// INTERNAL Wallet TRANSFER + RAAST TRANSFER ENGINE
 // ======================================================
 
 // ======================================================
@@ -1144,7 +1144,7 @@ const generateTransferReference = () => {
 
 // ======================================================
 // INTERNAL USER TO USER Pkr TRANSFER
-// POST /api/v1/wallet/transfer/internal
+// POST /api/v1/Wallet/transfer/internal
 // ======================================================
 
 export const transferPkrToUser = async (
@@ -1191,22 +1191,22 @@ export const transferPkrToUser = async (
       });
     }
 
-    const senderwallet = await wallet.findOne({
+    const senderWallet = await Wallet.findOne({
       user: sender._id,
     });
 
-    const receiverwallet = await wallet.findOne({
+    const receiverWallet = await Wallet.findOne({
       user: receiver._id,
     });
 
-    if (!senderwallet || !receiverwallet) {
+    if (!senderWallet || !receiverWallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
-    if (senderwallet.balances.Pkr < amount) {
+    if (senderWallet.balances.Pkr < amount) {
       return res.status(400).json({
         success: false,
         message: "Insufficient balance.",
@@ -1215,15 +1215,15 @@ export const transferPkrToUser = async (
 
     const reference = generateTransferReference();
 
-    senderwallet.balances.Pkr -= amount;
-    receiverwallet.balances.Pkr += amount;
+    senderWallet.balances.Pkr -= amount;
+    receiverWallet.balances.Pkr += amount;
 
-    await senderwallet.save();
-    await receiverwallet.save();
+    await senderWallet.save();
+    await receiverWallet.save();
 
     await Transaction.create({
       user: sender._id,
-      wallet: senderwallet._id,
+      Wallet: senderWallet._id,
       transactionType: "TRANSFER_SENT",
       currency: "Pkr",
       amountPkr: amount,
@@ -1235,7 +1235,7 @@ export const transferPkrToUser = async (
 
     await Transaction.create({
       user: receiver._id,
-      wallet: receiverwallet._id,
+      Wallet: receiverWallet._id,
       transactionType: "TRANSFER_RECEIVED",
       currency: "Pkr",
       amountPkr: amount,
@@ -1249,7 +1249,7 @@ export const transferPkrToUser = async (
       success: true,
       message: "Transfer completed successfully.",
       reference,
-      senderBalance: senderwallet.balances.Pkr,
+      senderBalance: senderWallet.balances.Pkr,
     });
 
   } catch (error: any) {
@@ -1262,7 +1262,7 @@ export const transferPkrToUser = async (
 
 // ======================================================
 // GET TRANSFER history
-// GET /api/v1/wallet/transfers
+// GET /api/v1/Wallet/transfers
 // ======================================================
 
 export const getTransferhistory = async (
@@ -1270,12 +1270,12 @@ export const getTransferhistory = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const transfers = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: {
         $in: [
           "TRANSFER_SENT",
@@ -1300,7 +1300,7 @@ export const getTransferhistory = async (
 
 // ======================================================
 // RAAST TRANSFER REQUEST
-// POST /api/v1/wallet/transfer/raast
+// POST /api/v1/Wallet/transfer/raast
 // ======================================================
 
 export const createRaastTransferRequest = async (
@@ -1322,18 +1322,18 @@ export const createRaastTransferRequest = async (
       });
     }
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
-    if (wallet.balances.Pkr < amount) {
+    if (Wallet.balances.Pkr < amount) {
       return res.status(400).json({
         success: false,
         message: "Insufficient Pkr balance.",
@@ -1342,14 +1342,14 @@ export const createRaastTransferRequest = async (
 
     const reference = generateTransferReference();
 
-    wallet.balances.Pkr -= amount;
-    wallet.pendingTransferPkr += amount;
+    Wallet.balances.Pkr -= amount;
+    Wallet.pendingTransferPkr += amount;
 
-    await wallet.save();
+    await Wallet.save();
 
     const transaction = await Transaction.create({
       user: req.user.id,
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "RAAST_TRANSFER",
       currency: "Pkr",
       amountPkr: amount,
@@ -1378,7 +1378,7 @@ export const createRaastTransferRequest = async (
 
 // ======================================================
 // ADMIN APPROVE RAAST TRANSFER
-// PATCH /api/v1/wallet/admin/raast/:transactionId/approve
+// PATCH /api/v1/Wallet/admin/raast/:transactionId/approve
 // ======================================================
 
 export const approveRaastTransfer = async (
@@ -1413,15 +1413,15 @@ export const approveRaastTransfer = async (
       });
     }
 
-    const wallet = await wallet.findById(transaction.wallet);
+    const Wallet = await Wallet.findById(transaction.Wallet);
 
-    wallet.pendingTransferPkr -= transaction.amountPkr;
+    Wallet.pendingTransferPkr -= transaction.amountPkr;
 
     transaction.status = TransactionStatus.COMPLETED;
     transaction.completedAt = new Date();
     transaction.approvedBy = admin._id;
 
-    await wallet.save();
+    await Wallet.save();
     await transaction.save();
 
     return res.json({
@@ -1439,7 +1439,7 @@ export const approveRaastTransfer = async (
 
 // ======================================================
 // ADMIN REJECT RAAST TRANSFER
-// PATCH /api/v1/wallet/admin/raast/:transactionId/reject
+// PATCH /api/v1/Wallet/admin/raast/:transactionId/reject
 // ======================================================
 
 export const rejectRaastTransfer = async (
@@ -1474,23 +1474,23 @@ export const rejectRaastTransfer = async (
       });
     }
 
-    const wallet = await wallet.findById(transaction.wallet);
+    const Wallet = await Wallet.findById(transaction.Wallet);
 
-    wallet.balances.Pkr += transaction.amountPkr;
-    wallet.pendingTransferPkr -= transaction.amountPkr;
+    Wallet.balances.Pkr += transaction.amountPkr;
+    Wallet.pendingTransferPkr -= transaction.amountPkr;
 
     transaction.status = TransactionStatus.REJECTED;
     transaction.rejectedAt = new Date();
     transaction.rejectionReason =
       req.body.reason || "Rejected by admin.";
 
-    await wallet.save();
+    await Wallet.save();
     await transaction.save();
 
     return res.json({
       success: true,
       message: "Raast transfer rejected. Amount refunded.",
-      balance: wallet.balances.Pkr,
+      balance: Wallet.balances.Pkr,
     });
 
   } catch (error: any) {
@@ -1503,7 +1503,7 @@ export const rejectRaastTransfer = async (
 
 // ======================================================
 // GET RAAST TRANSFER history
-// GET /api/v1/wallet/raast/history
+// GET /api/v1/Wallet/raast/history
 // ======================================================
 
 export const getRaastTransferhistory = async (
@@ -1511,12 +1511,12 @@ export const getRaastTransferhistory = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const history = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "RAAST_TRANSFER",
     }).sort({ createdAt: -1 });
 
@@ -1538,7 +1538,7 @@ export const getRaastTransferhistory = async (
 // SECTION 4/10 END
 // ======================================================// ======================================================
 // SECTION 5/10 START
-// MULTI-CURRENCY wallet + EXCHANGE ENGINE
+// MULTI-CURRENCY Wallet + EXCHANGE ENGINE
 // ======================================================
 
 // ======================================================
@@ -1593,29 +1593,29 @@ const getExchangeRate = async (
 
 // ======================================================
 // GET ALL CURRENCY BALANCES
-// GET /api/v1/wallet/currencies
+// GET /api/v1/Wallet/currencies
 // ======================================================
 
-export const getCurrencywallets = async (
+export const getCurrencyWallets = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     }).select("balances");
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
     return res.json({
       success: true,
 
-      currencies: wallet.balances,
+      currencies: Wallet.balances,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -1627,7 +1627,7 @@ export const getCurrencywallets = async (
 
 // ======================================================
 // GET SINGLE CURRENCY BALANCE
-// GET /api/v1/wallet/currency/:currency
+// GET /api/v1/Wallet/currency/:currency
 // ======================================================
 
 export const getCurrencyBalance = async (
@@ -1644,21 +1644,21 @@ export const getCurrencyBalance = async (
       });
     }
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
     return res.json({
       success: true,
       currency,
-      balance: wallet.balances[currency],
+      balance: Wallet.balances[currency],
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -1669,8 +1669,8 @@ export const getCurrencyBalance = async (
 };
 
 // ======================================================
-// CONVERT CURRENCY (INTERNAL wallet)
-// POST /api/v1/wallet/convert
+// CONVERT CURRENCY (INTERNAL Wallet)
+// POST /api/v1/Wallet/convert
 // ======================================================
 
 export const convertCurrency = async (
@@ -1701,18 +1701,18 @@ export const convertCurrency = async (
       });
     }
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
-    if (wallet.balances[fromCurrency] < amount) {
+    if (Wallet.balances[fromCurrency] < amount) {
       return res.status(400).json({
         success: false,
         message: "Insufficient balance.",
@@ -1728,14 +1728,14 @@ export const convertCurrency = async (
       (amount * rate).toFixed(2)
     );
 
-    wallet.balances[fromCurrency] -= amount;
-    wallet.balances[toCurrency] += convertedAmount;
+    Wallet.balances[fromCurrency] -= amount;
+    Wallet.balances[toCurrency] += convertedAmount;
 
-    await wallet.save();
+    await Wallet.save();
 
     await Transaction.create({
       user: req.user.id,
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "CURRENCY_CONVERSION",
       currency: fromCurrency,
       amountPkr: amount,
@@ -1755,7 +1755,7 @@ export const convertCurrency = async (
         convertedAmount,
       },
 
-      balances: wallet.balances,
+      balances: Wallet.balances,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -1767,7 +1767,7 @@ export const convertCurrency = async (
 
 // ======================================================
 // EXCHANGE RATE PREVIEW
-// POST /api/v1/wallet/exchange-preview
+// POST /api/v1/Wallet/exchange-preview
 // ======================================================
 
 export const exchangePreview = async (
@@ -1811,7 +1811,7 @@ export const exchangePreview = async (
 
 // ======================================================
 // GET LIVE EXCHANGE RATES
-// GET /api/v1/wallet/exchange-rates
+// GET /api/v1/Wallet/exchange-rates
 // ======================================================
 
 export const getLiveExchangeRates = async (
@@ -1847,7 +1847,7 @@ export const getLiveExchangeRates = async (
 
 // ======================================================
 // GET CONVERSION history
-// GET /api/v1/wallet/conversion-history
+// GET /api/v1/Wallet/conversion-history
 // ======================================================
 
 export const getConversionhistory = async (
@@ -1855,12 +1855,12 @@ export const getConversionhistory = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const history = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "CURRENCY_CONVERSION",
     }).sort({
       createdAt: -1,
@@ -1883,7 +1883,7 @@ export const getConversionhistory = async (
 // SECTION 5/10 END
 // ======================================================// ======================================================
 // SECTION 6/10 START
-// CRYPTO wallet ENGINE
+// CRYPTO Wallet ENGINE
 // ======================================================
 
 // ======================================================
@@ -1912,25 +1912,25 @@ const SUPPORTED_NETWORKS = [
 
 // ======================================================
 // GET USER CRYPTO ADDRESSES
-// GET /api/v1/wallet/crypto/addresses
+// GET /api/v1/Wallet/crypto/addresses
 // ======================================================
 
 export const getCryptoAddresses = async (req: Request, res: Response) => {
   try {
-    const wallet = await wallet.findOne({ user: req.user.id }).select(
+    const Wallet = await Wallet.findOne({ user: req.user.id }).select(
       "cryptoAddresses"
     );
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
     return res.json({
       success: true,
-      cryptoAddresses: wallet.cryptoAddresses,
+      cryptoAddresses: Wallet.cryptoAddresses,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -1942,7 +1942,7 @@ export const getCryptoAddresses = async (req: Request, res: Response) => {
 
 // ======================================================
 // GET SINGLE CRYPTO ADDRESS
-// GET /api/v1/wallet/crypto/address/:coin/:network
+// GET /api/v1/Wallet/crypto/address/:coin/:network
 // ======================================================
 
 export const getCryptoAddress = async (req: Request, res: Response) => {
@@ -1950,16 +1950,16 @@ export const getCryptoAddress = async (req: Request, res: Response) => {
     const coin = String(req.params.coin).toUpperCase();
     const network = String(req.params.network).toUpperCase();
 
-    const wallet = await wallet.findOne({ user: req.user.id });
+    const Wallet = await Wallet.findOne({ user: req.user.id });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
-    const address = wallet.cryptoAddresses.find(
+    const address = Wallet.cryptoAddresses.find(
       (item: any) =>
         item.coin === coin && item.network === network
     );
@@ -1985,7 +1985,7 @@ export const getCryptoAddress = async (req: Request, res: Response) => {
 
 // ======================================================
 // CREATE CRYPTO DEPOSIT REQUEST
-// POST /api/v1/wallet/crypto/deposit
+// POST /api/v1/Wallet/crypto/deposit
 // ======================================================
 
 export const createCryptoDepositRequest = async (
@@ -2015,7 +2015,7 @@ export const createCryptoDepositRequest = async (
       });
     }
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
@@ -2023,7 +2023,7 @@ export const createCryptoDepositRequest = async (
 
     const transaction = await Transaction.create({
       user: req.user.id,
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "CRYPTO_DEPOSIT",
       currency: coin,
       cryptoNetwork: network,
@@ -2052,7 +2052,7 @@ export const createCryptoDepositRequest = async (
 
 // ======================================================
 // ADMIN APPROVE CRYPTO DEPOSIT
-// PATCH /api/v1/wallet/admin/crypto/deposit/:id/approve
+// PATCH /api/v1/Wallet/admin/crypto/deposit/:id/approve
 // ======================================================
 
 export const approveCryptoDeposit = async (
@@ -2078,21 +2078,21 @@ export const approveCryptoDeposit = async (
       });
     }
 
-    const wallet = await wallet.findById(transaction.wallet);
+    const Wallet = await Wallet.findById(transaction.Wallet);
 
-    wallet.cryptoBalances[transaction.currency] += transaction.cryptoAmount;
+    Wallet.cryptoBalances[transaction.currency] += transaction.cryptoAmount;
 
     transaction.status = TransactionStatus.COMPLETED;
     transaction.completedAt = new Date();
     transaction.approvedBy = admin._id;
 
-    await wallet.save();
+    await Wallet.save();
     await transaction.save();
 
     return res.json({
       success: true,
       message: "Crypto deposit approved.",
-      cryptoBalances: wallet.cryptoBalances,
+      cryptoBalances: Wallet.cryptoBalances,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -2104,7 +2104,7 @@ export const approveCryptoDeposit = async (
 
 // ======================================================
 // CREATE CRYPTO WITHDRAW REQUEST
-// POST /api/v1/wallet/crypto/withdraw
+// POST /api/v1/Wallet/crypto/withdraw
 // ======================================================
 
 export const createCryptoWithdrawRequest = async (
@@ -2119,24 +2119,24 @@ export const createCryptoWithdrawRequest = async (
       receiverAddress,
     } = req.body;
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
-    if (wallet.cryptoBalances[coin] < amount) {
+    if (Wallet.cryptoBalances[coin] < amount) {
       return res.status(400).json({
         success: false,
         message: "Insufficient crypto balance.",
       });
     }
 
-    wallet.cryptoBalances[coin] -= amount;
+    Wallet.cryptoBalances[coin] -= amount;
 
     const reference = generateWithdrawReference();
 
     const transaction = await Transaction.create({
       user: req.user.id,
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "CRYPTO_WITHDRAW",
       currency: coin,
       cryptoAmount: amount,
@@ -2148,7 +2148,7 @@ export const createCryptoWithdrawRequest = async (
       description: `${coin} withdrawal via ${network}`,
     });
 
-    await wallet.save();
+    await Wallet.save();
 
     return res.status(201).json({
       success: true,
@@ -2166,7 +2166,7 @@ export const createCryptoWithdrawRequest = async (
 
 // ======================================================
 // ADMIN REJECT CRYPTO WITHDRAW
-// PATCH /api/v1/wallet/admin/crypto/withdraw/:id/reject
+// PATCH /api/v1/Wallet/admin/crypto/withdraw/:id/reject
 // ======================================================
 
 export const rejectCryptoWithdraw = async (
@@ -2183,14 +2183,14 @@ export const rejectCryptoWithdraw = async (
       });
     }
 
-    const wallet = await wallet.findById(transaction.wallet);
+    const Wallet = await Wallet.findById(transaction.Wallet);
 
-    wallet.cryptoBalances[transaction.currency] += transaction.cryptoAmount;
+    Wallet.cryptoBalances[transaction.currency] += transaction.cryptoAmount;
 
     transaction.status = TransactionStatus.REJECTED;
     transaction.rejectedAt = new Date();
 
-    await wallet.save();
+    await Wallet.save();
     await transaction.save();
 
     return res.json({
@@ -2207,7 +2207,7 @@ export const rejectCryptoWithdraw = async (
 
 // ======================================================
 // GET CRYPTO TRANSACTION history
-// GET /api/v1/wallet/crypto/history
+// GET /api/v1/Wallet/crypto/history
 // ======================================================
 
 export const getCryptohistory = async (
@@ -2215,12 +2215,12 @@ export const getCryptohistory = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const history = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: {
         $in: [
           "CRYPTO_DEPOSIT",
@@ -2278,7 +2278,7 @@ const generateGatewayReference = () => {
 
 // ======================================================
 // CREATE INTERNATIONAL DEPOSIT REQUEST
-// POST /api/v1/wallet/gateway/deposit
+// POST /api/v1/Wallet/gateway/deposit
 // ======================================================
 
 export const createGatewayDeposit = async (
@@ -2301,12 +2301,12 @@ export const createGatewayDeposit = async (
       });
     }
 
-    const wallet = await wallet.findOne({ user: req.user.id });
+    const Wallet = await Wallet.findOne({ user: req.user.id });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
@@ -2314,7 +2314,7 @@ export const createGatewayDeposit = async (
 
     const transaction = await Transaction.create({
       user: req.user.id,
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "GATEWAY_DEPOSIT",
       provider: gateway,
       currency,
@@ -2345,7 +2345,7 @@ export const createGatewayDeposit = async (
 
 // ======================================================
 // CREATE INTERNATIONAL WITHDRAW REQUEST
-// POST /api/v1/wallet/gateway/withdraw
+// POST /api/v1/Wallet/gateway/withdraw
 // ======================================================
 
 export const createGatewayWithdraw = async (
@@ -2368,29 +2368,29 @@ export const createGatewayWithdraw = async (
       });
     }
 
-    const wallet = await wallet.findOne({ user: req.user.id });
+    const Wallet = await Wallet.findOne({ user: req.user.id });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
-    if (wallet.balances[currency] < amount) {
+    if (Wallet.balances[currency] < amount) {
       return res.status(400).json({
         success: false,
         message: `Insufficient ${currency} balance.`,
       });
     }
 
-    wallet.balances[currency] -= amount;
+    Wallet.balances[currency] -= amount;
 
     const reference = generateGatewayReference();
 
     const transaction = await Transaction.create({
       user: req.user.id,
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "GATEWAY_WITHDRAW",
       provider: gateway,
       currency,
@@ -2403,7 +2403,7 @@ export const createGatewayWithdraw = async (
       description: `${gateway} withdrawal request`,
     });
 
-    await wallet.save();
+    await Wallet.save();
 
     return res.status(201).json({
       success: true,
@@ -2423,7 +2423,7 @@ export const createGatewayWithdraw = async (
 
 // ======================================================
 // ADMIN APPROVE GATEWAY DEPOSIT
-// PATCH /api/v1/wallet/admin/gateway/deposit/:id/approve
+// PATCH /api/v1/Wallet/admin/gateway/deposit/:id/approve
 // ======================================================
 
 export const approveGatewayDeposit = async (
@@ -2449,22 +2449,22 @@ export const approveGatewayDeposit = async (
       });
     }
 
-    const wallet = await wallet.findById(transaction.wallet);
+    const Wallet = await Wallet.findById(transaction.Wallet);
 
-    wallet.balances[transaction.currency] += transaction.amount;
+    Wallet.balances[transaction.currency] += transaction.amount;
 
     transaction.status = TransactionStatus.COMPLETED;
     transaction.gatewayStatus = "SUCCESS";
     transaction.completedAt = new Date();
     transaction.approvedBy = admin._id;
 
-    await wallet.save();
+    await Wallet.save();
     await transaction.save();
 
     return res.json({
       success: true,
       message: "Gateway deposit approved.",
-      balance: wallet.balances[transaction.currency],
+      balance: Wallet.balances[transaction.currency],
     });
 
   } catch (error: any) {
@@ -2477,7 +2477,7 @@ export const approveGatewayDeposit = async (
 
 // ======================================================
 // ADMIN APPROVE GATEWAY WITHDRAW
-// PATCH /api/v1/wallet/admin/gateway/withdraw/:id/approve
+// PATCH /api/v1/Wallet/admin/gateway/withdraw/:id/approve
 // ======================================================
 
 export const approveGatewayWithdraw = async (
@@ -2525,7 +2525,7 @@ export const approveGatewayWithdraw = async (
 
 // ======================================================
 // ADMIN REJECT GATEWAY WITHDRAW
-// PATCH /api/v1/wallet/admin/gateway/withdraw/:id/reject
+// PATCH /api/v1/Wallet/admin/gateway/withdraw/:id/reject
 // ======================================================
 
 export const rejectGatewayWithdraw = async (
@@ -2542,9 +2542,9 @@ export const rejectGatewayWithdraw = async (
       });
     }
 
-    const wallet = await wallet.findById(transaction.wallet);
+    const Wallet = await Wallet.findById(transaction.Wallet);
 
-    wallet.balances[transaction.currency] += transaction.amount;
+    Wallet.balances[transaction.currency] += transaction.amount;
 
     transaction.status = TransactionStatus.REJECTED;
     transaction.gatewayStatus = "FAILED";
@@ -2552,7 +2552,7 @@ export const rejectGatewayWithdraw = async (
     transaction.rejectionReason =
       req.body.reason || "Rejected by admin.";
 
-    await wallet.save();
+    await Wallet.save();
     await transaction.save();
 
     return res.json({
@@ -2570,7 +2570,7 @@ export const rejectGatewayWithdraw = async (
 
 // ======================================================
 // GATEWAY PAYMENT STATUS
-// GET /api/v1/wallet/gateway/status/:reference
+// GET /api/v1/Wallet/gateway/status/:reference
 // ======================================================
 
 export const getGatewayPaymentStatus = async (
@@ -2610,7 +2610,7 @@ export const getGatewayPaymentStatus = async (
 
 // ======================================================
 // LIST SUPPORTED INTERNATIONAL GATEWAYS
-// GET /api/v1/wallet/gateway/providers
+// GET /api/v1/Wallet/gateway/providers
 // ======================================================
 
 export const getSupportedGateways = async (
@@ -2634,7 +2634,7 @@ export const getSupportedGateways = async (
 
 // ======================================================
 // GATEWAY TRANSACTION history
-// GET /api/v1/wallet/gateway/history
+// GET /api/v1/Wallet/gateway/history
 // ======================================================
 
 export const getGatewayhistory = async (
@@ -2642,12 +2642,12 @@ export const getGatewayhistory = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const history = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: {
         $in: [
           "GATEWAY_DEPOSIT",
@@ -2696,23 +2696,23 @@ export const applyCashbackReward = async (
   userId: string,
   purchaseAmount: number
 ) => {
-  const wallet = await wallet.findOne({ user: userId });
+  const Wallet = await Wallet.findOne({ user: userId });
 
-  if (!wallet || purchaseAmount <= 0) return null;
+  if (!Wallet || purchaseAmount <= 0) return null;
 
   const cashback = Number(
     ((purchaseAmount * REWARD_CONFIG.cashbackPercent) / 100).toFixed(2)
   );
 
-  wallet.balances.Pkr += cashback;
-  wallet.rewardwallet.cashbackBalance += cashback;
-  wallet.rewardwallet.totalCashbackEarned += cashback;
+  Wallet.balances.Pkr += cashback;
+  Wallet.rewardWallet.cashbackBalance += cashback;
+  Wallet.rewardWallet.totalCashbackEarned += cashback;
 
-  await wallet.save();
+  await Wallet.save();
 
   await Transaction.create({
     user: userId,
-    wallet: wallet._id,
+    Wallet: Wallet._id,
     transactionType: "CASHBACK_REWARD",
     currency: "Pkr",
     amountPkr: cashback,
@@ -2724,20 +2724,20 @@ export const applyCashbackReward = async (
 };
 
 // ======================================================
-// GET CASHBACK wallet
-// GET /api/v1/wallet/cashback
+// GET CASHBACK Wallet
+// GET /api/v1/Wallet/cashback
 // ======================================================
 
-export const getCashbackwallet = async (
+export const getCashbackWallet = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({ user: req.user.id });
+    const Wallet = await Wallet.findOne({ user: req.user.id });
 
     return res.json({
       success: true,
-      cashbackwallet: wallet.rewardwallet,
+      cashbackWallet: Wallet.rewardWallet,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -2755,19 +2755,19 @@ export const rewardReferral = async (
   referrerId: string,
   newUserId: string
 ) => {
-  const wallet = await wallet.findOne({ user: referrerId });
+  const Wallet = await Wallet.findOne({ user: referrerId });
 
-  if (!wallet) return;
+  if (!Wallet) return;
 
-  wallet.balances.Pkr += REWARD_CONFIG.referralBonusPkr;
-  wallet.rewardwallet.referralBalance += REWARD_CONFIG.referralBonusPkr;
-  wallet.rewardwallet.totalReferralEarned += REWARD_CONFIG.referralBonusPkr;
+  Wallet.balances.Pkr += REWARD_CONFIG.referralBonusPkr;
+  Wallet.rewardWallet.referralBalance += REWARD_CONFIG.referralBonusPkr;
+  Wallet.rewardWallet.totalReferralEarned += REWARD_CONFIG.referralBonusPkr;
 
-  await wallet.save();
+  await Wallet.save();
 
   await Transaction.create({
     user: referrerId,
-    wallet: wallet._id,
+    Wallet: Wallet._id,
     transactionType: "REFERRAL_REWARD",
     currency: "Pkr",
     amountPkr: REWARD_CONFIG.referralBonusPkr,
@@ -2784,7 +2784,7 @@ export const rewardReferral = async (
 
 // ======================================================
 // GET REFERRAL DASHBOARD
-// GET /api/v1/wallet/referral
+// GET /api/v1/Wallet/referral
 // ======================================================
 
 export const getReferralDashboard = async (
@@ -2793,7 +2793,7 @@ export const getReferralDashboard = async (
 ) => {
   try {
     const user = await User.findById(req.user.id);
-    const wallet = await wallet.findOne({ user: req.user.id });
+    const Wallet = await Wallet.findOne({ user: req.user.id });
 
     return res.json({
       success: true,
@@ -2801,8 +2801,8 @@ export const getReferralDashboard = async (
       referral: {
         referralCode: user.referral.referralCode,
         referredUsers: user.referral.totalReferrals,
-        earnedPkr: wallet.rewardwallet.totalReferralEarned,
-        balancePkr: wallet.rewardwallet.referralBalance,
+        earnedPkr: Wallet.rewardWallet.totalReferralEarned,
+        balancePkr: Wallet.rewardWallet.referralBalance,
       },
     });
   } catch (error: any) {
@@ -2821,25 +2821,25 @@ export const addLoyaltyPoints = async (
   userId: string,
   purchaseAmount: number
 ) => {
-  const wallet = await wallet.findOne({ user: userId });
+  const Wallet = await Wallet.findOne({ user: userId });
 
-  if (!wallet) return;
+  if (!Wallet) return;
 
   const points = Math.floor(
     purchaseAmount / 1000
   ) * REWARD_CONFIG.loyaltyPer1000Pkr;
 
-  wallet.rewardwallet.loyaltyPoints += points;
-  wallet.rewardwallet.totalLoyaltyPoints += points;
+  Wallet.rewardWallet.loyaltyPoints += points;
+  Wallet.rewardWallet.totalLoyaltyPoints += points;
 
-  await wallet.save();
+  await Wallet.save();
 
   return points;
 };
 
 // ======================================================
 // GET LOYALTY DASHBOARD
-// GET /api/v1/wallet/loyalty
+// GET /api/v1/Wallet/loyalty
 // ======================================================
 
 export const getLoyaltyDashboard = async (
@@ -2847,14 +2847,14 @@ export const getLoyaltyDashboard = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({ user: req.user.id });
+    const Wallet = await Wallet.findOne({ user: req.user.id });
 
     return res.json({
       success: true,
 
       loyalty: {
-        availablePoints: wallet.rewardwallet.loyaltyPoints,
-        lifetimePoints: wallet.rewardwallet.totalLoyaltyPoints,
+        availablePoints: Wallet.rewardWallet.loyaltyPoints,
+        lifetimePoints: Wallet.rewardWallet.totalLoyaltyPoints,
       },
     });
   } catch (error: any) {
@@ -2867,7 +2867,7 @@ export const getLoyaltyDashboard = async (
 
 // ======================================================
 // REDEEM LOYALTY POINTS
-// POST /api/v1/wallet/loyalty/redeem
+// POST /api/v1/Wallet/loyalty/redeem
 // ======================================================
 
 export const redeemLoyaltyPoints = async (
@@ -2877,9 +2877,9 @@ export const redeemLoyaltyPoints = async (
   try {
     const { points } = req.body;
 
-    const wallet = await wallet.findOne({ user: req.user.id });
+    const Wallet = await Wallet.findOne({ user: req.user.id });
 
-    if (wallet.rewardwallet.loyaltyPoints < points) {
+    if (Wallet.rewardWallet.loyaltyPoints < points) {
       return res.status(400).json({
         success: false,
         message: "Insufficient loyalty points.",
@@ -2888,14 +2888,14 @@ export const redeemLoyaltyPoints = async (
 
     const rewardAmount = Number((points * 2).toFixed(2));
 
-    wallet.rewardwallet.loyaltyPoints -= points;
-    wallet.balances.Pkr += rewardAmount;
+    Wallet.rewardWallet.loyaltyPoints -= points;
+    Wallet.balances.Pkr += rewardAmount;
 
-    await wallet.save();
+    await Wallet.save();
 
     await Transaction.create({
       user: req.user.id,
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "LOYALTY_REDEEM",
       currency: "Pkr",
       amountPkr: rewardAmount,
@@ -2907,7 +2907,7 @@ export const redeemLoyaltyPoints = async (
       success: true,
       redeemedPoints: points,
       rewardPkr: rewardAmount,
-      currentBalance: wallet.balances.Pkr,
+      currentBalance: Wallet.balances.Pkr,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -2941,7 +2941,7 @@ const PROMO_CODES = [
 
 // ======================================================
 // APPLY PROMO CODE
-// POST /api/v1/wallet/promo/apply
+// POST /api/v1/Wallet/promo/apply
 // ======================================================
 
 export const applyPromoCode = async (
@@ -2951,7 +2951,7 @@ export const applyPromoCode = async (
   try {
     const { code } = req.body;
 
-    const wallet = await wallet.findOne({ user: req.user.id });
+    const Wallet = await Wallet.findOne({ user: req.user.id });
 
     const promo = PROMO_CODES.find(
       (item) => item.code === code.toUpperCase()
@@ -2965,7 +2965,7 @@ export const applyPromoCode = async (
     }
 
     if (
-      wallet.rewardwallet.usedPromoCodes.includes(promo.code)
+      Wallet.rewardWallet.usedPromoCodes.includes(promo.code)
     ) {
       return res.status(400).json({
         success: false,
@@ -2973,15 +2973,15 @@ export const applyPromoCode = async (
       });
     }
 
-    wallet.balances.Pkr += promo.rewardPkr;
-    wallet.rewardwallet.promoBalance += promo.rewardPkr;
-    wallet.rewardwallet.usedPromoCodes.push(promo.code);
+    Wallet.balances.Pkr += promo.rewardPkr;
+    Wallet.rewardWallet.promoBalance += promo.rewardPkr;
+    Wallet.rewardWallet.usedPromoCodes.push(promo.code);
 
-    await wallet.save();
+    await Wallet.save();
 
     await Transaction.create({
       user: req.user.id,
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "PROMO_REWARD",
       currency: "Pkr",
       amountPkr: promo.rewardPkr,
@@ -2993,7 +2993,7 @@ export const applyPromoCode = async (
       success: true,
       promoCode: promo.code,
       rewardPkr: promo.rewardPkr,
-      balancePkr: wallet.balances.Pkr,
+      balancePkr: Wallet.balances.Pkr,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -3005,7 +3005,7 @@ export const applyPromoCode = async (
 
 // ======================================================
 // GET REWARD history
-// GET /api/v1/wallet/rewards/history
+// GET /api/v1/Wallet/rewards/history
 // ======================================================
 
 export const getRewardhistory = async (
@@ -3013,10 +3013,10 @@ export const getRewardhistory = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({ user: req.user.id });
+    const Wallet = await Wallet.findOne({ user: req.user.id });
 
     const history = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: {
         $in: [
           "CASHBACK_REWARD",
@@ -3042,7 +3042,7 @@ export const getRewardhistory = async (
 
 // ======================================================
 // GET REWARD SUMMARY
-// GET /api/v1/wallet/rewards/summary
+// GET /api/v1/Wallet/rewards/summary
 // ======================================================
 
 export const getRewardSummary = async (
@@ -3050,27 +3050,27 @@ export const getRewardSummary = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({ user: req.user.id });
+    const Wallet = await Wallet.findOne({ user: req.user.id });
 
     return res.json({
       success: true,
 
       summary: {
-        cashbackBalance: wallet.rewardwallet.cashbackBalance,
-        referralBalance: wallet.rewardwallet.referralBalance,
-        promoBalance: wallet.rewardwallet.promoBalance,
+        cashbackBalance: Wallet.rewardWallet.cashbackBalance,
+        referralBalance: Wallet.rewardWallet.referralBalance,
+        promoBalance: Wallet.rewardWallet.promoBalance,
 
         totalCashbackEarned:
-          wallet.rewardwallet.totalCashbackEarned,
+          Wallet.rewardWallet.totalCashbackEarned,
 
         totalReferralEarned:
-          wallet.rewardwallet.totalReferralEarned,
+          Wallet.rewardWallet.totalReferralEarned,
 
         loyaltyPoints:
-          wallet.rewardwallet.loyaltyPoints,
+          Wallet.rewardWallet.loyaltyPoints,
 
         lifetimePoints:
-          wallet.rewardwallet.totalLoyaltyPoints,
+          Wallet.rewardWallet.totalLoyaltyPoints,
       },
     });
   } catch (error: any) {
@@ -3085,15 +3085,15 @@ export const getRewardSummary = async (
 // SECTION 8/10 END
 // ======================================================// ======================================================
 // SECTION 9/10 START
-// wallet STATEMENTS + REPORTS + EXPORT ENGINE
+// Wallet STATEMENTS + REPORTS + EXPORT ENGINE
 // ======================================================
 
 // ======================================================
 // GET ALL TRANSACTIONS (FILTERABLE)
-// GET /api/v1/wallet/transactions
+// GET /api/v1/Wallet/transactions
 // ======================================================
 
-export const getwalletTransactions = async (
+export const getWalletTransactions = async (
   req: Request,
   res: Response
 ) => {
@@ -3108,16 +3108,16 @@ export const getwalletTransactions = async (
       limit = 20,
     } = req.query;
 
-    const wallet = await wallet.findOne({ user: req.user.id });
+    const Wallet = await Wallet.findOne({ user: req.user.id });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
-    const query: any = { wallet: wallet._id };
+    const query: any = { Wallet: Wallet._id };
 
     if (type) query.transactionType = type;
     if (currency) query.currency = currency;
@@ -3159,11 +3159,11 @@ export const getwalletTransactions = async (
 };
 
 // ======================================================
-// MONTHLY wallet REPORT
-// GET /api/v1/wallet/report/monthly
+// MONTHLY Wallet REPORT
+// GET /api/v1/Wallet/report/monthly
 // ======================================================
 
-export const getMonthlywalletReport = async (
+export const getMonthlyWalletReport = async (
   req: Request,
   res: Response
 ) => {
@@ -3171,7 +3171,7 @@ export const getMonthlywalletReport = async (
     const month = Number(req.query.month);
     const year = Number(req.query.year);
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
@@ -3180,7 +3180,7 @@ export const getMonthlywalletReport = async (
     const endDate = new Date(year, month, 0, 23, 59, 59);
 
     const transactions = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       createdAt: {
         $gte: startDate,
         $lte: endDate,
@@ -3245,31 +3245,31 @@ export const getMonthlywalletReport = async (
 };
 
 // ======================================================
-// wallet STATEMENT
-// GET /api/v1/wallet/statement
+// Wallet STATEMENT
+// GET /api/v1/Wallet/statement
 // ======================================================
 
-export const getwalletStatement = async (
+export const getWalletStatement = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const transactions = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
     }).sort({ createdAt: -1 });
 
     return res.json({
       success: true,
 
       statement: {
-        walletStatus: wallet.walletStatus,
-        balances: wallet.balances,
-        goldBalance: wallet.goldBalance,
-        rewardwallet: wallet.rewardwallet,
+        WalletStatus: Wallet.WalletStatus,
+        balances: Wallet.balances,
+        goldBalance: Wallet.goldBalance,
+        rewardWallet: Wallet.rewardWallet,
         totalTransactions: transactions.length,
       },
 
@@ -3286,7 +3286,7 @@ export const getwalletStatement = async (
 
 // ======================================================
 // DOWNLOAD CSV DATA (JSON READY)
-// GET /api/v1/wallet/export/csv
+// GET /api/v1/Wallet/export/csv
 // ======================================================
 
 export const exportTransactionsCSV = async (
@@ -3294,12 +3294,12 @@ export const exportTransactionsCSV = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const transactions = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
     }).sort({ createdAt: -1 });
 
     const csvRows = transactions.map((tx: any) => ({
@@ -3329,7 +3329,7 @@ export const exportTransactionsCSV = async (
 
 // ======================================================
 // DOWNLOAD PDF DATA (JSON READY)
-// GET /api/v1/wallet/export/pdf
+// GET /api/v1/Wallet/export/pdf
 // ======================================================
 
 export const exportTransactionsPDF = async (
@@ -3337,12 +3337,12 @@ export const exportTransactionsPDF = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const transactions = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
     }).sort({ createdAt: -1 });
 
     return res.json({
@@ -3353,9 +3353,9 @@ export const exportTransactionsPDF = async (
       generatedAt: new Date(),
 
       statement: {
-        balances: wallet.balances,
-        goldBalance: wallet.goldBalance,
-        rewardwallet: wallet.rewardwallet,
+        balances: Wallet.balances,
+        goldBalance: Wallet.goldBalance,
+        rewardWallet: Wallet.rewardWallet,
       },
 
       transactions,
@@ -3371,7 +3371,7 @@ export const exportTransactionsPDF = async (
 
 // ======================================================
 // DAILY SUMMARY
-// GET /api/v1/wallet/report/daily
+// GET /api/v1/Wallet/report/daily
 // ======================================================
 
 export const getDailySummary = async (
@@ -3387,12 +3387,12 @@ export const getDailySummary = async (
 
     tomorrow.setDate(today.getDate() + 1);
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const transactions = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       createdAt: {
         $gte: today,
         $lt: tomorrow,
@@ -3435,7 +3435,7 @@ export const getDailySummary = async (
 
 // ======================================================
 // YEARLY SUMMARY
-// GET /api/v1/wallet/report/yearly
+// GET /api/v1/Wallet/report/yearly
 // ======================================================
 
 export const getYearlySummary = async (
@@ -3449,12 +3449,12 @@ export const getYearlySummary = async (
 
     const end = new Date(year, 11, 31, 23, 59, 59);
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const transactions = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       createdAt: {
         $gte: start,
         $lte: end,
@@ -3480,15 +3480,15 @@ export const getYearlySummary = async (
 // SECTION 9/10 END
 // ======================================================// ======================================================
 // SECTION 10/10 START
-// ENTERPRISE wallet ADMIN + FRAUD + LIMITS + HEALTH
+// ENTERPRISE Wallet ADMIN + FRAUD + LIMITS + HEALTH
 // ======================================================
 
 // ======================================================
-// GET ADMIN wallet DASHBOARD
-// GET /api/v1/admin/wallet/dashboard
+// GET ADMIN Wallet DASHBOARD
+// GET /api/v1/admin/Wallet/dashboard
 // ======================================================
 
-export const getAdminwalletDashboard = async (
+export const getAdminWalletDashboard = async (
   req: Request,
   res: Response
 ) => {
@@ -3502,14 +3502,14 @@ export const getAdminwalletDashboard = async (
       });
     }
 
-    const totalwallets = await wallet.countDocuments();
+    const totalWallets = await Wallet.countDocuments();
 
-    const activewallets = await wallet.countDocuments({
-      walletStatus: "ACTIVE"
+    const activeWallets = await Wallet.countDocuments({
+      WalletStatus: "ACTIVE"
     });
 
-    const frozenwallets = await wallet.countDocuments({
-      walletStatus: "FROZEN"
+    const frozenWallets = await Wallet.countDocuments({
+      WalletStatus: "FROZEN"
     });
 
     const totalTransactions = await Transaction.countDocuments();
@@ -3521,9 +3521,9 @@ export const getAdminwalletDashboard = async (
     return res.json({
       success: true,
       dashboard: {
-        totalwallets,
-        activewallets,
-        frozenwallets,
+        totalWallets,
+        activeWallets,
+        frozenWallets,
         totalTransactions,
         pendingTransactions,
         generatedAt: new Date()
@@ -3539,11 +3539,11 @@ export const getAdminwalletDashboard = async (
 };
 
 // ======================================================
-// FREEZE USER wallet
-// PATCH /api/v1/admin/wallet/:walletId/freeze
+// FREEZE USER Wallet
+// PATCH /api/v1/admin/Wallet/:WalletId/freeze
 // ======================================================
 
-export const freezewallet = async (
+export const freezeWallet = async (
   req: Request,
   res: Response
 ) => {
@@ -3557,27 +3557,27 @@ export const freezewallet = async (
       });
     }
 
-    const wallet = await wallet.findById(req.params.walletId);
+    const Wallet = await Wallet.findById(req.params.WalletId);
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found."
+        message: "Wallet not found."
       });
     }
 
-    wallet.walletStatus = "FROZEN";
-    wallet.frozenAt = new Date();
-    wallet.frozenBy = admin._id;
-    wallet.freezeReason =
+    Wallet.WalletStatus = "FROZEN";
+    Wallet.frozenAt = new Date();
+    Wallet.frozenBy = admin._id;
+    Wallet.freezeReason =
       req.body.reason || "Frozen by administrator.";
 
-    await wallet.save();
+    await Wallet.save();
 
     return res.json({
       success: true,
-      message: "wallet frozen successfully.",
-      walletStatus: wallet.walletStatus
+      message: "Wallet frozen successfully.",
+      WalletStatus: Wallet.WalletStatus
     });
 
   } catch (error: any) {
@@ -3589,11 +3589,11 @@ export const freezewallet = async (
 };
 
 // ======================================================
-// UNFREEZE USER wallet
-// PATCH /api/v1/admin/wallet/:walletId/unfreeze
+// UNFREEZE USER Wallet
+// PATCH /api/v1/admin/Wallet/:WalletId/unfreeze
 // ======================================================
 
-export const unfreezewallet = async (
+export const unfreezeWallet = async (
   req: Request,
   res: Response
 ) => {
@@ -3607,25 +3607,25 @@ export const unfreezewallet = async (
       });
     }
 
-    const wallet = await wallet.findById(req.params.walletId);
+    const Wallet = await Wallet.findById(req.params.WalletId);
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found."
+        message: "Wallet not found."
       });
     }
 
-    wallet.walletStatus = "ACTIVE";
-    wallet.unfrozenAt = new Date();
-    wallet.freezeReason = "";
+    Wallet.WalletStatus = "ACTIVE";
+    Wallet.unfrozenAt = new Date();
+    Wallet.freezeReason = "";
 
-    await wallet.save();
+    await Wallet.save();
 
     return res.json({
       success: true,
-      message: "wallet activated successfully.",
-      walletStatus: wallet.walletStatus
+      message: "Wallet activated successfully.",
+      WalletStatus: Wallet.WalletStatus
     });
 
   } catch (error: any) {
@@ -3637,11 +3637,11 @@ export const unfreezewallet = async (
 };
 
 // ======================================================
-// UPDATE wallet LIMITS
-// PATCH /api/v1/admin/wallet/:walletId/limits
+// UPDATE Wallet LIMITS
+// PATCH /api/v1/admin/Wallet/:WalletId/limits
 // ======================================================
 
-export const updatewalletLimits = async (
+export const updateWalletLimits = async (
   req: Request,
   res: Response
 ) => {
@@ -3649,25 +3649,25 @@ export const updatewalletLimits = async (
     const { dailyDeposit, dailyWithdraw, dailyTransfer } =
       req.body;
 
-    const wallet = await wallet.findById(req.params.walletId);
+    const Wallet = await Wallet.findById(req.params.WalletId);
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found."
+        message: "Wallet not found."
       });
     }
 
-    wallet.limits.dailyDepositPkr = dailyDeposit;
-    wallet.limits.dailyWithdrawalPkr = dailyWithdraw;
-    wallet.limits.dailyTransferPkr = dailyTransfer;
+    Wallet.limits.dailyDepositPkr = dailyDeposit;
+    Wallet.limits.dailyWithdrawalPkr = dailyWithdraw;
+    Wallet.limits.dailyTransferPkr = dailyTransfer;
 
-    await wallet.save();
+    await Wallet.save();
 
     return res.json({
       success: true,
-      message: "wallet limits updated.",
-      limits: wallet.limits
+      message: "Wallet limits updated.",
+      limits: Wallet.limits
     });
 
   } catch (error: any) {
@@ -3679,22 +3679,22 @@ export const updatewalletLimits = async (
 };
 
 // ======================================================
-// GET wallet LIMITS
-// GET /api/v1/wallet/limits
+// GET Wallet LIMITS
+// GET /api/v1/Wallet/limits
 // ======================================================
 
-export const getwalletLimits = async (
+export const getWalletLimits = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id
     }).select("limits");
 
     return res.json({
       success: true,
-      limits: wallet?.limits
+      limits: Wallet?.limits
     });
 
   } catch (error: any) {
@@ -3707,7 +3707,7 @@ export const getwalletLimits = async (
 
 // ======================================================
 // FRAUD RISK CHECK
-// GET /api/v1/admin/wallet/:walletId/fraud-check
+// GET /api/v1/admin/Wallet/:WalletId/fraud-check
 // ======================================================
 
 export const fraudRiskCheck = async (
@@ -3715,22 +3715,22 @@ export const fraudRiskCheck = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findById(req.params.walletId);
+    const Wallet = await Wallet.findById(req.params.WalletId);
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found."
+        message: "Wallet not found."
       });
     }
 
     const pendingCount = await Transaction.countDocuments({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       status: "PENDING"
     });
 
     const rejectedCount = await Transaction.countDocuments({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       status: "REJECTED"
     });
 
@@ -3750,7 +3750,7 @@ export const fraudRiskCheck = async (
         riskLevel,
         pendingTransactions: pendingCount,
         rejectedTransactions: rejectedCount,
-        walletStatus: wallet.walletStatus
+        WalletStatus: Wallet.WalletStatus
       }
     });
 
@@ -3764,7 +3764,7 @@ export const fraudRiskCheck = async (
 
 // ======================================================
 // RESET DAILY LIMIT USAGE
-// POST /api/v1/admin/wallet/reset-daily-limits
+// POST /api/v1/admin/Wallet/reset-daily-limits
 // ======================================================
 
 export const resetDailyUsage = async (
@@ -3772,7 +3772,7 @@ export const resetDailyUsage = async (
   res: Response
 ) => {
   try {
-    await wallet.updateMany(
+    await Wallet.updateMany(
       {},
       {
         $set: {
@@ -3786,7 +3786,7 @@ export const resetDailyUsage = async (
 
     return res.json({
       success: true,
-      message: "All wallet daily limits reset successfully."
+      message: "All Wallet daily limits reset successfully."
     });
 
   } catch (error: any) {
@@ -3798,45 +3798,45 @@ export const resetDailyUsage = async (
 };
 
 // ======================================================
-// wallet HEALTH CHECK
-// GET /api/v1/admin/wallet/:walletId/health
+// Wallet HEALTH CHECK
+// GET /api/v1/admin/Wallet/:WalletId/health
 // ======================================================
 
-export const walletHealthCheck = async (
+export const WalletHealthCheck = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findById(req.params.walletId);
+    const Wallet = await Wallet.findById(req.params.WalletId);
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found."
+        message: "Wallet not found."
       });
     }
 
     const totalTransactions = await Transaction.countDocuments({
-      wallet: wallet._id
+      Wallet: Wallet._id
     });
 
     const pendingTransactions = await Transaction.countDocuments({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       status: "PENDING"
     });
 
     return res.json({
       success: true,
       health: {
-        walletStatus: wallet.walletStatus,
-        balances: wallet.balances,
-        goldBalance: wallet.goldBalance,
-        rewardwallet: wallet.rewardwallet,
+        WalletStatus: Wallet.WalletStatus,
+        balances: Wallet.balances,
+        goldBalance: Wallet.goldBalance,
+        rewardWallet: Wallet.rewardWallet,
         totalTransactions,
         pendingTransactions,
-        limits: wallet.limits,
-        dailyUsage: wallet.dailyUsage,
-        lastUpdated: wallet.updatedAt
+        limits: Wallet.limits,
+        dailyUsage: Wallet.dailyUsage,
+        lastUpdated: Wallet.updatedAt
       }
     });
 
@@ -3849,11 +3849,11 @@ export const walletHealthCheck = async (
 };
 
 // ======================================================
-// ADMIN SEARCH wallet
-// GET /api/v1/admin/wallet/search
+// ADMIN SEARCH Wallet
+// GET /api/v1/admin/Wallet/search
 // ======================================================
 
-export const searchwallets = async (
+export const searchWallets = async (
   req: Request,
   res: Response
 ) => {
@@ -3868,14 +3868,14 @@ export const searchwallets = async (
       ]
     }).select("_id username fullName email");
 
-    const wallets = await wallet.find({
+    const Wallets = await Wallet.find({
       user: { $in: users.map((u) => u._id) }
     }).populate("user", "username fullName email");
 
     return res.json({
       success: true,
-      total: wallets.length,
-      wallets
+      total: Wallets.length,
+      Wallets
     });
 
   } catch (error: any) {
@@ -3887,11 +3887,11 @@ export const searchwallets = async (
 };
 
 // ======================================================
-// wallet SYSTEM INFO
-// GET /api/v1/wallet/system-info
+// Wallet SYSTEM INFO
+// GET /api/v1/Wallet/system-info
 // ======================================================
 
-export const walletSystemInfo = async (
+export const WalletSystemInfo = async (
   req: Request,
   res: Response
 ) => {
@@ -3899,7 +3899,7 @@ export const walletSystemInfo = async (
     success: true,
 
     system: {
-      module: "GoldTrade wallet Enterprise",
+      module: "GoldTrade Wallet Enterprise",
       version: "17.0.0",
 
       supportedBanks: [
@@ -3911,7 +3911,7 @@ export const walletSystemInfo = async (
         "Raast"
       ],
 
-      supportedwallets: [
+      supportedWallets: [
         "JazzCash",
         "EasyPaisa",
         "NayaPay",
@@ -3953,5 +3953,5 @@ export const walletSystemInfo = async (
 
 // ======================================================
 // SECTION 10/10 END
-// GoldTrade wallet CONTROLLER COMPLETE
+// GoldTrade Wallet CONTROLLER COMPLETE
 // ======================================================

@@ -28,7 +28,7 @@ const UsdtOrderSchema = new mongoose.Schema(
       required: true,
     },
 
-    walletAddress: {
+    WalletAddress: {
       type: String,
       required: true,
     },

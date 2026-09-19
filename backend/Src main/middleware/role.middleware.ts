@@ -109,7 +109,7 @@ export const Permissions = {
     "buy_GOLD",
     "sell_GOLD",
     "VIEW_PORTFOLIO",
-    "CREATE_wallet",
+    "CREATE_Wallet",
     "WITHDRAW",
     "DEPOSIT",
   ],

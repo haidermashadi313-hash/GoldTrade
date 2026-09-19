@@ -24,7 +24,7 @@ import {
   getUserDetails,
   blockUser,
   unblockUser,
-  updatewalletBalance,
+  updateWalletBalance,
   deleteUser,
 
   getPendingKycRequests,
@@ -206,10 +206,10 @@ router.get("/users/search", searchUsers);
 router.get("/users/:id", getUserDetails);
 
 /**
- * USER wallet MANAGEMENT
+ * USER Wallet MANAGEMENT
  */
 
-router.patch("/users/:id/wallet", updatewalletBalance);
+router.patch("/users/:id/Wallet", updateWalletBalance);
 
 /**
  * BLOCK / UNBLOCK USER

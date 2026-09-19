@@ -3,11 +3,11 @@
 const mongoose = require("mongoose");
 
 // =====================================================
-// WALLET TRANSACTION SCHEMA
+// Wallet TRANSACTION SCHEMA
 // GoldTrade V18
 // =====================================================
 
-const walletTransactionSchema = new mongoose.Schema(
+const WalletTransactionSchema = new mongoose.Schema(
   {
     // Username
     username: {
@@ -59,7 +59,7 @@ const walletTransactionSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    collection: "wallettransactions",
+    collection: "Wallettransactions",
   }
 );
 
@@ -69,4 +69,4 @@ const walletTransactionSchema = new mongoose.Schema(
 
 module.exports =
   mongoose.models.WalletTransaction ||
-  mongoose.model("WalletTransaction", walletTransactionSchema);
+  mongoose.model("WalletTransaction", WalletTransactionSchema);

@@ -1,5 +1,5 @@
 // ======================================================
-// GoldTrade V18 Enterprise Admin wallet Routes
+// GoldTrade V18 Enterprise Admin Wallet Routes
 // PART 1/4 - Imports + Router + Middleware
 // ======================================================
 
@@ -14,11 +14,11 @@ const router = express.Router();
 
 const User = require("../models/User");
 
-// wallet history Model
-const wallethistory =
-  mongoose.models.wallethistory ||
+// Wallet history Model
+const Wallethistory =
+  mongoose.models.Wallethistory ||
   mongoose.model(
-    "wallethistory",
+    "Wallethistory",
     new mongoose.Schema(
       {
         username: {
@@ -89,10 +89,10 @@ const errorResponse = (res, message, status = 500) => {
 };
 
 // ======================================================
-// CREATE wallet history
+// CREATE Wallet history
 // ======================================================
 
-const createwallethistory = async ({
+const createWallethistory = async ({
   username,
   action,
   amount,
@@ -101,9 +101,9 @@ const createwallethistory = async ({
   note,
   createdBy,
 }) => {
-  return wallethistory.create({
+  return Wallethistory.create({
     username,
-    type: "wallet",
+    type: "Wallet",
     action,
     amount,
     balanceBefore,
@@ -115,32 +115,32 @@ const createwallethistory = async ({
 };
 
 // ======================================================
-// GET /api/admin/wallet/statistics
-// wallet Analytics for Admin Dashboard
+// GET /api/admin/Wallet/statistics
+// Wallet Analytics for Admin Dashboard
 // ======================================================
 
 router.get("/statistics", async (req, res) => {
   try {
-    const users = await User.find({}, "walletBalance totalDeposit totalWithdraw").lean();
+    const users = await User.find({}, "WalletBalance totalDeposit totalWithdraw").lean();
 
     let totalPkrBalance = 0;
     let totalDeposits = 0;
     let totalWithdraws = 0;
 
     users.forEach((user) => {
-      totalPkrBalance += Number(user.walletBalance || 0);
+      totalPkrBalance += Number(user.WalletBalance || 0);
       totalDeposits += Number(user.totalDeposit || 0);
       totalWithdraws += Number(user.totalWithdraw || 0);
     });
 
-    const totalTransactions = await wallethistory.countDocuments();
+    const totalTransactions = await Wallethistory.countDocuments();
 
-    const latestTransactions = await wallethistory.find()
+    const latestTransactions = await Wallethistory.find()
       .sort({ createdAt: -1 })
       .limit(10)
       .lean();
 
-    return successResponse(res, "wallet statistics loaded successfully.", {
+    return successResponse(res, "Wallet statistics loaded successfully.", {
       totalUsers: users.length,
       totalPkrBalance,
       totalDeposits,
@@ -149,14 +149,14 @@ router.get("/statistics", async (req, res) => {
       latestTransactions,
     });
   } catch (err) {
-    console.error("wallet Statistics Error:", err);
+    console.error("Wallet Statistics Error:", err);
     return errorResponse(res, err.message);
   }
 });
 
 // ======================================================
-// GET /api/wallet/:username
-// USER wallet (Pkr + Usdt + GOLD)
+// GET /api/Wallet/:username
+// USER Wallet (Pkr + Usdt + GOLD)
 // Requires Login Token
 // ======================================================
 
@@ -164,7 +164,7 @@ router.get("/:username", verifyToken, async (req, res) => {
   try {
     const username = req.params.username.trim();
 
-    // Logged-in user can only access their own wallet
+    // Logged-in user can only access their own Wallet
     if (req.user.username !== username && req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -183,16 +183,16 @@ router.get("/:username", verifyToken, async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      wallet: {
+      Wallet: {
         username: user.username,
 
-        // Pkr wallet
-        PkrBalance: Number(user.walletBalance || 0),
+        // Pkr Wallet
+        PkrBalance: Number(user.WalletBalance || 0),
 
-        // Usdt wallet
+        // Usdt Wallet
         UsdtBalance: Number(user.UsdtBalance || 0),
 
-        // Gold wallet
+        // Gold Wallet
         goldBalance: Number(user.goldBalance || 0),
 
         totalDeposit: Number(user.totalDeposit || 0),
@@ -204,17 +204,17 @@ router.get("/:username", verifyToken, async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("wallet Load Error:", err);
+    console.error("Wallet Load Error:", err);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load wallet.",
+      message: "Unable to load Wallet.",
       error: err.message,
     });
   }
 });
 // ======================================================
-// GET /api/admin/wallet/users/search?username=ha
+// GET /api/admin/Wallet/users/search?username=ha
 // Search Users (Optional)
 // ======================================================
 
@@ -225,20 +225,20 @@ router.get("/users/search", async (req, res) => {
     const users = await User.find({
       username: { $regex: keyword, $options: "i" },
     })
-      .select("username walletBalance role")
+      .select("username WalletBalance role")
       .limit(20)
       .lean();
 
     return successResponse(res, "Users loaded successfully.", users);
   } catch (err) {
-    console.error("wallet Search Error:", err);
+    console.error("Wallet Search Error:", err);
     return errorResponse(res, err.message);
   }
 });
 
 // ======================================================
-// POST /api/admin/wallet/update
-// Manual Credit / Deduct wallet
+// POST /api/admin/Wallet/update
+// Manual Credit / Deduct Wallet
 // ======================================================
 
 router.post("/update", async (req, res) => {
@@ -269,9 +269,9 @@ router.post("/update", async (req, res) => {
       );
     }
 
-    const walletAmount = Number(amount);
+    const WalletAmount = Number(amount);
 
-    if (walletAmount <= 0 || Number.isNaN(walletAmount)) {
+    if (WalletAmount <= 0 || Number.isNaN(WalletAmount)) {
       await session.abortTransaction();
       return errorResponse(
         res,
@@ -291,48 +291,48 @@ router.post("/update", async (req, res) => {
       return errorResponse(res, "User not found.", 404);
     }
 
-    const balanceBefore = Number(user.walletBalance || 0);
+    const balanceBefore = Number(user.WalletBalance || 0);
     let balanceAfter = balanceBefore;
 
     // ================= CREDIT =================
 
     if (action === "credit") {
-      balanceAfter = balanceBefore + walletAmount;
+      balanceAfter = balanceBefore + WalletAmount;
     }
 
     // ================= DEDUCT =================
 
     if (action === "deduct") {
-      if (balanceBefore < walletAmount) {
+      if (balanceBefore < WalletAmount) {
         await session.abortTransaction();
 
         return errorResponse(
           res,
-          "Insufficient wallet balance.",
+          "Insufficient Wallet balance.",
           400
         );
       }
 
-      balanceAfter = balanceBefore - walletAmount;
+      balanceAfter = balanceBefore - WalletAmount;
     }
 
-    // ================= UPDATE wallet =================
+    // ================= UPDATE Wallet =================
 
-    user.walletBalance = balanceAfter;
+    user.WalletBalance = balanceAfter;
 
     await user.save({ session });
 
     // ================= SAVE history =================
 
-    await createwallethistory({
+    await createWallethistory({
       username: user.username,
       action,
-      amount: walletAmount,
+      amount: WalletAmount,
       balanceBefore,
       balanceAfter,
       note:
         note ||
-        `Manual wallet ${action} by admin.`,
+        `Manual Wallet ${action} by admin.`,
       createdBy: req.user.username,
     });
 
@@ -340,11 +340,11 @@ router.post("/update", async (req, res) => {
 
     return successResponse(
       res,
-      `wallet ${action} successful.`,
+      `Wallet ${action} successful.`,
       {
         username: user.username,
-        walletBalance: balanceAfter,
-        amount: walletAmount,
+        WalletBalance: balanceAfter,
+        amount: WalletAmount,
         action,
         balanceBefore,
         balanceAfter,
@@ -354,7 +354,7 @@ router.post("/update", async (req, res) => {
   } catch (err) {
     await session.abortTransaction();
 
-    console.error("wallet Update Error:", err);
+    console.error("Wallet Update Error:", err);
 
     return errorResponse(res, err.message);
 
@@ -364,28 +364,28 @@ router.post("/update", async (req, res) => {
 });
 
 // ======================================================
-// GET /api/admin/wallet/all
-// wallet Manager User List (FINAL V18)
+// GET /api/admin/Wallet/all
+// Wallet Manager User List (FINAL V18)
 // ======================================================
 
 router.get("/all", verifyToken, isAdmin, async (req, res) => {
   try {
     const users = await User.find({})
       .select(
-        "username email role status walletBalance goldBalance UsdtBalance totalDeposit totalWithdraw createdAt"
+        "username email role status WalletBalance goldBalance UsdtBalance totalDeposit totalWithdraw createdAt"
       )
       .sort({ createdAt: -1 })
       .lean();
 
-    const wallets = users.map((user) => ({
+    const Wallets = users.map((user) => ({
       _id: user._id,
       username: user.username,
       email: user.email,
       role: user.role || "user",
       status: user.status || "Active",
 
-      // wallets
-      PkrBalance: Number(user.walletBalance || 0),
+      // Wallets
+      PkrBalance: Number(user.WalletBalance || 0),
       goldBalance: Number(user.goldBalance || 0),
       UsdtBalance: Number(user.UsdtBalance || 0),
 
@@ -398,114 +398,114 @@ router.get("/all", verifyToken, isAdmin, async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      wallets,
+      Wallets,
       stats: {
-        totalUsers: wallets.length,
-        totalPkr: wallets.reduce((sum, u) => sum + u.PkrBalance, 0),
-        totalGold: wallets.reduce((sum, u) => sum + u.goldBalance, 0),
-        totalUsdt: wallets.reduce((sum, u) => sum + u.UsdtBalance, 0),
+        totalUsers: Wallets.length,
+        totalPkr: Wallets.reduce((sum, u) => sum + u.PkrBalance, 0),
+        totalGold: Wallets.reduce((sum, u) => sum + u.goldBalance, 0),
+        totalUsdt: Wallets.reduce((sum, u) => sum + u.UsdtBalance, 0),
       },
     });
   } catch (err) {
-    console.error("ADMIN wallet ALL ERROR:", err);
+    console.error("ADMIN Wallet ALL ERROR:", err);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load wallet users.",
+      message: "Unable to load Wallet users.",
     });
   }
 });
 
 // ======================================================
-// GET /api/admin/wallet/history/:username
-// wallet history of Single User
+// GET /api/admin/Wallet/history/:username
+// Wallet history of Single User
 // ======================================================
 
 router.get("/history/:username", async (req, res) => {
   try {
     const username = req.params.username.trim();
 
-    const history = await wallethistory.find({ username })
+    const history = await Wallethistory.find({ username })
       .sort({ createdAt: -1 })
       .lean();
 
     return successResponse(
       res,
-      "User wallet history loaded successfully.",
+      "User Wallet history loaded successfully.",
       history
     );
   } catch (err) {
-    console.error("User wallet history Error:", err);
+    console.error("User Wallet history Error:", err);
     return errorResponse(res, err.message);
   }
 });
 
 // ======================================================
-// DELETE /api/admin/wallet/history/:id
-// Delete wallet history Record (Admin Only)
+// DELETE /api/admin/Wallet/history/:id
+// Delete Wallet history Record (Admin Only)
 // ======================================================
 
 router.delete("/history/:id", async (req, res) => {
   try {
-    const history = await wallethistory.findById(req.params.id);
+    const history = await Wallethistory.findById(req.params.id);
 
     if (!history) {
       return errorResponse(
         res,
-        "wallet history record not found.",
+        "Wallet history record not found.",
         404
       );
     }
 
-    await wallethistory.findByIdAndDelete(req.params.id);
+    await Wallethistory.findByIdAndDelete(req.params.id);
 
     return successResponse(
       res,
-      "wallet history deleted successfully."
+      "Wallet history deleted successfully."
     );
   } catch (err) {
-    console.error("Delete wallet history Error:", err);
+    console.error("Delete Wallet history Error:", err);
     return errorResponse(res, err.message);
   }
 });
 
 // ======================================================
-// GET /api/admin/wallet/summary
-// Dashboard wallet Summary
+// GET /api/admin/Wallet/summary
+// Dashboard Wallet Summary
 // ======================================================
 
 router.get("/summary", async (req, res) => {
   try {
     const users = await User.find(
       {},
-      "walletBalance totalDeposit totalWithdraw"
+      "WalletBalance totalDeposit totalWithdraw"
     ).lean();
 
-    let totalwalletBalance = 0;
+    let totalWalletBalance = 0;
     let totalDeposits = 0;
     let totalWithdraws = 0;
 
     users.forEach((user) => {
-      totalwalletBalance += Number(user.walletBalance || 0);
+      totalWalletBalance += Number(user.WalletBalance || 0);
       totalDeposits += Number(user.totalDeposit || 0);
       totalWithdraws += Number(user.totalWithdraw || 0);
     });
 
-    const totalTransactions = await wallethistory.countDocuments();
+    const totalTransactions = await Wallethistory.countDocuments();
 
     return successResponse(
       res,
-      "wallet summary loaded successfully.",
+      "Wallet summary loaded successfully.",
       {
         totalUsers: users.length,
-        totalwalletBalance,
+        totalWalletBalance,
         totalDeposits,
         totalWithdraws,
         totalTransactions,
       }
     );
   } catch (err) {
-    console.error("wallet Summary Error:", err);
+    console.error("Wallet Summary Error:", err);
     return errorResponse(res, err.message);
   }
 });

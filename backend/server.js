@@ -1,7 +1,7 @@
  "use strict";
 
 require("dotenv").config();
-
+const connectDB = require("./config/db");
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -68,7 +68,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // PUBLIC ROUTES
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/UserRoutes");
-const walletRoutes = require("./routes/WalletRoutes");
+const WalletRoutes = require("./routes/WalletRoutes");
 const depositRoutes = require("./routes/DepositRoutes");
 const withdrawRoutes = require("./routes/WithdrawRoutes");
 const goldRoutes = require("./routes/GoldRoutes");
@@ -99,7 +99,7 @@ const adminUsdtRoutes = require("./routes/adminUsdtRoutes");
 app.use("/api/auth", authRoutes);
 
 app.use("/api/users", userRoutes);
-app.use("/api/wallet", walletRoutes);
+app.use("/api/Wallet", WalletRoutes);
 
 app.use("/api/deposit", depositRoutes);
 app.use("/api/withdraw", withdrawRoutes);
@@ -127,7 +127,7 @@ app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/admin/deposits", adminDepositRoutes);
 app.use("/api/admin/withdraws", adminWithdrawRoutes);
 
-app.use("/api/admin/wallet", adminWalletRoutes);
+app.use("/api/admin/Wallet", adminWalletRoutes);
 app.use("/api/admin/users", adminUserRoutes);
 app.use("/api/admin/usdt", adminUsdtRoutes);
 // ======================================================
@@ -194,7 +194,7 @@ app.get("/api", (req, res) => {
       status: "/api/status",
       gold: "/api/gold/price",
       usdt: "/api/usdt/rate",
-      wallet: "/api/wallet",
+      Wallet: "/api/Wallet",
       trading: "/api/trading",
     },
   });
@@ -231,12 +231,17 @@ app.use((err, req, res, next) => {
   });
 });
 
+// ======================================================
 // SERVER START (Render + Local Compatible)
 // ======================================================
 
 const PORT = Number(process.env.PORT) || 5000;
 const HOST = process.env.HOST || "0.0.0.0";
 
+// MongoDB Connect First
+connectDB();
+
+// Start Server
 app.listen(PORT, HOST, () => {
   console.log("==============================================");
   console.log("🚀 GoldTrade V18 Backend Started Successfully");
@@ -244,9 +249,30 @@ app.listen(PORT, HOST, () => {
   console.log(`🌍 Environment : ${process.env.NODE_ENV || "development"}`);
   console.log(`📡 Host        : ${HOST}`);
   console.log(`🚪 Port        : ${PORT}`);
-  console.log(`❤️ Health API  : /api/health`);
-  console.log(`📊 Status API  : /api/status`);
-  console.log(`💰 Gold API    : /api/gold/price`);
-  console.log(`💵 USDT API    : /api/usdt/rate`);
+  console.log("==============================================");
+
+  // Health APIs
+  console.log("❤️ Health API      : /api/health");
+  console.log("📊 Status API      : /api/status");
+
+  // Trading APIs
+  console.log("💰 Gold API        : /api/gold/price");
+  console.log("💵 USDT API        : /api/usdt/rate");
+  console.log("📈 Trading API     : /api/trading");
+
+  // Wallet APIs
+  console.log("👛 Wallet API      : /api/wallet");
+  console.log("💳 Deposit API     : /api/deposit");
+  console.log("💸 Withdraw API    : /api/withdraw");
+
+  // User APIs
+  console.log("👤 Auth API        : /api/auth");
+  console.log("👥 Users API       : /api/users");
+
+  // Admin APIs
+  console.log("🛠️ Admin Dashboard : /api/gold/admin/dashboard");
+  console.log("📥 Admin Deposits  : /api/gold/admin/deposits");
+  console.log("📤 Admin Withdraws : /api/gold/admin/withdraws");
+
   console.log("==============================================");
 });

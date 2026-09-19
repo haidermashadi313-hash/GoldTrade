@@ -82,7 +82,7 @@ const withdrawSchema = new mongoose.Schema(
       trim: true,
     },
 
-    walletAddress: {
+    WalletAddress: {
       type: String,
       default: "",
       trim: true,

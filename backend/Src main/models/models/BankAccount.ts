@@ -14,7 +14,7 @@ import crypto from "crypto";
 
 export enum AccountType {
   BANK = "BANK",
-  DIGITAL_wallet = "DIGITAL_wallet",
+  DIGITAL_Wallet = "DIGITAL_Wallet",
   INTERNATIONAL = "INTERNATIONAL",
   CRYPTO = "CRYPTO",
   RAAST = "RAAST",
@@ -60,7 +60,7 @@ export enum PakistanBank {
 // DIGITAL PAYMENT PROVIDERS
 // ======================================================
 
-export enum DigitalwalletProvider {
+export enum DigitalWalletProvider {
   JAZZCASH = "JAZZCASH",
   EASYPAISA = "EASYPAISA",
   NAYA_PAY = "NAYA_PAY",
@@ -173,12 +173,12 @@ export interface IBankDetails {
 }
 
 // ======================================================
-// DIGITAL wallet DETAILS
+// DIGITAL Wallet DETAILS
 // ======================================================
 
-export interface IDigitalwalletDetails {
-  provider: DigitalwalletProvider;
-  walletId?: string;
+export interface IDigitalWalletDetails {
+  provider: DigitalWalletProvider;
+  WalletId?: string;
   mobileNumber: string;
   accountTitle: string;
   verified: boolean;
@@ -197,13 +197,13 @@ export interface IInternationalAccount {
 }
 
 // ======================================================
-// CRYPTO wallet DETAILS
+// CRYPTO Wallet DETAILS
 // ======================================================
 
-export interface ICryptowallet {
+export interface ICryptoWallet {
   currency: CryptoCurrency;
   network: CryptoNetwork;
-  walletAddress: string;
+  WalletAddress: string;
   memoTag?: string;
   provider?: string;
   verified: boolean;
@@ -278,9 +278,9 @@ export interface IBankAccount extends Document {
   };
 
   bankDetails?: IBankDetails;
-  digitalwallet?: IDigitalwalletDetails;
+  digitalWallet?: IDigitalWalletDetails;
   internationalAccount?: IInternationalAccount;
-  cryptowallet?: ICryptowallet;
+  cryptoWallet?: ICryptoWallet;
 
   limits: IAccountLimits;
   verification: IVerificationInfo;
@@ -298,9 +298,9 @@ export interface IBankAccount extends Document {
   unfreezeAccount(adminId: mongoose.Types.ObjectId): Promise<IBankAccount>;
   makePrimary(): Promise<IBankAccount>;
   validateIBAN(): boolean;
-  validateMobilewallet(): boolean;
+  validateMobileWallet(): boolean;
   validateRaast(): boolean;
-  validateCryptowallet(): boolean;
+  validateCryptoWallet(): boolean;
   calculateRisk(): number;
   resetDailyLimits(): void;
   consumeDepositLimit(amount: number): void;
@@ -864,22 +864,22 @@ const BankAccountSchema = new Schema<any>(
 // GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/BankAccount.ts
 // SECTION 4/10
-// DIGITAL walletS + INTERNATIONAL PAYMENT GATEWAYS
+// DIGITAL WalletS + INTERNATIONAL PAYMENT GATEWAYS
 // ======================================================
 
     // ==================================================
-    // DIGITAL wallet DETAILS
+    // DIGITAL Wallet DETAILS
     // JazzCash, EasyPaisa, NayaPay, SadaPay, Google Pay
     // ==================================================
 
-    digitalwallet: {
+    digitalWallet: {
       provider: {
         type: String,
-        enum: Object.values(DigitalwalletProvider),
+        enum: Object.values(DigitalWalletProvider),
         index: true,
       },
 
-      walletId: {
+      WalletId: {
         type: String,
         default: "",
         trim: true,
@@ -1127,14 +1127,14 @@ const BankAccountSchema = new Schema<any>(
     },
 
     // ==================================================
-    // DIGITAL wallet history
+    // DIGITAL Wallet history
     // ==================================================
 
-    wallethistory: [
+    Wallethistory: [
       {
         provider: {
           type: String,
-          enum: Object.values(DigitalwalletProvider),
+          enum: Object.values(DigitalWalletProvider),
         },
 
         mobileNumber: String,
@@ -1159,14 +1159,14 @@ const BankAccountSchema = new Schema<any>(
 // GoldTrade V17 ENTERPRISE
 // FILE: backend/src/models/BankAccount.ts
 // SECTION 5/10
-// ENTERPRISE CRYPTO wallet SCHEMA
+// ENTERPRISE CRYPTO Wallet SCHEMA
 // ======================================================
 
     // ==================================================
-    // CRYPTO wallet DETAILS
+    // CRYPTO Wallet DETAILS
     // ==================================================
 
-    cryptowallet: {
+    cryptoWallet: {
       currency: {
         type: String,
         enum: Object.values(CryptoCurrency),
@@ -1179,7 +1179,7 @@ const BankAccountSchema = new Schema<any>(
         index: true,
       },
 
-      walletAddress: {
+      WalletAddress: {
         type: String,
         default: "",
         trim: true,
@@ -1209,18 +1209,18 @@ const BankAccountSchema = new Schema<any>(
       },
 
       // ==========================================
-      // wallet TYPE
+      // Wallet TYPE
       // ==========================================
 
-      walletType: {
+      WalletType: {
         type: String,
         enum: [
-          "HOT_wallet",
-          "COLD_wallet",
-          "EXCHANGE_wallet",
-          "HARDWARE_wallet",
+          "HOT_Wallet",
+          "COLD_Wallet",
+          "EXCHANGE_Wallet",
+          "HARDWARE_Wallet",
         ],
-        default: "HOT_wallet",
+        default: "HOT_Wallet",
       },
 
       provider: {
@@ -1229,7 +1229,7 @@ const BankAccountSchema = new Schema<any>(
           "BINANCE",
           "BYBIT",
           "OKX",
-          "TRUST_wallet",
+          "TRUST_Wallet",
           "METAMASK",
           "LEDGER",
           "TREZOR",
@@ -1442,7 +1442,7 @@ const BankAccountSchema = new Schema<any>(
     },
 
     // ==================================================
-    // wallet BALANCE CACHE
+    // Wallet BALANCE CACHE
     // ==================================================
 
     balanceCache: {
@@ -1554,12 +1554,12 @@ const BankAccountSchema = new Schema<any>(
         default: false,
       },
 
-      mobilewalletVerified: {
+      mobileWalletVerified: {
         type: Boolean,
         default: false,
       },
 
-      cryptowalletVerified: {
+      cryptoWalletVerified: {
         type: Boolean,
         default: false,
       },
@@ -1710,22 +1710,22 @@ const BankAccountSchema = new Schema<any>(
     },
 
     // ==================================================
-    // DIGITAL wallet LIMITS
+    // DIGITAL Wallet LIMITS
     // JazzCash / EasyPaisa / NayaPay / SadaPay
     // ==================================================
 
-    walletLimits: {
-      dailywalletDepositPkr: {
+    WalletLimits: {
+      dailyWalletDepositPkr: {
         type: Number,
         default: 100000,
       },
 
-      dailywalletWithdrawalPkr: {
+      dailyWalletWithdrawalPkr: {
         type: Number,
         default: 100000,
       },
 
-      monthlywalletLimitPkr: {
+      monthlyWalletLimitPkr: {
         type: Number,
         default: 1500000,
       },
@@ -2110,7 +2110,7 @@ const BankAccountSchema = new Schema<any>(
         default: "",
       },
 
-      flaggedwalletAddress: {
+      flaggedWalletAddress: {
         type: Boolean,
         default: false,
       },
@@ -2120,7 +2120,7 @@ const BankAccountSchema = new Schema<any>(
         default: false,
       },
 
-      flaggedMobilewallet: {
+      flaggedMobileWallet: {
         type: Boolean,
         default: false,
       },
@@ -2244,11 +2244,11 @@ BankAccountSchema.index({ "bankDetails.accountNumber": 1 });
 BankAccountSchema.index({ "bankDetails.iban": 1 });
 
 // ======================================================
-// DIGITAL wallet INDEXES
+// DIGITAL Wallet INDEXES
 // ======================================================
 
-BankAccountSchema.index({ "digitalwallet.provider": 1 });
-BankAccountSchema.index({ "digitalwallet.mobileNumber": 1 });
+BankAccountSchema.index({ "digitalWallet.provider": 1 });
+BankAccountSchema.index({ "digitalWallet.mobileNumber": 1 });
 
 // ======================================================
 // INTERNATIONAL PROVIDER INDEXES
@@ -2258,12 +2258,12 @@ BankAccountSchema.index({ "internationalAccount.provider": 1 });
 BankAccountSchema.index({ "internationalAccount.accountEmail": 1 });
 
 // ======================================================
-// CRYPTO wallet INDEXES
+// CRYPTO Wallet INDEXES
 // ======================================================
 
-BankAccountSchema.index({ "cryptowallet.walletAddress": 1 });
-BankAccountSchema.index({ "cryptowallet.currency": 1 });
-BankAccountSchema.index({ "cryptowallet.network": 1 });
+BankAccountSchema.index({ "cryptoWallet.WalletAddress": 1 });
+BankAccountSchema.index({ "cryptoWallet.currency": 1 });
+BankAccountSchema.index({ "cryptoWallet.network": 1 });
 
 // ======================================================
 // RAAST INDEXES
@@ -2352,14 +2352,14 @@ BankAccountSchema.virtual("displayName").get(function (this: any) {
     case AccountType.BANK:
       return `${this.bankDetails.bankName} ••••${this.bankDetails.accountNumber.slice(-4)}`;
 
-    case AccountType.DIGITAL_wallet:
-      return `${this.digitalwallet.provider} ••••${this.digitalwallet.mobileNumber.slice(-4)}`;
+    case AccountType.DIGITAL_Wallet:
+      return `${this.digitalWallet.provider} ••••${this.digitalWallet.mobileNumber.slice(-4)}`;
 
     case AccountType.RAAST:
       return `Raast • ${this.raastDetails.linkedMobileNumber}`;
 
     case AccountType.CRYPTO:
-      return `${this.cryptowallet.currency} (${this.cryptowallet.network})`;
+      return `${this.cryptoWallet.currency} (${this.cryptoWallet.network})`;
 
     case AccountType.INTERNATIONAL:
       return `${this.internationalAccount.provider}`;
@@ -2396,13 +2396,13 @@ BankAccountSchema.virtual("maskedIBAN").get(function (this: any) {
 });
 
 // ======================================================
-// VIRTUAL : MASKED wallet ADDRESS
+// VIRTUAL : MASKED Wallet ADDRESS
 // ======================================================
 
-BankAccountSchema.virtual("maskedwalletAddress").get(function (this: any) {
-  if (!this.cryptowallet?.walletAddress) return "";
+BankAccountSchema.virtual("maskedWalletAddress").get(function (this: any) {
+  if (!this.cryptoWallet?.WalletAddress) return "";
 
-  const address = this.cryptowallet.walletAddress;
+  const address = this.cryptoWallet.WalletAddress;
 
   return `${address.slice(0, 6)}...${address.slice(-6)}`;
 });
@@ -2441,11 +2441,11 @@ BankAccountSchema.virtual("verificationSummary").get(function (this: any) {
     bankVerified:
       this.verificationWorkflow.bankVerified,
 
-    walletVerified:
-      this.verificationWorkflow.mobilewalletVerified,
+    WalletVerified:
+      this.verificationWorkflow.mobileWalletVerified,
 
     cryptoVerified:
-      this.verificationWorkflow.cryptowalletVerified,
+      this.verificationWorkflow.cryptoWalletVerified,
 
     adminApproved:
       this.verificationWorkflow.adminApproved,
@@ -2460,13 +2460,13 @@ BankAccountSchema.virtual("cryptoSummary").get(function (this: any) {
   if (this.accountType !== AccountType.CRYPTO) return null;
 
   return {
-    currency: this.cryptowallet.currency,
+    currency: this.cryptoWallet.currency,
 
-    network: this.cryptowallet.network,
+    network: this.cryptoWallet.network,
 
-    address: this.maskedwalletAddress,
+    address: this.maskedWalletAddress,
 
-    provider: this.cryptowallet.provider,
+    provider: this.cryptoWallet.provider,
   };
 });
 
@@ -2589,8 +2589,8 @@ BankAccountSchema.methods.validateIBAN = function (): boolean {
 // JazzCash / EasyPaisa / NayaPay / SadaPay / Raast
 // ======================================================
 
-BankAccountSchema.methods.validateMobilewallet = function (): boolean {
-  const number = this.digitalwallet?.mobileNumber?.replace(/\D/g, "");
+BankAccountSchema.methods.validateMobileWallet = function (): boolean {
+  const number = this.digitalWallet?.mobileNumber?.replace(/\D/g, "");
 
   if (!number) return false;
 
@@ -2598,7 +2598,7 @@ BankAccountSchema.methods.validateMobilewallet = function (): boolean {
 
   const valid = pattern.test(number);
 
-  this.digitalwallet.verified = valid;
+  this.digitalWallet.verified = valid;
 
   return valid;
 };
@@ -2628,17 +2628,17 @@ BankAccountSchema.methods.validateRaast = function (): boolean {
 };
 
 // ======================================================
-// CRYPTO wallet ADDRESS VALIDATION
+// CRYPTO Wallet ADDRESS VALIDATION
 // ======================================================
 
-BankAccountSchema.methods.validateCryptowallet = function (): boolean {
-  if (!this.cryptowallet?.walletAddress) return false;
+BankAccountSchema.methods.validateCryptoWallet = function (): boolean {
+  if (!this.cryptoWallet?.WalletAddress) return false;
 
-  const address = this.cryptowallet.walletAddress.trim();
+  const address = this.cryptoWallet.WalletAddress.trim();
 
   let valid = false;
 
-  switch (this.cryptowallet.network) {
+  switch (this.cryptoWallet.network) {
     case CryptoNetwork.TRC20:
       valid = /^T[a-zA-Z0-9]{33}$/.test(address);
       break;
@@ -2663,8 +2663,8 @@ BankAccountSchema.methods.validateCryptowallet = function (): boolean {
       valid = address.length >= 26;
   }
 
-  this.cryptowallet.addressValidation.validAddress = valid;
-  this.cryptowallet.addressValidation.validatedAt = new Date();
+  this.cryptoWallet.addressValidation.validAddress = valid;
+  this.cryptoWallet.addressValidation.validatedAt = new Date();
 
   return valid;
 };
@@ -2859,10 +2859,10 @@ BankAccountSchema.methods.resetDailyLimits = function () {
   this.withdrawalLimits.remainingDailyLimitPkr =
     this.withdrawalLimits.dailyLimitPkr;
 
-  this.walletLimits.dailywalletDepositPkr =
+  this.WalletLimits.dailyWalletDepositPkr =
     this.depositLimits.dailyLimitPkr;
 
-  this.walletLimits.dailywalletWithdrawalPkr =
+  this.WalletLimits.dailyWalletWithdrawalPkr =
     this.withdrawalLimits.dailyLimitPkr;
 };
 
@@ -2933,11 +2933,11 @@ export interface IBankAccountMethods {
 
   validateIBAN(): boolean;
 
-  validateMobilewallet(): boolean;
+  validateMobileWallet(): boolean;
 
   validateRaast(): boolean;
 
-  validateCryptowallet(): boolean;
+  validateCryptoWallet(): boolean;
 
   calculateRisk(): number;
 
@@ -2963,9 +2963,9 @@ export interface IBankAccountModel extends Model<IBankAccount> {
 
   findByIBAN(iban: string): Promise<IBankAccount | null>;
 
-  findBywalletAddress(walletAddress: string): Promise<IBankAccount | null>;
+  findByWalletAddress(WalletAddress: string): Promise<IBankAccount | null>;
 
-  findByMobilewallet(mobile: string): Promise<IBankAccount | null>;
+  findByMobileWallet(mobile: string): Promise<IBankAccount | null>;
 }
 
 // ======================================================
@@ -3017,17 +3017,17 @@ BankAccountSchema.statics.findByIBAN = function (iban) {
   });
 };
 
-// Search by Crypto wallet Address
-BankAccountSchema.statics.findBywalletAddress = function (walletAddress) {
+// Search by Crypto Wallet Address
+BankAccountSchema.statics.findByWalletAddress = function (WalletAddress) {
   return this.findOne({
-    "cryptowallet.walletAddress": walletAddress.trim(),
+    "cryptoWallet.WalletAddress": WalletAddress.trim(),
   });
 };
 
-// Search by Mobile wallet Number
-BankAccountSchema.statics.findByMobilewallet = function (mobile) {
+// Search by Mobile Wallet Number
+BankAccountSchema.statics.findByMobileWallet = function (mobile) {
   return this.findOne({
-    "digitalwallet.mobileNumber": mobile.replace(/\D/g, ""),
+    "digitalWallet.mobileNumber": mobile.replace(/\D/g, ""),
   });
 };
 
@@ -3036,10 +3036,10 @@ BankAccountSchema.statics.findByMobilewallet = function (mobile) {
 // ======================================================
 
 BankAccountSchema.pre<IBankAccount>("save", function (next) {
-  // Trim wallet number
-  if (this.digitalwallet?.mobileNumber) {
-    this.digitalwallet.mobileNumber =
-      this.digitalwallet.mobileNumber.replace(/\s+/g, "");
+  // Trim Wallet number
+  if (this.digitalWallet?.mobileNumber) {
+    this.digitalWallet.mobileNumber =
+      this.digitalWallet.mobileNumber.replace(/\s+/g, "");
   }
 
   // Uppercase IBAN
@@ -3069,8 +3069,8 @@ BankAccountSchema.pre<IBankAccount>("save", function (next) {
     this.securityEvents = this.securityEvents.slice(0, 250);
   }
 
-  if (this.wallethistory.length > 100) {
-    this.wallethistory = this.wallethistory.slice(0, 100);
+  if (this.Wallethistory.length > 100) {
+    this.Wallethistory = this.Wallethistory.slice(0, 100);
   }
 
   if (this.bankhistory.length > 100) {

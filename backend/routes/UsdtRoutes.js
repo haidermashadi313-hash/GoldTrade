@@ -175,7 +175,7 @@ router.get("/health", async (req, res) => {
 // =====================================================
 // buy Usdt
 // POST /api/Usdt/buy
-// wallet Purchase (Pkr -> Usdt)
+// Wallet Purchase (Pkr -> Usdt)
 // =====================================================
 
 router.post("/buy", verifyToken, async (req, res) => {
@@ -228,21 +228,21 @@ router.post("/buy", verifyToken, async (req, res) => {
     }
 
     // =====================================================
-    // FIND OR CREATE wallet
+    // FIND OR CREATE Wallet
     // =====================================================
 
-    let wallet = await wallet.findOne({
+    let Wallet = await Wallet.findOne({
       userId: user._id,
     }).session(session);
 
-    if (!wallet) {
-      const createdwallet = await wallet.create(
+    if (!Wallet) {
+      const createdWallet = await Wallet.create(
         [
           {
             userId: user._id,
             username: user.username,
 
-            PkrBalance: Number(user.walletBalance || 0),
+            PkrBalance: Number(user.WalletBalance || 0),
             UsdtBalance: Number(user.UsdtBalance || 0),
             goldBalance: Number(user.goldBalance || 0),
           },
@@ -250,14 +250,14 @@ router.post("/buy", verifyToken, async (req, res) => {
         { session }
       );
 
-      wallet = createdwallet[0];
+      Wallet = createdWallet[0];
     }
 
     // =====================================================
     // CHECK Pkr BALANCE
     // =====================================================
 
-    if (Number(wallet.PkrBalance) < totalPkr) {
+    if (Number(Wallet.PkrBalance) < totalPkr) {
       await session.abortTransaction();
 
       return res.status(400).json({
@@ -266,44 +266,44 @@ router.post("/buy", verifyToken, async (req, res) => {
       });
     }
 
-    const previousPkr = Number(wallet.PkrBalance);
-    const previousUsdt = Number(wallet.UsdtBalance || 0);
+    const previousPkr = Number(Wallet.PkrBalance);
+    const previousUsdt = Number(Wallet.UsdtBalance || 0);
 
     // =====================================================
-    // UPDATE wallet
+    // UPDATE Wallet
     // =====================================================
 
-    wallet.PkrBalance = previousPkr - totalPkr;
-    wallet.UsdtBalance = previousUsdt + amount;
+    Wallet.PkrBalance = previousPkr - totalPkr;
+    Wallet.UsdtBalance = previousUsdt + amount;
 
-    await wallet.save({ session });
+    await Wallet.save({ session });
 
     // =====================================================
     // SYNC USER BALANCE
     // =====================================================
 
-    user.walletBalance = wallet.PkrBalance;
-    user.UsdtBalance = wallet.UsdtBalance;
+    user.WalletBalance = Wallet.PkrBalance;
+    user.UsdtBalance = Wallet.UsdtBalance;
 
     await user.save({ session });
 
     // =====================================================
-    // Pkr wallet history
+    // Pkr Wallet history
     // =====================================================
 
-    await walletTransaction.create(
+    await WalletTransaction.create(
       [
         {
           userId: user._id,
           username: user.username,
 
-          walletType: "Pkr",
+          WalletType: "Pkr",
           type: "DEBIT",
 
           amount: totalPkr,
 
           previousBalance: previousPkr,
-          newBalance: wallet.PkrBalance,
+          newBalance: Wallet.PkrBalance,
 
           adminUsername: "SYSTEM",
           note: `Bought ${amount} Usdt @ Pkr ${Usdt_RATE}`,
@@ -315,22 +315,22 @@ router.post("/buy", verifyToken, async (req, res) => {
     );
 
     // =====================================================
-    // Usdt wallet history
+    // Usdt Wallet history
     // =====================================================
 
-    await walletTransaction.create(
+    await WalletTransaction.create(
       [
         {
           userId: user._id,
           username: user.username,
 
-          walletType: "Usdt",
+          WalletType: "Usdt",
           type: "CREDIT",
 
           amount,
 
           previousBalance: previousUsdt,
-          newBalance: wallet.UsdtBalance,
+          newBalance: Wallet.UsdtBalance,
 
           adminUsername: "SYSTEM",
           note: `Purchased ${amount} Usdt`,
@@ -353,7 +353,7 @@ router.post("/buy", verifyToken, async (req, res) => {
           type: "Usdt buy",
           amount,
 
-          method: "wallet",
+          method: "Wallet",
           status: "Completed",
 
           transactionId: `Usdtbuy-${Date.now()}`,
@@ -381,9 +381,9 @@ router.post("/buy", verifyToken, async (req, res) => {
         totalPkr,
       },
 
-      wallet: {
-        PkrBalance: wallet.PkrBalance,
-        UsdtBalance: wallet.UsdtBalance,
+      Wallet: {
+        PkrBalance: Wallet.PkrBalance,
+        UsdtBalance: Wallet.UsdtBalance,
       },
     });
 
@@ -419,7 +419,7 @@ router.post(
         username,
         PkrAmount,
         UsdtAmount,
-        walletAddress,
+        WalletAddress,
         network,
         paymentMethod,
         bankName,
@@ -432,7 +432,7 @@ router.post(
       // VALIDATION
       // =====================================================
 
-      if (!username || !PkrAmount || !UsdtAmount || !walletAddress) {
+      if (!username || !PkrAmount || !UsdtAmount || !WalletAddress) {
         return res.status(400).json({
           success: false,
           message: "All required fields must be filled.",
@@ -463,7 +463,7 @@ router.post(
         PkrAmount: Number(PkrAmount),
         UsdtAmount: Number(UsdtAmount),
 
-        walletAddress,
+        WalletAddress,
 
         bankName: bankName || "",
         accountName: accountName || "",
@@ -507,7 +507,7 @@ router.post("/sell", verifyToken, async (req, res) => {
       username,
       UsdtAmount,
       PkrAmount,
-      walletAddress,
+      WalletAddress,
       network,
       paymentMethod,
       bankName,
@@ -519,7 +519,7 @@ router.post("/sell", verifyToken, async (req, res) => {
     // VALIDATION
     // =====================================================
 
-    if (!username || !UsdtAmount || !walletAddress) {
+    if (!username || !UsdtAmount || !WalletAddress) {
       return res.status(400).json({
         success: false,
         message: "All required fields must be filled.",
@@ -535,16 +535,16 @@ router.post("/sell", verifyToken, async (req, res) => {
       });
     }
 
-    const wallet = await wallet.findOne({ userId: user._id });
+    const Wallet = await Wallet.findOne({ userId: user._id });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found.",
+        message: "Wallet not found.",
       });
     }
 
-    if (Number(wallet.UsdtBalance || 0) < Number(UsdtAmount)) {
+    if (Number(Wallet.UsdtBalance || 0) < Number(UsdtAmount)) {
       return res.status(400).json({
         success: false,
         message: "Insufficient Usdt balance.",
@@ -568,7 +568,7 @@ router.post("/sell", verifyToken, async (req, res) => {
       PkrAmount:
         Number(PkrAmount) || Number(UsdtAmount) * Usdt_RATE,
 
-      walletAddress,
+      WalletAddress,
 
       bankName: bankName || "",
       accountName: accountName || "",
@@ -620,7 +620,7 @@ router.get("/history/:username", verifyToken, async (req, res) => {
     }
 
     // =====================================================
-    // FIND wallet
+    // FIND Wallet
     // =====================================================
 
     const Wallet = require("../models/Wallet");
@@ -648,9 +648,9 @@ router.get("/history/:username", verifyToken, async (req, res) => {
     // LOAD Usdt TRANSACTIONS
     // =====================================================
 
-    const history = await walletTransaction.find({
+    const history = await WalletTransaction.find({
       username,
-      walletType: "Usdt",
+      WalletType: "Usdt",
     })
       .sort({ createdAt: -1 })
       .lean();
@@ -664,7 +664,7 @@ router.get("/history/:username", verifyToken, async (req, res) => {
 
       username: tx.username,
 
-      walletType: tx.walletType || "Usdt",
+      WalletType: tx.WalletType || "Usdt",
       type: tx.type || "CREDIT",
 
       amount: Number(tx.amount || 0),
@@ -744,12 +744,12 @@ router.get("/balance/:username", verifyToken, async (req, res) => {
     // Find Wallet
     let userWallet = await Wallet.findOne({ userId: user._id });
 
-    // Create wallet if it doesn't exist
+    // Create Wallet if it doesn't exist
     if (!userWallet) {
       userWallet = await Wallet.create({
         userId: user._id,
         username: user.username,
-        PkrBalance: Number(user.walletBalance || 0),
+        PkrBalance: Number(user.WalletBalance || 0),
         UsdtBalance: 0,
         goldBalance: 0,
         usdtHistory: [],
@@ -769,7 +769,7 @@ router.get("/balance/:username", verifyToken, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load wallet balance.",
+      message: "Unable to load Wallet balance.",
       error: error.message,
     });
   }
@@ -844,21 +844,21 @@ router.put("/:id", verifyToken, isAdmin, async (req, res) => {
     }
 
     // =====================================================
-    // FIND OR CREATE wallet
+    // FIND OR CREATE Wallet
     // =====================================================
 
-    let wallet = await Wallet.findOne({
+    let Wallet = await Wallet.findOne({
       userId: user._id,
     }).session(session);
 
-    if (!wallet) {
-      const createdwallet = await Wallet.create(
+    if (!Wallet) {
+      const createdWallet = await Wallet.create(
         [
           {
             userId: user._id,
             username: user.username,
 
-            PkrBalance: Number(user.walletBalance || 0),
+            PkrBalance: Number(user.WalletBalance || 0),
             UsdtBalance: Number(user.UsdtBalance || 0),
             goldBalance: Number(user.goldBalance || 0),
           },
@@ -866,7 +866,7 @@ router.put("/:id", verifyToken, isAdmin, async (req, res) => {
         { session }
       );
 
-      wallet = createdwallet[0];
+      Wallet = createdWallet[0];
     }
 
     // =====================================================
@@ -893,13 +893,13 @@ router.put("/:id", verifyToken, isAdmin, async (req, res) => {
     // APPROVE ORDER
     // =====================================================
 
-    const previousPkr = Number(wallet.PkrBalance || 0);
-    const previousUsdt = Number(wallet.UsdtBalance || 0);
+    const previousPkr = Number(Wallet.PkrBalance || 0);
+    const previousUsdt = Number(Wallet.UsdtBalance || 0);
     const UsdtTransaction = require("../models/UsdtTransaction");
 
     // ---------- buy ORDER ----------
     if (order.type === "buy") {
-      wallet.UsdtBalance += Number(order.UsdtAmount);
+      Wallet.UsdtBalance += Number(order.UsdtAmount);
 
       await WalletTransaction.create(
         [
@@ -907,13 +907,13 @@ router.put("/:id", verifyToken, isAdmin, async (req, res) => {
             userId: user._id,
             username: user.username,
 
-            walletType: "Usdt",
+            WalletType: "Usdt",
             type: "CREDIT",
 
             amount: Number(order.UsdtAmount),
 
             previousBalance: previousUsdt,
-            newBalance: wallet.UsdtBalance,
+            newBalance: Wallet.UsdtBalance,
 
             adminUsername: req.user.username,
             note: "Usdt buy Order Approved",
@@ -936,8 +936,8 @@ router.put("/:id", verifyToken, isAdmin, async (req, res) => {
         });
       }
 
-      wallet.UsdtBalance -= Number(order.UsdtAmount);
-      wallet.PkrBalance += Number(order.PkrAmount);
+      Wallet.UsdtBalance -= Number(order.UsdtAmount);
+      Wallet.PkrBalance += Number(order.PkrAmount);
 
       // Usdt Debit history
       await WalletTransaction.create(
@@ -946,13 +946,13 @@ router.put("/:id", verifyToken, isAdmin, async (req, res) => {
             userId: user._id,
             username: user.username,
 
-            walletType: "Usdt",
+            WalletType: "Usdt",
             type: "DEBIT",
 
             amount: Number(order.UsdtAmount),
 
             previousBalance: previousUsdt,
-            newBalance: wallet.UsdtBalance,
+            newBalance: Wallet.UsdtBalance,
 
             adminUsername: req.user.username,
             note: "Usdt sell Order Approved",
@@ -970,13 +970,13 @@ router.put("/:id", verifyToken, isAdmin, async (req, res) => {
             userId: user._id,
             username: user.username,
 
-            walletType: "Pkr",
+            WalletType: "Pkr",
             type: "CREDIT",
 
             amount: Number(order.PkrAmount),
 
             previousBalance: previousPkr,
-            newBalance: wallet.PkrBalance,
+            newBalance: Wallet.PkrBalance,
 
             adminUsername: req.user.username,
             note: "Pkr Credited Against Usdt sell",
@@ -989,17 +989,17 @@ router.put("/:id", verifyToken, isAdmin, async (req, res) => {
     }
 
     // =====================================================
-    // SAVE wallet
+    // SAVE Wallet
     // =====================================================
 
-    await wallet.save({ session });
+    await Wallet.save({ session });
 
     // =====================================================
     // SYNC USER BALANCES
     // =====================================================
 
-    user.walletBalance = wallet.PkrBalance;
-    user.UsdtBalance = wallet.UsdtBalance;
+    user.WalletBalance = Wallet.PkrBalance;
+    user.UsdtBalance = Wallet.UsdtBalance;
 
     await user.save({ session });
 
@@ -1050,9 +1050,9 @@ router.put("/:id", verifyToken, isAdmin, async (req, res) => {
       success: true,
       message: `Usdt ${order.type} order approved successfully.`,
 
-      wallet: {
-        PkrBalance: wallet.PkrBalance,
-        UsdtBalance: wallet.UsdtBalance,
+      Wallet: {
+        PkrBalance: Wallet.PkrBalance,
+        UsdtBalance: Wallet.UsdtBalance,
       },
 
       order,

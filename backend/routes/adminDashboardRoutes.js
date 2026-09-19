@@ -138,7 +138,7 @@ router.get(
     try {
       const users = await User.find()
         .select(
-          "username email walletBalance UsdtBalance goldBalance createdAt status role"
+          "username email WalletBalance UsdtBalance goldBalance createdAt status role"
         )
         .sort({ createdAt: -1 });
 

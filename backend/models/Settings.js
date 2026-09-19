@@ -61,7 +61,7 @@ const settingsSchema = new mongoose.Schema(
       default: true,
     },
 
-    walletEnabled: {
+    WalletEnabled: {
       type: Boolean,
       default: true,
     },

@@ -18,7 +18,7 @@ const getModel = <T = any>(name: string) =>
   mongoose.model<T>(name, new mongoose.Schema({}, { strict: false }));
 
 const User = getModel("User");
-const wallet = getModel("wallet");
+const Wallet = getModel("Wallet");
 const Deposit = getModel("Deposit");
 const Withdrawal = getModel("Withdrawal");
 const GoldPrice = getModel("GoldPrice");
@@ -528,7 +528,7 @@ export const getUserDetails = async (
       );
     }
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: user._id,
     });
 
@@ -546,7 +546,7 @@ export const getUserDetails = async (
       "User details loaded.",
       {
         user,
-        wallet,
+        Wallet,
         deposits,
         withdrawals,
       }
@@ -643,11 +643,11 @@ export const unblockUser = async (
 };
 
 /**
- * PATCH /api/gold/admin/user/wallet/:id
- * Update wallet balance
+ * PATCH /api/gold/admin/user/Wallet/:id
+ * Update Wallet balance
  */
 
-export const updatewalletBalance = async (
+export const updateWalletBalance = async (
   req: Request,
   res: Response
 ) => {
@@ -659,14 +659,14 @@ export const updatewalletBalance = async (
       goldBalance,
     } = req.body;
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.params.id,
     });
 
-    if (!wallet) {
+    if (!Wallet) {
       return errorResponse(
         res,
-        "wallet not found.",
+        "Wallet not found.",
         404
       );
     }
@@ -675,30 +675,30 @@ export const updatewalletBalance = async (
       balance !== undefined &&
       !isNaN(Number(balance))
     ) {
-      wallet.balance = Number(balance);
+      Wallet.balance = Number(balance);
     }
 
     if (
       goldBalance !== undefined &&
       !isNaN(Number(goldBalance))
     ) {
-      wallet.goldBalance =
+      Wallet.goldBalance =
         Number(goldBalance);
     }
 
-    await wallet.save();
+    await Wallet.save();
 
     await createActivityLog(
       admin.id,
-      `Updated wallet: ${req.params.id}`,
+      `Updated Wallet: ${req.params.id}`,
       req
     );
 
     return successResponse(
       res,
-      "wallet updated successfully.",
+      "Wallet updated successfully.",
       {
-        wallet,
+        Wallet,
       }
     );
   } catch (error: any) {
@@ -730,7 +730,7 @@ export const deleteUser = async (
       );
     }
 
-    await wallet.deleteMany({
+    await Wallet.deleteMany({
       user: user._id,
     });
 
@@ -1023,7 +1023,7 @@ export const getDepositDetails = async (
 
 /**
  * PATCH /api/gold/admin/deposit/approve/:id
- * Approve deposit and update wallet balance
+ * Approve deposit and update Wallet balance
  */
 export const approveDeposit = async (
   req: Request,
@@ -1047,17 +1047,17 @@ export const approveDeposit = async (
       return errorResponse(res, "Deposit already approved.", 400);
     }
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: deposit.user,
     }).session(session);
 
-    if (!wallet) {
+    if (!Wallet) {
       await session.abortTransaction();
-      return errorResponse(res, "wallet not found.", 404);
+      return errorResponse(res, "Wallet not found.", 404);
     }
 
-    wallet.balance += deposit.amount;
-    await wallet.save({ session });
+    Wallet.balance += deposit.amount;
+    await Wallet.save({ session });
 
     deposit.status = "APPROVED";
     deposit.approvedBy = admin.id;
@@ -1075,7 +1075,7 @@ export const approveDeposit = async (
 
     return successResponse(res, "Deposit approved successfully.", {
       deposit,
-      wallet,
+      Wallet,
     });
   } catch (error: any) {
     await session.abortTransaction();
@@ -1306,7 +1306,7 @@ export const getWithdrawalDetails = async (
 
 /**
  * PATCH /api/gold/admin/withdrawal/approve/:id
- * Approve withdrawal and deduct wallet balance
+ * Approve withdrawal and deduct Wallet balance
  */
 
 export const approveWithdrawal = async (
@@ -1331,27 +1331,27 @@ export const approveWithdrawal = async (
       return errorResponse(res, "Withdrawal already approved.", 400);
     }
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: withdrawal.user,
     }).session(session);
 
-    if (!wallet) {
+    if (!Wallet) {
       await session.abortTransaction();
-      return errorResponse(res, "wallet not found.", 404);
+      return errorResponse(res, "Wallet not found.", 404);
     }
 
-    if (wallet.balance < withdrawal.amount) {
+    if (Wallet.balance < withdrawal.amount) {
       await session.abortTransaction();
       return errorResponse(
         res,
-        "Insufficient wallet balance.",
+        "Insufficient Wallet balance.",
         400
       );
     }
 
-    wallet.balance -= withdrawal.amount;
+    Wallet.balance -= withdrawal.amount;
 
-    await wallet.save({ session });
+    await Wallet.save({ session });
 
     withdrawal.status = "APPROVED";
     withdrawal.approvedBy = admin.id;
@@ -1370,7 +1370,7 @@ export const approveWithdrawal = async (
 
     return successResponse(res, "Withdrawal approved successfully.", {
       withdrawal,
-      wallet,
+      Wallet,
     });
   } catch (error: any) {
     await session.abortTransaction();
@@ -1476,16 +1476,16 @@ export const bulkApproveWithdrawals = async (
         continue;
       }
 
-      const wallet = await wallet.findOne({
+      const Wallet = await Wallet.findOne({
         user: withdrawal.user,
       }).session(session);
 
-      if (!wallet || wallet.balance < withdrawal.amount) {
+      if (!Wallet || Wallet.balance < withdrawal.amount) {
         continue;
       }
 
-      wallet.balance -= withdrawal.amount;
-      await wallet.save({ session });
+      Wallet.balance -= withdrawal.amount;
+      await Wallet.save({ session });
 
       withdrawal.status = "APPROVED";
       withdrawal.paymentStatus = "COMPLETED";
@@ -2451,7 +2451,7 @@ export const getTradingAnalytics = async (
   try {
     verifyAdmin(req);
 
-    const walletStats = await wallet.aggregate([
+    const WalletStats = await Wallet.aggregate([
       {
         $group: {
           _id: null,
@@ -2467,7 +2467,7 @@ export const getTradingAnalytics = async (
       res,
       "Trading analytics loaded.",
       {
-        trading: walletStats[0] || {
+        trading: WalletStats[0] || {
           totalCashBalance: 0,
           totalGoldBalance: 0
         },
@@ -2817,7 +2817,7 @@ export const backupDatabase = async (
 
     const backupSummary = {
       users: await User.countDocuments(),
-      wallets: await wallet.countDocuments(),
+      Wallets: await Wallet.countDocuments(),
       deposits: await Deposit.countDocuments(),
       withdrawals: await Withdrawal.countDocuments(),
       referrals: await Referral.countDocuments(),

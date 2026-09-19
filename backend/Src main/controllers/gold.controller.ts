@@ -8,15 +8,15 @@
 import { Request, Response } from "express";
 import GoldPriceModel from "../models/GoldPrice";
 import TransactionModel from "../models/Transaction";
-import walletModel from "../models/Wallet";
+import WalletModel from "../models/Wallet";
 import PortfolioModel from "../models/Portfolio";
 import UserModel from "../models/User";
 
-// The embedded wallet and portfolio shapes are dynamic in the persistence
+// The embedded Wallet and portfolio shapes are dynamic in the persistence
 // models, so keep their controller-facing access permissive.
 const GoldPrice: any = GoldPriceModel;
 const Transaction: any = TransactionModel;
-const wallet: any = walletModel;
+const Wallet: any = WalletModel;
 const Portfolio: any = PortfolioModel;
 const User: any = UserModel;
 
@@ -372,7 +372,7 @@ export const buyDigitalGold = async (
       });
     }
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
@@ -380,10 +380,10 @@ export const buyDigitalGold = async (
       user: req.user.id,
     });
 
-    if (!wallet || !portfolio) {
+    if (!Wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "wallet or portfolio not found.",
+        message: "Wallet or portfolio not found.",
       });
     }
 
@@ -398,28 +398,28 @@ export const buyDigitalGold = async (
 
     // Check balance
     if (currency === "Usdt") {
-      if (wallet.cryptoBalances.Usdt < totalAmount) {
+      if (Wallet.cryptoBalances.Usdt < totalAmount) {
         return res.status(400).json({
           success: false,
           message: "Insufficient Usdt balance.",
         });
       }
 
-      wallet.cryptoBalances.Usdt -= totalAmount;
+      Wallet.cryptoBalances.Usdt -= totalAmount;
     } else {
-      if (wallet.balances[currency] < totalAmount) {
+      if (Wallet.balances[currency] < totalAmount) {
         return res.status(400).json({
           success: false,
           message: `Insufficient ${currency} balance.`,
         });
       }
 
-      wallet.balances[currency] -= totalAmount;
+      Wallet.balances[currency] -= totalAmount;
     }
 
-    // Update Gold wallet
-    wallet.goldBalance.totalGrams += grams;
-    wallet.goldBalance.availableGrams += grams;
+    // Update Gold Wallet
+    Wallet.goldBalance.totalGrams += grams;
+    Wallet.goldBalance.availableGrams += grams;
 
     // Update Portfolio
     portfolio.goldHoldings.totalGrams += grams;
@@ -438,7 +438,7 @@ export const buyDigitalGold = async (
 
     await Transaction.create({
       user: req.user.id,
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "buy_GOLD",
       providerReference: reference,
       currency,
@@ -450,7 +450,7 @@ export const buyDigitalGold = async (
       description: `Purchased ${grams}g ${karat} gold`,
     });
 
-    await wallet.save();
+    await Wallet.save();
     await portfolio.save();
 
     return res.status(201).json({
@@ -466,12 +466,12 @@ export const buyDigitalGold = async (
         totalAmount,
       },
 
-      walletBalance:
+      WalletBalance:
         currency === "Usdt"
-          ? wallet.cryptoBalances.Usdt
-          : wallet.balances[currency],
+          ? Wallet.cryptoBalances.Usdt
+          : Wallet.balances[currency],
 
-      goldBalance: wallet.goldBalance,
+      goldBalance: Wallet.goldBalance,
     });
 
   } catch (error: any) {
@@ -533,12 +533,12 @@ export const getGoldPurchasehistory = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const purchases = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "buy_GOLD",
     }).sort({
       createdAt: -1,
@@ -568,7 +568,7 @@ export const getGoldHoldings = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
@@ -580,7 +580,7 @@ export const getGoldHoldings = async (
       success: true,
 
       holdings: {
-        walletGold: wallet.goldBalance,
+        WalletGold: Wallet.goldBalance,
         portfolio: portfolio.goldHoldings,
       },
     });
@@ -692,7 +692,7 @@ export const sellDigitalGold = async (
       });
     }
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
@@ -700,14 +700,14 @@ export const sellDigitalGold = async (
       user: req.user.id,
     });
 
-    if (!wallet || !portfolio) {
+    if (!Wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "wallet or portfolio not found.",
+        message: "Wallet or portfolio not found.",
       });
     }
 
-    if (wallet.goldBalance.availableGrams < grams) {
+    if (Wallet.goldBalance.availableGrams < grams) {
       return res.status(400).json({
         success: false,
         message: "Insufficient gold balance.",
@@ -757,15 +757,15 @@ export const sellDigitalGold = async (
       (currentValue.totalAmount - purchaseValue).toFixed(2)
     );
 
-    // Update wallet Gold
-    wallet.goldBalance.totalGrams -= grams;
-    wallet.goldBalance.availableGrams -= grams;
+    // Update Wallet Gold
+    Wallet.goldBalance.totalGrams -= grams;
+    Wallet.goldBalance.availableGrams -= grams;
 
-    // Credit wallet Currency
+    // Credit Wallet Currency
     if (currency === "Usdt") {
-      wallet.cryptoBalances.Usdt += currentValue.totalAmount;
+      Wallet.cryptoBalances.Usdt += currentValue.totalAmount;
     } else {
-      wallet.balances[currency] += currentValue.totalAmount;
+      Wallet.balances[currency] += currentValue.totalAmount;
     }
 
     // Update Portfolio
@@ -787,7 +787,7 @@ export const sellDigitalGold = async (
 
     await Transaction.create({
       user: req.user.id,
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "sell_GOLD",
       providerReference: reference,
       currency,
@@ -800,7 +800,7 @@ export const sellDigitalGold = async (
       description: `Sold ${grams}g ${karat} gold`,
     });
 
-    await wallet.save();
+    await Wallet.save();
     await portfolio.save();
 
     return res.json({
@@ -818,12 +818,12 @@ export const sellDigitalGold = async (
         profitLoss,
       },
 
-      walletBalance:
+      WalletBalance:
         currency === "Usdt"
-          ? wallet.cryptoBalances.Usdt
-          : wallet.balances[currency],
+          ? Wallet.cryptoBalances.Usdt
+          : Wallet.balances[currency],
 
-      goldBalance: wallet.goldBalance,
+      goldBalance: Wallet.goldBalance,
     });
 
   } catch (error: any) {
@@ -882,12 +882,12 @@ export const getGoldSaleshistory = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const sales = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "sell_GOLD",
     }).sort({
       createdAt: -1,
@@ -970,12 +970,12 @@ export const getGoldTradehistory = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const trades = await Transaction.find({
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: {
         $in: ["buy_GOLD", "sell_GOLD"],
       },
@@ -1046,25 +1046,25 @@ export const transferGold = async (req: Request, res: Response) => {
       });
     }
 
-    const senderwallet = await wallet.findOne({ user: sender._id });
-    const receiverwallet = await wallet.findOne({ user: receiver._id });
+    const senderWallet = await Wallet.findOne({ user: sender._id });
+    const receiverWallet = await Wallet.findOne({ user: receiver._id });
 
     const senderPortfolio = await Portfolio.findOne({ user: sender._id });
     const receiverPortfolio = await Portfolio.findOne({ user: receiver._id });
 
     if (
-      !senderwallet ||
-      !receiverwallet ||
+      !senderWallet ||
+      !receiverWallet ||
       !senderPortfolio ||
       !receiverPortfolio
     ) {
       return res.status(404).json({
         success: false,
-        message: "wallet or portfolio not found."
+        message: "Wallet or portfolio not found."
       });
     }
 
-    if (senderwallet.goldBalance.availableGrams < grams) {
+    if (senderWallet.goldBalance.availableGrams < grams) {
       return res.status(400).json({
         success: false,
         message: "Insufficient available gold."
@@ -1081,25 +1081,25 @@ export const transferGold = async (req: Request, res: Response) => {
     const reference = generateVaultReference();
 
     // Sender update
-    senderwallet.goldBalance.totalGrams -= grams;
-    senderwallet.goldBalance.availableGrams -= grams;
+    senderWallet.goldBalance.totalGrams -= grams;
+    senderWallet.goldBalance.availableGrams -= grams;
     senderPortfolio.goldHoldings.totalGrams -= grams;
     senderPortfolio.goldHoldings[karat] -= grams;
 
     // Receiver update
-    receiverwallet.goldBalance.totalGrams += grams;
-    receiverwallet.goldBalance.availableGrams += grams;
+    receiverWallet.goldBalance.totalGrams += grams;
+    receiverWallet.goldBalance.availableGrams += grams;
     receiverPortfolio.goldHoldings.totalGrams += grams;
     receiverPortfolio.goldHoldings[karat] += grams;
 
-    await senderwallet.save();
-    await receiverwallet.save();
+    await senderWallet.save();
+    await receiverWallet.save();
     await senderPortfolio.save();
     await receiverPortfolio.save();
 
     await Transaction.create({
       user: sender._id,
-      wallet: senderwallet._id,
+      Wallet: senderWallet._id,
       transactionType: "GOLD_TRANSFER_SENT",
       providerReference: reference,
       goldKarat: karat,
@@ -1111,7 +1111,7 @@ export const transferGold = async (req: Request, res: Response) => {
 
     await Transaction.create({
       user: receiver._id,
-      wallet: receiverwallet._id,
+      Wallet: receiverWallet._id,
       transactionType: "GOLD_TRANSFER_RECEIVED",
       providerReference: reference,
       goldKarat: karat,
@@ -1178,33 +1178,33 @@ export const lockGoldInVault = async (
   try {
     const { grams } = req.body;
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id
     });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found."
+        message: "Wallet not found."
       });
     }
 
-    if (wallet.goldBalance.availableGrams < grams) {
+    if (Wallet.goldBalance.availableGrams < grams) {
       return res.status(400).json({
         success: false,
         message: "Insufficient available gold."
       });
     }
 
-    wallet.goldBalance.availableGrams -= grams;
-    wallet.goldBalance.lockedGrams += grams;
+    Wallet.goldBalance.availableGrams -= grams;
+    Wallet.goldBalance.lockedGrams += grams;
 
-    await wallet.save();
+    await Wallet.save();
 
     return res.json({
       success: true,
       message: "Gold locked successfully.",
-      goldBalance: wallet.goldBalance
+      goldBalance: Wallet.goldBalance
     });
 
   } catch (error: any) {
@@ -1227,33 +1227,33 @@ export const unlockGoldFromVault = async (
   try {
     const { grams } = req.body;
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id
     });
 
-    if (!wallet) {
+    if (!Wallet) {
       return res.status(404).json({
         success: false,
-        message: "wallet not found."
+        message: "Wallet not found."
       });
     }
 
-    if (wallet.goldBalance.lockedGrams < grams) {
+    if (Wallet.goldBalance.lockedGrams < grams) {
       return res.status(400).json({
         success: false,
         message: "Insufficient locked gold."
       });
     }
 
-    wallet.goldBalance.lockedGrams -= grams;
-    wallet.goldBalance.availableGrams += grams;
+    Wallet.goldBalance.lockedGrams -= grams;
+    Wallet.goldBalance.availableGrams += grams;
 
-    await wallet.save();
+    await Wallet.save();
 
     return res.json({
       success: true,
       message: "Gold unlocked successfully.",
-      goldBalance: wallet.goldBalance
+      goldBalance: Wallet.goldBalance
     });
 
   } catch (error: any) {
@@ -1274,13 +1274,13 @@ export const getVaultStatus = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id
     }).select("goldBalance");
 
     return res.json({
       success: true,
-      vault: wallet?.goldBalance
+      vault: Wallet?.goldBalance
     });
 
   } catch (error: any) {
@@ -1301,12 +1301,12 @@ export const getGoldTransferhistory = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id
     });
 
     const transfers = await Transaction.find({
-      wallet: wallet?._id,
+      Wallet: Wallet?._id,
       transactionType: {
         $in: [
           "GOLD_TRANSFER_SENT",
@@ -1454,10 +1454,10 @@ export const executeSavingsPlanPurchase = async (
   planId: string,
   userId: string
 ) => {
-  const wallet = await wallet.findOne({ user: userId });
+  const Wallet = await Wallet.findOne({ user: userId });
   const portfolio = await Portfolio.findOne({ user: userId });
 
-  if (!wallet || !portfolio) return;
+  if (!Wallet || !portfolio) return;
 
   const plan = portfolio.savingsPlans.find(
     (p: any) => p.planId === planId
@@ -1474,19 +1474,19 @@ export const executeSavingsPlanPurchase = async (
     (plan.investmentAmount / gramPrice).toFixed(4)
   );
 
-  // Deduct wallet
+  // Deduct Wallet
   if (plan.currency === "Usdt") {
-    if (wallet.cryptoBalances.Usdt < plan.investmentAmount) return;
-    wallet.cryptoBalances.Usdt -= plan.investmentAmount;
+    if (Wallet.cryptoBalances.Usdt < plan.investmentAmount) return;
+    Wallet.cryptoBalances.Usdt -= plan.investmentAmount;
   } else {
-    if (wallet.balances[plan.currency] < plan.investmentAmount)
+    if (Wallet.balances[plan.currency] < plan.investmentAmount)
       return;
-    wallet.balances[plan.currency] -= plan.investmentAmount;
+    Wallet.balances[plan.currency] -= plan.investmentAmount;
   }
 
   // Credit Gold
-  wallet.goldBalance.totalGrams += grams;
-  wallet.goldBalance.availableGrams += grams;
+  Wallet.goldBalance.totalGrams += grams;
+  Wallet.goldBalance.availableGrams += grams;
 
   portfolio.goldHoldings.totalGrams += grams;
   portfolio.goldHoldings[plan.karat] += grams;
@@ -1504,12 +1504,12 @@ export const executeSavingsPlanPurchase = async (
 
   plan.nextExecutionDate = nextDate;
 
-  await wallet.save();
+  await Wallet.save();
   await portfolio.save();
 
   await Transaction.create({
     user: userId,
-    wallet: wallet._id,
+    Wallet: Wallet._id,
     transactionType: "SIP_GOLD_PURCHASE",
     currency: plan.currency,
     amount: plan.investmentAmount,
@@ -1883,12 +1883,12 @@ export const getSavingsPlanExecutionhistory = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
     const history = await Transaction.find({
-      wallet: wallet?._id,
+      Wallet: Wallet?._id,
       transactionType: "SIP_GOLD_PURCHASE",
       providerReference: req.params.planId,
     }).sort({
@@ -2121,7 +2121,7 @@ export const redeemPhysicalGold = async (
       });
     }
 
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
@@ -2129,14 +2129,14 @@ export const redeemPhysicalGold = async (
       user: req.user.id,
     });
 
-    if (!wallet || !portfolio) {
+    if (!Wallet || !portfolio) {
       return res.status(404).json({
         success: false,
-        message: "wallet or portfolio not found.",
+        message: "Wallet or portfolio not found.",
       });
     }
 
-    if (wallet.goldBalance.availableGrams < product.grams) {
+    if (Wallet.goldBalance.availableGrams < product.grams) {
       return res.status(400).json({
         success: false,
         message: "Insufficient available gold balance.",
@@ -2146,8 +2146,8 @@ export const redeemPhysicalGold = async (
     const shippingFee = deliveryMethod === "HOME_DELIVERY" ? 2500 : 0;
     const handlingFee = 500;
 
-    wallet.goldBalance.availableGrams -= product.grams;
-    wallet.goldBalance.lockedGrams += product.grams;
+    Wallet.goldBalance.availableGrams -= product.grams;
+    Wallet.goldBalance.lockedGrams += product.grams;
 
     const reference = generateRedemptionReference();
 
@@ -2170,12 +2170,12 @@ export const redeemPhysicalGold = async (
 
     portfolio.redemptionhistory.push(redemption);
 
-    await wallet.save();
+    await Wallet.save();
     await portfolio.save();
 
     await Transaction.create({
       user: req.user.id,
-      wallet: wallet._id,
+      Wallet: Wallet._id,
       transactionType: "GOLD_REDEMPTION_REQUEST",
       providerReference: reference,
       goldGrams: product.grams,
@@ -2315,7 +2315,7 @@ export const cancelRedemptionRequest = async (
   res: Response
 ) => {
   try {
-    const wallet = await wallet.findOne({
+    const Wallet = await Wallet.findOne({
       user: req.user.id,
     });
 
@@ -2341,19 +2341,19 @@ export const cancelRedemptionRequest = async (
       });
     }
 
-    wallet.goldBalance.availableGrams += redemption.grams;
-    wallet.goldBalance.lockedGrams -= redemption.grams;
+    Wallet.goldBalance.availableGrams += redemption.grams;
+    Wallet.goldBalance.lockedGrams -= redemption.grams;
 
     redemption.status = "CANCELLED";
     redemption.cancelledAt = new Date();
 
-    await wallet.save();
+    await Wallet.save();
     await portfolio.save();
 
     return res.json({
       success: true,
       message: "Redemption request cancelled successfully.",
-      goldBalance: wallet.goldBalance,
+      goldBalance: Wallet.goldBalance,
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -2405,14 +2405,14 @@ export const updateRedemptionStatus = async (
     redemption.updatedAt = new Date();
 
     if (status === "DELIVERED") {
-      const wallet = await wallet.findOne({
+      const Wallet = await Wallet.findOne({
         user: portfolio.user,
       });
 
-      wallet.goldBalance.lockedGrams -= redemption.grams;
-      wallet.goldBalance.totalGrams -= redemption.grams;
+      Wallet.goldBalance.lockedGrams -= redemption.grams;
+      Wallet.goldBalance.totalGrams -= redemption.grams;
 
-      await wallet.save();
+      await Wallet.save();
     }
 
     await portfolio.save();
@@ -3416,13 +3416,13 @@ export const getGoldInventory = async (
   res: Response
 ) => {
   try {
-    const wallets = await wallet.find();
+    const Wallets = await Wallet.find();
 
-    const inventory = wallets.reduce(
-      (acc: any, wallet: any) => {
-        acc.totalGrams += wallet.goldBalance.totalGrams;
-        acc.availableGrams += wallet.goldBalance.availableGrams;
-        acc.lockedGrams += wallet.goldBalance.lockedGrams;
+    const inventory = Wallets.reduce(
+      (acc: any, Wallet: any) => {
+        acc.totalGrams += Wallet.goldBalance.totalGrams;
+        acc.availableGrams += Wallet.goldBalance.availableGrams;
+        acc.lockedGrams += Wallet.goldBalance.lockedGrams;
         return acc;
       },
       {
@@ -3435,7 +3435,7 @@ export const getGoldInventory = async (
     return res.json({
       success: true,
       inventory,
-      totalwallets: wallets.length,
+      totalWallets: Wallets.length,
     });
 
   } catch (error: any) {
@@ -3592,7 +3592,7 @@ export const getGoldSystemHealth = async (
       createdAt: -1,
     });
 
-    const wallets = await wallet.countDocuments();
+    const Wallets = await Wallet.countDocuments();
     const portfolios = await Portfolio.countDocuments();
 
     return res.json({
@@ -3603,7 +3603,7 @@ export const getGoldSystemHealth = async (
         version: "17.0.0",
         marketStatus: latestPrice?.marketStatus,
         latestPriceUpdated: latestPrice?.updatedAt,
-        totalwallets: wallets,
+        totalWallets: Wallets,
         totalPortfolios: portfolios,
         supportedKarats: [
           "24K",

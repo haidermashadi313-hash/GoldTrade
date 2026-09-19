@@ -1,6 +1,6 @@
 // ======================================================
 // GoldTrade V17 ENTERPRISE
-// FILE: backend/src/models/wallet.ts
+// FILE: backend/src/models/Wallet.ts
 // SECTION 1/10
 // IMPORTS + ENUMS + INTERFACES
 // ======================================================
@@ -8,10 +8,10 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
 // ======================================================
-// wallet STATUS ENUM
+// Wallet STATUS ENUM
 // ======================================================
 
-export enum walletStatus {
+export enum WalletStatus {
   ACTIVE = "ACTIVE",
   FROZEN = "FROZEN",
   SUSPENDED = "SUSPENDED",
@@ -22,7 +22,7 @@ export enum walletStatus {
 // TRANSACTION TYPE ENUM
 // ======================================================
 
-export enum walletTransactionType {
+export enum WalletTransactionType {
   DEPOSIT = "DEPOSIT",
   WITHDRAWAL = "WITHDRAWAL",
   buy_GOLD = "buy_GOLD",
@@ -36,7 +36,7 @@ export enum walletTransactionType {
 // TRANSACTION STATUS ENUM
 // ======================================================
 
-export enum walletTransactionStatus {
+export enum WalletTransactionStatus {
   PENDING = "PENDING",
   COMPLETED = "COMPLETED",
   FAILED = "FAILED",
@@ -47,14 +47,14 @@ export enum walletTransactionStatus {
 // TRANSACTION INTERFACE
 // ======================================================
 
-export interface IwalletTransaction {
+export interface IWalletTransaction {
   [key: string]: any;
 
   transactionId: string;
 
-  type: walletTransactionType;
+  type: WalletTransactionType;
 
-  status: walletTransactionStatus;
+  status: WalletTransactionStatus;
 
   amount: number;
 
@@ -97,7 +97,7 @@ export interface IPortfolio {
 // SECURITY INTERFACE
 // ======================================================
 
-export interface IwalletSecurity {
+export interface IWalletSecurity {
   [key: string]: any;
 
   pinEnabled: boolean;
@@ -112,17 +112,17 @@ export interface IwalletSecurity {
 }
 
 // ======================================================
-// MAIN wallet DOCUMENT INTERFACE
+// MAIN Wallet DOCUMENT INTERFACE
 // ======================================================
 
-export interface Iwallet extends Document {
+export interface IWallet extends Document {
   [key: string]: any;
 
   user: mongoose.Types.ObjectId;
 
-  walletNumber: string;
+  WalletNumber: string;
 
-  status: walletStatus;
+  status: WalletStatus;
 
   balance: number;
 
@@ -142,26 +142,26 @@ export interface Iwallet extends Document {
 
   portfolio: IPortfolio;
 
-  security: IwalletSecurity;
+  security: IWalletSecurity;
 
-  transactionhistory: IwalletTransaction[];
+  transactionhistory: IWalletTransaction[];
 
-  creditBalance(amount: number): Promise<Iwallet>;
+  creditBalance(amount: number): Promise<IWallet>;
 
-  debitBalance(amount: number): Promise<Iwallet>;
+  debitBalance(amount: number): Promise<IWallet>;
 }
 
 // ======================================================
 // END OF SECTION 1/10
-// NEXT SECTION: wallet BALANCE SCHEMA
+// NEXT SECTION: Wallet BALANCE SCHEMA
 // ======================================================// ======================================================
 // GoldTrade V17 ENTERPRISE
-// FILE: backend/src/models/wallet.ts
+// FILE: backend/src/models/Wallet.ts
 // SECTION 2/10
-// wallet BALANCE SCHEMA
+// Wallet BALANCE SCHEMA
 // ======================================================
 
-const walletSchema = new Schema<Iwallet>(
+const WalletSchema = new Schema<IWallet>(
   {
     // ==================================================
     // USER RELATIONSHIP
@@ -176,10 +176,10 @@ const walletSchema = new Schema<Iwallet>(
     },
 
     // ==================================================
-    // wallet IDENTIFICATION
+    // Wallet IDENTIFICATION
     // ==================================================
 
-    walletNumber: {
+    WalletNumber: {
       type: String,
       unique: true,
       uppercase: true,
@@ -189,8 +189,8 @@ const walletSchema = new Schema<Iwallet>(
 
     status: {
       type: String,
-      enum: Object.values(walletStatus),
-      default: walletStatus.ACTIVE,
+      enum: Object.values(WalletStatus),
+      default: WalletStatus.ACTIVE,
       index: true,
     },
 
@@ -201,7 +201,7 @@ const walletSchema = new Schema<Iwallet>(
     },
 
     // ==================================================
-    // CASH wallet
+    // CASH Wallet
     // ==================================================
 
     balance: {
@@ -247,7 +247,7 @@ const walletSchema = new Schema<Iwallet>(
     },
 
     // ==================================================
-    // GOLD wallet
+    // GOLD Wallet
     // ==================================================
 
     goldBalance: {
@@ -285,7 +285,7 @@ const walletSchema = new Schema<Iwallet>(
     },
 
     // ==================================================
-    // wallet LIMITS
+    // Wallet LIMITS
     // ==================================================
 
     minimumBalance: {
@@ -313,7 +313,7 @@ const walletSchema = new Schema<Iwallet>(
 // NEXT SECTION: DEPOSIT + WITHDRAWAL STATISTICS
 // ======================================================// ======================================================
 // GoldTrade V17 ENTERPRISE
-// FILE: backend/src/models/wallet.ts
+// FILE: backend/src/models/Wallet.ts
 // SECTION 3/10
 // DEPOSIT + WITHDRAWAL STATISTICS SCHEMA
 // ======================================================
@@ -510,7 +510,7 @@ const walletSchema = new Schema<Iwallet>(
 // NEXT SECTION: GOLD PORTFOLIO SCHEMA
 // ======================================================// ======================================================
 // GoldTrade V17 ENTERPRISE
-// FILE: backend/src/models/wallet.ts
+// FILE: backend/src/models/Wallet.ts
 // SECTION 4/10
 // GOLD PORTFOLIO + INVESTMENT SCHEMA
 // ======================================================
@@ -745,7 +745,7 @@ const walletSchema = new Schema<Iwallet>(
 // NEXT SECTION: TRANSACTION history SCHEMA
 // ======================================================// ======================================================
 // GoldTrade V17 ENTERPRISE
-// FILE: backend/src/models/wallet.ts
+// FILE: backend/src/models/Wallet.ts
 // SECTION 5/10
 // TRANSACTION history + AUDIT SCHEMA
 // ======================================================
@@ -766,15 +766,15 @@ const walletSchema = new Schema<Iwallet>(
 
         type: {
           type: String,
-          enum: Object.values(walletTransactionType),
+          enum: Object.values(WalletTransactionType),
           required: true,
           index: true,
         },
 
         status: {
           type: String,
-          enum: Object.values(walletTransactionStatus),
-          default: walletTransactionStatus.PENDING,
+          enum: Object.values(WalletTransactionStatus),
+          default: WalletTransactionStatus.PENDING,
           index: true,
         },
 
@@ -948,16 +948,16 @@ const walletSchema = new Schema<Iwallet>(
 
 // ======================================================
 // END OF SECTION 5/10
-// NEXT SECTION: wallet SECURITY + LIMITS SCHEMA
+// NEXT SECTION: Wallet SECURITY + LIMITS SCHEMA
 // ======================================================// ======================================================
 // GoldTrade V17 ENTERPRISE
-// FILE: backend/src/models/wallet.ts
+// FILE: backend/src/models/Wallet.ts
 // SECTION 6/10
-// wallet SECURITY + LIMITS + RISK CONTROL SCHEMA
+// Wallet SECURITY + LIMITS + RISK CONTROL SCHEMA
 // ======================================================
 
     // ==================================================
-    // wallet SECURITY
+    // Wallet SECURITY
     // ==================================================
 
     security: {
@@ -982,7 +982,7 @@ const walletSchema = new Schema<Iwallet>(
         default: false,
       },
 
-      walletFrozen: {
+      WalletFrozen: {
         type: Boolean,
         default: false,
       },
@@ -1132,7 +1132,7 @@ const walletSchema = new Schema<Iwallet>(
     },
 
     // ==================================================
-    // wallet SETTINGS
+    // Wallet SETTINGS
     // ==================================================
 
     settings: {
@@ -1175,7 +1175,7 @@ const walletSchema = new Schema<Iwallet>(
 // NEXT SECTION: INDEXES + VIRTUAL FIELDS
 // ======================================================// ======================================================
 // GoldTrade V17 ENTERPRISE
-// FILE: backend/src/models/wallet.ts
+// FILE: backend/src/models/Wallet.ts
 // SECTION 7/10
 // INDEXES + VIRTUAL FIELDS
 // ======================================================
@@ -1185,41 +1185,41 @@ const walletSchema = new Schema<Iwallet>(
 // ======================================================
 
 // Primary indexes
-walletSchema.index({ user: 1 }, { unique: true });
-walletSchema.index({ walletNumber: 1 }, { unique: true });
-walletSchema.index({ status: 1 });
+WalletSchema.index({ user: 1 }, { unique: true });
+WalletSchema.index({ WalletNumber: 1 }, { unique: true });
+WalletSchema.index({ status: 1 });
 
 // Financial indexes
-walletSchema.index({ balance: -1 });
-walletSchema.index({ goldBalance: -1 });
-walletSchema.index({ availableBalance: -1 });
+WalletSchema.index({ balance: -1 });
+WalletSchema.index({ goldBalance: -1 });
+WalletSchema.index({ availableBalance: -1 });
 
 // Portfolio indexes
-walletSchema.index({ "portfolio.currentValue": -1 });
-walletSchema.index({ "portfolio.lifetimeProfit": -1 });
-walletSchema.index({ "performance.winRate": -1 });
+WalletSchema.index({ "portfolio.currentValue": -1 });
+WalletSchema.index({ "portfolio.lifetimeProfit": -1 });
+WalletSchema.index({ "performance.winRate": -1 });
 
 // Risk indexes
-walletSchema.index({ "riskControl.riskLevel": 1 });
-walletSchema.index({ "riskControl.amlFlag": 1 });
-walletSchema.index({ "riskControl.fraudFlag": 1 });
+WalletSchema.index({ "riskControl.riskLevel": 1 });
+WalletSchema.index({ "riskControl.amlFlag": 1 });
+WalletSchema.index({ "riskControl.fraudFlag": 1 });
 
 // Transaction indexes
-walletSchema.index({ "transactionhistory.transactionId": 1 });
-walletSchema.index({ "transactionhistory.type": 1 });
-walletSchema.index({ "transactionhistory.status": 1 });
-walletSchema.index({ "transactionhistory.createdAt": -1 });
+WalletSchema.index({ "transactionhistory.transactionId": 1 });
+WalletSchema.index({ "transactionhistory.type": 1 });
+WalletSchema.index({ "transactionhistory.status": 1 });
+WalletSchema.index({ "transactionhistory.createdAt": -1 });
 
 // Timestamp indexes
-walletSchema.index({ createdAt: -1 });
-walletSchema.index({ updatedAt: -1 });
+WalletSchema.index({ createdAt: -1 });
+WalletSchema.index({ updatedAt: -1 });
 
 // ======================================================
-// VIRTUAL FIELD : TOTAL wallet VALUE
+// VIRTUAL FIELD : TOTAL Wallet VALUE
 // Cash + Bonus + Cashback + Referral + Gold Market Value
 // ======================================================
 
-walletSchema.virtual("totalwalletValue").get(function () {
+WalletSchema.virtual("totalWalletValue").get(function () {
   return (
     this.balance +
     this.bonusBalance +
@@ -1233,7 +1233,7 @@ walletSchema.virtual("totalwalletValue").get(function () {
 // VIRTUAL FIELD : AVAILABLE CASH BALANCE
 // ======================================================
 
-walletSchema.virtual("availableCashBalance").get(function () {
+WalletSchema.virtual("availableCashBalance").get(function () {
   return (
     this.balance -
     this.lockedBalance -
@@ -1245,7 +1245,7 @@ walletSchema.virtual("availableCashBalance").get(function () {
 // VIRTUAL FIELD : AVAILABLE GOLD
 // ======================================================
 
-walletSchema.virtual("availableGold").get(function () {
+WalletSchema.virtual("availableGold").get(function () {
   return (
     this.goldBalance -
     this.lockedGoldBalance -
@@ -1257,7 +1257,7 @@ walletSchema.virtual("availableGold").get(function () {
 // VIRTUAL FIELD : PORTFOLIO PROFIT
 // ======================================================
 
-walletSchema.virtual("portfolioProfit").get(function () {
+WalletSchema.virtual("portfolioProfit").get(function () {
   return (
     this.portfolio.realizedProfit +
     this.portfolio.unrealizedProfit
@@ -1268,7 +1268,7 @@ walletSchema.virtual("portfolioProfit").get(function () {
 // VIRTUAL FIELD : ROI PERCENTAGE
 // ======================================================
 
-walletSchema.virtual("roiPercentage").get(function () {
+WalletSchema.virtual("roiPercentage").get(function () {
   if (this.portfolio.totalInvestment <= 0) return 0;
 
   return Number(
@@ -1284,7 +1284,7 @@ walletSchema.virtual("roiPercentage").get(function () {
 // VIRTUAL FIELD : WIN RATE
 // ======================================================
 
-walletSchema.virtual("tradingWinRate").get(function () {
+WalletSchema.virtual("tradingWinRate").get(function () {
   const total =
     this.performance.profitableTrades +
     this.performance.lossTrades;
@@ -1303,7 +1303,7 @@ walletSchema.virtual("tradingWinRate").get(function () {
 // VIRTUAL FIELD : NET PROFIT
 // ======================================================
 
-walletSchema.virtual("netProfit").get(function () {
+WalletSchema.virtual("netProfit").get(function () {
   return this.totalProfit - this.totalLoss;
 });
 
@@ -1311,7 +1311,7 @@ walletSchema.virtual("netProfit").get(function () {
 // VIRTUAL FIELD : TOTAL ASSETS
 // ======================================================
 
-walletSchema.virtual("totalAssets").get(function () {
+WalletSchema.virtual("totalAssets").get(function () {
   return {
     cash: this.balance,
     goldGrams: this.goldBalance,
@@ -1332,8 +1332,8 @@ walletSchema.virtual("totalAssets").get(function () {
 // VIRTUAL FIELD : RISK STATUS
 // ======================================================
 
-walletSchema.virtual("walletRiskStatus").get(function () {
-  if (this.security.walletFrozen) return "FROZEN";
+WalletSchema.virtual("WalletRiskStatus").get(function () {
+  if (this.security.WalletFrozen) return "FROZEN";
   if (this.riskControl.fraudFlag) return "FRAUD_ALERT";
   if (this.riskControl.amlFlag) return "AML_REVIEW";
   return "SAFE";
@@ -1343,7 +1343,7 @@ walletSchema.virtual("walletRiskStatus").get(function () {
 // VIRTUAL FIELD : DAILY LIMIT REMAINING
 // ======================================================
 
-walletSchema.virtual("remainingDailyWithdrawalLimit").get(function () {
+WalletSchema.virtual("remainingDailyWithdrawalLimit").get(function () {
   return Math.max(
     0,
     this.limits.dailyWithdrawalLimit -
@@ -1351,7 +1351,7 @@ walletSchema.virtual("remainingDailyWithdrawalLimit").get(function () {
   );
 });
 
-walletSchema.virtual("remainingDailyDepositLimit").get(function () {
+WalletSchema.virtual("remainingDailyDepositLimit").get(function () {
   return Math.max(
     0,
     this.limits.dailyDepositLimit -
@@ -1363,7 +1363,7 @@ walletSchema.virtual("remainingDailyDepositLimit").get(function () {
 // JSON / OBJECT SETTINGS
 // ======================================================
 
-walletSchema.set("toJSON", {
+WalletSchema.set("toJSON", {
   virtuals: true,
   versionKey: false,
   transform: (_doc, ret) => {
@@ -1372,27 +1372,27 @@ walletSchema.set("toJSON", {
   },
 });
 
-walletSchema.set("toObject", {
+WalletSchema.set("toObject", {
   virtuals: true,
 });
 
 // ======================================================
 // END OF SECTION 7/10
-// NEXT SECTION: wallet METHODS
+// NEXT SECTION: Wallet METHODS
 // ======================================================// ======================================================
 // GoldTrade V17 ENTERPRISE
-// FILE: backend/src/models/wallet.ts
+// FILE: backend/src/models/Wallet.ts
 // SECTION 8/10
-// wallet METHODS
+// Wallet METHODS
 // ======================================================
 
 // ======================================================
 // CREDIT CASH BALANCE
 // ======================================================
 
-walletSchema.methods.creditBalance = async function (
+WalletSchema.methods.creditBalance = async function (
   amount: number
-): Promise<Iwallet> {
+): Promise<IWallet> {
   if (amount <= 0) {
     throw new Error("Amount must be greater than zero.");
   }
@@ -1407,15 +1407,15 @@ walletSchema.methods.creditBalance = async function (
 // DEBIT CASH BALANCE
 // ======================================================
 
-walletSchema.methods.debitBalance = async function (
+WalletSchema.methods.debitBalance = async function (
   amount: number
-): Promise<Iwallet> {
+): Promise<IWallet> {
   if (amount <= 0) {
     throw new Error("Amount must be greater than zero.");
   }
 
   if (this.availableBalance < amount) {
-    throw new Error("Insufficient wallet balance.");
+    throw new Error("Insufficient Wallet balance.");
   }
 
   this.balance -= amount;
@@ -1425,13 +1425,13 @@ walletSchema.methods.debitBalance = async function (
 };
 
 // ======================================================
-// ADD GOLD TO wallet
+// ADD GOLD TO Wallet
 // ======================================================
 
-walletSchema.methods.creditGold = async function (
+WalletSchema.methods.creditGold = async function (
   grams: number,
   pricePerGram: number
-): Promise<Iwallet> {
+): Promise<IWallet> {
   if (grams <= 0) {
     throw new Error("Gold amount must be greater than zero.");
   }
@@ -1455,12 +1455,12 @@ walletSchema.methods.creditGold = async function (
 };
 
 // ======================================================
-// REMOVE GOLD FROM wallet
+// REMOVE GOLD FROM Wallet
 // ======================================================
 
-walletSchema.methods.debitGold = async function (
+WalletSchema.methods.debitGold = async function (
   grams: number
-): Promise<Iwallet> {
+): Promise<IWallet> {
   if (grams <= 0) {
     throw new Error("Gold amount must be greater than zero.");
   }
@@ -1480,9 +1480,9 @@ walletSchema.methods.debitGold = async function (
 // LOCK CASH BALANCE
 // ======================================================
 
-walletSchema.methods.lockBalance = async function (
+WalletSchema.methods.lockBalance = async function (
   amount: number
-): Promise<Iwallet> {
+): Promise<IWallet> {
   if (this.availableBalance < amount) {
     throw new Error("Insufficient available balance.");
   }
@@ -1497,9 +1497,9 @@ walletSchema.methods.lockBalance = async function (
 // UNLOCK CASH BALANCE
 // ======================================================
 
-walletSchema.methods.unlockBalance = async function (
+WalletSchema.methods.unlockBalance = async function (
   amount: number
-): Promise<Iwallet> {
+): Promise<IWallet> {
   if (this.lockedBalance < amount) {
     throw new Error("Locked balance is insufficient.");
   }
@@ -1514,9 +1514,9 @@ walletSchema.methods.unlockBalance = async function (
 // LOCK GOLD BALANCE
 // ======================================================
 
-walletSchema.methods.lockGold = async function (
+WalletSchema.methods.lockGold = async function (
   grams: number
-): Promise<Iwallet> {
+): Promise<IWallet> {
   if (this.availableGoldBalance < grams) {
     throw new Error("Insufficient available gold.");
   }
@@ -1531,9 +1531,9 @@ walletSchema.methods.lockGold = async function (
 // UNLOCK GOLD BALANCE
 // ======================================================
 
-walletSchema.methods.unlockGold = async function (
+WalletSchema.methods.unlockGold = async function (
   grams: number
-): Promise<Iwallet> {
+): Promise<IWallet> {
   if (this.lockedGoldBalance < grams) {
     throw new Error("Locked gold balance is insufficient.");
   }
@@ -1548,7 +1548,7 @@ walletSchema.methods.unlockGold = async function (
 // RECORD TRANSACTION
 // ======================================================
 
-walletSchema.methods.recordTransaction = async function ({
+WalletSchema.methods.recordTransaction = async function ({
   transactionId,
   type,
   status,
@@ -1561,8 +1561,8 @@ walletSchema.methods.recordTransaction = async function ({
   approvedBy,
 }: {
   transactionId: string;
-  type: walletTransactionType;
-  status: walletTransactionStatus;
+  type: WalletTransactionType;
+  status: WalletTransactionStatus;
   amount: number;
   goldAmount?: number;
   goldPrice?: number;
@@ -1596,15 +1596,15 @@ walletSchema.methods.recordTransaction = async function ({
   this.totalTransactions += 1;
   this.lastTransactionDate = new Date();
 
-  if (status === walletTransactionStatus.COMPLETED) {
+  if (status === WalletTransactionStatus.COMPLETED) {
     this.successfulTransactions += 1;
   }
 
-  if (status === walletTransactionStatus.FAILED) {
+  if (status === WalletTransactionStatus.FAILED) {
     this.failedTransactions += 1;
   }
 
-  if (status === walletTransactionStatus.CANCELLED) {
+  if (status === WalletTransactionStatus.CANCELLED) {
     this.cancelledTransactions += 1;
   }
 
@@ -1626,9 +1626,9 @@ walletSchema.methods.recordTransaction = async function ({
 // UPDATE CURRENT GOLD MARKET VALUE
 // ======================================================
 
-walletSchema.methods.updateGoldMarketValue = async function (
+WalletSchema.methods.updateGoldMarketValue = async function (
   currentPricePerGram: number
-): Promise<Iwallet> {
+): Promise<IWallet> {
   this.currentGoldValue = Number(
     (this.goldBalance * currentPricePerGram).toFixed(2)
   );
@@ -1654,14 +1654,14 @@ walletSchema.methods.updateGoldMarketValue = async function (
 };
 
 // ======================================================
-// FREEZE / UNFREEZE wallet
+// FREEZE / UNFREEZE Wallet
 // ======================================================
 
-walletSchema.methods.freezewallet = async function (
+WalletSchema.methods.freezeWallet = async function (
   reason: string
-): Promise<Iwallet> {
-  this.status = walletStatus.FROZEN;
-  this.security.walletFrozen = true;
+): Promise<IWallet> {
+  this.status = WalletStatus.FROZEN;
+  this.security.WalletFrozen = true;
   this.security.withdrawalLocked = true;
   this.security.tradingLocked = true;
 
@@ -1672,9 +1672,9 @@ walletSchema.methods.freezewallet = async function (
   return this.save();
 };
 
-walletSchema.methods.unfreezewallet = async function (): Promise<Iwallet> {
-  this.status = walletStatus.ACTIVE;
-  this.security.walletFrozen = false;
+WalletSchema.methods.unfreezeWallet = async function (): Promise<IWallet> {
+  this.status = WalletStatus.ACTIVE;
+  this.security.WalletFrozen = false;
   this.security.withdrawalLocked = false;
   this.security.tradingLocked = false;
 
@@ -1690,18 +1690,18 @@ walletSchema.methods.unfreezewallet = async function (): Promise<Iwallet> {
 // NEXT SECTION: PRE-SAVE HOOKS
 // ======================================================// ======================================================
 // GoldTrade V17 ENTERPRISE
-// FILE: backend/src/models/wallet.ts
+// FILE: backend/src/models/Wallet.ts
 // SECTION 9/10
 // PRE-SAVE HOOKS + AUTO CALCULATIONS
 // ======================================================
 
 // ======================================================
-// AUTO GENERATE wallet NUMBER
+// AUTO GENERATE Wallet NUMBER
 // Format: GTW-2026-8F4A9C21
 // ======================================================
 
-walletSchema.pre<Iwallet>("save", function (next) {
-  if (!this.walletNumber) {
+WalletSchema.pre<IWallet>("save", function (next) {
+  if (!this.WalletNumber) {
     const random = Math.random()
       .toString(16)
       .substring(2, 10)
@@ -1709,7 +1709,7 @@ walletSchema.pre<Iwallet>("save", function (next) {
 
     const year = new Date().getFullYear();
 
-    this.walletNumber = `GTW-${year}-${random}`;
+    this.WalletNumber = `GTW-${year}-${random}`;
   }
 
   next();
@@ -1719,7 +1719,7 @@ walletSchema.pre<Iwallet>("save", function (next) {
 // UPDATE AVAILABLE CASH BALANCE
 // ======================================================
 
-walletSchema.pre<Iwallet>("save", function (next) {
+WalletSchema.pre<IWallet>("save", function (next) {
   this.availableBalance = Math.max(
     0,
     this.balance - this.lockedBalance - this.pendingBalance
@@ -1732,7 +1732,7 @@ walletSchema.pre<Iwallet>("save", function (next) {
 // UPDATE AVAILABLE GOLD BALANCE
 // ======================================================
 
-walletSchema.pre<Iwallet>("save", function (next) {
+WalletSchema.pre<IWallet>("save", function (next) {
   this.availableGoldBalance = Math.max(
     0,
     this.goldBalance -
@@ -1747,7 +1747,7 @@ walletSchema.pre<Iwallet>("save", function (next) {
 // AUTO CALCULATE PORTFOLIO VALUE
 // ======================================================
 
-walletSchema.pre<Iwallet>("save", function (next) {
+WalletSchema.pre<IWallet>("save", function (next) {
   this.portfolio.currentValue =
     this.balance + this.currentGoldValue;
 
@@ -1762,7 +1762,7 @@ walletSchema.pre<Iwallet>("save", function (next) {
 // AUTO CALCULATE ROI
 // ======================================================
 
-walletSchema.pre<Iwallet>("save", function (next) {
+WalletSchema.pre<IWallet>("save", function (next) {
   if (this.portfolio.totalInvestment > 0) {
     this.investmentSummary.roiPercentage = Number(
       (
@@ -1782,7 +1782,7 @@ walletSchema.pre<Iwallet>("save", function (next) {
 // UPDATE WIN RATE
 // ======================================================
 
-walletSchema.pre<Iwallet>("save", function (next) {
+WalletSchema.pre<IWallet>("save", function (next) {
   const totalTrades =
     this.performance.profitableTrades +
     this.performance.lossTrades;
@@ -1806,7 +1806,7 @@ walletSchema.pre<Iwallet>("save", function (next) {
 // RESET DAILY LIMIT USAGE
 // ======================================================
 
-walletSchema.pre<Iwallet>("save", function (next) {
+WalletSchema.pre<IWallet>("save", function (next) {
   const now = new Date();
   const lastReset = new Date(this.usage.lastResetDate);
 
@@ -1832,7 +1832,7 @@ walletSchema.pre<Iwallet>("save", function (next) {
 // RESET MONTHLY LIMIT USAGE
 // ======================================================
 
-walletSchema.pre<Iwallet>("save", function (next) {
+WalletSchema.pre<IWallet>("save", function (next) {
   const now = new Date();
   const lastReset = new Date(this.usage.lastResetDate);
 
@@ -1855,7 +1855,7 @@ walletSchema.pre<Iwallet>("save", function (next) {
 // UPDATE SECURITY TIMESTAMP
 // ======================================================
 
-walletSchema.pre<Iwallet>("save", function (next) {
+WalletSchema.pre<IWallet>("save", function (next) {
   this.security.lastUpdatedAt = new Date();
   next();
 });
@@ -1864,7 +1864,7 @@ walletSchema.pre<Iwallet>("save", function (next) {
 // KEEP TRANSACTION history LIMITED
 // ======================================================
 
-walletSchema.pre<Iwallet>("save", function (next) {
+WalletSchema.pre<IWallet>("save", function (next) {
   if (this.transactionhistory.length > 1000) {
     this.transactionhistory =
       this.transactionhistory.slice(0, 1000);
@@ -1883,7 +1883,7 @@ walletSchema.pre<Iwallet>("save", function (next) {
 // NEXT SECTION: MODEL EXPORT + FINAL SCHEMA
 // ======================================================// ======================================================
 // GoldTrade V17 ENTERPRISE
-// FILE: backend/src/models/wallet.ts
+// FILE: backend/src/models/Wallet.ts
 // SECTION 10/10
 // FINAL SCHEMA OPTIONS + MODEL EXPORT
 // ======================================================
@@ -1892,9 +1892,9 @@ walletSchema.pre<Iwallet>("save", function (next) {
 // SCHEMA OPTIONS
 // ======================================================
 
-walletSchema.set("timestamps", true);
+WalletSchema.set("timestamps", true);
 
-walletSchema.set("toJSON", {
+WalletSchema.set("toJSON", {
   virtuals: true,
   versionKey: false,
   transform: (_doc, ret) => {
@@ -1903,7 +1903,7 @@ walletSchema.set("toJSON", {
   },
 });
 
-walletSchema.set("toObject", {
+WalletSchema.set("toObject", {
   virtuals: true,
   versionKey: false,
 });
@@ -1912,30 +1912,30 @@ walletSchema.set("toObject", {
 // STATIC METHODS INTERFACE
 // ======================================================
 
-export interface IwalletModel extends Model<Iwallet> {
-  findBywalletNumber(walletNumber: string): Promise<Iwallet | null>;
+export interface IWalletModel extends Model<IWallet> {
+  findByWalletNumber(WalletNumber: string): Promise<IWallet | null>;
 
-  findActivewallet(userId: mongoose.Types.ObjectId): Promise<Iwallet | null>;
+  findActiveWallet(userId: mongoose.Types.ObjectId): Promise<IWallet | null>;
 }
 
 // ======================================================
 // STATIC METHODS
 // ======================================================
 
-walletSchema.statics.findBywalletNumber = function (
-  walletNumber: string
+WalletSchema.statics.findByWalletNumber = function (
+  WalletNumber: string
 ) {
   return this.findOne({
-    walletNumber: walletNumber.toUpperCase(),
+    WalletNumber: WalletNumber.toUpperCase(),
   });
 };
 
-walletSchema.statics.findActivewallet = function (
+WalletSchema.statics.findActiveWallet = function (
   userId: mongoose.Types.ObjectId
 ) {
   return this.findOne({
     user: userId,
-    status: walletStatus.ACTIVE,
+    status: WalletStatus.ACTIVE,
   });
 };
 
@@ -1943,51 +1943,51 @@ walletSchema.statics.findActivewallet = function (
 // INSTANCE METHODS TYPES
 // ======================================================
 
-export interface IwalletMethods {
-  creditBalance(amount: number): Promise<Iwallet>;
+export interface IWalletMethods {
+  creditBalance(amount: number): Promise<IWallet>;
 
-  debitBalance(amount: number): Promise<Iwallet>;
+  debitBalance(amount: number): Promise<IWallet>;
 
-  creditGold(grams: number, pricePerGram: number): Promise<Iwallet>;
+  creditGold(grams: number, pricePerGram: number): Promise<IWallet>;
 
-  debitGold(grams: number): Promise<Iwallet>;
+  debitGold(grams: number): Promise<IWallet>;
 
-  lockBalance(amount: number): Promise<Iwallet>;
+  lockBalance(amount: number): Promise<IWallet>;
 
-  unlockBalance(amount: number): Promise<Iwallet>;
+  unlockBalance(amount: number): Promise<IWallet>;
 
-  lockGold(grams: number): Promise<Iwallet>;
+  lockGold(grams: number): Promise<IWallet>;
 
-  unlockGold(grams: number): Promise<Iwallet>;
+  unlockGold(grams: number): Promise<IWallet>;
 
-  recordTransaction(data: unknown): Promise<Iwallet>;
+  recordTransaction(data: unknown): Promise<IWallet>;
 
-  updateGoldMarketValue(pricePerGram: number): Promise<Iwallet>;
+  updateGoldMarketValue(pricePerGram: number): Promise<IWallet>;
 
-  freezewallet(reason: string): Promise<Iwallet>;
+  freezeWallet(reason: string): Promise<IWallet>;
 
-  unfreezewallet(): Promise<Iwallet>;
+  unfreezeWallet(): Promise<IWallet>;
 }
 
 // ======================================================
 // CREATE MODEL
 // ======================================================
 
-const wallet =
-  (mongoose.models.wallet as IwalletModel) ||
-  mongoose.model<Iwallet, IwalletModel>(
-    "wallet",
-    walletSchema
+const Wallet =
+  (mongoose.models.Wallet as IWalletModel) ||
+  mongoose.model<IWallet, IWalletModel>(
+    "Wallet",
+    WalletSchema
   );
 
 // ======================================================
 // EXPORT MODEL
 // ======================================================
 
-export default wallet;
+export default Wallet;
 
 // ======================================================
 // END OF FILE
-// backend/src/models/wallet.ts
-// GoldTrade V17 ENTERPRISE wallet MODEL COMPLETE
+// backend/src/models/Wallet.ts
+// GoldTrade V17 ENTERPRISE Wallet MODEL COMPLETE
 // ======================================================

@@ -47,7 +47,7 @@ export enum PaymentMethod {
   BINANCE = "BINANCE",
   Usdt_TRC20 = "Usdt_TRC20",
   Usdt_ERC20 = "Usdt_ERC20",
-  INTERNAL_wallet = "INTERNAL_wallet",
+  INTERNAL_Wallet = "INTERNAL_Wallet",
   REFERRAL = "REFERRAL",
   BONUS = "BONUS",
 }
@@ -145,7 +145,7 @@ export interface ITransaction extends Document {
 
   user: mongoose.Types.ObjectId;
 
-  wallet: mongoose.Types.ObjectId;
+  Wallet: mongoose.Types.ObjectId;
 
   type: TransactionType;
 
@@ -208,7 +208,7 @@ const TransactionSchema = new Schema<ITransaction>(
     },
 
     // ==================================================
-    // USER & wallet REFERENCES
+    // USER & Wallet REFERENCES
     // ==================================================
 
     user: {
@@ -218,9 +218,9 @@ const TransactionSchema = new Schema<ITransaction>(
       index: true,
     },
 
-    wallet: {
+    Wallet: {
       type: Schema.Types.ObjectId,
-      ref: "wallet",
+      ref: "Wallet",
       required: true,
       index: true,
     },
@@ -546,7 +546,7 @@ const TransactionSchema = new Schema<ITransaction>(
         default: "",
       },
 
-      walletAddress: {
+      WalletAddress: {
         type: String,
         default: "",
       },
@@ -1635,11 +1635,11 @@ TransactionSchema.index({ referenceNumber: 1 });
 TransactionSchema.index({ externalReference: 1 });
 
 // ======================================================
-// USER & wallet INDEXES
+// USER & Wallet INDEXES
 // ======================================================
 
 TransactionSchema.index({ user: 1, transactionDate: -1 });
-TransactionSchema.index({ wallet: 1, transactionDate: -1 });
+TransactionSchema.index({ Wallet: 1, transactionDate: -1 });
 
 // ======================================================
 // TRANSACTION FILTER INDEXES

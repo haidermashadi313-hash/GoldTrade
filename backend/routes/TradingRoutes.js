@@ -123,13 +123,13 @@ router.post("/gold", verifyToken, async (req, res) => {
       });
     }
 
-    if (user.walletFrozen) {
+    if (user.WalletFrozen) {
       await session.abortTransaction();
       session.endSession();
 
       return res.status(403).json({
         success: false,
-        message: "Your wallet has been frozen.",
+        message: "Your Wallet has been frozen.",
       });
     }
 
@@ -149,18 +149,18 @@ router.post("/gold", verifyToken, async (req, res) => {
       const goldPrice = settings.buyGoldPrice;
       const totalAmount = goldPrice * goldQty;
 
-      if ((user.walletBalance ?? 0) < totalAmount) {
+      if ((user.WalletBalance ?? 0) < totalAmount) {
         await session.abortTransaction();
         session.endSession();
 
         return res.status(400).json({
           success: false,
-          message: "Insufficient Pkr wallet balance.",
+          message: "Insufficient Pkr Wallet balance.",
         });
       }
 
-      // wallet Update
-      user.walletBalance -= totalAmount;
+      // Wallet Update
+      user.WalletBalance -= totalAmount;
       user.goldBalance = (user.goldBalance ?? 0) + goldQty;
 
       // Average Gold Price
@@ -182,7 +182,7 @@ router.post("/gold", verifyToken, async (req, res) => {
         user.cashbackEarned =
           (user.cashbackEarned ?? 0) + cashback;
 
-        user.walletBalance += cashback;
+        user.WalletBalance += cashback;
       }
 
       // VIP Upgrade
@@ -239,8 +239,8 @@ router.post("/gold", verifyToken, async (req, res) => {
           cashback,
         },
 
-        wallet: {
-          walletBalance: user.walletBalance,
+        Wallet: {
+          WalletBalance: user.WalletBalance,
           goldBalance: user.goldBalance,
           cashbackEarned: user.cashbackEarned,
           vipLevel: user.vipLevel,
@@ -282,9 +282,9 @@ router.post("/gold", verifyToken, async (req, res) => {
       const averagePrice = user.goldAveragePrice ?? goldPrice;
       const profitLoss = (goldPrice - averagePrice) * goldQty;
 
-      // wallet Update
+      // Wallet Update
       user.goldBalance -= goldQty;
-      user.walletBalance += totalAmount;
+      user.WalletBalance += totalAmount;
 
       user.goldProfitLoss =
         (user.goldProfitLoss ?? 0) + profitLoss;
@@ -335,8 +335,8 @@ router.post("/gold", verifyToken, async (req, res) => {
           profitLoss,
         },
 
-        wallet: {
-          walletBalance: user.walletBalance,
+        Wallet: {
+          WalletBalance: user.WalletBalance,
           goldBalance: user.goldBalance,
           goldProfitLoss: user.goldProfitLoss,
         },
@@ -390,9 +390,9 @@ const applyTradingRewards = async (
     user.cashbackEarned =
       (user.cashbackEarned ?? 0) + cashback;
 
-    // Cashback directly wallet me credit
-    user.walletBalance =
-      (user.walletBalance ?? 0) + cashback;
+    // Cashback directly Wallet me credit
+    user.WalletBalance =
+      (user.WalletBalance ?? 0) + cashback;
   }
 
   // ================= VIP LEVEL AUTO UPGRADE =================
@@ -417,8 +417,8 @@ const applyTradingRewards = async (
     if (referrer) {
       referralBonus = Number(settings.referralBonus ?? 0);
 
-      referrer.walletBalance =
-        (referrer.walletBalance ?? 0) + referralBonus;
+      referrer.WalletBalance =
+        (referrer.WalletBalance ?? 0) + referralBonus;
 
       referrer.referralBonus =
         (referrer.referralBonus ?? 0) + referralBonus;
@@ -573,7 +573,7 @@ router.get("/dashboard", verifyToken, async (req, res) => {
 
     // Total Portfolio Value
     const portfolioValue =
-      (user.walletBalance ?? 0) +
+      (user.WalletBalance ?? 0) +
       (user.UsdtBalance ?? 0) +
       currentGoldValue;
 
@@ -607,8 +607,8 @@ router.get("/dashboard", verifyToken, async (req, res) => {
           vipLevel: user.vipLevel || "Standard",
         },
 
-        wallet: {
-          walletBalance: user.walletBalance ?? 0,
+        Wallet: {
+          WalletBalance: user.WalletBalance ?? 0,
           UsdtBalance: user.UsdtBalance ?? 0,
           goldBalance: user.goldBalance ?? 0,
 
@@ -683,7 +683,7 @@ router.get("/portfolio", verifyToken, async (req, res) => {
       success: true,
 
       portfolio: {
-        walletBalance: user.walletBalance ?? 0,
+        WalletBalance: user.WalletBalance ?? 0,
         UsdtBalance: user.UsdtBalance ?? 0,
 
         goldBalance: user.goldBalance ?? 0,
@@ -693,7 +693,7 @@ router.get("/portfolio", verifyToken, async (req, res) => {
         referralBonus: user.referralBonus ?? 0,
 
         totalPortfolioValue:
-          (user.walletBalance ?? 0) +
+          (user.WalletBalance ?? 0) +
           (user.UsdtBalance ?? 0) +
           goldValue,
 

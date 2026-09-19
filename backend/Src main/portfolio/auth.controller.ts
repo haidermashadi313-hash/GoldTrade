@@ -258,7 +258,7 @@ export const getMyProfile = async (
 
     const user = await User.findById(userId)
       .select("-password -refreshToken")
-      .populate("wallet")
+      .populate("Wallet")
       .populate("portfolio")
       .populate("kyc");
 
@@ -858,7 +858,7 @@ export const getUserSummary = async (
 
     const user = await User.findById(req.params.id)
       .select("-password -refreshToken")
-      .populate("wallet")
+      .populate("Wallet")
       .populate("portfolio")
       .populate("kyc");
 
@@ -1225,8 +1225,8 @@ export const getLoginhistory = async (
 // AUTO USER REGISTRATION BUSINESS LOGIC
 // ======================================================
 
-// wallet, Portfolio, GoldVault aur Referral models ko file ke top imports me add karo.
-import wallet from "../models/Wallet";
+// Wallet, Portfolio, GoldVault aur Referral models ko file ke top imports me add karo.
+import Wallet from "../models/Wallet";
 import Portfolio from "../models/Portfolio";
 import GoldVault from "../models/GoldVault";
 import Transaction from "../models/Transaction";
@@ -1245,11 +1245,11 @@ const generateReferralCode = (username: string) => {
 };
 
 // ======================================================
-// CREATE DEFAULT wallet
+// CREATE DEFAULT Wallet
 // ======================================================
 
-const createDefaultwallet = async (userId: string) => {
-  return await wallet.create({
+const createDefaultWallet = async (userId: string) => {
+  return await Wallet.create({
     user: userId,
 
     balances: {
@@ -1268,7 +1268,7 @@ const createDefaultwallet = async (userId: string) => {
       lockedGrams: 0,
     },
 
-    walletStatus: "ACTIVE",
+    WalletStatus: "ACTIVE",
   });
 };
 
@@ -1278,7 +1278,7 @@ const createDefaultwallet = async (userId: string) => {
 
 const createDefaultPortfolio = async (
   userId: string,
-  walletId: string
+  WalletId: string
 ) => {
   return await Portfolio.create({
     user: userId,
@@ -1290,7 +1290,7 @@ const createDefaultPortfolio = async (
     status: "ACTIVE",
 
     linkedAccounts: {
-      wallet: walletId,
+      Wallet: WalletId,
       goldVaults: [],
       bankAccounts: [],
       tradeOrders: [],
@@ -1305,12 +1305,12 @@ const createDefaultPortfolio = async (
 
 const createDefaultGoldVault = async (
   userId: string,
-  walletId: string
+  WalletId: string
 ) => {
   return await GoldVault.create({
     user: userId,
 
-    wallet: walletId,
+    Wallet: WalletId,
 
     vaultName: "Main Gold Vault",
 
@@ -1332,12 +1332,12 @@ const createDefaultGoldVault = async (
 
 const createWelcomeBonus = async (
   userId: string,
-  walletId: string
+  WalletId: string
 ) => {
   const bonusPkr = 1000;
   const bonusGoldGram = 0.05;
 
-  await wallet.findByIdAndUpdate(walletId, {
+  await Wallet.findByIdAndUpdate(WalletId, {
     $inc: {
       "balances.Pkr": bonusPkr,
       "goldBalance.totalGrams": bonusGoldGram,
@@ -1348,7 +1348,7 @@ const createWelcomeBonus = async (
   await Transaction.create({
     user: userId,
 
-    wallet: walletId,
+    Wallet: WalletId,
 
     transactionType: "WELCOME_BONUS",
 
@@ -1374,14 +1374,14 @@ const applyReferralBonus = async (
 
   if (!referrer) return;
 
-  const referrerwallet = await wallet.findOne({
+  const referrerWallet = await Wallet.findOne({
     user: referrer._id,
   });
 
   const referralBonusPkr = 500;
   const referralBonusGoldGram = 0.02;
 
-  await wallet.findByIdAndUpdate(referrerwallet._id, {
+  await Wallet.findByIdAndUpdate(referrerWallet._id, {
     $inc: {
       "balances.Pkr": referralBonusPkr,
       "goldBalance.totalGrams": referralBonusGoldGram,
@@ -1398,7 +1398,7 @@ const applyReferralBonus = async (
   await Transaction.create({
     user: referrer._id,
 
-    wallet: referrerwallet._id,
+    Wallet: referrerWallet._id,
 
     transactionType: "REFERRAL_BONUS",
 
@@ -1424,23 +1424,23 @@ const completeRegistrationSetup = async (
   user: any,
   referralCode?: string
 ) => {
-  // wallet
-  const wallet = await createDefaultwallet(user._id);
+  // Wallet
+  const Wallet = await createDefaultWallet(user._id);
 
   // Portfolio
   const portfolio = await createDefaultPortfolio(
     user._id,
-    wallet._id
+    Wallet._id
   );
 
   // Gold Vault
   const vault = await createDefaultGoldVault(
     user._id,
-    wallet._id
+    Wallet._id
   );
 
   // Welcome Bonus
-  await createWelcomeBonus(user._id, wallet._id);
+  await createWelcomeBonus(user._id, Wallet._id);
 
   // Referral
   if (referralCode) {
@@ -1448,7 +1448,7 @@ const completeRegistrationSetup = async (
   }
 
   // Update User References
-  user.wallet = wallet._id;
+  user.Wallet = Wallet._id;
   user.portfolio = portfolio._id;
   user.goldVault = vault._id;
 
@@ -1457,7 +1457,7 @@ const completeRegistrationSetup = async (
   await user.save();
 
   return {
-    wallet,
+    Wallet,
     portfolio,
     vault,
   };
@@ -1693,7 +1693,7 @@ export const getAccountOverview = async (
       .select(
         "fullName username email role accountStatus lastLogin lastActiveAt createdAt loginhistory sessions"
       )
-      .populate("wallet")
+      .populate("Wallet")
       .populate("portfolio");
 
     return res.json({
@@ -1719,7 +1719,7 @@ export const getAccountOverview = async (
           loginhistoryCount: user.loginhistory.length,
         },
 
-        wallet: user.wallet,
+        Wallet: user.Wallet,
         portfolio: user.portfolio,
       },
     });

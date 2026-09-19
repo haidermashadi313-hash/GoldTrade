@@ -47,7 +47,7 @@ export enum TradeGoldUnit {
 }
 
 export enum PaymentMethodType {
-  wallet = "wallet",
+  Wallet = "Wallet",
   BANK = "BANK",
   RAAST = "RAAST",
   JAZZCASH = "JAZZCASH",
@@ -108,7 +108,7 @@ export interface IOrderTimeline {
 
 export interface ITradeOrder extends Document {
   user: mongoose.Types.ObjectId;
-  wallet: mongoose.Types.ObjectId;
+  Wallet: mongoose.Types.ObjectId;
   goldVault: mongoose.Types.ObjectId;
   orderNumber: string;
   clientOrderId?: string;
@@ -198,7 +198,7 @@ export interface ITradeOrderModel extends Model<ITradeOrder, {}, ITradeOrderMeth
 const TradeOrderSchema = new Schema<ITradeOrder, ITradeOrderModel, ITradeOrderMethods>(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    wallet: { type: Schema.Types.ObjectId, ref: "wallet", required: true, index: true },
+    Wallet: { type: Schema.Types.ObjectId, ref: "Wallet", required: true, index: true },
     goldVault: { type: Schema.Types.ObjectId, ref: "GoldVault", required: true, index: true },
     orderNumber: { type: String, required: true, unique: true, uppercase: true, trim: true, index: true },
     clientOrderId: { type: String, uppercase: true, trim: true, index: true },
@@ -214,7 +214,7 @@ const TradeOrderSchema = new Schema<ITradeOrder, ITradeOrderModel, ITradeOrderMe
     quantityGram: { type: Number, required: true, min: 0.001 },
     requestedPricePkr: { type: Number, required: true },
 
-    paymentMethod: { type: String, enum: Object.values(PaymentMethodType), default: PaymentMethodType.wallet },
+    paymentMethod: { type: String, enum: Object.values(PaymentMethodType), default: PaymentMethodType.Wallet },
     paymentStatus: {
       type: String,
       enum: ["UNPAID", "PENDING", "AUTHORIZED", "PAID", "FAILED", "REFUNDED"],

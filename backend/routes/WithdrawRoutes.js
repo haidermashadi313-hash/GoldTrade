@@ -34,7 +34,7 @@ router.post("/create", verifyToken, async (req, res) => {
       });
     }
 
-    // Find user wallet
+    // Find user Wallet
     const userWallet = await Wallet.findOne({
       userId: req.user.id,
     });
