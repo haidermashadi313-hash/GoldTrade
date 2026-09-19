@@ -1,25 +1,34 @@
+"use strict";
+
 const express = require("express");
 const router = express.Router();
 
+// ================= MODELS =================
 const User = require("../models/User");
+const Wallet = require("../models/Wallet");
 const Transaction = require("../models/Transaction");
 
+// ================= MIDDLEWARE =================
+const { verifyToken, isAdmin } = require("../middleware/Auth");
+
 // =======================================
-// GET ALL USERS (Admin Panel)
+// GET ALL USERS
+// GET /api/users
 // =======================================
-router.get("/", async (req, res) => {
+
+router.get("/", verifyToken, isAdmin, async (req, res) => {
   try {
     const users = await User.find()
-      .select("-password")
+      .select("-password -sessions -loginHistory")
       .sort({ createdAt: -1 });
 
     res.json({
       success: true,
       totalUsers: users.length,
-      data: users,
+      users,
     });
   } catch (err) {
-    console.log(err);
+    console.error("GET USERS ERROR:", err);
 
     res.status(500).json({
       success: false,
@@ -30,12 +39,14 @@ router.get("/", async (req, res) => {
 
 // =======================================
 // GET USER BY USERNAME
+// GET /api/users/:username
 // =======================================
-router.get("/:username", async (req, res) => {
+
+router.get("/:username", verifyToken, async (req, res) => {
   try {
     const user = await User.findOne({
-      username: req.params.username,
-    }).select("-password");
+      username: req.params.username.toLowerCase(),
+    }).select("-password -sessions");
 
     if (!user) {
       return res.status(404).json({
@@ -46,143 +57,118 @@ router.get("/:username", async (req, res) => {
 
     res.json({
       success: true,
-      data: user,
+      user,
     });
   } catch (err) {
-    console.log(err);
+    console.error("GET USER ERROR:", err);
 
     res.status(500).json({
       success: false,
-      message: "Server Error.",
+      message: "Server error.",
     });
   }
 });
 
 // =======================================
-// MANUAL wallet UPDATE (Pkr / TRC20)
+// ADMIN UPDATE WALLET
+// PUT /api/users/:id/wallet
 // =======================================
-router.put("/:id/wallet", async (req, res) => {
+
+router.put("/:id/wallet", verifyToken, isAdmin, async (req, res) => {
   try {
-    const {
-      walletType,
-      action,
-      amount,
-      reason,
-      updatedBy,
-    } = req.body;
+    const { walletType, action, amount, reason } = req.body;
 
-    const user = await User.findById(req.params.id);
+    const wallet = await Wallet.findOne({ userId: req.params.id });
 
-    if (!user) {
+    if (!wallet) {
       return res.status(404).json({
         success: false,
-        message: "User not found.",
+        message: "Wallet not found.",
       });
     }
 
     const value = Number(amount);
 
-    if (!value || value <= 0) {
+    if (isNaN(value) || value <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Enter valid amount.",
+        message: "Invalid amount.",
       });
     }
 
-    if (
-      walletType !== "walletBalance" &&
-      walletType !== "UsdtBalance"
-    ) {
+    if (!["PkrBalance", "UsdtBalance", "goldBalance"].includes(walletType)) {
       return res.status(400).json({
         success: false,
         message: "Invalid wallet type.",
       });
     }
 
-    // CREDIT
     if (action === "add") {
-      user[walletType] += value;
-    }
-
-    // DEBIT
-    if (action === "deduct") {
-      if (user[walletType] < value) {
+      wallet[walletType] += value;
+    } else if (action === "deduct") {
+      if (wallet[walletType] < value) {
         return res.status(400).json({
           success: false,
           message: "Insufficient balance.",
         });
       }
 
-      user[walletType] -= value;
+      wallet[walletType] -= value;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid action.",
+      });
     }
 
-    await user.save();
+    await wallet.save();
 
-    // Finance Log
+    const user = await User.findById(req.params.id);
+
     await Transaction.create({
+      userId: user._id,
       username: user.username,
-
-      wallet:
-        walletType === "walletBalance"
-          ? "Pkr"
-          : "TRC20",
-
-      type:
-        walletType === "walletBalance"
-          ? action === "add"
-            ? "wallet Credit"
-            : "wallet Debit"
-          : action === "add"
-          ? "Usdt Credit"
-          : "Usdt Debit",
-
+      wallet: walletType,
+      type: action === "add" ? "CREDIT" : "DEBIT",
       amount: value,
-
-      method: "Admin Manager",
-
-      transactionId: `GT-${Date.now()}`,
-
       status: "Completed",
-
-      reason: reason || "",
-
-      updatedBy: updatedBy || "Admin",
+      note: reason || "Admin Wallet Update",
     });
 
     res.json({
       success: true,
-      message: "wallet updated successfully.",
-      data: user,
+      message: "Wallet updated successfully.",
+      wallet,
     });
   } catch (err) {
-    console.log(err);
+    console.error("UPDATE WALLET ERROR:", err);
 
     res.status(500).json({
       success: false,
-      message: "wallet update failed.",
+      message: err.message,
     });
   }
-});
-
-// =======================================
+});// =======================================
 // BLOCK / UNBLOCK USER
+// PUT /api/users/:id/status
 // =======================================
-router.put("/:id/status", async (req, res) => {
+
+router.put("/:id/status", verifyToken, isAdmin, async (req, res) => {
   try {
     const { status } = req.body;
 
-    if (!["Active", "Blocked"].includes(status)) {
+    if (!["ACTIVE", "SUSPENDED", "BLOCKED", "INACTIVE"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status.",
+        message: "Invalid account status.",
       });
     }
 
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { status },
+      { accountStatus: status },
       { new: true }
-    ).select("-password");
+    ).select("-password -sessions");
 
     if (!user) {
       return res.status(404).json({
@@ -193,28 +179,29 @@ router.put("/:id/status", async (req, res) => {
 
     res.json({
       success: true,
-      message: `User ${status} successfully.`,
-      data: user,
+      message: `User status updated to ${status}.`,
+      user,
     });
   } catch (err) {
-    console.log(err);
+    console.error("UPDATE STATUS ERROR:", err);
 
     res.status(500).json({
       success: false,
-      message: "Status update failed.",
+      message: err.message,
     });
   }
 });
 
 // =======================================
 // CHANGE USER ROLE
-// user → manager → admin
+// PUT /api/users/:id/role
 // =======================================
-router.put("/:id/role", async (req, res) => {
+
+router.put("/:id/role", verifyToken, isAdmin, async (req, res) => {
   try {
     const { role } = req.body;
 
-    if (!["user", "manager", "admin"].includes(role)) {
+    if (!["USER", "ADMIN", "SUPER_ADMIN"].includes(role)) {
       return res.status(400).json({
         success: false,
         message: "Invalid role.",
@@ -225,7 +212,7 @@ router.put("/:id/role", async (req, res) => {
       req.params.id,
       { role },
       { new: true }
-    ).select("-password");
+    ).select("-password -sessions");
 
     if (!user) {
       return res.status(404).json({
@@ -236,23 +223,25 @@ router.put("/:id/role", async (req, res) => {
 
     res.json({
       success: true,
-      message: `Role changed to ${role}.`,
-      data: user,
+      message: `Role updated to ${role}.`,
+      user,
     });
   } catch (err) {
-    console.log(err);
+    console.error("UPDATE ROLE ERROR:", err);
 
     res.status(500).json({
       success: false,
-      message: "Role update failed.",
+      message: err.message,
     });
   }
 });
 
 // =======================================
 // DELETE USER
+// DELETE /api/users/:id
 // =======================================
-router.delete("/:id", async (req, res) => {
+
+router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -263,52 +252,71 @@ router.delete("/:id", async (req, res) => {
       });
     }
 
-    // Protect Admin Account
-    if (user.role === "admin") {
+    if (user.role === "SUPER_ADMIN") {
       return res.status(403).json({
         success: false,
-        message: "Admin account cannot be deleted.",
+        message: "Super Admin account cannot be deleted.",
       });
     }
 
-    await User.findByIdAndDelete(req.params.id);
+    await Wallet.findOneAndDelete({ userId: user._id });
+    await User.findByIdAndDelete(user._id);
 
     res.json({
       success: true,
       message: "User deleted successfully.",
     });
   } catch (err) {
-    console.log(err);
+    console.error("DELETE USER ERROR:", err);
 
     res.status(500).json({
       success: false,
-      message: "Delete failed.",
+      message: err.message,
     });
   }
 });
 
 // =======================================
-// USER wallet history
+// USER TRANSACTION HISTORY
+// GET /api/users/:username/history
 // =======================================
-router.get("/:username/history", async (req, res) => {
+
+router.get("/:username/history", verifyToken, async (req, res) => {
   try {
     const history = await Transaction.find({
-      username: req.params.username,
+      username: req.params.username.toLowerCase(),
     }).sort({ createdAt: -1 });
 
     res.json({
       success: true,
       total: history.length,
-      data: history,
+      history,
     });
   } catch (err) {
-    console.log(err);
+    console.error("USER HISTORY ERROR:", err);
 
     res.status(500).json({
       success: false,
-      message: "history fetch failed.",
+      message: err.message,
     });
   }
 });
+
+// =======================================
+// HEALTH CHECK
+// GET /api/users/health
+// =======================================
+
+router.get("/health", (req, res) => {
+  res.json({
+    success: true,
+    message: "User Routes Working - GoldTrade V18",
+    version: "V18",
+  });
+});
+
+// =======================================
+// EXPORT ROUTER (Linux + Render Safe)
+// =======================================
 
 module.exports = router;

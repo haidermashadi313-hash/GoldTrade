@@ -1,15 +1,23 @@
+"use strict";
+
 const mongoose = require("mongoose");
+
+// =====================================================
+// USER SCHEMA (GoldTrade V18 Enterprise)
+// Linux + Render + MongoDB Safe
+// =====================================================
 
 const userSchema = new mongoose.Schema(
   {
     // =====================================================
-    // BASIC USER INFO
+    // BASIC USER INFORMATION
     // =====================================================
 
     username: {
       type: String,
       required: true,
       trim: true,
+      lowercase: true,
       unique: true,
     },
 
@@ -36,8 +44,13 @@ const userSchema = new mongoose.Schema(
       default: "Pakistan",
     },
 
+    profileImage: {
+      type: String,
+      default: "",
+    },
+
     // =====================================================
-    // USER ROLE & STATUS
+    // USER ROLE & ACCOUNT STATUS
     // =====================================================
 
     role: {
@@ -53,7 +66,7 @@ const userSchema = new mongoose.Schema(
     },
 
     // =====================================================
-    // wallet BALANCES
+    // PKR / USDT / GOLD WALLET BALANCES
     // =====================================================
 
     walletBalance: {
@@ -88,8 +101,18 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
 
+    totalGoldPurchased: {
+      type: Number,
+      default: 0,
+    },
+
+    totalGoldSold: {
+      type: Number,
+      default: 0,
+    },
+
     // =====================================================
-    // TOTAL STATISTICS
+    // DEPOSIT / WITHDRAW STATISTICS
     // =====================================================
 
     totalDeposit: {
@@ -98,16 +121,6 @@ const userSchema = new mongoose.Schema(
     },
 
     totalWithdraw: {
-      type: Number,
-      default: 0,
-    },
-
-    totalGoldPurchased: {
-      type: Number,
-      default: 0,
-    },
-
-    totalGoldSold: {
       type: Number,
       default: 0,
     },
@@ -128,6 +141,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
       uppercase: true,
+      trim: true,
     },
 
     referralCount: {
@@ -188,7 +202,7 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
-    iswalletFrozen: {
+    isWalletFrozen: {
       type: Boolean,
       default: false,
     },
@@ -197,29 +211,24 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-
-    profileImage: {
-      type: String,
-      default: "",
-    },
   },
   {
     timestamps: true,
+    collection: "users",
   }
 );
 
 // =====================================================
-// EXTRA INDEXES (Only Non-Unique Fields)
+// INDEXES
 // =====================================================
-
-// Email, Username & ReferralCode already have unique indexes.
-// Don't create duplicate indexes for them.
 
 userSchema.index({ role: 1 });
 userSchema.index({ status: 1 });
 
 // =====================================================
-// EXPORT MODEL
+// EXPORT MODEL (Linux + Render Safe)
 // =====================================================
 
-module.exports = mongoose.model("User", userSchema);
+module.exports =
+  mongoose.models.User ||
+  mongoose.model("User", userSchema);
