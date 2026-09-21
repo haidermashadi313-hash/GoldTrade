@@ -162,6 +162,18 @@ const loadDashboard = async () => {
 
     // ================= MARKET =================
     if (marketRes.ok && marketData.success) {
+      const goldPrice = Number(
+         marketData.data?.goldPriceUSD ??
+          marketData.goldPriceUSD ??
+           3420.5
+        );
+        const usdRate = Number(
+          marketData.data?.UsdtoPkr ??
+          marketData.data?.usdToPkr ??
+          marketData.UsdtoPkr ??
+          marketData.usdToPkr ??
+          305
+        );
       setMarket({
         goldPriceUSD:
           Number(marketData.data?.goldPriceUSD ?? marketData.goldPriceUSD ?? 0),
@@ -176,8 +188,8 @@ const loadDashboard = async () => {
       });
     } else {
       setMarket({
-        goldPriceUSD: 0,
-        UsdtoPkr: 0,
+        goldPriceUSD:3420.5,
+        UsdtoPkr: 305,
         marketStatus: "CLOSED",
       });
     }
@@ -370,7 +382,7 @@ const loadDashboard = async () => {
           </div>
 
           <div className="bg-black rounded-2xl p-5 border border-zinc-700">
-            <p className="text-gray-400">USD 鈫?Pkr Exchange Rate</p>
+            <p className="text-gray-400">USD to Pkr Exchange Rate</p>
 
             <h3 className="text-4xl font-black text-green-400 mt-2">
               Pkr {market.UsdtoPkr}
@@ -476,7 +488,7 @@ const loadDashboard = async () => {
 
       {/* FOOTER */}
       <div className="mt-10 border-t border-zinc-800 pt-6 text-center text-sm text-gray-500">
-        <p>     GoldTrade鈥nc </p>
+        <p>     GoldTrade Enterprise </p>
 
         <p className="text-green-400 mt-2">
             Pakistan First International Trading Platform.
