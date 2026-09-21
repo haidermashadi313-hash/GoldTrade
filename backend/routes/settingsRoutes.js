@@ -403,35 +403,40 @@ router.put("/toggle-trading", verifyToken, isAdmin, async (req, res) => {
 // =======================================================
 // UPDATE USD → PKR ONLY
 // PUT /api/settings/usdt-rate
-// Used by Admin Dashboard
 // =======================================================
 
 router.put("/usdt-rate", verifyToken, isAdmin, async (req, res) => {
   try {
     const settings = await getSettings();
 
-    const rate = req.body.UsdtoPkr ?? req.body.usdToPkr;
+    // Support all frontend variable names
+    const rate =
+      req.body.UsdtoPkr ??
+      req.body.usdToPkr ??
+      req.body.usdtToPkr;
 
-    if (rate === undefined) {
+    if (rate === undefined || rate === null || isNaN(Number(rate))) {
       return res.status(400).json({
         success: false,
-        message: "USD to PKR rate is required.",
+        message: "Valid USD to PKR rate is required.",
       });
     }
 
-    settings.UsdtoPkr = toNumber(rate, settings.UsdtoPkr);
-    settings.updatedBy =
-      req.user.username || req.user.email || "ADMIN";
+    settings.UsdtoPkr = Number(rate);
+    settings.updatedBy = req.user.username || req.user.email || "ADMIN";
 
     await settings.save();
 
     return res.status(200).json({
       success: true,
       message: "USD to PKR rate updated successfully.",
+
+      // Return both names for frontend compatibility
       UsdtoPkr: settings.UsdtoPkr,
       usdToPkr: settings.UsdtoPkr,
-    });
 
+      settings,
+    });
   } catch (error) {
     console.error("USD TO PKR UPDATE ERROR:", error);
 
