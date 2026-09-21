@@ -1,480 +1,723 @@
-"use strict";
-
-// ======================================================
-// GoldTrade V18 - Admin Wallet Routes
-// Linux + Render Compatible
-// ======================================================
-
 const express = require("express");
 const router = express.Router();
 
-// ======================================================
-// MODELS
-// ======================================================
-
 const User = require("../models/User");
-const Wallet = require("../models/Wallet");
 const WalletTransaction = require("../models/WalletTransaction");
-
-// ======================================================
-// MIDDLEWARE
-// ======================================================
 
 const { verifyToken, isAdmin } = require("../middleware/auth");
 
-// ======================================================
-// ALL ROUTES REQUIRE ADMIN LOGIN
-// ======================================================
+// =====================================================
+// GET ALL WALLET USERS
+// GET /api/admin/wallet/users
+// =====================================================
 
-router.use(verifyToken);
-router.use(isAdmin);
+router.get(
+  "/users",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const users = await User.find({})
+        .select(
+          "username fullName email pkrBalance goldBalance usdtBalance walletFrozen createdAt"
+        )
+        .sort({ createdAt: -1 });
 
-// ======================================================
-// HEALTH CHECK
-// GET /api/admin/Wallet/health
-// ======================================================
+      res.json({
+        success: true,
+        users,
+      });
+    } catch (error) {
+      console.error("Wallet Users Error:", error);
 
-router.get("/health", (req, res) => {
-  res.json({
-    success: true,
-    message: "Admin Wallet API Working - GoldTrade V18",
-    version: "V18 Enterprise",
-    admin: req.user.username,
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// ======================================================
-// GET ALL USERS + Wallet BALANCES
-// GET /api/admin/Wallet/all
-// ======================================================
-
-router.get("/all", async (req, res) => {
-  try {
-    const users = await User.find({})
-      .select("username fullName email status createdAt")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const Wallets = await Promise.all(
-      users.map(async (user) => {
-        const Wallet = await Wallet.findOne({ userId: user._id }).lean();
-
-        return {
-          _id: user._id,
-          username: user.username,
-          fullName: user.fullName || "",
-          email: user.email || "",
-          status: user.status || "Active",
-
-          WalletBalance: Number(Wallet?.PkrBalance ?? 0),
-          PkrBalance: Number(Wallet?.PkrBalance ?? 0),
-          goldBalance: Number(Wallet?.goldBalance ?? 0),
-          UsdtBalance: Number(Wallet?.UsdtBalance ?? 0),
-
-          updatedAt: Wallet?.updatedAt || user.createdAt,
-        };
-      })
-    );
-
-    res.json({
-      success: true,
-      totalUsers: Wallets.length,
-      Wallets,
-    });
-
-  } catch (err) {
-    console.error("GET ALL WalletS ERROR:", err);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to load Wallet users.",
-      error: err.message,
-    });
+      res.status(500).json({
+        success: false,
+        message: "Unable to load wallet users.",
+      });
+    }
   }
-});
+);
 
-// ======================================================
-// CREDIT PKR / GOLD / USDT Wallet
-// POST /api/admin/Wallet/credit
-// ======================================================
+// =====================================================
+// WALLET SUMMARY STATS
+// GET /api/admin/wallet/stats
+// =====================================================
 
-router.post("/credit", async (req, res) => {
-  try {
-    const { username, WalletType, amount, note } = req.body;
+router.get(
+  "/stats",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const users = await User.find({});
 
-    if (!username || !WalletType || !amount) {
-      return res.status(400).json({
+      let totalPKR = 0;
+      let totalGold = 0;
+      let totalUSDT = 0;
+
+      let activeWallets = 0;
+      let frozenWallets = 0;
+
+      users.forEach((user) => {
+        totalPKR += Number(user.pkrBalance || 0);
+        totalGold += Number(user.goldBalance || 0);
+        totalUSDT += Number(user.usdtBalance || 0);
+
+        if (user.walletFrozen) {
+          frozenWallets++;
+        } else {
+          activeWallets++;
+        }
+      });
+
+      res.json({
+        success: true,
+
+        totalUsers: users.length,
+        activeWallets,
+        frozenWallets,
+
+        totalPKR,
+        totalGold,
+        totalUSDT,
+      });
+    } catch (error) {
+      console.error("Wallet Stats Error:", error);
+
+      res.status(500).json({
         success: false,
-        message: "Username, WalletType and amount are required.",
+        message: "Unable to load wallet statistics.",
       });
     }
+  }
+);// =====================================================
+// FREEZE / UNFREEZE USER WALLET
+// POST /api/admin/wallet/freeze
+// =====================================================
 
-    const creditAmount = Number(amount);
+router.post(
+  "/freeze",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const { username, freeze, reason } = req.body;
 
-    if (isNaN(creditAmount) || creditAmount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid amount.",
-      });
-    }
-
-    const user = await User.findOne({ username });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    let Wallet = await Wallet.findOne({ userId: user._id });
-
-    if (!Wallet) {
-      Wallet = await Wallet.create({
-        userId: user._id,
-        PkrBalance: 0,
-        goldBalance: 0,
-        UsdtBalance: 0,
-      });
-    }
-
-    let previousBalance = 0;
-    let newBalance = 0;
-
-    switch (WalletType.toUpperCase()) {
-
-      case "PKR":
-        previousBalance = Number(Wallet.PkrBalance || 0);
-        Wallet.PkrBalance += creditAmount;
-        newBalance = Wallet.PkrBalance;
-        break;
-
-      case "GOLD":
-        previousBalance = Number(Wallet.goldBalance || 0);
-        Wallet.goldBalance += creditAmount;
-        newBalance = Wallet.goldBalance;
-        break;
-
-      case "USDT":
-        previousBalance = Number(Wallet.UsdtBalance || 0);
-        Wallet.UsdtBalance += creditAmount;
-        newBalance = Wallet.UsdtBalance;
-        break;
-
-      default:
+      if (!username) {
         return res.status(400).json({
           success: false,
-          message: "Invalid Wallet type. Use PKR, GOLD or USDT.",
+          message: "Username is required.",
         });
-    }
+      }
 
-    await Wallet.save();
+      const user = await User.findOne({ username });
 
-    await WalletTransaction.create({
-      userId: user._id,
-      username: user.username,
-
-      WalletType: WalletType.toUpperCase(),
-      type: "CREDIT",
-
-      amount: creditAmount,
-      previousBalance,
-      newBalance,
-
-      adminId: req.user.id,
-      adminUsername: req.user.username,
-
-      note: note || "Wallet credited by admin.",
-      createdAt: new Date(),
-    });
-
-    res.json({
-      success: true,
-      message: `${WalletType.toUpperCase()} Wallet credited successfully.`,
-
-      balances: {
-        PkrBalance: Wallet.PkrBalance,
-        goldBalance: Wallet.goldBalance,
-        UsdtBalance: Wallet.UsdtBalance,
-      },
-    });
-
-  } catch (err) {
-    console.error("CREDIT Wallet ERROR:", err);
-
-    res.status(500).json({
-      success: false,
-      message: "Wallet credit failed.",
-      error: err.message,
-    });
-  }
-});
-// ======================================================
-// DEBIT PKR / GOLD / USDT Wallet
-// POST /api/admin/Wallet/debit
-// ======================================================
-
-router.post("/debit", async (req, res) => {
-  try {
-    const { username, WalletType, amount, note } = req.body;
-
-    if (!username || !WalletType || !amount) {
-      return res.status(400).json({
-        success: false,
-        message: "Username, WalletType and amount are required.",
-      });
-    }
-
-    const debitAmount = Number(amount);
-
-    if (isNaN(debitAmount) || debitAmount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid debit amount.",
-      });
-    }
-
-    const user = await User.findOne({ username });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    const Wallet = await Wallet.findOne({ userId: user._id });
-
-    if (!Wallet) {
-      return res.status(404).json({
-        success: false,
-        message: "Wallet not found.",
-      });
-    }
-
-    let previousBalance = 0;
-    let newBalance = 0;
-
-    switch (WalletType.toUpperCase()) {
-
-      case "PKR":
-        previousBalance = Number(Wallet.PkrBalance || 0);
-
-        if (previousBalance < debitAmount) {
-          return res.status(400).json({
-            success: false,
-            message: "Insufficient PKR balance.",
-          });
-        }
-
-        Wallet.PkrBalance -= debitAmount;
-        newBalance = Wallet.PkrBalance;
-        break;
-
-      case "GOLD":
-        previousBalance = Number(Wallet.goldBalance || 0);
-
-        if (previousBalance < debitAmount) {
-          return res.status(400).json({
-            success: false,
-            message: "Insufficient GOLD balance.",
-          });
-        }
-
-        Wallet.goldBalance -= debitAmount;
-        newBalance = Wallet.goldBalance;
-        break;
-
-      case "USDT":
-        previousBalance = Number(Wallet.UsdtBalance || 0);
-
-        if (previousBalance < debitAmount) {
-          return res.status(400).json({
-            success: false,
-            message: "Insufficient USDT balance.",
-          });
-        }
-
-        Wallet.UsdtBalance -= debitAmount;
-        newBalance = Wallet.UsdtBalance;
-        break;
-
-      default:
-        return res.status(400).json({
+      if (!user) {
+        return res.status(404).json({
           success: false,
-          message: "Invalid Wallet type. Use PKR, GOLD or USDT.",
+          message: "User not found.",
         });
-    }
+      }
 
-    await Wallet.save();
+      // Update wallet status
+      user.walletFrozen = Boolean(freeze);
+      await user.save();
 
-    await WalletTransaction.create({
-      userId: user._id,
-      username: user.username,
-
-      WalletType: WalletType.toUpperCase(),
-      type: "DEBIT",
-
-      amount: debitAmount,
-      previousBalance,
-      newBalance,
-
-      adminId: req.user.id,
-      adminUsername: req.user.username,
-
-      note: note || "Wallet debited by admin.",
-      createdAt: new Date(),
-    });
-
-    res.json({
-      success: true,
-      message: `${WalletType.toUpperCase()} Wallet debited successfully.`,
-
-      balances: {
-        PkrBalance: Wallet.PkrBalance,
-        goldBalance: Wallet.goldBalance,
-        UsdtBalance: Wallet.UsdtBalance,
-      },
-    });
-
-  } catch (error) {
-    console.error("DEBIT Wallet ERROR:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Wallet debit failed.",
-      error: error.message,
-    });
-  }
-});
-
-// ======================================================
-// GET ALL Wallet TRANSACTIONS
-// GET /api/admin/Wallet/history/all
-// ======================================================
-
-router.get("/history/all", async (req, res) => {
-  try {
-    const transactions = await WalletTransaction.find({})
-      .sort({ createdAt: -1 })
-      .limit(500)
-      .lean();
-
-    res.json({
-      success: true,
-      totalTransactions: transactions.length,
-      transactions,
-    });
-
-  } catch (error) {
-    console.error("GET Wallet HISTORY ERROR:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to load Wallet history.",
-      error: error.message,
-    });
-  }
-});
-
-// ======================================================
-// GET SINGLE USER Wallet HISTORY
-// GET /api/admin/Wallet/history/:username
-// ======================================================
-
-router.get("/history/:username", async (req, res) => {
-  try {
-    const { username } = req.params;
-
-    const user = await User.findOne({ username }).lean();
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    const transactions = await WalletTransaction.find({
-      userId: user._id,
-    })
-      .sort({ createdAt: -1 })
-      .limit(200)
-      .lean();
-
-    res.json({
-      success: true,
-      username: user.username,
-      totalTransactions: transactions.length,
-      transactions,
-    });
-
-  } catch (error) {
-    console.error("USER Wallet HISTORY ERROR:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to load user Wallet history.",
-      error: error.message,
-    });
-  }
-});
-
-// ======================================================
-// GET SINGLE USER Wallet
-// GET /api/admin/Wallet/:username
-// ======================================================
-
-router.get("/:username", async (req, res) => {
-  try {
-    const user = await User.findOne({
-      username: req.params.username,
-    }).lean();
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    const Wallet = await Wallet.findOne({
-      userId: user._id,
-    }).lean();
-
-    res.json({
-      success: true,
-
-      Wallet: {
-        _id: user._id,
+      // Create audit transaction (optional but recommended)
+      await WalletTransaction.create({
         username: user.username,
-        fullName: user.fullName || "",
-        email: user.email || "",
-        status: user.status || "Active",
+        walletType: "SYSTEM",
+        transactionType: freeze ? "WALLET_FREEZE" : "WALLET_UNFREEZE",
+        amount: 0,
+        status: "Completed",
+        note:
+          reason && reason.trim() !== ""
+            ? reason.trim()
+            : freeze
+            ? "Wallet frozen by admin."
+            : "Wallet unfrozen by admin.",
+        createdBy: req.user.username,
+      });
 
-        WalletBalance: Number(Wallet?.PkrBalance ?? 0),
-        PkrBalance: Number(Wallet?.PkrBalance ?? 0),
-        goldBalance: Number(Wallet?.goldBalance ?? 0),
-        UsdtBalance: Number(Wallet?.UsdtBalance ?? 0),
+      return res.json({
+        success: true,
+        message: freeze
+          ? "Wallet frozen successfully."
+          : "Wallet unfrozen successfully.",
+        walletFrozen: user.walletFrozen,
+      });
 
-        updatedAt: Wallet?.updatedAt || user.createdAt,
-      },
+    } catch (error) {
+      console.error("Freeze Wallet Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to update wallet status.",
+      });
+    }
+  }
+);
+
+// =====================================================
+// GET SINGLE USER WALLET
+// GET /api/admin/wallet/user/:username
+// =====================================================
+
+router.get(
+  "/user/:username",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const user = await User.findOne({
+        username: req.params.username,
+      }).select(
+        "username fullName email pkrBalance goldBalance usdtBalance walletFrozen createdAt"
+      );
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      return res.json({
+        success: true,
+        user,
+      });
+
+    } catch (error) {
+      console.error("Get Wallet User Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to load wallet user.",
+      });
+    }
+  }
+);// =====================================================
+// MANUAL CREDIT / DEBIT WALLET
+// POST /api/admin/wallet/manual-transaction
+// =====================================================
+
+router.post(
+  "/manual-transaction",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const {
+        username,
+        walletType,
+        transactionType,
+        amount,
+        note,
+      } = req.body;
+
+      // ===============================
+      // Validation
+      // ===============================
+
+      if (!username || !walletType || !transactionType) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing required fields.",
+        });
+      }
+
+      const numericAmount = Number(amount);
+
+      if (!numericAmount || numericAmount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid amount.",
+        });
+      }
+
+      const wallet = walletType.toUpperCase();
+
+      if (!["PKR", "GOLD", "USDT"].includes(wallet)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid wallet type.",
+        });
+      }
+
+      if (!["credit", "debit"].includes(transactionType)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid transaction type.",
+        });
+      }
+
+      // ===============================
+      // Find User
+      // ===============================
+
+      const user = await User.findOne({ username });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      if (user.walletFrozen) {
+        return res.status(403).json({
+          success: false,
+          message: "Wallet is frozen.",
+        });
+      }
+
+      // ===============================
+      // Select Balance Field
+      // ===============================
+
+      let balanceField = "";
+
+      switch (wallet) {
+        case "PKR":
+          balanceField = "pkrBalance";
+          break;
+
+        case "GOLD":
+          balanceField = "goldBalance";
+          break;
+
+        case "USDT":
+          balanceField = "usdtBalance";
+          break;
+      }
+
+      let currentBalance = Number(user[balanceField] || 0);
+
+      // ===============================
+      // Credit / Debit Logic
+      // ===============================
+
+      if (transactionType === "credit") {
+        currentBalance += numericAmount;
+      } else {
+        if (currentBalance < numericAmount) {
+          return res.status(400).json({
+            success: false,
+            message: "Insufficient wallet balance.",
+          });
+        }
+
+        currentBalance -= numericAmount;
+      }
+
+      user[balanceField] = currentBalance;
+
+      await user.save();
+
+      // ===============================
+      // Save Transaction History
+      // ===============================
+
+      await WalletTransaction.create({
+        username: user.username,
+        walletType: wallet,
+        transactionType:
+          transactionType === "credit"
+            ? "ADMIN_CREDIT"
+            : "ADMIN_DEBIT",
+
+        amount: numericAmount,
+
+        status: "Completed",
+
+        note:
+          note && note.trim() !== ""
+            ? note.trim()
+            : transactionType === "credit"
+            ? "Wallet credited by admin."
+            : "Wallet debited by admin.",
+
+        createdBy: req.user.username,
+      });
+
+      // ===============================
+      // Success Response
+      // ===============================
+
+      return res.json({
+        success: true,
+        message:
+          transactionType === "credit"
+            ? "Wallet credited successfully."
+            : "Wallet debited successfully.",
+
+        walletType: wallet,
+
+        newBalance: currentBalance,
+      });
+
+    } catch (error) {
+      console.error("Manual Wallet Transaction Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to process wallet transaction.",
+      });
+    }
+  }
+);
+
+// =====================================================
+// GET USER WALLET TRANSACTION HISTORY
+// GET /api/admin/wallet/history/:username
+// =====================================================
+
+router.get(
+  "/history/:username",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const transactions = await WalletTransaction.find({
+        username: req.params.username,
+      }).sort({ createdAt: -1 });
+
+      return res.json({
+        success: true,
+        transactions,
+      });
+
+    } catch (error) {
+      console.error("Wallet History Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to load wallet history.",
+      });
+    }
+  }
+);const Deposit = require("../models/Deposit");
+const Withdraw = require("../models/Withdraw");
+
+// =====================================================
+// GET PENDING DEPOSITS
+// GET /api/admin/wallet/deposits
+// =====================================================
+
+router.get("/deposits", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const deposits = await Deposit.find({ status: "Pending" }).sort({
+      createdAt: -1,
     });
 
+    return res.json({
+      success: true,
+      deposits,
+    });
   } catch (error) {
-    console.error("GET SINGLE Wallet ERROR:", error);
+    console.error("Pending Deposits Error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Failed to get Wallet.",
-      error: error.message,
+      message: "Unable to load pending deposits.",
     });
   }
 });
 
-// ======================================================
-// MODULE EXPORT
-// ======================================================
+// =====================================================
+// APPROVE DEPOSIT
+// POST /api/admin/wallet/deposits/:id/approve
+// =====================================================
+
+router.post(
+  "/deposits/:id/approve",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const deposit = await Deposit.findById(req.params.id);
+
+      if (!deposit) {
+        return res.status(404).json({
+          success: false,
+          message: "Deposit not found.",
+        });
+      }
+
+      if (deposit.status !== "Pending") {
+        return res.status(400).json({
+          success: false,
+          message: "Deposit already processed.",
+        });
+      }
+
+      const user = await User.findOne({ username: deposit.username });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      user.pkrBalance += Number(deposit.amount);
+      await user.save();
+
+      deposit.status = "Approved";
+      deposit.approvedBy = req.user.username;
+      deposit.approvedAt = new Date();
+      await deposit.save();
+
+      await WalletTransaction.create({
+        username: user.username,
+        walletType: "PKR",
+        transactionType: "DEPOSIT_APPROVED",
+        amount: deposit.amount,
+        status: "Completed",
+        note: "Deposit approved by admin.",
+        createdBy: req.user.username,
+      });
+
+      return res.json({
+        success: true,
+        message: "Deposit approved successfully.",
+      });
+    } catch (error) {
+      console.error("Approve Deposit Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to approve deposit.",
+      });
+    }
+  }
+);
+
+// =====================================================
+// REJECT DEPOSIT
+// POST /api/admin/wallet/deposits/:id/reject
+// =====================================================
+
+router.post(
+  "/deposits/:id/reject",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const deposit = await Deposit.findById(req.params.id);
+
+      if (!deposit) {
+        return res.status(404).json({
+          success: false,
+          message: "Deposit not found.",
+        });
+      }
+
+      if (deposit.status !== "Pending") {
+        return res.status(400).json({
+          success: false,
+          message: "Deposit already processed.",
+        });
+      }
+
+      deposit.status = "Rejected";
+      deposit.approvedBy = req.user.username;
+      deposit.approvedAt = new Date();
+      await deposit.save();
+
+      return res.json({
+        success: true,
+        message: "Deposit rejected successfully.",
+      });
+    } catch (error) {
+      console.error("Reject Deposit Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to reject deposit.",
+      });
+    }
+  }
+);
+
+// =====================================================
+// GET PENDING WITHDRAW REQUESTS
+// GET /api/admin/wallet/withdraws
+// =====================================================
+
+router.get("/withdraws", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const withdraws = await Withdraw.find({ status: "Pending" }).sort({
+      createdAt: -1,
+    });
+
+    return res.json({
+      success: true,
+      withdraws,
+    });
+  } catch (error) {
+    console.error("Pending Withdraw Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load withdraw requests.",
+    });
+  }
+});
+
+// =====================================================
+// APPROVE WITHDRAW
+// POST /api/admin/wallet/withdraws/:id/approve
+// =====================================================
+
+router.post(
+  "/withdraws/:id/approve",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const withdraw = await Withdraw.findById(req.params.id);
+
+      if (!withdraw) {
+        return res.status(404).json({
+          success: false,
+          message: "Withdraw request not found.",
+        });
+      }
+
+      if (withdraw.status !== "Pending") {
+        return res.status(400).json({
+          success: false,
+          message: "Withdraw already processed.",
+        });
+      }
+
+      withdraw.status = "Approved";
+      withdraw.approvedBy = req.user.username;
+      withdraw.approvedAt = new Date();
+      await withdraw.save();
+
+      await WalletTransaction.create({
+        username: withdraw.username,
+        walletType: "PKR",
+        transactionType: "WITHDRAW_APPROVED",
+        amount: withdraw.amount,
+        status: "Completed",
+        note: "Withdraw approved by admin.",
+        createdBy: req.user.username,
+      });
+
+      return res.json({
+        success: true,
+        message: "Withdraw approved successfully.",
+      });
+    } catch (error) {
+      console.error("Approve Withdraw Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to approve withdraw request.",
+      });
+    }
+  }
+);
+
+// =====================================================
+// REJECT WITHDRAW
+// POST /api/admin/wallet/withdraws/:id/reject
+// =====================================================
+
+router.post(
+  "/withdraws/:id/reject",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const withdraw = await Withdraw.findById(req.params.id);
+
+      if (!withdraw) {
+        return res.status(404).json({
+          success: false,
+          message: "Withdraw request not found.",
+        });
+      }
+
+      if (withdraw.status !== "Pending") {
+        return res.status(400).json({
+          success: false,
+          message: "Withdraw already processed.",
+        });
+      }
+
+      const user = await User.findOne({ username: withdraw.username });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      user.pkrBalance += Number(withdraw.amount);
+      await user.save();
+
+      withdraw.status = "Rejected";
+      withdraw.approvedBy = req.user.username;
+      withdraw.approvedAt = new Date();
+      await withdraw.save();
+
+      await WalletTransaction.create({
+        username: user.username,
+        walletType: "PKR",
+        transactionType: "WITHDRAW_REJECTED",
+        amount: withdraw.amount,
+        status: "Completed",
+        note: "Withdraw rejected and amount returned to wallet.",
+        createdBy: req.user.username,
+      });
+
+      return res.json({
+        success: true,
+        message: "Withdraw rejected and amount returned.",
+      });
+    } catch (error) {
+      console.error("Reject Withdraw Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to reject withdraw request.",
+      });
+    }
+  }
+);
+
+// =====================================================
+// AUDIT LOG
+// GET /api/admin/wallet/audit
+// =====================================================
+
+router.get("/audit", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const logs = await WalletTransaction.find({})
+      .sort({ createdAt: -1 })
+      .limit(200);
+
+    return res.json({
+      success: true,
+      logs,
+    });
+  } catch (error) {
+    console.error("Audit Log Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load audit log.",
+    });
+  }
+});
+
+// =====================================================
+// EXPORT ROUTER
+// =====================================================
 
 module.exports = router;

@@ -1,54 +1,29 @@
-"use strict";
-
 const mongoose = require("mongoose");
 
-// =====================================================
-// SETTINGS SCHEMA
-// GoldTrade V18
-// =====================================================
-
-const settingsSchema = new mongoose.Schema(
+const SettingsSchema = new mongoose.Schema(
   {
-    // ================= GOLD MARKET =================
+    // =====================================================
+    // GOLD MARKET SETTINGS
+    // =====================================================
 
     buyGoldPrice: {
       type: Number,
-      default: 31200,
-      min: 0,
+      default: 312000,
     },
 
     sellGoldPrice: {
       type: Number,
-      default: 30900,
-      min: 0,
+      default: 310000,
     },
 
     goldPriceUSD: {
       type: Number,
-      default: 105,
-      min: 0,
+      default: 3350,
     },
 
     usdToPkr: {
       type: Number,
-      default: 280,
-      min: 0,
-    },
-
-    // ================= USDT MARKET =================
-
-    usdtRate: {
-      type: Number,
-      default: 280,
-      min: 0,
-    },
-
-    // ================= MARKET STATUS =================
-
-    marketStatus: {
-      type: String,
-      enum: ["OPEN", "CLOSED"],
-      default: "OPEN",
+      default: 285,
     },
 
     goldTradingEnabled: {
@@ -56,50 +31,59 @@ const settingsSchema = new mongoose.Schema(
       default: true,
     },
 
+    marketStatus: {
+      type: String,
+      enum: ["OPEN", "CLOSED"],
+      default: "OPEN",
+    },
+
+    // =====================================================
+    // USDT MARKET SETTINGS
+    // =====================================================
+
+    usdtBuyPrice: {
+      type: Number,
+      default: 285,
+    },
+
+    usdtSellPrice: {
+      type: Number,
+      default: 283,
+    },
+
     usdtTradingEnabled: {
       type: Boolean,
       default: true,
     },
 
-    WalletEnabled: {
-      type: Boolean,
-      default: true,
-    },
-
-    // ================= PLATFORM SETTINGS =================
+    // =====================================================
+    // PLATFORM SETTINGS
+    // =====================================================
 
     maintenanceMode: {
       type: Boolean,
       default: false,
     },
 
-    maintenanceMessage: {
-      type: String,
-      default: "",
-      trim: true,
+    registrationEnabled: {
+      type: Boolean,
+      default: true,
     },
 
-    appVersion: {
-      type: String,
-      default: "V18",
+    depositsEnabled: {
+      type: Boolean,
+      default: true,
     },
 
-    lastUpdatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
+    withdrawalsEnabled: {
+      type: Boolean,
+      default: true,
     },
   },
   {
     timestamps: true,
-    collection: "settings",
   }
 );
 
-// =====================================================
-// EXPORT MODEL (Linux + Render Safe)
-// =====================================================
-
-module.exports =
-  mongoose.models.Settings ||
-  mongoose.model("Settings", settingsSchema);
+// Always keep only one settings document.
+module.exports = mongoose.model("Settings", SettingsSchema);

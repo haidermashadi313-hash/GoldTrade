@@ -98,9 +98,9 @@ exports.updateWallet = async (req, res) => {
       user.UsdtBalance = newBalance;
     }
 
-    // GOLD Wallet
-    if (WalletType === "GOLD") {
-      previousBalance = user.goldBalance;
+    // Gold Wallet
+    if (WalletType === "Gold") {
+      previousBalance = user.GoldBalance;
 
       newBalance =
         action === "credit"
@@ -109,7 +109,7 @@ exports.updateWallet = async (req, res) => {
 
       if (newBalance < 0) newBalance = 0;
 
-      user.goldBalance = newBalance;
+      user.GoldBalance = newBalance;
     }
 
     await user.save();

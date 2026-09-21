@@ -1,37 +1,45 @@
-"use strict";
-
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
-// ======================================================
+// =====================================================
 // VERIFY JWT TOKEN
-// ======================================================
+// =====================================================
 
 const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // Authorization header missing
+    if (!authHeader) {
       return res.status(401).json({
         success: false,
         message: "Authorization token missing.",
       });
     }
 
-    const token = authHeader.split(" ")[1];
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const userId = decoded.id || decoded._id || decoded.userId;
-
-    if (!userId) {
+    // Header format: Bearer <token>
+    if (!authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "Invalid token payload.",
+        message: "Invalid authorization format.",
       });
     }
 
-    const user = await User.findById(userId).select("-password");
+    const token = authHeader.split(" ")[1];
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "JWT token missing.",
+      });
+    }
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "goldtrade_v18_secret"
+    );
+
+    const user = await User.findById(decoded.id).select("-password");
 
     if (!user) {
       return res.status(401).json({
@@ -40,19 +48,11 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    if (user.status === "Blocked" || user.status === "Suspended") {
-      return res.status(403).json({
-        success: false,
-        message: "Account is blocked or suspended.",
-      });
-    }
-
     req.user = user;
-    req.userId = user._id;
 
     next();
   } catch (error) {
-    console.error("JWT Verify Error:", error.message);
+    console.error("JWT Verification Error:", error.message);
 
     return res.status(401).json({
       success: false,
@@ -61,49 +61,365 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-// ======================================================
-// ADMIN ONLY MIDDLEWARE
-// ======================================================
+// =====================================================
+// ADMIN ROLE CHECK
+// =====================================================
 
 const isAdmin = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+    }
+
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access only.",
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Admin Authorization Error:", error);
+
+    return res.status(500).json({
       success: false,
-      message: "Unauthorized.",
+      message: "Authorization failed.",
     });
   }
-
-  if (req.user.role !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin access only.",
-    });
-  }
-
-  next();
 };
 
-// ======================================================
-// OPTIONAL USER MIDDLEWARE
-// ======================================================
+// =====================================================
+// USER ROLE CHECK
+// =====================================================
 
 const isUser = (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error("User Authorization Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Authorization failed.",
+    });
+  }
+};
+
+// =====================================================
+// WALLET FREEZE CHECK
+// Prevent trading, deposits, withdrawals if frozen.
+// =====================================================
+
+const checkWalletStatus = (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+    }
+
+    if (req.user.walletFrozen) {
+      return res.status(403).json({
+        success: false,
+        message: "Your wallet has been frozen by the administrator.",
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Wallet Status Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Wallet verification failed.",
+    });
+  }
+};
+
+// =====================================================
+// OPTIONAL SELF OR ADMIN CHECK
+// Used for profile/history routes
+// =====================================================
+
+const isSelfOrAdmin = (req, res, next) => {
+  try {
+    const username = req.params.username;
+
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+    }
+
+    if (
+      req.user.role === "admin" ||
+      req.user.username === username
+    ) {
+      return next();
+    }
+
+    return res.status(403).json({
+      success: false,
+      message: "Access denied.",
+    });
+  } catch (error) {
+    console.error("Self/Admin Check Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Authorization failed.",
+    });
+  }
+};
+router.post("/buy", verifyToken, checkWalletStatus, buyGold);
+
+router.post("/withdraw", verifyToken, checkWalletStatus, withdrawUSDT);
+
+router.get("/admin/users", verifyToken, isAdmin, getUsers);
+
+router.get(
+  "/history/:username",
+  verifyToken,
+  isSelfOrAdmin,
+  getHistory
+);
+// =====================================================
+// GENERATE ACCESS TOKEN
+// =====================================================
+
+const generateAccessToken = (user) => {
+  return jwt.sign(
+    {
+      id: user._id,
+      username: user.username,
+      role: user.role,
+    },
+    process.env.JWT_SECRET || "goldtrade_v18_secret",
+    {
+      expiresIn: process.env.JWT_EXPIRE || "7d",
+    }
+  );
+};
+
+// =====================================================
+// GENERATE REFRESH TOKEN
+// =====================================================
+
+const generateRefreshToken = (user) => {
+  return jwt.sign(
+    {
+      id: user._id,
+      username: user.username,
+      role: user.role,
+      type: "refresh",
+    },
+    process.env.JWT_REFRESH_SECRET || "goldtrade_v18_refresh_secret",
+    {
+      expiresIn: process.env.JWT_REFRESH_EXPIRE || "30d",
+    }
+  );
+};
+
+// =====================================================
+// VERIFY REFRESH TOKEN
+// =====================================================
+
+const verifyRefreshToken = (token) => {
+  return jwt.verify(
+    token,
+    process.env.JWT_REFRESH_SECRET || "goldtrade_v18_refresh_secret"
+  );
+};
+
+// =====================================================
+// CREATE LOGIN RESPONSE
+// Standard response for login/auth routes
+// =====================================================
+
+const createLoginResponse = (user) => {
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
+
+  return {
+    success: true,
+    message: "Login successful.",
+
+    accessToken,
+    refreshToken,
+
+    user: {
+      id: user._id,
+      username: user.username,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+
+      walletFrozen: user.walletFrozen,
+
+      pkrBalance: Number(user.pkrBalance || 0),
+      goldBalance: Number(user.goldBalance || 0),
+      usdtBalance: Number(user.usdtBalance || 0),
+    },
+  };
+};
+
+// =====================================================
+// EXTRACT TOKEN FROM HEADER
+// =====================================================
+
+const extractToken = (req) => {
+  const authHeader = req.headers.authorization || "";
+
+  if (!authHeader.startsWith("Bearer ")) {
+    return null;
+  }
+
+  return authHeader.substring(7);
+};
+// =====================================================
+// OPTIONAL ADMIN OR SELF CHECK BY USER ID
+// =====================================================
+
+const isOwnerOrAdminById = (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+    }
+
+    const requestedUserId = req.params.userId || req.params.id;
+
+    if (
+      req.user.role === "admin" ||
+      String(req.user._id) === String(requestedUserId)
+    ) {
+      return next();
+    }
+
+    return res.status(403).json({
+      success: false,
+      message: "Access denied.",
+    });
+  } catch (error) {
+    console.error("Owner/Admin Check Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Authorization failed.",
+    });
+  }
+};
+
+// =====================================================
+// ADMIN + ACTIVE WALLET CHECK
+// =====================================================
+
+const isAdminWithActiveWallet = (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+    }
+
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access only.",
+      });
+    }
+
+    if (req.user.walletFrozen) {
+      return res.status(403).json({
+        success: false,
+        message: "Admin wallet is frozen.",
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Admin Wallet Check Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Authorization failed.",
+    });
+  }
+};
+
+// =====================================================
+// AUTH INFO (OPTIONAL DEBUG ROUTE)
+// =====================================================
+
+const getAuthInfo = (req, res) => {
   if (!req.user) {
     return res.status(401).json({
       success: false,
-      message: "Unauthorized.",
+      message: "Authentication required.",
     });
   }
 
-  next();
+  return res.json({
+    success: true,
+    user: {
+      id: req.user._id,
+      username: req.user.username,
+      fullName: req.user.fullName,
+      email: req.user.email,
+      role: req.user.role,
+
+      walletFrozen: req.user.walletFrozen,
+
+      balances: {
+        pkr: Number(req.user.pkrBalance || 0),
+        gold: Number(req.user.goldBalance || 0),
+        usdt: Number(req.user.usdtBalance || 0),
+      },
+    },
+  });
 };
 
-// ======================================================
-// EXPORTS (GoldTrade V18 Linux Safe)
-// ======================================================
+// =====================================================
+// EXPORT ENTERPRISE AUTH MIDDLEWARE
+// =====================================================
 
 module.exports = {
+  // Authentication
   verifyToken,
+
+  // Authorization
   isAdmin,
   isUser,
+  isSelfOrAdmin,
+  isOwnerOrAdminById,
+  isAdminWithActiveWallet,
+
+  // Wallet Protection
+  checkWalletStatus,
+
+  // Token Helpers
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+  extractToken,
+  createLoginResponse,
+
+  // Optional Debug
+  getAuthInfo,
 };

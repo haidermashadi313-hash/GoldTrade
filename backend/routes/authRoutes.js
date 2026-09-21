@@ -1,113 +1,104 @@
-"use strict";
-
-// =======================================================
-// GoldTrade V18 - AUTH ROUTES
-// Linux + Render Compatible
-// =======================================================
 
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-
 const router = express.Router();
 
-// =======================================================
-// MODELS
-// =======================================================
-
 const User = require("../models/User");
-const Wallet = require("../models/Wallet");
 
-// =======================================================
-// MIDDLEWARE
-// =======================================================
+const {
+  verifyToken,
+  generateAccessToken,
+  generateRefreshToken,
+  createLoginResponse,
+} = require("../middleware/auth");
 
-const { verifyToken } = require("../middleware/auth");
+// =====================================================
+// REGISTER USER
+// POST /api/auth/register
+// =====================================================
 
-// =======================================================
-// SIGNUP
-// POST /api/auth/signup
-// =======================================================
-
-router.post("/signup", async (req, res) => {
+router.post("/register", async (req, res) => {
   try {
-    const { username, email, password, phone, country } = req.body;
+    const {
+      username,
+      fullName,
+      email,
+      password,
+      phone,
+      country,
+      city,
+    } = req.body;
 
-    if (!username || !email || !password) {
+    // Required fields
+    if (!username || !fullName || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Username, email and password are required.",
+        message: "Username, Full Name, Email and Password are required.",
       });
     }
 
-    const cleanUsername = username.trim();
-    const cleanEmail = email.trim().toLowerCase();
-
-    const existingUser = await User.findOne({
-      $or: [
-        { username: cleanUsername },
-        { email: cleanEmail },
-      ],
+    // Username already exists
+    const existingUsername = await User.findOne({
+      username: username.toLowerCase(),
     });
 
-    if (existingUser) {
-      return res.status(400).json({
+    if (existingUsername) {
+      return res.status(409).json({
         success: false,
-        message:
-          existingUser.username === cleanUsername
-            ? "Username already exists."
-            : "Email already registered.",
+        message: "Username already exists.",
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Email already exists
+    const existingEmail = await User.findOne({
+      email: email.toLowerCase(),
+    });
 
-    const newUser = await User.create({
-      username: cleanUsername,
-      email: cleanEmail,
-      password: hashedPassword,
-      phone: phone || "",
-      country: country || "Pakistan",
+    if (existingEmail) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already exists.",
+      });
+    }
+
+    // Create user
+    const user = new User({
+      username: username.toLowerCase(),
+      fullName,
+      email: email.toLowerCase(),
+      password,
+      phone,
+      country,
+      city,
+
       role: "user",
-      status: "Active",
-      lastLogin: null,
+
+      pkrBalance: 0,
+      goldBalance: 0,
+      usdtBalance: 0,
     });
 
-    // Create Wallet Automatically
-    await Wallet.create({
-      userId: newUser._id,
-      PkrBalance: 0,
-      goldBalance: 0,
-      UsdtBalance: 0,
-    });
+    await user.save();
 
     return res.status(201).json({
       success: true,
-      message: "Account created successfully.",
-      user: {
-        _id: newUser._id,
-        username: newUser.username,
-        email: newUser.email,
-        role: newUser.role,
-        status: newUser.status,
-      },
+      message: "Registration successful.",
     });
 
-  } catch (err) {
-    console.error("SIGNUP ERROR:", err);
+  } catch (error) {
+    console.error("Register Error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Signup failed.",
-      error: err.message,
+      message: "Registration failed.",
     });
   }
 });
 
-// =======================================================
-// LOGIN USER (GoldTrade V18 FINAL FIX)
+// =====================================================
+// LOGIN USER
 // POST /api/auth/login
-// =======================================================
+// =====================================================
 
 router.post("/login", async (req, res) => {
   try {
@@ -116,178 +107,141 @@ router.post("/login", async (req, res) => {
     if (!username || !password) {
       return res.status(400).json({
         success: false,
-        message: "Username/Email and password are required.",
+        message: "Username and Password are required.",
       });
     }
 
-    // Find user by username or email
+    // Username OR Email login
     const user = await User.findOne({
       $or: [
-        { username: username.trim() },
-        { email: username.trim().toLowerCase() },
+        { username: username.toLowerCase() },
+        { email: username.toLowerCase() },
       ],
-    }).select("+password");
+    });
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    // Verify password
-    const matched = await bcrypt.compare(password, user.password);
-
-    if (!matched) {
       return res.status(401).json({
         success: false,
-        message: "Invalid password.",
+        message: "Invalid username or password.",
       });
     }
 
-    // Check account status
-    if (user.status === "Blocked") {
+    // Account disabled
+    if (!user.isActive) {
       return res.status(403).json({
         success: false,
-        message: "Your account is blocked.",
+        message: "Your account has been disabled.",
       });
     }
 
-    // Generate JWT
-    const token = jwt.sign(
-      {
-        id: user._id,
-        username: user.username,
-        role: user.role,
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: process.env.JWT_EXPIRE || "30d",
-      }
-    );
+    // Account locked
+    if (user.isAccountLocked()) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Account temporarily locked after multiple failed login attempts.",
+      });
+    }
 
-    // Update last login
-    user.lastLogin = new Date();
+    // Compare password
+    const passwordMatched = await user.comparePassword(password);
+
+    if (!passwordMatched) {
+      await user.recordFailedLogin();
+
+      return res.status(401).json({
+        success: false,
+        message: "Invalid username or password.",
+      });
+    }
+
+    // Successful login
+    await user.recordLogin(req.ip);
+
+    // Save refresh token
+    const refreshToken = generateRefreshToken(user);
+    user.refreshToken = refreshToken;
     await user.save();
 
-    // Load wallet safely
-    const wallet = await Wallet.findOne({ userId: user._id });
+    const loginResponse = createLoginResponse(user);
 
-    return res.status(200).json({
-      success: true,
-      message: "Login successful.",
-      token,
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        status: user.status,
-        PkrBalance: wallet?.PkrBalance || 0,
-        goldBalance: wallet?.goldBalance || 0,
-        UsdtBalance: wallet?.UsdtBalance || 0,
-      },
-    });
-  } catch (err) {
-    console.error("LOGIN ERROR:", err);
+    return res.json(loginResponse);
+
+  } catch (error) {
+    console.error("Login Error:", error);
 
     return res.status(500).json({
       success: false,
       message: "Login failed.",
-      error: err.message,
     });
   }
 });
-// =======================================================
-// VERIFY CURRENT USER
-// GET /api/auth/me
-// =======================================================
+// =====================================================
+// REFRESH ACCESS TOKEN
+// POST /api/auth/refresh-token
+// =====================================================
 
-router.get("/me", verifyToken, async (req, res) => {
+router.post("/refresh-token", async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password").lean();
+    const { refreshToken } = req.body;
 
-    if (!user) {
-      return res.status(404).json({
+    if (!refreshToken) {
+      return res.status(401).json({
         success: false,
-        message: "User not found.",
+        message: "Refresh token is required.",
       });
     }
 
-    const Wallet = await Wallet.findOne({ userId: user._id }).lean();
+    const user = await User.findOne({ refreshToken });
 
-    return res.status(200).json({
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid refresh token.",
+      });
+    }
+
+    const decoded = verifyRefreshToken(refreshToken);
+
+    if (String(decoded.id) !== String(user._id)) {
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token does not belong to this user.",
+      });
+    }
+
+    const newAccessToken = generateAccessToken(user);
+
+    return res.json({
       success: true,
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        phone: user.phone || "",
-        country: user.country || "",
-        role: user.role,
-        status: user.status,
-        lastLogin: user.lastLogin,
-
-        PkrBalance: Number(Wallet?.PkrBalance ?? 0),
-        goldBalance: Number(Wallet?.goldBalance ?? 0),
-        UsdtBalance: Number(Wallet?.UsdtBalance ?? 0),
-      },
+      accessToken: newAccessToken,
     });
-
-  } catch (err) {
-    console.error("GET /me ERROR:", err);
+  } catch (error) {
+    console.error("Refresh Token Error:", error);
 
     return res.status(401).json({
       success: false,
-      message: "Invalid or expired token.",
-      error: err.message,
+      message: "Refresh token expired or invalid.",
     });
   }
 });
 
-// =======================================================
-// AUTH CHECK (ADMIN & USER)
-// GET /api/auth/check
-// =======================================================
-
-router.get("/check", verifyToken, async (req, res) => {
-  try {
-    return res.status(200).json({
-      success: true,
-      authenticated: true,
-
-      user: {
-        id: req.user.id,
-        username: req.user.username,
-        role: req.user.role,
-      },
-    });
-
-  } catch (err) {
-    console.error("AUTH CHECK ERROR:", err);
-
-    return res.status(401).json({
-      success: false,
-      authenticated: false,
-      message: "Authentication failed.",
-    });
-  }
-});
-
-// =======================================================
-// LOGOUT
+// =====================================================
+// LOGOUT USER
 // POST /api/auth/logout
-// =======================================================
+// =====================================================
 
 router.post("/logout", verifyToken, async (req, res) => {
   try {
-    return res.status(200).json({
+    req.user.refreshToken = "";
+    await req.user.save();
+
+    return res.json({
       success: true,
       message: "Logout successful.",
     });
-
-  } catch (err) {
-    console.error("LOGOUT ERROR:", err);
+  } catch (error) {
+    console.error("Logout Error:", error);
 
     return res.status(500).json({
       success: false,
@@ -296,22 +250,430 @@ router.post("/logout", verifyToken, async (req, res) => {
   }
 });
 
-// =======================================================
-// HEALTH CHECK
-// GET /api/auth/health
-// =======================================================
+// =====================================================
+// CURRENT LOGGED-IN USER
+// GET /api/auth/me
+// =====================================================
 
-router.get("/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Auth API Working - GoldTrade V18",
-    version: "V18 Enterprise",
-    timestamp: new Date().toISOString(),
-  });
+router.get("/me", verifyToken, async (req, res) => {
+  try {
+    return res.json({
+      success: true,
+      user: {
+        id: req.user._id,
+        username: req.user.username,
+        fullName: req.user.fullName,
+        email: req.user.email,
+        role: req.user.role,
+
+        walletFrozen: req.user.walletFrozen,
+
+        balances: {
+          pkr: Number(req.user.pkrBalance || 0),
+          gold: Number(req.user.goldBalance || 0),
+          usdt: Number(req.user.usdtBalance || 0),
+        },
+
+        kycStatus: req.user.kycStatus,
+        createdAt: req.user.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("Current User Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load user profile.",
+    });
+  }
 });
 
-// =======================================================
-// EXPORT ROUTER
-// =======================================================
+// =====================================================
+// AUTH CHECK (Used by Frontend)
+// GET /api/auth/check
+// =====================================================
 
-module.exports = router;
+router.get("/check", verifyToken, async (req, res) => {
+  try {
+    return res.json({
+      success: true,
+      authenticated: true,
+      user: {
+        username: req.user.username,
+        role: req.user.role,
+        walletFrozen: req.user.walletFrozen,
+      },
+    });
+  } catch (error) {
+    console.error("Auth Check Error:", error);
+
+    return res.status(401).json({
+      success: false,
+      authenticated: false,
+      message: "Authentication failed.",
+    });
+  }
+});
+// =====================================================
+// UPDATE USER PROFILE
+// PUT /api/auth/profile
+// =====================================================
+
+router.put("/profile", verifyToken, async (req, res) => {
+  try {
+    const { fullName, phone, country, city, address } = req.body;
+
+    const user = req.user;
+
+    if (fullName !== undefined) user.fullName = fullName;
+    if (phone !== undefined) user.phone = phone;
+    if (country !== undefined) user.country = country;
+    if (city !== undefined) user.city = city;
+    if (address !== undefined) user.address = address;
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Profile updated successfully.",
+      user,
+    });
+  } catch (error) {
+    console.error("Profile Update Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update profile.",
+    });
+  }
+});
+
+// =====================================================
+// CHANGE PASSWORD
+// POST /api/auth/change-password
+// =====================================================
+
+router.post("/change-password", verifyToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required.",
+      });
+    }
+
+    const passwordMatched = await req.user.comparePassword(currentPassword);
+
+    if (!passwordMatched) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is incorrect.",
+      });
+    }
+
+    req.user.password = newPassword;
+    await req.user.save();
+
+    return res.json({
+      success: true,
+      message: "Password changed successfully.",
+    });
+  } catch (error) {
+    console.error("Change Password Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to change password.",
+    });
+  }
+});
+
+// =====================================================
+// UPDATE EMAIL
+// PUT /api/auth/email
+// =====================================================
+
+router.put("/email", verifyToken, async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required.",
+      });
+    }
+
+    const exists = await User.findOne({
+      email: email.toLowerCase(),
+      _id: { $ne: req.user._id },
+    });
+
+    if (exists) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already in use.",
+      });
+    }
+
+    req.user.email = email.toLowerCase();
+    req.user.emailVerified = false;
+
+    await req.user.save();
+
+    return res.json({
+      success: true,
+      message: "Email updated successfully.",
+    });
+  } catch (error) {
+    console.error("Email Update Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update email.",
+    });
+  }
+});
+
+// =====================================================
+// UPDATE PHONE
+// PUT /api/auth/phone
+// =====================================================
+
+router.put("/phone", verifyToken, async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    req.user.phone = phone;
+    req.user.phoneVerified = false;
+
+    await req.user.save();
+
+    return res.json({
+      success: true,
+      message: "Phone number updated successfully.",
+    });
+  } catch (error) {
+    console.error("Phone Update Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update phone number.",
+    });
+  }
+});
+
+// =====================================================
+// UPDATE PROFILE IMAGE
+// PUT /api/auth/profile-image
+// =====================================================
+
+router.put("/profile-image", verifyToken, async (req, res) => {
+  try {
+    const { profileImage } = req.body;
+
+    req.user.profileImage = profileImage || "";
+
+    await req.user.save();
+
+    return res.json({
+      success: true,
+      message: "Profile image updated successfully.",
+      profileImage: req.user.profileImage,
+    });
+  } catch (error) {
+    console.error("Profile Image Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update profile image.",
+    });
+  }
+});
+// =====================================================
+// FORGOT PASSWORD (Demo / Future Email Integration)
+// POST /api/auth/forgot-password
+// =====================================================
+
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({
+      email: email?.toLowerCase(),
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    // Future: Send email OTP or reset link here.
+    return res.json({
+      success: true,
+      message: "Password reset request received.",
+    });
+
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to process password reset request.",
+    });
+  }
+});
+
+// =====================================================
+// RESET PASSWORD (Admin/OTP Ready)
+// POST /api/auth/reset-password
+// =====================================================
+
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    if (!email || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and new password are required.",
+      });
+    }
+
+    const user = await User.findOne({
+      email: email.toLowerCase(),
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    user.password = newPassword;
+    user.loginAttempts = 0;
+    user.accountLockedUntil = null;
+    user.refreshToken = "";
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Password reset successfully.",
+    });
+
+  } catch (error) {
+    console.error("Reset Password Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to reset password.",
+    });
+  }
+});
+
+// =====================================================
+// DEACTIVATE ACCOUNT
+// POST /api/auth/deactivate
+// =====================================================
+
+router.post("/deactivate", verifyToken, async (req, res) => {
+  try {
+    req.user.isActive = false;
+    req.user.refreshToken = "";
+
+    await req.user.save();
+
+    return res.json({
+      success: true,
+      message: "Account deactivated successfully.",
+    });
+
+  } catch (error) {
+    console.error("Deactivate Account Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to deactivate account.",
+    });
+  }
+});
+
+// =====================================================
+// REACTIVATE ACCOUNT (Admin / Future OTP)
+// POST /api/auth/reactivate
+// =====================================================
+
+router.post("/reactivate", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({
+      email: email?.toLowerCase(),
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    user.isActive = true;
+    user.loginAttempts = 0;
+    user.accountLockedUntil = null;
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Account reactivated successfully.",
+    });
+
+  } catch (error) {
+    console.error("Reactivate Account Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to reactivate account.",
+    });
+  }
+});
+
+// =====================================================
+// LOGIN HISTORY
+// GET /api/auth/login-history
+// =====================================================
+
+router.get("/login-history", verifyToken, async (req, res) => {
+  try {
+    return res.json({
+      success: true,
+      history: {
+        lastLogin: req.user.lastLogin,
+        lastLoginIP: req.user.lastLoginIP,
+        loginAttempts: req.user.loginAttempts,
+        accountLockedUntil: req.user.accountLockedUntil,
+      },
+    });
+
+  } catch (error) {
+    console.error("Login History Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load login history.",
+    });
+  }
+});
+
+// =====================================================
+// EXPORT ROUTER
+// =====================================================
+
+module.exports = router;``

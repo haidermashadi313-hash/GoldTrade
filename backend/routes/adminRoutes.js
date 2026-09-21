@@ -273,11 +273,85 @@ router.put("/gold/settings", verifyToken, isAdmin, async (req, res) => {
 });
 
 // =====================================================
-// ADMIN GOLD Wallet CREDIT / DEBIT
-// PUT /api/admin/gold/Wallet/:id
+// ADMIN PKR WALLET CREDIT / DEBIT (GoldTrade V18)
+// PUT /api/admin/pkr/wallet/:id
 // =====================================================
 
-router.put("/gold/Wallet/:id", verifyToken, isAdmin, async (req, res) => {
+router.put("/pkr/wallet/:id", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const { amount, action, reason } = req.body;
+
+    const value = Number(amount);
+
+    if (!value || value <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid PKR amount.",
+      });
+    }
+
+    const user = await User.findById(req.params.id);
+    const wallet = await Wallet.findOne({ userId: req.params.id });
+
+    if (!user || !wallet) {
+      return res.status(404).json({
+        success: false,
+        message: "Wallet not found.",
+      });
+    }
+
+    if (action === "credit") {
+      wallet.PkrBalance += value;
+    } else if (action === "debit") {
+      if (wallet.PkrBalance < value) {
+        return res.status(400).json({
+          success: false,
+          message: "Insufficient PKR balance.",
+        });
+      }
+
+      wallet.PkrBalance -= value;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Action must be credit or debit.",
+      });
+    }
+
+    await wallet.save();
+
+    await Transaction.create({
+      userId: user._id,
+      username: user.username,
+      category: "PKR Wallet",
+      type: action === "credit" ? "CREDIT" : "DEBIT",
+      amount: value,
+      status: "Completed",
+      note: reason || "Admin PKR Wallet Update",
+      createdBy: req.user.username,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `PKR wallet ${action} successful.`,
+      wallet,
+    });
+  } catch (error) {
+    console.error("PKR WALLET ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update PKR wallet.",
+      error: error.message,
+    });
+  }
+});
+// =====================================================
+// ADMIN GOLD WALLET CREDIT / DEBIT (GoldTrade V18)
+// PUT /api/admin/gold/wallet/:id
+// =====================================================
+
+router.put("/gold/wallet/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const { amount, action, reason } = req.body;
 
@@ -291,25 +365,26 @@ router.put("/gold/Wallet/:id", verifyToken, isAdmin, async (req, res) => {
     }
 
     const user = await User.findById(req.params.id);
+    const wallet = await Wallet.findOne({ userId: req.params.id });
 
-    if (!user) {
+    if (!user || !wallet) {
       return res.status(404).json({
         success: false,
-        message: "User not found.",
+        message: "Wallet not found.",
       });
     }
 
     if (action === "credit") {
-      user.goldBalance += grams;
+      wallet.goldBalance += grams;
     } else if (action === "debit") {
-      if (user.goldBalance < grams) {
+      if (wallet.goldBalance < grams) {
         return res.status(400).json({
           success: false,
-          message: "Insufficient Gold balance.",
+          message: "Insufficient gold balance.",
         });
       }
 
-      user.goldBalance -= grams;
+      wallet.goldBalance -= grams;
     } else {
       return res.status(400).json({
         success: false,
@@ -317,36 +392,173 @@ router.put("/gold/Wallet/:id", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    await user.save();
+    await wallet.save();
 
+    // Gold History
     await GoldTrade.create({
       userId: user._id,
       username: user.username,
       type: action === "credit" ? "ADMIN CREDIT" : "ADMIN DEBIT",
       grams,
       status: "Completed",
+      note: reason || "Admin Gold Wallet Update",
+      createdBy: req.user.username,
     });
 
+    // Transaction History
     await Transaction.create({
       userId: user._id,
       username: user.username,
+      category: "Gold Wallet",
       type: action === "credit" ? "CREDIT" : "DEBIT",
       amount: grams,
       status: "Completed",
       note: reason || "Admin Gold Wallet Update",
+      createdBy: req.user.username,
     });
 
-    res.json({
+    return res.status(200).json({
       success: true,
-      message: `Gold Wallet ${action} successful.`,
-      goldBalance: user.goldBalance,
+      message: `Gold wallet ${action} successful.`,
+      wallet,
     });
   } catch (error) {
-    console.error("GOLD Wallet ERROR:", error);
+    console.error("GOLD WALLET ERROR:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Unable to update Gold Wallet.",
+      error: error.message,
+    });
+  }
+});
+// =====================================================
+// ADMIN USDT WALLET CREDIT / DEBIT (GoldTrade V18)
+// PUT /api/admin/usdt/wallet/:id
+// =====================================================
+
+router.put("/usdt/wallet/:id", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const { amount, action, reason } = req.body;
+
+    const value = Number(amount);
+
+    if (!value || value <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid USDT amount.",
+      });
+    }
+
+    const user = await User.findById(req.params.id);
+    const wallet = await Wallet.findOne({ userId: req.params.id });
+
+    if (!user || !wallet) {
+      return res.status(404).json({
+        success: false,
+        message: "Wallet not found.",
+      });
+    }
+
+    if (action === "credit") {
+      wallet.UsdtBalance += value;
+    } else if (action === "debit") {
+      if (wallet.UsdtBalance < value) {
+        return res.status(400).json({
+          success: false,
+          message: "Insufficient USDT balance.",
+        });
+      }
+
+      wallet.UsdtBalance -= value;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Action must be credit or debit.",
+      });
+    }
+
+    await wallet.save();
+
+    await Transaction.create({
+      userId: user._id,
+      username: user.username,
+      category: "USDT Wallet",
+      type: action === "credit" ? "CREDIT" : "DEBIT",
+      amount: value,
+      status: "Completed",
+      note: reason || "Admin USDT Wallet Update",
+      createdBy: req.user.username,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `USDT wallet ${action} successful.`,
+      wallet,
+    });
+
+  } catch (error) {
+    console.error("USDT WALLET ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update USDT wallet.",
+      error: error.message,
+    });
+  }
+});
+
+// =====================================================
+// FREEZE / UNFREEZE USER WALLET (GoldTrade V18)
+// PUT /api/admin/wallet/freeze/:id
+// =====================================================
+
+router.put("/wallet/freeze/:id", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const { frozen } = req.body;
+
+    const user = await User.findById(req.params.id);
+    const wallet = await Wallet.findOne({ userId: req.params.id });
+
+    if (!user || !wallet) {
+      return res.status(404).json({
+        success: false,
+        message: "Wallet not found.",
+      });
+    }
+
+    wallet.walletFrozen = Boolean(frozen);
+
+    await wallet.save();
+
+    await Transaction.create({
+      userId: user._id,
+      username: user.username,
+      category: "Wallet Security",
+      type: wallet.walletFrozen ? "FREEZE" : "UNFREEZE",
+      amount: 0,
+      status: "Completed",
+      note: wallet.walletFrozen
+        ? "Wallet frozen by admin."
+        : "Wallet unfrozen by admin.",
+      createdBy: req.user.username,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: wallet.walletFrozen
+        ? "Wallet frozen successfully."
+        : "Wallet unfrozen successfully.",
+      wallet,
+    });
+
+  } catch (error) {
+    console.error("FREEZE WALLET ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update wallet status.",
+      error: error.message,
     });
   }
 });

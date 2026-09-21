@@ -1,10 +1,18 @@
+/*
+========================================================
+ GoldTrade V18 Enterprise
+ Deposit Model
+ Linux + Render + MongoDB Compatible
+========================================================
+*/
+
 "use strict";
 
 const mongoose = require("mongoose");
 
 const depositSchema = new mongoose.Schema(
   {
-    // ================= USER =================
+    // User Information
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -16,47 +24,21 @@ const depositSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      lowercase: true,
+      index: true,
     },
 
-    // ================= DEPOSIT =================
-    amount: {
+    // Deposit Information
+    requestAmount: {
       type: Number,
       required: true,
       min: 1,
     },
 
-    currency: {
-      type: String,
-      enum: ["Pkr", "USDT"],
-      default: "Pkr",
-    },
-
     paymentMethod: {
       type: String,
-      enum: [
-        "BANK",
-        "EASYPAISA",
-        "JAZZCASH",
-        "NAYAPAY",
-        "SADAPAY",
-        "RAAST",
-        "ABA",
-        "BINANCE",
-        "USDT_TRC20",
-      ],
       required: true,
-    },
-
-    senderName: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-
-    senderAccount: {
-      type: String,
-      default: "",
-      trim: true,
+      enum: ["JazzCash", "Easypaisa", "Bank", "USDT"],
     },
 
     transactionId: {
@@ -68,38 +50,30 @@ const depositSchema = new mongoose.Schema(
     receiptImage: {
       type: String,
       default: "",
+      trim: true,
     },
 
-    // ================= STATUS =================
+    // Admin Status
     status: {
       type: String,
       enum: ["Pending", "Approved", "Rejected"],
       default: "Pending",
+      index: true,
     },
 
     adminNote: {
       type: String,
       default: "",
+      trim: true,
     },
 
-    approvedBy: {
+    reviewedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
 
-    approvedAt: {
-      type: Date,
-      default: null,
-    },
-
-    rejectedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
-    },
-
-    rejectedAt: {
+    reviewedAt: {
       type: Date,
       default: null,
     },
@@ -110,10 +84,8 @@ const depositSchema = new mongoose.Schema(
   }
 );
 
-// =====================================================
-// LINUX + RENDER SAFE EXPORT
-// =====================================================
+// Useful indexes
+depositSchema.index({ username: 1, createdAt: -1 });
+depositSchema.index({ status: 1, createdAt: -1 });
 
-module.exports =
-  mongoose.models.Deposit ||
-  mongoose.model("Deposit", depositSchema);
+module.exports = mongoose.model("Deposit", depositSchema);

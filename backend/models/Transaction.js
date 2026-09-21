@@ -1,12 +1,18 @@
+/*
+========================================================
+ GoldTrade V18 Enterprise
+ Transaction Ledger Model
+ Linux + Render + MongoDB Compatible
+========================================================
+*/
+
 "use strict";
 
 const mongoose = require("mongoose");
 
-// =====================================================
+// ======================================================
 // TRANSACTION SCHEMA
-// GoldTrade V18
-// PKR + USDT + GOLD + Deposit + Withdraw
-// =====================================================
+// ======================================================
 
 const transactionSchema = new mongoose.Schema(
   {
@@ -23,37 +29,52 @@ const transactionSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      lowercase: true,
       index: true,
     },
 
-    // ================= TRANSACTION TYPE =================
+    // ================= TRANSACTION =================
 
-    type: {
+    walletType: {
       type: String,
+      required: true,
+      enum: ["PKR", "GOLD", "USDT"],
+      index: true,
+    },
+
+    transactionType: {
+      type: String,
+      required: true,
       enum: [
-        "Deposit",
-        "Withdraw",
-        "Buy Gold",
-        "Sell Gold",
-        "Buy Usdt",
-        "Sell Usdt",
-        "Transfer",
-        "Bonus",
-        "Credit",
-        "Debit",
+        "DEPOSIT_REQUEST",
+        "DEPOSIT_APPROVED",
+        "DEPOSIT_REJECTED",
+
+        "WITHDRAW_REQUEST",
+        "WITHDRAW_APPROVED",
+        "WITHDRAW_REJECTED",
+
+        "BUY_GOLD",
+        "SELL_GOLD",
+
+        "BUY_USDT",
+        "SELL_USDT",
+
+        "ADMIN_CREDIT",
+        "ADMIN_DEBIT",
+
+        "PKR_TRANSFER",
+        "USDT_TRANSFER",
       ],
-      required: true,
+      index: true,
     },
 
-    // ================= CURRENCY =================
-
-    currency: {
+    transactionMode: {
       type: String,
-      enum: ["Pkr", "Gold", "Usdt"],
+      enum: ["CREDIT", "DEBIT"],
       required: true,
+      index: true,
     },
-
-    // ================= AMOUNTS =================
 
     amount: {
       type: Number,
@@ -61,39 +82,24 @@ const transactionSchema = new mongoose.Schema(
       min: 0,
     },
 
-    rate: {
+    balanceBefore: {
       type: Number,
       default: 0,
-      min: 0,
     },
 
-    total: {
+    balanceAfter: {
       type: Number,
       default: 0,
-      min: 0,
     },
-
-    // ================= STATUS =================
 
     status: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected", "Completed"],
+      enum: ["Pending", "Completed", "Rejected", "Failed"],
       default: "Completed",
+      index: true,
     },
 
-    // ================= DESCRIPTION =================
-
-    description: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-
-    transactionId: {
-      type: String,
-      default: "",
-      trim: true,
-    },
+    // ================= DETAILS =================
 
     paymentMethod: {
       type: String,
@@ -101,34 +107,42 @@ const transactionSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // ================= ADMIN =================
+    referenceId: {
+      type: String,
+      default: "",
+      trim: true,
+      index: true,
+    },
 
-    adminNote: {
+    note: {
       type: String,
       default: "",
       trim: true,
     },
 
-    approvedBy: {
+    // ================= ADMIN AUDIT =================
+
+    adminId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
 
-    approvedAt: {
-      type: Date,
-      default: null,
+    adminUsername: {
+      type: String,
+      default: "",
+      trim: true,
+      lowercase: true,
     },
 
-    rejectedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
+    ipAddress: {
+      type: String,
+      default: "",
     },
 
-    rejectedAt: {
-      type: Date,
-      default: null,
+    device: {
+      type: String,
+      default: "",
     },
   },
   {
@@ -137,10 +151,21 @@ const transactionSchema = new mongoose.Schema(
   }
 );
 
-// =====================================================
-// EXPORT MODEL (Linux + Render Safe)
-// =====================================================
+// ======================================================
+// INDEXES (Linux / MongoDB Optimized)
+// ======================================================
 
-module.exports =
-  mongoose.models.Transaction ||
-  mongoose.model("Transaction", transactionSchema);
+transactionSchema.index({ username: 1, createdAt: -1 });
+transactionSchema.index({ walletType: 1, createdAt: -1 });
+transactionSchema.index({ transactionType: 1, createdAt: -1 });
+transactionSchema.index({ status: 1, createdAt: -1 });
+transactionSchema.index({ referenceId: 1 });
+
+// ======================================================
+// EXPORT MODEL
+// ======================================================
+
+module.exports = mongoose.model(
+  "Transaction",
+  transactionSchema
+);

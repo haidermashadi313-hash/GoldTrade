@@ -161,13 +161,13 @@ router.post("/gold", verifyToken, async (req, res) => {
 
       // Wallet Update
       user.WalletBalance -= totalAmount;
-      user.goldBalance = (user.goldBalance ?? 0) + goldQty;
+      user.GoldBalance = (user.GoldBalance ?? 0) + goldQty;
 
       // Average Gold Price
-      const currentGold = user.goldBalance || goldQty;
+      const currentGold = user.GoldBalance || goldQty;
 
-      user.goldAveragePrice =
-        ((user.goldAveragePrice ?? 0) *
+      user.GoldAveragePrice =
+        ((user.GoldAveragePrice ?? 0) *
           (currentGold - goldQty) +
           totalAmount) /
         currentGold;
@@ -241,7 +241,7 @@ router.post("/gold", verifyToken, async (req, res) => {
 
         Wallet: {
           WalletBalance: user.WalletBalance,
-          goldBalance: user.goldBalance,
+          GoldBalance: user.GoldBalance,
           cashbackEarned: user.cashbackEarned,
           vipLevel: user.vipLevel,
         },
@@ -268,7 +268,7 @@ router.post("/gold", verifyToken, async (req, res) => {
       const totalAmount = goldPrice * goldQty;
 
       // Gold balance check
-      if ((user.goldBalance ?? 0) < goldQty) {
+      if ((user.GoldBalance ?? 0) < goldQty) {
         await session.abortTransaction();
         session.endSession();
 
@@ -279,20 +279,20 @@ router.post("/gold", verifyToken, async (req, res) => {
       }
 
       // Profit / Loss Calculation
-      const averagePrice = user.goldAveragePrice ?? goldPrice;
+      const averagePrice = user.GoldAveragePrice ?? goldPrice;
       const profitLoss = (goldPrice - averagePrice) * goldQty;
 
       // Wallet Update
-      user.goldBalance -= goldQty;
+      user.GoldBalance -= goldQty;
       user.WalletBalance += totalAmount;
 
-      user.goldProfitLoss =
-        (user.goldProfitLoss ?? 0) + profitLoss;
+      user.GoldProfitLoss =
+        (user.GoldProfitLoss ?? 0) + profitLoss;
 
       // Reset average price if user sells all gold
-      if (user.goldBalance <= 0) {
-        user.goldBalance = 0;
-        user.goldAveragePrice = 0;
+      if (user.GoldBalance <= 0) {
+        user.GoldBalance = 0;
+        user.GoldAveragePrice = 0;
       }
 
       await user.save({ session });

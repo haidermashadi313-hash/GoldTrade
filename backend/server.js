@@ -1,284 +1,307 @@
- "use strict";
-
 require("dotenv").config();
-const connectDB = require("./config/db");
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const path = require("path");
 
 const app = express();
 
-// ======================================================
-// MONGODB CONNECTION (GoldTrade V18 FINAL)
-// ======================================================
-
-const MONGODB_URI = process.env.MONGODB_URI;
-
-mongoose
-  .connect(MONGODB_URI)
-  .then(() => console.log("✅ MongoDB Connected Successfully"))
-  .catch((err) => console.error("❌ MongoDB Connection Failed:", err.message));
-
-// ======================================================
-// CORS CONFIG
-// ======================================================
-
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://frontend-cj9o6n761-flextrade-5000.vercel.app",
-  "https://infotradewithzoyanet.org",
-  "https://www.infotradewithzoyanet.org",
-  process.env.CLIENT_URL,
-  process.env.CORS_ORIGIN,
-].filter(Boolean);
-
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.error("CORS BLOCKED:", origin);
-      return callback(new Error("CORS Not Allowed"));
-    },
-
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
-
-// ======================================================
+// =====================================================
 // MIDDLEWARE
-// ======================================================
+// =====================================================
 
 app.use(cors());
-app.use(express.json());
+
+app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// =====================================================
+// REQUEST LOGGER
+// =====================================================
 
+app.use((req, res, next) => {
+  console.log(
+    `${new Date().toISOString()} | ${req.method} | ${req.originalUrl}`
+  );
+  next();
+});
 
-// ======================================================
-// ROUTE IMPORTS (GoldTrade V18 Linux FINAL)
-// ======================================================
+// =====================================================
+// HEALTH CHECK
+// =====================================================
 
-// PUBLIC ROUTES
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "GoldTrade V18 Enterprise Backend Running",
+    version: "V18 Enterprise",
+    status: "ONLINE",
+  });
+});
+// =====================================================
+// DATABASE CONNECTION
+// =====================================================
+
+const MONGO_URI =
+  process.env.MONGO_URI || "mongodb://127.0.0.1:27017/goldtrade";
+
+mongoose
+  .connect(MONGO_URI)
+  .then(() => {
+    console.log("✅ MongoDB Connected Successfully");
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB Connection Failed:", err.message);
+    process.exit(1);
+  });
+
+// =====================================================
+// ROUTE IMPORTS
+// =====================================================
+
+// Authentication
 const authRoutes = require("./routes/authRoutes");
-const userRoutes = require("./routes/UserRoutes");
-const WalletRoutes = require("./routes/WalletRoutes");
-const depositRoutes = require("./routes/DepositRoutes");
-const withdrawRoutes = require("./routes/WithdrawRoutes");
-const goldRoutes = require("./routes/GoldRoutes");
-const usdtRoutes = require("./routes/UsdtRoutes");
-const tradingRoutes = require("./routes/TradingRoutes");
-const marketRoutes = require("./routes/MarketRoutes");
-const settingsRoutes = require("./routes/SettingsRoutes");
-const transactionRoutes = require("./routes/TransactionRoutes");
-const paymentSettingsRoutes = require("./routes/PaymentSettingsRoutes");
-const referralRoutes = require("./routes/ReferralRoutes");
-const historyRoutes = require("./routes/HistoryRoutes");
+
+// User
+const userRoutes = require("./routes/userRoutes");
+
+// Wallet
+const walletRoutes = require("./routes/walletRoutes");
+
+// Deposit / Withdraw
+const depositRoutes = require("./routes/depositRoutes");
+const withdrawRoutes = require("./routes/withdrawRoutes");
+
+// Gold
+const goldRoutes = require("./routes/goldRoutes");
+
+// Market / Settings
+const marketRoutes = require("./routes/marketRoutes");
+const settingsRoutes = require("./routes/settingsRoutes");
+
+// Transactions
+const transactionRoutes = require("./routes/transactionRoutes");
 
 // ================= ADMIN ROUTES =================
 
 const adminRoutes = require("./routes/adminRoutes");
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
-const adminDepositRoutes = require("./routes/adminDepositRoutes");
-const adminWithdrawRoutes = require("./routes/adminWithdrawRoutes");
 const adminWalletRoutes = require("./routes/adminWalletRoutes");
 const adminUserRoutes = require("./routes/adminUserRoutes");
+const adminGoldRoutes = require("./routes/adminGoldRoutes");
 const adminUsdtRoutes = require("./routes/adminUsdtRoutes");
 
+// =====================================================
+// API ROUTES
+// =====================================================
 
-// ======================================================
-// PUBLIC API ROUTES
-// ======================================================
+// PUBLIC ROUTES
 
 app.use("/api/auth", authRoutes);
-
 app.use("/api/users", userRoutes);
-app.use("/api/Wallet", WalletRoutes);
+
+app.use("/api/wallet", walletRoutes);
 
 app.use("/api/deposit", depositRoutes);
 app.use("/api/withdraw", withdrawRoutes);
 
 app.use("/api/gold", goldRoutes);
-app.use("/api/usdt", usdtRoutes);
 
-app.use("/api/trading", tradingRoutes);
 app.use("/api/market", marketRoutes);
-
 app.use("/api/settings", settingsRoutes);
+
 app.use("/api/transactions", transactionRoutes);
 
-app.use("/api/payment-settings", paymentSettingsRoutes);
-app.use("/api/referrals", referralRoutes);
-app.use("/api/history", historyRoutes);
-
-// ======================================================
-// ADMIN API ROUTES
-// ======================================================
+// =====================================================
+// ADMIN ROUTES
+// =====================================================
 
 app.use("/api/admin", adminRoutes);
 
 app.use("/api/admin/dashboard", adminDashboardRoutes);
-app.use("/api/admin/deposits", adminDepositRoutes);
-app.use("/api/admin/withdraws", adminWithdrawRoutes);
 
-app.use("/api/admin/Wallet", adminWalletRoutes);
+app.use("/api/admin/wallet", adminWalletRoutes);
+
 app.use("/api/admin/users", adminUserRoutes);
+
+app.use("/api/admin/gold", adminGoldRoutes);
+
 app.use("/api/admin/usdt", adminUsdtRoutes);
-// ======================================================
-// GoldTrade V18 SERVER (PART 3/4)
-// HEALTH + STATUS + DEFAULT ROUTES
-// Linux + Render Safe
-// ======================================================
 
-// ================= ROOT ROUTE =================
-
-app.get("/", (req, res) => {
-  res.status(200).json({
-    success: true,
-    app: "GoldTrade V18 Enterprise",
-    message: "GoldTrade Backend is Running Successfully 🚀",
-    environment: process.env.NODE_ENV || "development",
-    version: "V18",
-    api: "/api/health",
-  });
-});
-
-// ================= HEALTH CHECK =================
-
-app.get("/api/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "GoldTrade API Healthy",
-    mongodb:
-      mongoose.connection.readyState === 1
-        ? "Connected"
-        : "Disconnected",
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || "development",
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// ================= STATUS =================
+// =====================================================
+// ROUTE TEST API
+// =====================================================
 
 app.get("/api/status", (req, res) => {
-  res.status(200).json({
+  res.json({
     success: true,
-    app: "GoldTrade V18 Enterprise",
-    version: "V18",
-    mongodb:
-      mongoose.connection.readyState === 1
-        ? "Connected"
-        : "Disconnected",
-    environment: process.env.NODE_ENV || "development",
+    backend: "GoldTrade V18 Enterprise",
+    database: mongoose.connection.readyState === 1 ? "Connected" : "Disconnected",
     uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
   });
 });
+// =====================================================
+// CORS HEADERS (FRONTEND + RENDER + VERCEL)
+// =====================================================
 
-// ================= API INFO =================
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
 
-app.get("/api", (req, res) => {
-  res.status(200).json({
-    success: true,
-    name: "GoldTrade Backend API",
-    version: "V18",
-    endpoints: {
-      health: "/api/health",
-      status: "/api/status",
-      gold: "/api/gold/price",
-      usdt: "/api/usdt/rate",
-      Wallet: "/api/Wallet",
-      trading: "/api/trading",
-    },
-  });
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+  );
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+
+  next();
 });
 
-// ======================================================
-// 404 HANDLER
-// ======================================================
-
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "API Route Not Found",
-    path: req.originalUrl,
-  });
-});
-// ======================================================
-// GoldTrade V18 SERVER (PART 4/4)
-// GLOBAL ERROR HANDLER + SERVER START
-// Linux + Render Safe
-// ======================================================
-
-// ================= GLOBAL ERROR HANDLER =================
+// =====================================================
+// TOKEN / AUTH ERROR HANDLER
+// =====================================================
 
 app.use((err, req, res, next) => {
-  console.error("========================================");
-  console.error("SERVER ERROR:", err.message);
-  console.error(err.stack);
-  console.error("========================================");
+  if (
+    err.name === "UnauthorizedError" ||
+    err.name === "JsonWebTokenError"
+  ) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token.",
+    });
+  }
 
-  res.status(err.status || 500).json({
+  next(err);
+});
+
+// =====================================================
+// VALIDATION ERROR HANDLER
+// =====================================================
+
+app.use((err, req, res, next) => {
+  if (err.name === "ValidationError") {
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed.",
+      errors: err.errors,
+    });
+  }
+
+  next(err);
+});
+
+// =====================================================
+// MONGODB CAST ERROR HANDLER
+// =====================================================
+
+app.use((err, req, res, next) => {
+  if (err.name === "CastError") {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid ID format.",
+    });
+  }
+
+  next(err);
+});
+
+// =====================================================
+// 404 API HANDLER
+// =====================================================
+
+app.use("/api/*", (req, res) => {
+  return res.status(404).json({
+    success: false,
+    message: `API Not Found: ${req.originalUrl}`,
+  });
+});
+
+// =====================================================
+// GLOBAL ERROR HANDLER
+// =====================================================
+
+app.use((err, req, res, next) => {
+  console.error("GLOBAL SERVER ERROR");
+  console.error(err);
+
+  return res.status(err.status || 500).json({
     success: false,
     message: err.message || "Internal Server Error",
   });
 });
+// =====================================================
+// SERVER CONFIGURATION
+// =====================================================
 
-// ======================================================
-// SERVER START (Render + Local Compatible)
-// ======================================================
+const PORT = process.env.PORT || 5000;
 
-const PORT = Number(process.env.PORT) || 5000;
-const HOST = process.env.HOST || "0.0.0.0";
+// =====================================================
+// START SERVER
+// =====================================================
 
-const startServer = async () => {
+const server = app.listen(PORT, () => {
+  console.log("=========================================");
+  console.log("🚀 GoldTrade V18 Enterprise Backend");
+  console.log("=========================================");
+  console.log(`🌐 Server URL : http://localhost:${PORT}`);
+  console.log(`📦 Environment : ${process.env.NODE_ENV || "development"}`);
+  console.log(`🕒 Started At : ${new Date().toLocaleString()}`);
+  console.log("=========================================");
+});
+
+// =====================================================
+// GRACEFUL SHUTDOWN
+// =====================================================
+
+const gracefulShutdown = async (signal) => {
+  console.log(`\n${signal} received. Closing server...`);
+
   try {
-    await connectDB(); // MongoDB connect hone ka wait karo
-
-    app.listen(PORT, HOST, () => {
-      console.log("🚀 GoldTrade V18 Backend Started Successfully");
-      console.log("==============================================");
-      console.log(`🌍 Environment : ${process.env.NODE_ENV || "development"}`);
-      console.log(`📡 Host        : ${HOST}`);
-      console.log(`🚪 Port        : ${PORT}`);
-      console.log("==============================================");
-
-      // Health APIs
-      console.log("❤️ Health API      : /api/health");
-      console.log("📊 Status API      : /api/status");
-
-      // Trading APIs
-      console.log("💰 Gold API        : /api/gold/price");
-      console.log("💵 USDT API        : /api/usdt/rate");
-      console.log("📈 Trading API     : /api/trading");
-
-      // Wallet APIs
-      console.log("👛 Wallet API      : /api/wallet");
-      console.log("💳 Deposit API     : /api/deposit");
-      console.log("💸 Withdraw API    : /api/withdraw");
-
-      // User APIs
-      console.log("👤 Auth API        : /api/auth");
-      console.log("👥 Users API       : /api/users");
-
-      // Admin APIs
-      console.log("🛠️ Admin Dashboard : /api/gold/admin/dashboard");
-      console.log("📥 Admin Deposits  : /api/gold/admin/deposits");
-      console.log("📤 Admin Withdraws : /api/gold/admin/withdraws");
-
-      console.log("==============================================");
+    server.close(() => {
+      console.log("✅ HTTP Server Closed");
     });
+
+    await mongoose.connection.close();
+    console.log("✅ MongoDB Connection Closed");
+
+    process.exit(0);
   } catch (error) {
-    console.error("Server startup failed:", error);
+    console.error("Shutdown Error:", error);
     process.exit(1);
   }
 };
 
-startServer();
+// =====================================================
+// PROCESS EVENTS
+// =====================================================
+
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+
+// =====================================================
+// UNCAUGHT ERROR HANDLING
+// =====================================================
+
+process.on("uncaughtException", (error) => {
+  console.error("UNCAUGHT EXCEPTION");
+  console.error(error);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED PROMISE REJECTION");
+  console.error(reason);
+});
+
+// =====================================================
+// EXPORT APP (Optional for testing)
+// =====================================================
+
+module.exports = app;

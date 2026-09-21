@@ -2,113 +2,132 @@ const mongoose = require("mongoose");
 
 const paymentSettingsSchema = new mongoose.Schema(
   {
-    // ================= LIVE Usdt RATES =================
-    UsdtbuyRate: {
-      type: Number,
-      default: 282.4,
+    // PKR Payment Methods
+    jazzCashNumber: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
-    UsdtsellRate: {
-      type: Number,
-      default: 281.2,
+    jazzCashTitle: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
-    // ================= BANK =================
-    bank: {
-      bankName: {
-        type: String,
-        default: "Meezan Bank",
-      },
-
-      accountTitle: {
-        type: String,
-        default: "GoldTrade Pvt Ltd",
-      },
-
-      accountNumber: {
-        type: String,
-        default: "",
-      },
-
-      iban: {
-        type: String,
-        default: "",
-      },
-
-      qrCode: {
-        type: String,
-        default: "",
-      },
+    easypaisaNumber: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
-    // ================= EASYPAISA =================
-    easyPaisa: {
-      accountTitle: {
-        type: String,
-        default: "GoldTrade Pvt Ltd",
-      },
-
-      mobileNumber: {
-        type: String,
-        default: "",
-      },
-
-      qrCode: {
-        type: String,
-        default: "",
-      },
+    easypaisaTitle: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
-    // ================= NAYAPAY =================
-    nayaPay: {
-      accountTitle: {
-        type: String,
-        default: "GoldTrade Pvt Ltd",
-      },
-
-      mobileNumber: {
-        type: String,
-        default: "",
-      },
-
-      qrCode: {
-        type: String,
-        default: "",
-      },
+    bankName: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
-    // ================= Usdt Wallet =================
-    UsdtWallet: {
-      network: {
-        type: String,
-        default: "TRC20",
-      },
-
-      WalletAddress: {
-        type: String,
-        default: "",
-      },
-
-      qrCode: {
-        type: String,
-        default: "",
-      },
+    bankAccountTitle: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
-    // ================= STATUS =================
-    active: {
+    bankAccountNumber: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    iban: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // USDT Wallets
+    usdtTRC20: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    usdtBEP20: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    usdtERC20: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // Gold Wallet
+    goldWalletAddress: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    goldWalletTitle: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // QR Images
+    jazzCashQR: {
+      type: String,
+      default: "",
+    },
+
+    easypaisaQR: {
+      type: String,
+      default: "",
+    },
+
+    binanceQR: {
+      type: String,
+      default: "",
+    },
+
+    // Enable / Disable
+    jazzCashEnabled: {
       type: Boolean,
       default: true,
     },
 
-    updatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
+    easypaisaEnabled: {
+      type: Boolean,
+      default: true,
+    },
+
+    bankEnabled: {
+      type: Boolean,
+      default: true,
+    },
+
+    usdtEnabled: {
+      type: Boolean,
+      default: true,
+    },
+
+    goldEnabled: {
+      type: Boolean,
+      default: true,
     },
   },
   {
     timestamps: true,
+    collection: "payment_settings",
   }
 );
 

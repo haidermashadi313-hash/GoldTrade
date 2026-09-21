@@ -416,29 +416,45 @@ router.get("/all", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// ======================================================
-// GET /api/admin/Wallet/history/:username
-// Wallet history of Single User
-// ======================================================
+// ==============================================
+// GET USER WALLET HISTORY (User + Admin)
+// GET /api/wallet/history/:username
+// ==============================================
 
-router.get("/history/:username", async (req, res) => {
+router.get("/history/:username", verifyToken, async (req, res) => {
   try {
-    const username = req.params.username.trim();
+    const { username } = req.params;
 
-    const history = await Wallethistory.find({ username })
+    // User can only see own history unless admin
+    if (
+      req.user.role !== "admin" &&
+      req.user.username !== username
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied.",
+      });
+    }
+
+    const history = await WalletHistory.find({ username })
       .sort({ createdAt: -1 })
       .lean();
 
-    return successResponse(
-      res,
-      "User Wallet history loaded successfully.",
-      history
-    );
+    return res.status(200).json({
+      success: true,
+      history,
+    });
+
   } catch (err) {
-    console.error("User Wallet history Error:", err);
-    return errorResponse(res, err.message);
+    console.error("Wallet History Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load wallet history.",
+      error: err.message,
+    });
   }
-});
+});``
 
 // ======================================================
 // DELETE /api/admin/Wallet/history/:id

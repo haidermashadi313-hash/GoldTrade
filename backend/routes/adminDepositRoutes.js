@@ -93,7 +93,7 @@ router.use(verifyToken);
 router.use(isAdmin);
 
 // ======================================================
-// GET /api/admin/deposits/pending
+// GET /api/gold/admin/deposits/pending
 // Dashboard Pending Deposits
 // ======================================================
 
@@ -118,10 +118,10 @@ router.get("/pending", async (req, res) => {
 });
 
 // ======================================================
-// GET /api/admin/deposits/all
+// GET /api/gold/admin/deposits/all
 // All Deposit Requests
 // Optional Search:
-// /api/admin/deposits/all?username=hashi
+// /api/gold/admin/deposits/all?username=hashi
 // ======================================================
 
 router.get("/all", async (req, res) => {
@@ -153,7 +153,7 @@ router.get("/all", async (req, res) => {
 });
 
 // ======================================================
-// GET /api/admin/deposits/:id
+// GET /api/gold/admin/deposits/:id
 // Single Deposit Details
 // ======================================================
 
@@ -178,7 +178,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // ======================================================
-// POST /api/admin/deposits/:id/approve
+// POST /api/gold/admin/deposits/:id/approve
 // Approve Deposit + Credit Wallet
 // ======================================================
 
@@ -259,7 +259,7 @@ router.post("/:id/approve", async (req, res) => {
 });
 
 // ======================================================
-// POST /api/admin/deposits/:id/reject
+// POST /api/gold/admin/deposits/:id/reject
 // Reject Deposit Request
 // ======================================================
 
@@ -302,7 +302,7 @@ router.post("/:id/reject", async (req, res) => {
 });
 
 // ======================================================
-// GET /api/admin/deposits/statistics
+// GET /api/gold/admin/deposits/statistics
 // Deposit Statistics for Admin Dashboard
 // ======================================================
 
@@ -346,7 +346,7 @@ router.get("/statistics", async (req, res) => {
 });
 
 // ======================================================
-// GET /api/admin/deposits/recent
+// GET /api/gold/admin/deposits/recent
 // Latest Deposit Requests
 // ======================================================
 

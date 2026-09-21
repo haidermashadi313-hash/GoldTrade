@@ -147,6 +147,398 @@ router.get("/price", async (req, res) => {
     });
   }
 });
+// ======================================================
+// GET USDT SETTINGS
+// GET /api/usdt/settings
+// ======================================================
+
+router.get("/settings", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const settings = await UsdtSettings.getSettings();
+
+    return res.status(200).json({
+      success: true,
+      settings,
+    });
+  } catch (error) {
+    console.error("GET USDT SETTINGS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load USDT settings.",
+      error: error.message,
+    });
+  }
+});
+// ======================================================
+// GET LIVE USDT PRICE
+// GET /api/usdt/price
+// ======================================================
+
+router.get("/price", async (req, res) => {
+  try {
+    const settings = await UsdtSettings.getSettings();
+
+    return res.status(200).json({
+      success: true,
+
+      buyPrice: settings.buyUsdtPrice,
+      sellPrice: settings.sellUsdtPrice,
+
+      usdtPriceUSD: settings.usdtPriceUSD,
+      usdToPkr: settings.usdToPkr,
+
+      tradingEnabled: settings.usdtTradingEnabled,
+      marketStatus: settings.marketStatus,
+
+      marketMessage: settings.marketMessage,
+
+      minimumBuyUsdt: settings.minimumBuyUsdt,
+      maximumBuyUsdt: settings.maximumBuyUsdt,
+
+      minimumSellUsdt: settings.minimumSellUsdt,
+      maximumSellUsdt: settings.maximumSellUsdt,
+
+      updatedAt: settings.updatedAt,
+    });
+  } catch (error) {
+    console.error("GET USDT PRICE ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load USDT market price.",
+      error: error.message,
+    });
+  }
+});
+
+// ======================================================
+// GET USDT RATES ONLY
+// GET /api/usdt/rates
+// ======================================================
+
+router.get("/rates", async (req, res) => {
+  try {
+    const settings = await UsdtSettings.getSettings();
+
+    return res.status(200).json({
+      success: true,
+
+      buyRate: settings.buyUsdtPrice,
+      sellRate: settings.sellUsdtPrice,
+
+      usdPrice: settings.usdtPriceUSD,
+      usdToPkr: settings.usdToPkr,
+
+      marketStatus: settings.marketStatus,
+      tradingEnabled: settings.usdtTradingEnabled,
+    });
+  } catch (error) {
+    console.error("GET USDT RATES ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load USDT rates.",
+    });
+  }
+});
+// ======================================================
+// UPDATE USDT SETTINGS
+// PUT /api/usdt/settings
+// Admin Only
+// ======================================================
+
+router.put("/settings", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const settings = await UsdtSettings.getSettings();
+
+    const {
+      buyUsdtPrice,
+      sellUsdtPrice,
+
+      usdtPriceUSD,
+      usdToPkr,
+
+      usdtTradingEnabled,
+      marketStatus,
+      marketMessage,
+
+      minimumBuyUsdt,
+      maximumBuyUsdt,
+
+      minimumSellUsdt,
+      maximumSellUsdt,
+
+      updateReason,
+    } = req.body;
+
+    // ============================================
+    // VALIDATION
+    // ============================================
+
+    if (buyUsdtPrice <= 0 || sellUsdtPrice <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Buy and Sell price must be greater than zero.",
+      });
+    }
+
+    if (minimumBuyUsdt > maximumBuyUsdt) {
+      return res.status(400).json({
+        success: false,
+        message: "Minimum Buy cannot be greater than Maximum Buy.",
+      });
+    }
+
+    if (minimumSellUsdt > maximumSellUsdt) {
+      return res.status(400).json({
+        success: false,
+        message: "Minimum Sell cannot be greater than Maximum Sell.",
+      });
+    }
+
+    if (!["OPEN", "CLOSED"].includes(marketStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid market status.",
+      });
+    }
+// ======================================================
+// ADMIN USDT DASHBOARD ANALYTICS
+// GET /api/usdt/admin/dashboard
+// Admin Only
+// ======================================================
+
+router.get("/admin/dashboard", verifyToken, isAdmin, async (req, res) => {
+  try {
+
+    const settings = await UsdtSettings.getSettings();
+
+    // ============================================
+    // TOTAL TRADES
+    // ============================================
+
+    const totalTrades = await UsdtTrade.countDocuments();
+
+    const completedTrades = await UsdtTrade.countDocuments({
+      status: "Completed",
+    });
+
+    const pendingTrades = await UsdtTrade.countDocuments({
+      status: "Pending",
+    });
+
+    const rejectedTrades = await UsdtTrade.countDocuments({
+      status: "Rejected",
+    });
+
+    // ============================================
+    // BUY / SELL ORDERS
+    // ============================================
+
+    const buyOrders = await UsdtTrade.find({
+      type: "BUY",
+      status: "Completed",
+    });
+
+    const sellOrders = await UsdtTrade.find({
+      type: "SELL",
+      status: "Completed",
+    });
+
+    // ============================================
+    // BUY ANALYTICS
+    // ============================================
+
+    const totalBuyUsdt = buyOrders.reduce(
+      (sum, order) => sum + Number(order.usdtAmount || 0),
+      0
+    );
+
+    const totalBuyVolume = buyOrders.reduce(
+      (sum, order) => sum + Number(order.totalAmount || 0),
+      0
+    );
+
+    // ============================================
+    // SELL ANALYTICS
+    // ============================================
+
+    const totalSellUsdt = sellOrders.reduce(
+      (sum, order) => sum + Number(order.usdtAmount || 0),
+      0
+    );
+
+    const totalSellVolume = sellOrders.reduce(
+      (sum, order) => sum + Number(order.totalAmount || 0),
+      0
+    );
+
+    // ============================================
+    // WALLET TOTALS
+    // ============================================
+
+    const wallets = await Wallet.find();
+
+    const totalWalletUsdt = wallets.reduce(
+      (sum, wallet) => sum + Number(wallet.usdtBalance || 0),
+      0
+    );
+
+    const activeWallets = wallets.filter(
+      (wallet) => !wallet.walletFrozen
+    ).length;
+
+    const frozenWallets = wallets.filter(
+      (wallet) => wallet.walletFrozen
+    ).length;
+
+    // ============================================
+    // RESPONSE
+    // ============================================
+
+    return res.status(200).json({
+      success: true,
+
+      analytics: {
+
+        totalTrades,
+        completedTrades,
+        pendingTrades,
+        rejectedTrades,
+
+        totalBuyUsdt,
+        totalSellUsdt,
+
+        totalBuyVolume,
+        totalSellVolume,
+
+        totalWalletUsdt,
+
+        activeWallets,
+        frozenWallets,
+
+        buyPrice: settings.buyUsdtPrice,
+        sellPrice: settings.sellUsdtPrice,
+
+        usdToPkr: settings.usdToPkr,
+
+        marketStatus: settings.marketStatus,
+        tradingEnabled: settings.usdtTradingEnabled,
+
+        updatedAt: settings.updatedAt,
+      },
+    });
+
+  } catch (error) {
+
+    console.error("USDT ADMIN DASHBOARD ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load USDT dashboard analytics.",
+      error: error.message,
+    });
+
+  }
+});
+// ======================================================
+// LIVE USDT CHART
+// GET /api/usdt/chart
+// Public API
+// ======================================================
+
+router.get("/chart", async (req, res) => {
+  try {
+    const settings = await UsdtSettings.getSettings();
+
+    const chart = [];
+
+    for (let hour = 0; hour < 24; hour++) {
+      const variation = Math.sin(hour / 3) * 0.8;
+
+      chart.push({
+        hour: `${String(hour).padStart(2, "0")}:00`,
+
+        buyPrice: Number(
+          (settings.buyUsdtPrice + variation).toFixed(2)
+        ),
+
+        sellPrice: Number(
+          (settings.sellUsdtPrice + variation - 0.35).toFixed(2)
+        ),
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+
+      marketStatus: settings.marketStatus,
+      tradingEnabled: settings.usdtTradingEnabled,
+
+      currentBuyPrice: settings.buyUsdtPrice,
+      currentSellPrice: settings.sellUsdtPrice,
+
+      chart,
+    });
+  } catch (error) {
+    console.error("USDT CHART ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load USDT chart.",
+      error: error.message,
+    });
+  }
+});
+    // ============================================
+    // UPDATE SETTINGS
+    // ============================================
+
+    settings.buyUsdtPrice = Number(buyUsdtPrice);
+    settings.sellUsdtPrice = Number(sellUsdtPrice);
+
+    settings.usdtPriceUSD = Number(usdtPriceUSD);
+    settings.usdToPkr = Number(usdToPkr);
+
+    settings.usdtTradingEnabled = Boolean(usdtTradingEnabled);
+
+    settings.marketStatus = marketStatus;
+    settings.marketMessage = marketMessage?.trim() || "USDT Market Updated";
+
+    settings.minimumBuyUsdt = Number(minimumBuyUsdt);
+    settings.maximumBuyUsdt = Number(maximumBuyUsdt);
+
+    settings.minimumSellUsdt = Number(minimumSellUsdt);
+    settings.maximumSellUsdt = Number(maximumSellUsdt);
+
+    settings.lastUpdatedBy =
+      req.user.username || req.user.email || "Admin";
+
+    settings.updateReason =
+      updateReason?.trim() || "Admin updated USDT Market Settings";
+
+    await settings.save();
+
+    // ============================================
+    // RESPONSE
+    // ============================================
+
+    return res.status(200).json({
+      success: true,
+      message: "USDT Market settings updated successfully.",
+      settings,
+    });
+  } catch (error) {
+    console.error("UPDATE USDT SETTINGS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update USDT Market settings.",
+      error: error.message,
+    });
+  }
+});
 
 // =====================================================
 // HEALTH CHECK

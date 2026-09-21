@@ -1,15 +1,23 @@
+/*
+========================================================
+ GoldTrade V18 Enterprise
+ Withdraw Model
+ Linux + Render + MongoDB Compatible
+========================================================
+*/
+
 "use strict";
 
 const mongoose = require("mongoose");
 
-// =====================================================
+// ======================================================
 // WITHDRAW SCHEMA
-// GoldTrade V18
-// =====================================================
+// ======================================================
 
 const withdrawSchema = new mongoose.Schema(
   {
-    // ================= USER =================
+    // ================= USER INFO =================
+
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -21,48 +29,31 @@ const withdrawSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      lowercase: true,
       index: true,
     },
 
     // ================= WITHDRAW DETAILS =================
-    amount: {
+
+    withdrawAmount: {
       type: Number,
       required: true,
       min: 1,
-      default: 0,
     },
 
-    currency: {
+    walletType: {
       type: String,
-      enum: ["PKR", "USDT"],
-      default: "PKR",
-      uppercase: true,
-      trim: true,
+      required: true,
+      enum: ["PKR", "GOLD", "USDT"],
     },
 
-    // ================= PAYMENT METHOD =================
     paymentMethod: {
       type: String,
-      enum: [
-        "BANK",
-        "EASYPAISA",
-        "JAZZCASH",
-        "NAYAPAY",
-        "SADAPAY",
-        "RAAST",
-        "USDT_TRC20",
-      ],
       required: true,
-      uppercase: true,
-      trim: true,
+      enum: ["JazzCash", "Easypaisa", "Bank", "USDT"],
     },
 
-    // ================= PAYMENT DETAILS =================
-    bankName: {
-      type: String,
-      default: "",
-      trim: true,
-    },
+    // ================= DESTINATION =================
 
     accountTitle: {
       type: String,
@@ -82,68 +73,48 @@ const withdrawSchema = new mongoose.Schema(
       trim: true,
     },
 
-    WalletAddress: {
+    walletAddress: {
       type: String,
       default: "",
       trim: true,
     },
 
-    network: {
-      type: String,
-      default: "",
-      trim: true,
-      uppercase: true,
-    },
+    // ================= ADMIN REVIEW =================
 
-    // ================= STATUS =================
     status: {
       type: String,
       enum: ["Pending", "Approved", "Rejected"],
       default: "Pending",
-      trim: true,
+      index: true,
     },
 
-    // ================= ADMIN ACTION =================
     adminNote: {
       type: String,
       default: "",
       trim: true,
-      maxlength: 500,
     },
 
-    approvedBy: {
+    reviewedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
 
-    rejectedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
-    },
-
-    approvedAt: {
+    reviewedAt: {
       type: Date,
       default: null,
     },
 
-    rejectedAt: {
-      type: Date,
-      default: null,
-    },
+    // ================= SECURITY =================
 
-    // ================= RECEIPT =================
-    receiptImage: {
+    ipAddress: {
       type: String,
       default: "",
-      trim: true,
     },
 
-    transactionId: {
+    device: {
       type: String,
       default: "",
-      trim: true,
     },
   },
   {
@@ -152,10 +123,16 @@ const withdrawSchema = new mongoose.Schema(
   }
 );
 
-// =====================================================
-// EXPORT MODEL (Linux + Render + Hot Reload Safe)
-// =====================================================
+// ======================================================
+// INDEXES
+// ======================================================
 
-module.exports =
-  mongoose.models.Withdraw ||
-  mongoose.model("Withdraw", withdrawSchema);
+withdrawSchema.index({ username: 1, createdAt: -1 });
+withdrawSchema.index({ status: 1, createdAt: -1 });
+withdrawSchema.index({ walletType: 1, createdAt: -1 });
+
+// ======================================================
+// EXPORT MODEL
+// ======================================================
+
+module.exports = mongoose.model("Withdraw", withdrawSchema);

@@ -1,72 +1,130 @@
-"use strict";
-
 const mongoose = require("mongoose");
-
-// =====================================================
-// Wallet TRANSACTION SCHEMA
-// GoldTrade V18
-// =====================================================
 
 const WalletTransactionSchema = new mongoose.Schema(
   {
-    // Username
+    // =====================================================
+    // USER INFORMATION
+    // =====================================================
+
     username: {
       type: String,
       required: true,
-      trim: true,
       index: true,
-    },
-
-    // Transaction Type
-    type: {
-      type: String,
-      enum: [
-        "Deposit",
-        "Withdraw",
-        "Transfer",
-        "Bonus",
-        "Cashback",
-        "CREDIT",
-        "DEBIT",
-      ],
-      required: true,
       trim: true,
     },
 
-    // Transaction Amount
+    // =====================================================
+    // WALLET TYPE
+    // PKR | GOLD | USDT | SYSTEM
+    // =====================================================
+
+    walletType: {
+      type: String,
+      required: true,
+      enum: ["PKR", "GOLD", "USDT", "SYSTEM"],
+    },
+
+    // =====================================================
+    // TRANSACTION TYPE
+    // =====================================================
+
+    transactionType: {
+      type: String,
+      required: true,
+      enum: [
+        // Manual Wallet
+        "ADMIN_CREDIT",
+        "ADMIN_DEBIT",
+        "WALLET_FREEZE",
+        "WALLET_UNFREEZE",
+
+        // Deposits
+        "DEPOSIT_PENDING",
+        "DEPOSIT_APPROVED",
+        "DEPOSIT_REJECTED",
+
+        // Withdrawals
+        "WITHDRAW_PENDING",
+        "WITHDRAW_APPROVED",
+        "WITHDRAW_REJECTED",
+
+        // Trading
+        "BUY_GOLD",
+        "SELL_GOLD",
+        "BUY_USDT",
+        "SELL_USDT",
+
+        // Transfers
+        "TRANSFER_IN",
+        "TRANSFER_OUT",
+
+        // Other
+        "SYSTEM_UPDATE",
+      ],
+    },
+
+    // =====================================================
+    // AMOUNT
+    // =====================================================
+
     amount: {
       type: Number,
       required: true,
       default: 0,
-      min: 0,
     },
 
-    // Transaction Status
+    // =====================================================
+    // STATUS
+    // =====================================================
+
     status: {
       type: String,
-      enum: ["Pending", "Completed", "Approved", "Rejected"],
+      enum: ["Pending", "Completed", "Rejected"],
       default: "Completed",
-      trim: true,
     },
 
-    // Optional Note
+    // =====================================================
+    // OPTIONAL INFORMATION
+    // =====================================================
+
     note: {
       type: String,
       default: "",
       trim: true,
-      maxlength: 300,
+    },
+
+    txHash: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    walletAddress: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // =====================================================
+    // ADMIN INFORMATION
+    // =====================================================
+
+    createdBy: {
+      type: String,
+      default: "SYSTEM",
+      trim: true,
     },
   },
   {
     timestamps: true,
-    collection: "Wallettransactions",
   }
 );
 
-// =====================================================
-// EXPORT MODEL (Linux + Render + Hot Reload Safe)
-// =====================================================
+// Useful indexes for admin history pages
+WalletTransactionSchema.index({ walletType: 1, createdAt: -1 });
+WalletTransactionSchema.index({ username: 1, createdAt: -1 });
 
-module.exports =
-  mongoose.models.WalletTransaction ||
-  mongoose.model("WalletTransaction", WalletTransactionSchema);
+module.exports = mongoose.model(
+  "WalletTransaction",
+  WalletTransactionSchema
+);
