@@ -35,19 +35,20 @@ router.get("/health", (req, res) => {
 });
 
 // =======================================================
-// CREATE DEFAULT SETTINGS (AUTO CREATE)
+// CREATE DEFAULT SETTINGS (AUTO CREATE + AUTO FIX)
 // =======================================================
 
 const getSettings = async () => {
   let settings = await Settings.findOne();
 
+  // Create default settings if database is empty
   if (!settings) {
     settings = await Settings.create({
-      buyGoldPrice: 31250,
-      sellGoldPrice: 30950,
+      buyGoldPrice: 312000,
+      sellGoldPrice: 310000,
       goldPriceUSD: 3420.5,
 
-      // Keep this field name exactly like model
+      // USD → PKR Exchange Rate
       UsdtoPkr: 305,
 
       goldTradingEnabled: true,
@@ -56,6 +57,39 @@ const getSettings = async () => {
 
       updatedBy: "SYSTEM",
     });
+
+    return settings;
+  }
+
+  // =====================================================
+  // AUTO FIX OLD DATABASE DOCUMENTS
+  // =====================================================
+
+  let changed = false;
+
+  if (settings.UsdtoPkr === undefined || settings.UsdtoPkr === null) {
+    settings.UsdtoPkr = 305;
+    changed = true;
+  }
+
+  if (!settings.marketStatus) {
+    settings.marketStatus = "OPEN";
+    changed = true;
+  }
+
+  if (settings.goldTradingEnabled === undefined) {
+    settings.goldTradingEnabled = true;
+    changed = true;
+  }
+
+  if (settings.maintenanceMode === undefined) {
+    settings.maintenanceMode = false;
+    changed = true;
+  }
+
+  if (changed) {
+    settings.updatedBy = "SYSTEM";
+    await settings.save();
   }
 
   return settings;
