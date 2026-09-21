@@ -17,7 +17,7 @@ import {
 // ===============================
 const API =
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://GoldTrade-api.onrender.com";
+  "https://goldtrade-2.onrender.com";
 
 export default function SignupPage() {
   const [username, setUsername] = useState("");
@@ -74,7 +74,7 @@ export default function SignupPage() {
       console.log("Signup Response:", data);
 
       if (response.ok) {
-        alert("馃帀 Account Created Successfully!");
+        alert(" Account Created Successfully!");
         window.location.href = "/login";
         return;
       }
