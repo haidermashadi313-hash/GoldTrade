@@ -185,7 +185,7 @@ export default function WalletHistoryPage() {
             <p className="text-gray-400">Total Credits</p>
 
             <h2 className="text-3xl font-black text-green-400 mt-2">
-              PKR {totalCredit.toLocaleString()}
+              Pkr {totalCredit.toLocaleString()}
             </h2>
           </div>
 
@@ -193,7 +193,7 @@ export default function WalletHistoryPage() {
             <p className="text-gray-400">Total Debits</p>
 
             <h2 className="text-3xl font-black text-red-400 mt-2">
-              PKR {totalDebit.toLocaleString()}
+              Pkr {totalDebit.toLocaleString()}
             </h2>
           </div>
 
@@ -332,15 +332,15 @@ export default function WalletHistoryPage() {
                             : "text-red-400"
                         }`}
                       >
-                        PKR {item.amount.toLocaleString()}
+                        Pkr {item.amount.toLocaleString()}
                       </td>
 
                       <td className="p-3 text-gray-400">
-                        PKR {item.previousBalance.toLocaleString()}
+                        Pkr {item.previousBalance.toLocaleString()}
                       </td>
 
                       <td className="p-3 text-cyan-400 font-semibold">
-                        PKR {item.newBalance.toLocaleString()}
+                        Pkr {item.newBalance.toLocaleString()}
                       </td>
 
                       <td className="p-3 text-gray-300">

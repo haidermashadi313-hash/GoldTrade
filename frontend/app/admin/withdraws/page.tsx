@@ -567,7 +567,7 @@ return (
                 ) : item.status === "Approved" ? (
 
                   <div className="text-green-400 text-sm font-semibold">
-                    鉁?Deducted: {item.currency || "Pkr"}{" "}
+                    ✅ Deducted: {item.currency || "Pkr"}{" "}
                     {Number(
                       item.adminAmount || item.requestAmount || 0
                     ).toLocaleString()}
@@ -576,7 +576,7 @@ return (
                 ) : (
 
                   <div className="text-red-400 text-sm font-semibold">
-                    鉂?{item.adminNote || "Withdraw Rejected"}
+                    ❌ {item.adminNote || "Withdraw Rejected"}
                   </div>
 
                 )}
@@ -598,5 +598,3 @@ return (
 </div>
 );
 }
-
-

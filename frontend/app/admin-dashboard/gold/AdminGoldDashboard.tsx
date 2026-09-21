@@ -476,7 +476,7 @@ useEffect(() => {
         </div>
 
         <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">USD 鈫?Pkr</p>
+          <p className="text-gray-400 text-sm">USD → Pkr</p>
 
           <h2 className="text-3xl font-black text-cyan-400 mt-2">
             {settings.UsdtoPkr}

@@ -429,7 +429,7 @@ export default function AdminSettingsPage() {
               <p className="text-gray-400 text-sm">Gold Buy Price</p>
 
               <h3 className="text-3xl font-black text-yellow-400 mt-2">
-                PKR {settings.buyGoldPrice.toLocaleString()}
+                Pkr {settings.buyGoldPrice.toLocaleString()}
               </h3>
             </div>
 
@@ -437,7 +437,7 @@ export default function AdminSettingsPage() {
               <p className="text-gray-400 text-sm">Gold Sell Price</p>
 
               <h3 className="text-3xl font-black text-orange-400 mt-2">
-                PKR {settings.sellGoldPrice.toLocaleString()}
+                Pkr {settings.sellGoldPrice.toLocaleString()}
               </h3>
             </div>
 

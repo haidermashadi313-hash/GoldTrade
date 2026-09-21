@@ -1,474 +1,1148 @@
 ﻿"use client";
 
+/* ==========================================================
+   GoldTrade V18 Enterprise
+   Admin User Manager
+   SECTION 1/4 - Foundation (Compile Safe)
+========================================================== */
+
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+
 import {
-  ArrowLeft,
-  RefreshCw,
-  Search,
   Users,
-  Shield,
+  Search,
+  RefreshCw,
+  Wallet,
   ShieldCheck,
   ShieldX,
-  Wallet,
-  Coins,
   DollarSign,
+  Coins,
 } from "lucide-react";
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-// ========================================
-// TYPES
-// ========================================
+/* ==========================================================
+   Interfaces
+========================================================== */
 
-interface UserData {
+interface UserWallet {
   _id: string;
   username: string;
-  email: string;
-  role: "user" | "admin";
-  status: "Active" | "Blocked" | "Suspended";
-  walletBalance: number;
+  fullName?: string;
+  email?: string;
+
+  pkrBalance: number;
   goldBalance: number;
   usdtBalance: number;
+
+  walletFrozen: boolean;
   createdAt: string;
 }
 
+interface Analytics {
+  totalUsers: number;
+  activeWallets: number;
+  frozenWallets: number;
+
+  totalPkrBalance: number;
+  totalGoldBalance: number;
+  totalUsdtBalance: number;
+}
+
 export default function AdminUsersPage() {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("token") || ""
-      : "";
-
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
-
-  const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const [users, setUsers] = useState<UserWallet[]>([]);
+
+  const [analytics, setAnalytics] = useState<Analytics>({
+    totalUsers: 0,
+    activeWallets: 0,
+    frozenWallets: 0,
+    totalPkrBalance: 0,
+    totalGoldBalance: 0,
+    totalUsdtBalance: 0,
+  });
 
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState("ALL");
 
-  // ========================================
-  // LOAD USERS
-  // ========================================
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
+
+  /* ---------------- Wallet Modal ---------------- */
+
+  const [selectedUser, setSelectedUser] = useState<UserWallet | null>(
+    null
+  );
+
+  const [walletType, setWalletType] = useState("PKR");
+  const [actionType, setActionType] = useState("credit");
+  const [amount, setAmount] = useState("");
+
+  /* ==========================================================
+     AUTH HEADER
+  ========================================================== */
+
+  const getHeaders = () => {
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("token")
+        : "";
+
+    return {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+  };
+
+  /* ==========================================================
+     LOAD USERS
+     GET /api/admin/users
+  ========================================================== */
 
   const loadUsers = async () => {
+    const response = await fetch(`${API}/api/admin/users`, {
+      headers: getHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to load users.");
+    }
+
+    setUsers(data.users || []);
+    setAnalytics(data.analytics);
+  };
+
+  /* ==========================================================
+     LOAD DASHBOARD
+  ========================================================== */
+
+  const loadDashboard = async () => {
     try {
       setLoading(true);
+      setErrorMessage("");
 
-      const response = await fetch(`${API}/api/admin/users`, {
-        headers,
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setUsers(data.users || []);
-      } else {
-        setUsers([]);
-      }
-    } catch (err) {
-      console.error("Users Load Error:", err);
-      setUsers([]);
+      await loadUsers();
+    } catch (error: any) {
+      setErrorMessage(error.message || "Unable to load dashboard.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (token) {
-      loadUsers();
-    } else {
-      setLoading(false);
+  const refreshDashboard = async () => {
+    try {
+      setRefreshing(true);
+      await loadDashboard();
+    } finally {
+      setRefreshing(false);
     }
+  };
+
+  useEffect(() => {
+    loadDashboard();
   }, []);
 
-  // ========================================
-  // SEARCH + FILTER
-  // ========================================
+  /* ==========================================================
+     SEARCH FILTER
+  ========================================================== */
 
   const filteredUsers = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+
     return users.filter((user) => {
-      const searchMatch =
-        user.username.toLowerCase().includes(search.toLowerCase()) ||
-        user.email.toLowerCase().includes(search.toLowerCase());
+      if (!keyword) return true;
 
-      const roleMatch =
-        roleFilter === "ALL" || user.role === roleFilter;
-
-      const statusMatch =
-        statusFilter === "ALL" || user.status === statusFilter;
-
-      return searchMatch && roleMatch && statusMatch;
+      return (
+        user.username.toLowerCase().includes(keyword) ||
+        user.fullName?.toLowerCase().includes(keyword) ||
+        user.email?.toLowerCase().includes(keyword)
+      );
     });
-  }, [users, search, roleFilter, statusFilter]);
+  }, [users, search]);
 
-  // ========================================
-  // BLOCK / UNBLOCK USER
-  // ========================================
+  /* ==========================================================
+     PAGINATION
+  ========================================================== */
 
-  const updateStatus = async (
-    id: string,
-    status: "Active" | "Blocked"
-  ) => {
-    try {
-      const response = await fetch(
-        `${API}/api/admin/users/${id}/status`,
-        {
-          method: "PUT",
-          headers,
-          body: JSON.stringify({ status }),
-        }
-      );
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredUsers.length / rowsPerPage)
+  );
 
-      const data = await response.json();
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * rowsPerPage;
 
-      if (response.ok && data.success) {
-        await loadUsers();
-      } else {
-        alert(data.message || "Status update failed.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Server Error");
-    }
-  };
+    return filteredUsers.slice(start, start + rowsPerPage);
+  }, [filteredUsers, currentPage]);
 
-  // ========================================
-  // CHANGE ROLE
-  // ========================================
-
-  const updateRole = async (
-    id: string,
-    role: "user" | "admin"
-  ) => {
-    try {
-      const response = await fetch(
-        `${API}/api/admin/users/${id}/role`,
-        {
-          method: "PUT",
-          headers,
-          body: JSON.stringify({ role }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        await loadUsers();
-      } else {
-        alert(data.message || "Role update failed.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Server Error");
-    }
-  };
-
-  // ========================================
-  // SUMMARY
-  // ========================================
-
-  const totalUsers = users.length;
-  const activeUsers = users.filter(
-    (user) => user.status === "Active"
-  ).length;
-  const blockedUsers = users.filter(
-    (user) => user.status === "Blocked"
-  ).length;
+  /* ==========================================================
+     LOADING SCREEN
+  ========================================================== */
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black flex items-center justify-center text-yellow-400">
-        <RefreshCw className="animate-spin mr-3" size={26} />
-        Loading Users...
+      <main className="min-h-screen bg-black flex items-center justify-center">
+        <div className="flex items-center gap-3 text-cyan-400 text-xl font-bold">
+          <RefreshCw className="animate-spin" size={28} />
+          Loading Admin Users Dashboard...
+        </div>
       </main>
     );
-  }  return (
+  }
+
+  /* ==========================================================
+     PAGE START
+  ========================================================== */
+
+  return (
     <main className="min-h-screen bg-black text-white p-6">
       <div className="max-w-7xl mx-auto space-y-8">
 
-        {/* ================= HEADER ================= */}
+        {/* ============================================= */}
+        {/* PAGE HEADER */}
+        {/* ============================================= */}
 
-        <header className="flex flex-wrap items-center justify-between gap-4">
+        <header className="flex flex-wrap justify-between items-center gap-5">
+
           <div>
-            <h1 className="flex items-center gap-3 text-4xl font-black text-yellow-400">
+            <h1 className="flex items-center gap-3 text-4xl font-black text-cyan-400">
               <Users size={38} />
-              User Management
+              Admin User Manager
             </h1>
 
             <p className="text-gray-400 mt-2">
-              Manage GoldTrade V18 users, roles, wallets and account status.
+              GoldTrade V18 Enterprise • User Wallet Management System
             </p>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
+
             <Link
-              href="/admin-dashboard"
-              className="bg-zinc-800 hover:bg-zinc-700 px-4 py-3 rounded-xl flex items-center gap-2 font-bold"
+              href="/admin"
+              className="bg-zinc-800 hover:bg-zinc-700 px-5 py-3 rounded-xl font-bold transition"
             >
-              <ArrowLeft size={18} />
-              Dashboard
+              Admin Dashboard
             </Link>
 
             <button
-              onClick={loadUsers}
-              className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-3 rounded-xl flex items-center gap-2 font-bold"
+              onClick={refreshDashboard}
+              disabled={refreshing}
+              className="bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 text-black px-5 py-3 rounded-xl font-bold flex items-center gap-2 transition"
             >
-              <RefreshCw size={18} />
-              Refresh
+              <RefreshCw
+                size={18}
+                className={refreshing ? "animate-spin" : ""}
+              />
+
+              {refreshing ? "Refreshing..." : "Refresh"}
             </button>
+
           </div>
+
         </header>
 
-        {/* ================= SUMMARY CARDS ================= */}
+        {/* ============================================= */}
+        {/* ERROR MESSAGE */}
+        {/* ============================================= */}
 
-        <section className="grid md:grid-cols-3 gap-5">
-          <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6">
-            <p className="text-gray-400">Total Users</p>
+        {errorMessage && (
+          <div className="bg-red-500/10 border border-red-500 rounded-xl p-4 text-red-400 font-semibold">
+            {errorMessage}
+          </div>
+        )}
+
+        {/* ============================================= */}
+        {/* ANALYTICS CARDS */}
+        {/* ============================================= */}
+
+        <section className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
+
+          <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-5">
+            <Users className="text-cyan-400 mb-3" size={28} />
+
+            <p className="text-gray-500 text-sm uppercase">
+              Total Users
+            </p>
 
             <h2 className="text-3xl font-black text-cyan-400 mt-2">
-              {totalUsers}
+              {analytics.totalUsers}
             </h2>
           </div>
 
-          <div className="bg-zinc-900 border border-green-500 rounded-2xl p-6">
-            <p className="text-gray-400">Active Users</p>
+          <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5">
+            <ShieldCheck className="text-green-400 mb-3" size={28} />
+
+            <p className="text-gray-500 text-sm uppercase">
+              Active Wallets
+            </p>
 
             <h2 className="text-3xl font-black text-green-400 mt-2">
-              {activeUsers}
+              {analytics.activeWallets}
             </h2>
           </div>
 
-          <div className="bg-zinc-900 border border-red-500 rounded-2xl p-6">
-            <p className="text-gray-400">Blocked Users</p>
+          <div className="bg-zinc-900 border border-red-500 rounded-2xl p-5">
+            <ShieldX className="text-red-400 mb-3" size={28} />
+
+            <p className="text-gray-500 text-sm uppercase">
+              Frozen Wallets
+            </p>
 
             <h2 className="text-3xl font-black text-red-400 mt-2">
-              {blockedUsers}
+              {analytics.frozenWallets}
             </h2>
           </div>
+
+          <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5">
+            <DollarSign className="text-green-400 mb-3" size={28} />
+
+            <p className="text-gray-500 text-sm uppercase">
+              Total PKR Balance
+            </p>
+
+            <h2 className="text-2xl font-black text-green-400 mt-2">
+              PKR {analytics.totalPkrBalance.toLocaleString()}
+            </h2>
+          </div>
+
+          <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-5">
+            <Coins className="text-yellow-400 mb-3" size={28} />
+
+            <p className="text-gray-500 text-sm uppercase">
+              Total Gold Balance
+            </p>
+
+            <h2 className="text-2xl font-black text-yellow-400 mt-2">
+              {analytics.totalGoldBalance.toFixed(2)} g
+            </h2>
+          </div>
+
+          <div className="bg-zinc-900 border border-purple-500 rounded-2xl p-5">
+            <Wallet className="text-purple-400 mb-3" size={28} />
+
+            <p className="text-gray-500 text-sm uppercase">
+              Total USDT Balance
+            </p>
+
+            <h2 className="text-2xl font-black text-purple-400 mt-2">
+              {analytics.totalUsdtBalance.toFixed(2)} USDT
+            </h2>
+          </div>
+
         </section>
 
-        {/* ================= SEARCH + FILTER ================= */}
+        {/* ============================================= */}
+        {/* SEARCH TOOLBAR */}
+        {/* ============================================= */}
 
-        <section className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5">
-          <div className="grid md:grid-cols-3 gap-4">
+        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 space-y-5">
 
-            <div className="relative">
-              <Search
-                className="absolute left-3 top-3 text-gray-500"
-                size={18}
-              />
+          <div>
+            <h2 className="text-2xl font-black text-cyan-400">
+              Search Users
+            </h2>
 
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search username or email..."
-                className="w-full bg-black border border-zinc-700 rounded-xl pl-10 pr-4 py-3 outline-none focus:border-yellow-500"
-              />
-            </div>
+            <p className="text-gray-400 text-sm mt-2">
+              Search by username, full name or email address.
+            </p>
+          </div>
 
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="bg-black border border-zinc-700 rounded-xl px-4 py-3"
-            >
-              <option value="ALL">All Roles</option>
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
+          <div className="relative">
 
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-black border border-zinc-700 rounded-xl px-4 py-3"
-            >
-              <option value="ALL">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Blocked">Blocked</option>
-              <option value="Suspended">Suspended</option>
-            </select>
+            <Search
+              size={18}
+              className="absolute left-4 top-4 text-gray-500"
+            />
+
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Search username, full name or email..."
+              className="w-full bg-black border border-zinc-700 rounded-xl pl-11 pr-4 py-3 text-white focus:border-cyan-500 outline-none"
+            />
 
           </div>
+
+          <div className="flex flex-wrap gap-3">
+
+            <span className="bg-black border border-zinc-700 px-4 py-2 rounded-full text-sm">
+              Search:
+              <span className="ml-2 text-cyan-400 font-bold">
+                {search || "None"}
+              </span>
+            </span>
+
+            <span className="bg-black border border-zinc-700 px-4 py-2 rounded-full text-sm">
+              Users:
+              <span className="ml-2 text-green-400 font-bold">
+                {filteredUsers.length}
+              </span>
+            </span>
+
+          </div>
+
         </section>
 
-        {/* ================= USERS TABLE ================= */}
+        {/* ============================================= */}
+        {/* WALLET SUMMARY */}
+        {/* ============================================= */}
 
-        <section className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6">
+        <section className="bg-zinc-900 border border-purple-500 rounded-2xl p-6">
 
-          <h2 className="text-2xl font-black text-yellow-400 mb-5">
-            Registered Users
+          <h2 className="text-2xl font-black text-purple-400 mb-6">
+            Wallet Distribution
           </h2>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
+          <div className="grid md:grid-cols-3 gap-5">
 
-              <thead>
-                <tr className="border-b border-zinc-700 text-yellow-400">
-                  <th className="p-3">User</th>
-                  <th className="p-3">Role</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">PKR</th>
-                  <th className="p-3">Gold</th>
-                  <th className="p-3">USDT</th>
-                  <th className="p-3">Created</th>
-                  <th className="p-3 text-center">Actions</th>
+            <div className="bg-black border border-green-500 rounded-xl p-5 text-center">
+
+              <DollarSign className="mx-auto text-green-400 mb-3" size={30} />
+
+              <p className="text-gray-500 text-sm uppercase">
+                PKR Wallet
+              </p>
+
+              <h3 className="text-2xl font-black text-green-400 mt-2">
+                PKR {analytics.totalPkrBalance.toLocaleString()}
+              </h3>
+
+            </div>
+
+            <div className="bg-black border border-yellow-500 rounded-xl p-5 text-center">
+
+              <Coins className="mx-auto text-yellow-400 mb-3" size={30} />
+
+              <p className="text-gray-500 text-sm uppercase">
+                Gold Wallet
+              </p>
+
+              <h3 className="text-2xl font-black text-yellow-400 mt-2">
+                {analytics.totalGoldBalance.toFixed(2)} g
+              </h3>
+
+            </div>
+
+            <div className="bg-black border border-purple-500 rounded-xl p-5 text-center">
+
+              <Wallet className="mx-auto text-purple-400 mb-3" size={30} />
+
+              <p className="text-gray-500 text-sm uppercase">
+                USDT Wallet
+              </p>
+
+              <h3 className="text-2xl font-black text-purple-400 mt-2">
+                {analytics.totalUsdtBalance.toFixed(2)} USDT
+              </h3>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* ============================================= */}
+        {/* USERS TABLE */}
+        {/* ============================================= */}
+
+        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl overflow-hidden">
+
+          <div className="flex justify-between items-center px-6 py-5 border-b border-zinc-800 flex-wrap gap-3">
+            <div>
+              <h2 className="text-2xl font-black text-cyan-400">
+                User Wallet Management
+              </h2>
+              <p className="text-gray-400 text-sm mt-1">
+                Manage PKR, GOLD and USDT wallets.
+              </p>
+            </div>
+
+            <span className="bg-cyan-500/20 border border-cyan-500 text-cyan-400 px-4 py-2 rounded-full text-sm font-bold">
+              {filteredUsers.length} Users
+            </span>
+          </div>
+
+          <div className="hidden lg:block overflow-x-auto">
+
+            <table className="w-full min-w-[1300px]">
+
+              <thead className="bg-black text-gray-400 text-sm">
+
+                <tr>
+                  <th className="text-left px-5 py-4">Username</th>
+                  <th className="text-left px-5 py-4">PKR</th>
+                  <th className="text-left px-5 py-4">Gold</th>
+                  <th className="text-left px-5 py-4">USDT</th>
+                  <th className="text-left px-5 py-4">Wallet</th>
+                  <th className="text-left px-5 py-4">Joined</th>
+                  <th className="text-center px-5 py-4">Actions</th>
                 </tr>
+
               </thead>
 
               <tbody>
-                {filteredUsers.length === 0 ? (
+
+                {paginatedUsers.length === 0 ? (
+
                   <tr>
-                    <td
-                      colSpan={8}
-                      className="p-6 text-center text-gray-500"
-                    >
+                    <td colSpan={7} className="text-center py-12 text-gray-500">
                       No users found.
                     </td>
                   </tr>
+
                 ) : (
-                  filteredUsers.map((user) => (
+
+                  paginatedUsers.map((user) => (
+
                     <tr
                       key={user._id}
-                      className="border-b border-zinc-800 hover:bg-zinc-800 transition"
+                      className="border-t border-zinc-800 hover:bg-zinc-800/40 transition"
                     >
 
-                      {/* User */}
-                      <td className="p-3">
-                        <p className="font-bold text-yellow-400">
-                          {user.username}
-                        </p>
+                      <td className="px-5 py-4">
 
-                        <p className="text-xs text-gray-400">
-                          {user.email}
-                        </p>
-                      </td>
+                        <div>
+                          <h4 className="font-bold text-white">
+                            {user.username}
+                          </h4>
 
-                      {/* Role */}
-                      <td className="p-3">
-                        {user.role === "admin" ? (
-                          <span className="flex items-center gap-2 text-cyan-400 font-semibold">
-                            <ShieldCheck size={16} />
-                            Admin
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-2 text-gray-300 font-semibold">
-                            <Shield size={16} />
-                            User
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Status */}
-                      <td className="p-3">
-                        {user.status === "Active" ? (
-                          <span className="text-green-400 font-semibold">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="text-red-400 font-semibold">
-                            Blocked
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Wallets */}
-                      <td className="p-3 text-green-400 font-semibold">
-                        <div className="flex items-center gap-2">
-                          <Wallet size={16} />
-                          {user.walletBalance.toLocaleString()}
+                          <p className="text-xs text-gray-500">
+                            {user.email || "No Email"}
+                          </p>
                         </div>
+
                       </td>
 
-                      <td className="p-3 text-yellow-400 font-semibold">
-                        <div className="flex items-center gap-2">
-                          <Coins size={16} />
-                          {user.goldBalance.toFixed(2)}
-                        </div>
+                      <td className="px-5 py-4 text-green-400 font-bold">
+                        PKR {user.pkrBalance.toLocaleString()}
                       </td>
 
-                      <td className="p-3 text-blue-400 font-semibold">
-                        <div className="flex items-center gap-2">
-                          <DollarSign size={16} />
-                          {user.usdtBalance.toFixed(2)}
-                        </div>
+                      <td className="px-5 py-4 text-yellow-400 font-bold">
+                        {user.goldBalance.toFixed(2)} g
                       </td>
 
-                      {/* Created */}
-                      <td className="p-3 text-gray-500 whitespace-nowrap">
+                      <td className="px-5 py-4 text-purple-400 font-bold">
+                        {user.usdtBalance.toFixed(2)} USDT
+                      </td>
+
+                      <td className="px-5 py-4">
+
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            user.walletFrozen
+                              ? "bg-red-500/20 border border-red-500 text-red-400"
+                              : "bg-green-500/20 border border-green-500 text-green-400"
+                          }`}
+                        >
+                          {user.walletFrozen ? "Frozen" : "Active"}
+                        </span>
+
+                      </td>
+
+                      <td className="px-5 py-4 text-gray-400 text-sm">
                         {new Date(user.createdAt).toLocaleDateString()}
                       </td>
 
-                      {/* Actions */}
-                      <td className="p-3">
+                      <td className="px-5 py-4">
+
                         <div className="flex flex-wrap gap-2 justify-center">
 
-                          {/* Role */}
-                          {user.role === "user" ? (
-                            <button
-                              onClick={() =>
-                                updateRole(user._id, "admin")
-                              }
-                              className="bg-cyan-600 hover:bg-cyan-700 px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2"
-                            >
-                              <ShieldCheck size={14} />
-                              Make Admin
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() =>
-                                updateRole(user._id, "user")
-                              }
-                              className="bg-zinc-700 hover:bg-zinc-600 px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2"
-                            >
-                              <Shield size={14} />
-                              Make User
-                            </button>
-                          )}
+                          <button
+                            onClick={() => setSelectedUser(user)}
+                            className="bg-cyan-500 hover:bg-cyan-400 text-black px-3 py-2 rounded-lg text-xs font-bold transition"
+                          >
+                            Wallet
+                          </button>
 
-                          {/* Status */}
-                          {user.status === "Active" ? (
-                            <button
-                              onClick={() =>
-                                updateStatus(user._id, "Blocked")
-                              }
-                              className="bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2"
-                            >
-                              <ShieldX size={14} />
-                              Block
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() =>
-                                updateStatus(user._id, "Active")
-                              }
-                              className="bg-green-600 hover:bg-green-700 px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2"
-                            >
-                              <ShieldCheck size={14} />
-                              Unblock
-                            </button>
-                          )}
+                          <button
+                            className={`px-3 py-2 rounded-lg text-xs font-bold transition ${
+                              user.walletFrozen
+                                ? "bg-green-500 hover:bg-green-400 text-black"
+                                : "bg-red-500 hover:bg-red-400 text-black"
+                            }`}
+                          >
+                            {user.walletFrozen ? "Unfreeze" : "Freeze"}
+                          </button>
 
                         </div>
+
                       </td>
 
                     </tr>
+
                   ))
+
                 )}
+
               </tbody>
 
             </table>
+
+          </div>
+                    {/* ============================================= */}
+          {/* MOBILE USER CARDS */}
+          {/* ============================================= */}
+
+          <div className="lg:hidden p-5 space-y-5">
+
+            {paginatedUsers.map((user) => (
+
+              <div
+                key={user._id}
+                className="bg-black border border-zinc-700 rounded-xl p-5 space-y-4"
+              >
+
+                <div className="flex justify-between items-center">
+
+                  <div>
+
+                    <h3 className="font-black text-lg text-white">
+                      {user.username}
+                    </h3>
+
+                    <p className="text-xs text-gray-500">
+                      {user.email || "No Email"}
+                    </p>
+
+                  </div>
+
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      user.walletFrozen
+                        ? "bg-red-500/20 border border-red-500 text-red-400"
+                        : "bg-green-500/20 border border-green-500 text-green-400"
+                    }`}
+                  >
+                    {user.walletFrozen ? "Frozen" : "Active"}
+                  </span>
+
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 text-center">
+
+                  <div className="bg-zinc-900 rounded-lg p-3">
+                    <p className="text-gray-500 text-xs">PKR</p>
+                    <p className="text-green-400 font-bold text-sm">
+                      {user.pkrBalance.toLocaleString()}
+                    </p>
+                  </div>
+
+                  <div className="bg-zinc-900 rounded-lg p-3">
+                    <p className="text-gray-500 text-xs">Gold</p>
+                    <p className="text-yellow-400 font-bold text-sm">
+                      {user.goldBalance.toFixed(2)}
+                    </p>
+                  </div>
+
+                  <div className="bg-zinc-900 rounded-lg p-3">
+                    <p className="text-gray-500 text-xs">USDT</p>
+                    <p className="text-purple-400 font-bold text-sm">
+                      {user.usdtBalance.toFixed(2)}
+                    </p>
+                  </div>
+
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+
+                  <button
+                    onClick={() => setSelectedUser(user)}
+                    className="bg-cyan-500 hover:bg-cyan-400 text-black py-3 rounded-xl font-bold transition"
+                  >
+                    Wallet
+                  </button>
+
+                  <button
+                    className={`py-3 rounded-xl font-bold transition ${
+                      user.walletFrozen
+                        ? "bg-green-500 hover:bg-green-400 text-black"
+                        : "bg-red-500 hover:bg-red-400 text-black"
+                    }`}
+                  >
+                    {user.walletFrozen ? "Unfreeze" : "Freeze"}
+                  </button>
+
+                </div>
+
+              </div>
+
+            ))}
+
           </div>
 
         </section>
+                  {/* ============================================= */}
+          {/* MOBILE USER CARDS */}
+          {/* ============================================= */}
+
+          <div className="lg:hidden p-5 space-y-5">
+
+            {paginatedUsers.map((user) => (
+
+              <div
+                key={user._id}
+                className="bg-black border border-zinc-700 rounded-xl p-5 space-y-4"
+              >
+
+                <div className="flex justify-between items-center">
+
+                  <div>
+
+                    <h3 className="font-black text-lg text-white">
+                      {user.username}
+                    </h3>
+
+                    <p className="text-xs text-gray-500">
+                      {user.email || "No Email"}
+                    </p>
+
+                  </div>
+
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      user.walletFrozen
+                        ? "bg-red-500/20 border border-red-500 text-red-400"
+                        : "bg-green-500/20 border border-green-500 text-green-400"
+                    }`}
+                  >
+                    {user.walletFrozen ? "Frozen" : "Active"}
+                  </span>
+
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 text-center">
+
+                  <div className="bg-zinc-900 rounded-lg p-3">
+                    <p className="text-gray-500 text-xs">PKR</p>
+                    <p className="text-green-400 font-bold text-sm">
+                      {user.pkrBalance.toLocaleString()}
+                    </p>
+                  </div>
+
+                  <div className="bg-zinc-900 rounded-lg p-3">
+                    <p className="text-gray-500 text-xs">Gold</p>
+                    <p className="text-yellow-400 font-bold text-sm">
+                      {user.goldBalance.toFixed(2)}
+                    </p>
+                  </div>
+
+                  <div className="bg-zinc-900 rounded-lg p-3">
+                    <p className="text-gray-500 text-xs">USDT</p>
+                    <p className="text-purple-400 font-bold text-sm">
+                      {user.usdtBalance.toFixed(2)}
+                    </p>
+                  </div>
+
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+
+                  <button
+                    onClick={() => setSelectedUser(user)}
+                    className="bg-cyan-500 hover:bg-cyan-400 text-black py-3 rounded-xl font-bold transition"
+                  >
+                    Wallet
+                  </button>
+
+                  <button
+                    className={`py-3 rounded-xl font-bold transition ${
+                      user.walletFrozen
+                        ? "bg-green-500 hover:bg-green-400 text-black"
+                        : "bg-red-500 hover:bg-red-400 text-black"
+                    }`}
+                  >
+                    {user.walletFrozen ? "Unfreeze" : "Freeze"}
+                  </button>
+
+                </div>
+
+              </div>
+
+            ))}
+
+          </div>
+
+          {/* ============================================= */}
+        {/* WALLET CREDIT / DEBIT MODAL */}
+        {/* ============================================= */}
+
+        {selectedUser && (
+
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+
+            <div className="bg-zinc-900 border border-cyan-500 rounded-2xl w-full max-w-lg p-6 space-y-5">
+
+              <div className="flex justify-between items-center">
+
+                <h2 className="text-2xl font-black text-cyan-400">
+                  Wallet Manager
+                </h2>
+
+                <button
+                  onClick={() => {
+                    setSelectedUser(null);
+                    setAmount("");
+                  }}
+                  className="text-red-400 font-bold"
+                >
+                  Close
+                </button>
+
+              </div>
+
+              <div className="bg-black rounded-xl p-4 space-y-2">
+
+                <h3 className="font-black text-white">
+                  {selectedUser.username}
+                </h3>
+
+                <p className="text-sm text-gray-400">
+                  PKR: {selectedUser.pkrBalance.toLocaleString()}
+                </p>
+
+                <p className="text-sm text-yellow-400">
+                  Gold: {selectedUser.goldBalance.toFixed(2)} g
+                </p>
+
+                <p className="text-sm text-purple-400">
+                  USDT: {selectedUser.usdtBalance.toFixed(2)}
+                </p>
+
+              </div>
+
+              <div className="space-y-3">
+
+                <label className="text-sm text-gray-400">
+                  Wallet Type
+                </label>
+
+                <select
+                  value={walletType}
+                  onChange={(e) => setWalletType(e.target.value)}
+                  className="w-full bg-black border border-zinc-700 rounded-xl p-3 text-white"
+                >
+                  <option value="PKR">PKR Wallet</option>
+                  <option value="GOLD">Gold Wallet</option>
+                  <option value="USDT">USDT Wallet</option>
+                </select>
+
+              </div>
+
+              <div className="space-y-3">
+
+                <label className="text-sm text-gray-400">
+                  Action
+                </label>
+
+                <select
+                  value={actionType}
+                  onChange={(e) => setActionType(e.target.value)}
+                  className="w-full bg-black border border-zinc-700 rounded-xl p-3 text-white"
+                >
+                  <option value="credit">Credit</option>
+                  <option value="debit">Debit</option>
+                </select>
+
+              </div>
+
+              <div className="space-y-3">
+
+                <label className="text-sm text-gray-400">
+                  Amount
+                </label>
+
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="Enter amount..."
+                  className="w-full bg-black border border-zinc-700 rounded-xl p-3 text-white"
+                />
+
+              </div>
+
+              <button
+                className="w-full bg-cyan-500 hover:bg-cyan-400 text-black py-3 rounded-xl font-bold transition"
+              >
+                Update Wallet
+              </button>
+
+            </div>
+
+          </div>
+
+        )}
+
+        {/* ============================================= */}
+        {/* PAGINATION */}
+        {/* ============================================= */}
+
+        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 space-y-6">
+
+          <div className="flex flex-wrap justify-between items-center gap-4">
+
+            <div>
+              <h2 className="text-2xl font-black text-cyan-400">
+                User Pagination
+              </h2>
+
+              <p className="text-gray-400 text-sm mt-2">
+                Showing {paginatedUsers.length} of {filteredUsers.length} users.
+              </p>
+            </div>
+
+            <span className="bg-cyan-500/20 border border-cyan-500 text-cyan-400 px-4 py-2 rounded-full font-bold text-sm">
+              Page {currentPage} / {totalPages}
+            </span>
+
+          </div>
+
+          <div className="flex justify-center gap-2 flex-wrap">
+
+            <button
+              onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
+              disabled={currentPage === 1}
+              className="bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 px-4 py-2 rounded-lg font-bold"
+            >
+              Previous
+            </button>
+
+            {Array.from({ length: totalPages }).map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentPage(index + 1)}
+                className={`w-10 h-10 rounded-lg font-bold transition ${
+                  currentPage === index + 1
+                    ? "bg-cyan-500 text-black"
+                    : "bg-zinc-800 hover:bg-zinc-700 text-white"
+                }`}
+              >
+                {index + 1}
+              </button>
+            ))}
+
+            <button
+              onClick={() =>
+                setCurrentPage(Math.min(currentPage + 1, totalPages))
+              }
+              disabled={currentPage === totalPages}
+              className="bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 px-4 py-2 rounded-lg font-bold"
+            >
+              Next
+            </button>
+
+          </div>
+
+        </section>
+
+        {/* ============================================= */}
+        {/* QUICK ACTIONS */}
+        {/* ============================================= */}
+
+        <section className="grid md:grid-cols-3 gap-5">
+
+          <Link
+            href="/admin/wallet"
+            className="bg-zinc-900 border border-green-500 rounded-2xl p-6 hover:border-green-400 transition"
+          >
+            <Wallet className="text-green-400 mb-3" size={30} />
+
+            <h3 className="text-xl font-black text-green-400">
+              Wallet Manager
+            </h3>
+
+            <p className="text-gray-400 text-sm mt-2">
+              Manage PKR, GOLD and USDT wallets.
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/gold"
+            className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6 hover:border-yellow-400 transition"
+          >
+            <Coins className="text-yellow-400 mb-3" size={30} />
+
+            <h3 className="text-xl font-black text-yellow-400">
+              Gold Manager
+            </h3>
+
+            <p className="text-gray-400 text-sm mt-2">
+              Manage Gold market, prices and buy/sell orders.
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/usdt"
+            className="bg-zinc-900 border border-purple-500 rounded-2xl p-6 hover:border-purple-400 transition"
+          >
+            <Wallet className="text-purple-400 mb-3" size={30} />
+
+            <h3 className="text-xl font-black text-purple-400">
+              USDT Manager
+            </h3>
+
+            <p className="text-gray-400 text-sm mt-2">
+              Manage USDT deposits, withdrawals and trading settings.
+            </p>
+          </Link>
+
+        </section>
+
+        {/* ============================================= */}
+        {/* ENTERPRISE SUMMARY */}
+        {/* ============================================= */}
+
+        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 space-y-6">
+
+          <h2 className="text-2xl font-black text-cyan-400">
+            Enterprise Wallet Summary
+          </h2>
+
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
+
+            <div className="bg-black border border-green-500 rounded-xl p-5 text-center">
+              <DollarSign className="mx-auto text-green-400 mb-3" size={28} />
+              <p className="text-gray-500 text-xs uppercase">PKR Balance</p>
+
+              <h3 className="text-2xl font-black text-green-400 mt-2">
+                PKR {analytics.totalPkrBalance.toLocaleString()}
+              </h3>
+            </div>
+
+            <div className="bg-black border border-yellow-500 rounded-xl p-5 text-center">
+              <Coins className="mx-auto text-yellow-400 mb-3" size={28} />
+              <p className="text-gray-500 text-xs uppercase">Gold Balance</p>
+
+              <h3 className="text-2xl font-black text-yellow-400 mt-2">
+                {analytics.totalGoldBalance.toFixed(2)} g
+              </h3>
+            </div>
+
+            <div className="bg-black border border-purple-500 rounded-xl p-5 text-center">
+              <Wallet className="mx-auto text-purple-400 mb-3" size={28} />
+              <p className="text-gray-500 text-xs uppercase">USDT Balance</p>
+
+              <h3 className="text-2xl font-black text-purple-400 mt-2">
+                {analytics.totalUsdtBalance.toFixed(2)} USDT
+              </h3>
+            </div>
+
+            <div className="bg-black border border-cyan-500 rounded-xl p-5 text-center">
+              <Users className="mx-auto text-cyan-400 mb-3" size={28} />
+              <p className="text-gray-500 text-xs uppercase">Registered Users</p>
+
+              <h3 className="text-2xl font-black text-cyan-400 mt-2">
+                {analytics.totalUsers}
+              </h3>
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* ============================================= */}
+        {/* FOOTER */}
+        {/* ============================================= */}
+
+        <footer className="border-t border-zinc-800 pt-8 pb-6">
+
+          <div className="grid md:grid-cols-3 gap-8">
+
+            <div>
+              <h3 className="text-lg font-black text-cyan-400 mb-3">
+                GoldTrade V18 Enterprise
+              </h3>
+
+              <p className="text-gray-500 text-sm leading-6">
+                Complete Enterprise User Management dashboard with wallet controls,
+                search, analytics, freeze/unfreeze and transaction management.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black text-green-400 mb-3">
+                Wallet Controls
+              </h3>
+
+              <ul className="space-y-2 text-sm text-gray-500">
+                <li>• PKR Credit / Debit</li>
+                <li>• Gold Credit / Debit</li>
+                <li>• USDT Credit / Debit</li>
+                <li>• Freeze Wallet</li>
+                <li>• Unfreeze Wallet</li>
+                <li>• Search Users</li>
+                <li>• Pagination</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black text-purple-400 mb-3">
+                Wallet Statistics
+              </h3>
+
+              <div className="space-y-3 text-sm">
+
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Total Users</span>
+                  <span className="font-bold text-cyan-400">
+                    {analytics.totalUsers}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Active Wallets</span>
+                  <span className="font-bold text-green-400">
+                    {analytics.activeWallets}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Frozen Wallets</span>
+                  <span className="font-bold text-red-400">
+                    {analytics.frozenWallets}
+                  </span>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <div className="border-t border-zinc-800 mt-8 pt-6 flex flex-wrap justify-between items-center gap-4">
+
+            <p className="text-gray-500 text-sm">
+              © 2026 GoldTrade V18 Enterprise User Wallet Manager.
+            </p>
+
+            <button
+              onClick={refreshDashboard}
+              disabled={refreshing}
+              className="bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 text-black px-5 py-2 rounded-lg font-bold flex items-center gap-2 transition"
+            >
+              <RefreshCw
+                size={16}
+                className={refreshing ? "animate-spin" : ""}
+              />
+
+              {refreshing ? "Refreshing..." : "Refresh Dashboard"}
+            </button>
+
+          </div>
+
+        </footer>
 
       </div>
     </main>
   );
 }
-
-

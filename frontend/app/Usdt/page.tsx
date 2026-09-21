@@ -11,6 +11,8 @@ import {
   TrendingDown,
   ArrowDownCircle,
   ArrowUpCircle,
+  ArrowDownRight,
+  ArrowUpRight,
 } from "lucide-react";
 
 const API =
@@ -21,6 +23,7 @@ const API =
 // =====================================
 
 interface WalletData {
+  pkrBalance: any;
   walletBalance: number;
   usdtBalance: number;
 }
@@ -46,6 +49,7 @@ interface UsdtTransaction {
 const defaultWallet: WalletData = {
   walletBalance: 0,
   usdtBalance: 0,
+  pkrBalance: undefined
 };
 
 const defaultMarket: UsdtMarket = {
@@ -53,7 +57,6 @@ const defaultMarket: UsdtMarket = {
   sellRate: 283,
   tradingEnabled: true,
 };
-
 // =====================================
 // PAGE
 // =====================================
@@ -109,6 +112,7 @@ export default function UsdtDashboardPage() {
         setWallet({
           walletBalance: walletData.walletBalance || 0,
           usdtBalance: walletData.usdtBalance || 0,
+          pkrBalance: walletData.pkrBalance || walletData.walletBalance || 0,
         });
       }
 
@@ -228,6 +232,10 @@ export default function UsdtDashboardPage() {
     );
   }
 
+  function calculateSellAmount() {
+    return sellValue;
+  }
+
   // =====================================
   // UI
   // =====================================
@@ -290,6 +298,45 @@ export default function UsdtDashboardPage() {
               : "Trading is currently disabled by admin."}
           </p>
         </section>
+        <section className="grid md:grid-cols-3 gap-5">
+
+  <div className="bg-zinc-900 border border-cyan-500 rounded-xl p-5">
+
+    <p className="text-gray-500 text-sm">
+      USDT Balance
+    </p>
+
+    <h3 className="text-2xl font-black text-cyan-400 mt-2">
+      {wallet.usdtBalance.toFixed(2)} USDT
+    </h3>
+
+  </div>
+
+  <div className="bg-zinc-900 border border-yellow-500 rounded-xl p-5">
+
+    <p className="text-gray-500 text-sm">
+      PKR Wallet
+    </p>
+
+    <h3 className="text-2xl font-black text-yellow-400 mt-2">
+      PKR {wallet.pkrBalance.toLocaleString()}
+    </h3>
+
+  </div>
+
+  <div className="bg-zinc-900 border border-green-500 rounded-xl p-5">
+
+    <p className="text-gray-500 text-sm">
+      Estimated PKR Credit
+    </p>
+
+    <h3 className="text-2xl font-black text-green-400 mt-2">
+      PKR {calculateSellAmount().toLocaleString()}
+    </h3>
+
+  </div>
+
+</section>
 
         {/* ================= WALLET CARDS ================= */}
 
@@ -300,12 +347,12 @@ export default function UsdtDashboardPage() {
               <Wallet className="text-green-400" size={28} />
 
               <h2 className="text-xl font-bold text-green-400">
-                PKR Wallet
+                Pkr Wallet
               </h2>
             </div>
 
             <h3 className="text-3xl font-black">
-              PKR {wallet.walletBalance.toLocaleString()}
+              Pkr {wallet.walletBalance.toLocaleString()}
             </h3>
           </div>
 
@@ -314,7 +361,7 @@ export default function UsdtDashboardPage() {
               <DollarSign className="text-blue-400" size={28} />
 
               <h2 className="text-xl font-bold text-blue-400">
-                USDT Wallet
+                Usdt Wallet
               </h2>
             </div>
 
@@ -324,6 +371,37 @@ export default function UsdtDashboardPage() {
           </div>
 
         </section>
+        <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5 space-y-3">
+
+  <h3 className="text-xl font-black text-green-400">
+    Sell Summary
+  </h3>
+
+  <div className="flex justify-between">
+    <span className="text-gray-400">Selling</span>
+    <span>{sellAmount || 0} USDT</span>
+  </div>
+
+  <div className="flex justify-between">
+    <span className="text-gray-400">Sell Rate</span>
+    <span>PKR {market.sellRate}</span>
+  </div>
+
+  <div className="flex justify-between">
+    <span className="text-gray-400">You'll Receive</span>
+    <span className="font-bold text-green-400">
+      PKR {calculateSellAmount().toLocaleString()}
+    </span>
+  </div>
+
+  <div className="border-t border-zinc-700 pt-3 flex justify-between">
+    <span className="text-gray-400">Available USDT</span>
+    <span className="font-bold text-cyan-400">
+      {wallet.usdtBalance.toFixed(2)} USDT
+    </span>
+  </div>
+
+</div>
 
         {/* ================= LIVE RATE ================= */}
 
@@ -339,7 +417,7 @@ export default function UsdtDashboardPage() {
             </div>
 
             <h3 className="text-4xl font-black text-cyan-400">
-              PKR {market.buyRate}
+              Pkr {market.buyRate}
             </h3>
 
             <p className="text-gray-400 mt-2">
@@ -357,7 +435,7 @@ export default function UsdtDashboardPage() {
             </div>
 
             <h3 className="text-4xl font-black text-orange-400">
-              PKR {market.sellRate}
+              Pkr {market.sellRate}
             </h3>
 
             <p className="text-gray-400 mt-2">
@@ -365,7 +443,187 @@ export default function UsdtDashboardPage() {
             </p>
           </div>
 
-        </section>
+        </section>{/* ================================================= */}
+{/* WALLET INFORMATION */}
+{/* PATCH: Before History */}
+{/* ================================================= */}
+
+<section className="grid md:grid-cols-3 gap-5">
+
+  <div className="bg-zinc-900 border border-yellow-500 rounded-xl p-5">
+    <p className="text-gray-500 text-sm">
+      PKR Wallet
+    </p>
+
+    <h3 className="text-2xl font-black text-yellow-400 mt-2">
+      PKR {wallet.pkrBalance.toLocaleString()}
+    </h3>
+  </div>
+
+  <div className="bg-zinc-900 border border-blue-500 rounded-xl p-5">
+    <p className="text-gray-500 text-sm">
+      USDT Wallet
+    </p>
+
+    <h3 className="text-2xl font-black text-blue-400 mt-2">
+      {wallet.usdtBalance.toFixed(2)} USDT
+    </h3>
+  </div>
+
+  <div className="bg-zinc-900 border border-cyan-500 rounded-xl p-5">
+    <p className="text-gray-500 text-sm">
+      Wallet Value
+    </p>
+
+    <h3 className="text-2xl font-black text-cyan-400 mt-2">
+      PKR {(wallet.usdtBalance * market.sellRate).toLocaleString()}
+    </h3>
+  </div>
+
+</section>{/* ================================================= */}
+{/* LIVE USDT MARKET SUMMARY */}
+{/* PATCH: After Page Header */}
+{/* ================================================= */}
+
+<section className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
+
+  <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-5">
+    <p className="text-gray-500 text-sm">Buy USDT</p>
+
+    <h2 className="text-3xl font-black text-cyan-400 mt-2">
+      PKR {market.buyRate.toLocaleString()}
+    </h2>
+
+    <p className="text-xs text-gray-500 mt-2">
+      Current Buy Rate
+    </p>
+  </div>
+
+  <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5">
+    <p className="text-gray-500 text-sm">Sell USDT</p>
+
+    <h2 className="text-3xl font-black text-green-400 mt-2">
+      PKR {market.sellRate.toLocaleString()}
+    </h2>
+
+    <p className="text-xs text-gray-500 mt-2">
+      Current Sell Rate
+    </p>
+  </div>
+
+  <div className="bg-zinc-900 border border-blue-500 rounded-2xl p-5">
+    <p className="text-gray-500 text-sm">USDT Wallet</p>
+
+    <h2 className="text-3xl font-black text-blue-400 mt-2">
+      {wallet.usdtBalance.toFixed(2)}
+    </h2>
+
+    <p className="text-xs text-gray-500 mt-2">
+      Available Balance
+    </p>
+  </div>
+
+  <div className="bg-zinc-900 border border-purple-500 rounded-2xl p-5">
+    <p className="text-gray-500 text-sm">Wallet Value</p>
+
+    <h2 className="text-3xl font-black text-purple-400 mt-2">
+      PKR {(wallet.usdtBalance * market.sellRate).toLocaleString()}
+    </h2>
+
+    <p className="text-xs text-gray-500 mt-2">
+      Estimated PKR Value
+    </p>
+  </div>
+
+</section>{/* ================================================= */}
+{/* MARKET STATUS BANNER */}
+{/* PATCH: Below Live Market Cards */}
+{/* ================================================= */}
+
+<section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-5">
+
+  <div className="flex flex-wrap justify-between items-center gap-4">
+
+    <div>
+      <h3 className="text-xl font-black text-cyan-400">
+        USDT Market Status
+      </h3>
+
+      <p className="text-gray-400 text-sm mt-1">
+        {market.tradingEnabled
+          ? "USDT trading is currently available."
+          : "USDT trading is currently disabled by admin."}
+      </p>
+    </div>
+
+    <div className="flex gap-3 flex-wrap">
+
+      <span
+        className={`px-4 py-2 rounded-full font-bold ${
+          market.tradingEnabled
+            ? "bg-green-500/20 text-green-400"
+            : "bg-red-500/20 text-red-400"
+        }`}
+      >
+        {market.tradingEnabled ? "OPEN" : "CLOSED"}
+      </span>
+
+      <span
+        className={`px-4 py-2 rounded-full font-bold ${
+          market.tradingEnabled
+            ? "bg-cyan-500/20 text-cyan-400"
+            : "bg-red-500/20 text-red-400"
+        }`}
+      >
+        Trading {market.tradingEnabled ? "Enabled" : "Disabled"}
+      </span>
+
+    </div>
+
+  </div>
+
+</section>{/* ================================================= */}
+{/* QUICK ACTIONS */}
+{/* PATCH: After Wallet Summary */}
+{/* ================================================= */}
+
+<section className="grid md:grid-cols-2 gap-5">
+
+  <Link
+    href="/usdt/buy"
+    className="bg-cyan-500 hover:bg-cyan-400 text-black rounded-2xl p-6 transition flex items-center justify-between"
+  >
+    <div>
+      <p className="text-sm font-semibold">
+        Buy USDT
+      </p>
+
+      <h3 className="text-2xl font-black mt-2">
+        Buy Now
+      </h3>
+    </div>
+
+    <ArrowUpRight size={34} />
+  </Link>
+
+  <Link
+    href="/usdt/sell"
+    className="bg-green-500 hover:bg-green-400 text-black rounded-2xl p-6 transition flex items-center justify-between"
+  >
+    <div>
+      <p className="text-sm font-semibold">
+        Sell USDT
+      </p>
+
+      <h3 className="text-2xl font-black mt-2">
+        Sell Now
+      </h3>
+    </div>
+
+    <ArrowDownRight size={34} />
+  </Link>
+
+</section>
 
         {/* ================= BUY / SELL PANELS ================= */}
 
@@ -397,7 +655,7 @@ export default function UsdtDashboardPage() {
               <p className="text-gray-400">You Pay</p>
 
               <h3 className="text-3xl font-black text-green-400 mt-2">
-                PKR {buyCost.toLocaleString()}
+                Pkr {buyCost.toLocaleString()}
               </h3>
             </div>
 
@@ -437,7 +695,7 @@ export default function UsdtDashboardPage() {
               <p className="text-gray-400">You Receive</p>
 
               <h3 className="text-3xl font-black text-red-400 mt-2">
-                PKR {sellValue.toLocaleString()}
+                Pkr {sellValue.toLocaleString()}
               </h3>
             </div>
 
@@ -446,7 +704,7 @@ export default function UsdtDashboardPage() {
               onClick={sellUsdt}
               className="w-full bg-red-600 hover:bg-red-700 disabled:bg-zinc-700 py-3 rounded-xl font-bold"
             >
-              {sellLoading ? "Processing..." : "Sell USDT"}
+              {sellLoading ? "Processing..." : "Sell Usdt"}
             </button>
 
           </div>
@@ -468,8 +726,8 @@ export default function UsdtDashboardPage() {
                 <thead>
                   <tr className="border-b border-zinc-700 text-cyan-400">
                     <th className="p-3">Type</th>
-                    <th className="p-3">USDT</th>
-                    <th className="p-3">PKR</th>
+                    <th className="p-3">Usdt</th>
+                    <th className="p-3">Pkr</th>
                     <th className="p-3">Rate</th>
                     <th className="p-3">Date</th>
                   </tr>
@@ -506,11 +764,11 @@ export default function UsdtDashboardPage() {
                         </td>
 
                         <td className="p-3 text-green-400 font-semibold">
-                          PKR {item.pkrAmount.toLocaleString()}
+                          Pkr {item.pkrAmount.toLocaleString()}
                         </td>
 
                         <td className="p-3 text-yellow-400 font-semibold">
-                          PKR {rate.toFixed(2)}
+                          Pkr {rate.toFixed(2)}
                         </td>
 
                         <td className="p-3 text-gray-400 whitespace-nowrap">
@@ -537,7 +795,7 @@ export default function UsdtDashboardPage() {
               <p className="text-gray-400 text-sm">Buy Price</p>
 
               <h3 className="text-3xl font-black text-cyan-400 mt-2">
-                PKR {market.buyRate}
+                Pkr {market.buyRate}
               </h3>
             </div>
 
@@ -545,7 +803,7 @@ export default function UsdtDashboardPage() {
               <p className="text-gray-400 text-sm">Sell Price</p>
 
               <h3 className="text-3xl font-black text-orange-400 mt-2">
-                PKR {market.sellRate}
+                Pkr {market.sellRate}
               </h3>
             </div>
 
@@ -553,7 +811,7 @@ export default function UsdtDashboardPage() {
               <p className="text-gray-400 text-sm">Wallet Value</p>
 
               <h3 className="text-3xl font-black text-blue-400 mt-2">
-                PKR{" "}
+                Pkr{" "}
                 {(wallet.usdtBalance * market.sellRate).toLocaleString()}
               </h3>
 
@@ -568,5 +826,4 @@ export default function UsdtDashboardPage() {
     </main>
   );
 }
-
 

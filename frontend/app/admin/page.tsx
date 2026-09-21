@@ -220,7 +220,7 @@ export default function AdminWithdrawPage() {
             <p className="text-gray-400">Approved Amount</p>
 
             <h2 className="text-3xl font-black text-green-400 mt-2">
-              PKR {approvedAmount.toLocaleString()}
+              Pkr {approvedAmount.toLocaleString()}
             </h2>
           </div>
 
@@ -322,7 +322,7 @@ export default function AdminWithdrawPage() {
                       </td>
 
                       <td className="p-3 text-green-400 font-bold">
-                        PKR {item.amount.toLocaleString()}
+                        Pkr {item.amount.toLocaleString()}
                       </td>
 
                       <td className="p-3">

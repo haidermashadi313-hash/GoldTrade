@@ -5,17 +5,36 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
+  Wallet,
+  DollarSign,
+  Coins,
+  ArrowDownLeft,
+  ArrowUpRight,
   Users,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  History,
   Settings,
+  Receipt,
   LogOut,
   ShieldCheck,
-  CircleDollarSign,
-  TrendingUp,
   Bell,
 } from "lucide-react";
+const usdtMenu = [
+  {
+    title: "USDT Settings",
+    href: "/admin/usdt-settings",
+    icon: Wallet,
+    color: "text-cyan-400",
+  },
+
+  {
+    title: "USDT Orders",
+    href: "/admin/usdt-orders",
+    icon: DollarSign,
+    color: "text-blue-400",
+  },
+];
+
+// The above block seems to be redundant and can be removed as it duplicates the usdtMenu array.
+
 
 // Backend API (Production + Local Development)
 const API =
@@ -24,13 +43,14 @@ const API =
 const menu = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Users Manager", href: "/admin/users", icon: Users },
-  { name: "Deposit Manager", href: "/admin/deposit", icon: ArrowDownCircle },
-  { name: "Withdraw Manager", href: "/admin/withdraw", icon: ArrowUpCircle },
-  { name: "Usdt Manager", href: "/admin/Usdt", icon: CircleDollarSign },
-  { name: "Transactions", href: "/admin/transactions", icon: History },
-  { name: "Live Gold Market", href: "/admin/gold-market", icon: TrendingUp },
+  { name: "Deposit Manager", href: "/admin/deposit", icon: ArrowDownLeft },
+  { name: "Withdraw Manager", href: "/admin/withdraw", icon: ArrowUpRight },
+  { name: "Usdt Manager", href: "/admin/Usdt", icon: DollarSign },
+  { name: "Transactions", href: "/admin/transactions", icon: Receipt },
+  { name: "Live Gold Market", href: "/admin/gold-market", icon: Coins },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
+
 
 export default function AdminSidebar() {
   const pathname = usePathname();
@@ -132,6 +152,46 @@ export default function AdminSidebar() {
           </div>
 
         </div>
+        {/* ================================================= */}
+{/* USDT QUICK ACTIONS */}
+{/* Paste after Gold Quick Actions */}
+{/* ================================================= */}
+
+<Link
+  href="/admin/usdt-settings"
+  className="group bg-zinc-900 hover:bg-cyan-500/10 border border-cyan-500 rounded-2xl p-5 transition-all duration-300"
+>
+  <div className="flex items-center justify-between mb-4">
+    <Wallet className="text-cyan-400 group-hover:scale-110 transition-transform" size={30} />
+    <ArrowUpRight className="text-cyan-400" size={18} />
+  </div>
+
+  <h3 className="text-lg font-black text-cyan-400">
+    USDT Settings
+  </h3>
+
+  <p className="text-sm text-gray-400 mt-2">
+    Manage Buy/Sell rates, market status and trading limits.
+  </p>
+</Link>
+
+<Link
+  href="/admin/usdt-orders"
+  className="group bg-zinc-900 hover:bg-blue-500/10 border border-blue-500 rounded-2xl p-5 transition-all duration-300"
+>
+  <div className="flex items-center justify-between mb-4">
+    <DollarSign className="text-blue-400 group-hover:scale-110 transition-transform" size={30} />
+    <ArrowUpRight className="text-blue-400" size={18} />
+  </div>
+
+  <h3 className="text-lg font-black text-blue-400">
+    USDT Orders
+  </h3>
+
+  <p className="text-sm text-gray-400 mt-2">
+    View all Buy/Sell USDT orders with enterprise audit history.
+  </p>
+</Link>
 
         {/* ================= Menu ================= */}
         <nav className="px-4 py-6 space-y-2">

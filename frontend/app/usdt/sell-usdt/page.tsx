@@ -296,16 +296,16 @@ export default function SellUsdtPage() {
               <Wallet className="text-green-400" size={28} />
 
               <h2 className="text-xl font-bold text-green-400">
-                PKR Wallet Balance
+                Pkr Wallet Balance
               </h2>
             </div>
 
             <h3 className="text-3xl font-black">
-              PKR {wallet.walletBalance.toLocaleString()}
+              Pkr {wallet.walletBalance.toLocaleString()}
             </h3>
 
             <p className="text-sm text-gray-400 mt-2">
-              PKR wallet balance before selling USDT.
+              Pkr wallet balance before selling USDT.
             </p>
           </div>
 
@@ -388,7 +388,7 @@ export default function SellUsdtPage() {
               </span>
 
               <span className="text-3xl font-black text-green-400">
-                PKR {totalPkr.toLocaleString()}
+                Pkr {totalPkr.toLocaleString()}
               </span>
             </div>
 
@@ -452,7 +452,7 @@ export default function SellUsdtPage() {
               <p className="text-gray-400 text-sm">Sell Rate</p>
 
               <h3 className="text-3xl font-black text-orange-400 mt-2">
-                PKR {market.sellRate}
+                Pkr {market.sellRate}
               </h3>
             </div>
 
@@ -460,7 +460,7 @@ export default function SellUsdtPage() {
               <p className="text-gray-400 text-sm">You Will Receive</p>
 
               <h3 className="text-3xl font-black text-green-400 mt-2">
-                PKR {totalPkr.toLocaleString()}
+                Pkr {totalPkr.toLocaleString()}
               </h3>
             </div>
           </div>
@@ -557,7 +557,7 @@ export default function SellUsdtPage() {
                     <p className="text-gray-400 text-sm">Received</p>
 
                     <h3 className="text-2xl font-black text-green-400">
-                      PKR {item.pkrAmount.toLocaleString()}
+                      Pkr {item.pkrAmount.toLocaleString()}
                     </h3>
                   </div>
 
@@ -565,7 +565,7 @@ export default function SellUsdtPage() {
                     <p className="text-gray-400 text-sm">Rate</p>
 
                     <h3 className="text-xl font-bold text-yellow-400">
-                      PKR {item.rate}
+                      Pkr {item.rate}
                     </h3>
                   </div>
                 </div>
@@ -603,7 +603,7 @@ export default function SellUsdtPage() {
               <p className="text-gray-400 text-sm">Total PKR Received</p>
 
               <h3 className="text-3xl font-black text-green-400 mt-2">
-                PKR{" "}
+                Pkr{" "}
                 {history
                   .reduce((sum, item) => sum + item.pkrAmount, 0)
                   .toLocaleString()}
@@ -614,7 +614,7 @@ export default function SellUsdtPage() {
               <p className="text-gray-400 text-sm">Current USDT Wallet Value</p>
 
               <h3 className="text-3xl font-black text-yellow-400 mt-2">
-                PKR{" "}
+                Pkr{" "}
                 {(wallet.usdtBalance * market.sellRate).toLocaleString()}
               </h3>
             </div>
@@ -700,11 +700,11 @@ export default function SellUsdtPage() {
                       </td>
 
                       <td className="p-3 text-orange-400 font-semibold">
-                        PKR {item.rate}
+                        Pkr {item.rate}
                       </td>
 
                       <td className="p-3 text-green-400 font-semibold">
-                        PKR {item.pkrAmount.toLocaleString()}
+                        Pkr {item.pkrAmount.toLocaleString()}
                       </td>
 
                       <td className="p-3 text-gray-400 whitespace-nowrap">
@@ -768,7 +768,7 @@ export default function SellUsdtPage() {
               <span className="text-gray-400">PKR You Will Receive</span>
 
               <span className="text-green-400 font-bold text-lg">
-                PKR {totalPkr.toLocaleString()}
+                Pkr {totalPkr.toLocaleString()}
               </span>
             </div>
 
@@ -990,7 +990,7 @@ export default function SellUsdtPage() {
               </p>
 
               <h3 className="text-3xl font-black text-green-400 mt-2">
-                PKR{" "}
+                Pkr{" "}
                 {(wallet.walletBalance + totalPkr).toLocaleString()}
               </h3>
             </div>
@@ -1013,7 +1013,7 @@ export default function SellUsdtPage() {
               </p>
 
               <h3 className="text-3xl font-black text-orange-400 mt-2">
-                PKR {market.sellRate}
+                Pkr {market.sellRate}
               </h3>
             </div>
 
@@ -1029,11 +1029,11 @@ export default function SellUsdtPage() {
 
             <div className="bg-black rounded-xl p-5 border border-green-500">
               <p className="text-gray-400 text-sm">
-                PKR Receive Value
+                Pkr Receive Value
               </p>
 
               <h3 className="text-3xl font-black text-green-400 mt-2">
-                PKR {totalPkr.toLocaleString()}
+                Pkr {totalPkr.toLocaleString()}
               </h3>
             </div>
 

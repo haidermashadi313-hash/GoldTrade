@@ -28,6 +28,7 @@ interface WalletData {
 }
 
 interface UsdtRate {
+  [x: string]: string | number | boolean;
   buyRate: number;
   tradingEnabled: boolean;
 }
@@ -53,7 +54,6 @@ const defaultRate: UsdtRate = {
   buyRate: 285,
   tradingEnabled: true,
 };
-
 // =====================================
 // PAGE
 // =====================================
@@ -192,7 +192,25 @@ export default function BuyUsdtPage() {
     } finally {
       setBuyLoading(false);
     }
-  };  // =====================================
+  }; 
+  // =====================================================
+// CHECK MARKET STATUS BEFORE BUY
+// =====================================================
+
+const canBuyUsdt = () => {
+  if (!market.tradingEnabled) {
+    setErrorMessage("USDT trading is currently disabled by admin.");
+    return false;
+  }
+
+  if (market.marketStatus !== "OPEN") {
+    setErrorMessage("USDT market is currently closed.");
+    return false;
+  }
+
+  return true;
+};
+ // =====================================
   // LOADING SCREEN
   // =====================================
 
@@ -277,12 +295,12 @@ export default function BuyUsdtPage() {
               <Wallet className="text-green-400" size={28} />
 
               <h2 className="text-xl font-bold text-green-400">
-                PKR Wallet Balance
+                Pkr Wallet Balance
               </h2>
             </div>
 
             <h3 className="text-3xl font-black">
-              PKR {wallet.walletBalance.toLocaleString()}
+              Pkr {wallet.walletBalance.toLocaleString()}
             </h3>
 
             <p className="text-sm text-gray-400 mt-2">
@@ -322,7 +340,7 @@ export default function BuyUsdtPage() {
           </div>
 
           <h3 className="text-5xl font-black text-cyan-400">
-            PKR {market.buyRate}
+            Pkr {market.buyRate}
           </h3>
 
           <p className="text-gray-400 mt-3">
@@ -383,11 +401,11 @@ export default function BuyUsdtPage() {
 
             <div className="flex justify-between items-center">
               <span className="text-lg font-semibold">
-                Total PKR Required
+                Total Pkr Required
               </span>
 
               <span className="text-3xl font-black text-green-400">
-                PKR {totalPkr.toLocaleString()}
+                Pkr {totalPkr.toLocaleString()}
               </span>
             </div>
 
@@ -460,7 +478,7 @@ export default function BuyUsdtPage() {
               <p className="text-gray-400 text-sm">Total Cost</p>
 
               <h3 className="text-3xl font-black text-yellow-400 mt-2">
-                PKR {totalPkr.toLocaleString()}
+                Pkr {totalPkr.toLocaleString()}
               </h3>
             </div>
 
@@ -616,7 +634,7 @@ export default function BuyUsdtPage() {
               <p className="text-gray-400 text-sm">Total PKR Spent</p>
 
               <h3 className="text-3xl font-black text-yellow-400 mt-2">
-                PKR{" "}
+                Pkr{" "}
                 {history
                   .reduce((sum, item) => sum + item.pkrAmount, 0)
                   .toLocaleString()}
@@ -627,7 +645,7 @@ export default function BuyUsdtPage() {
               <p className="text-gray-400 text-sm">Wallet USDT Value</p>
 
               <h3 className="text-3xl font-black text-purple-400 mt-2">
-                PKR{" "}
+                Pkr{" "}
                 {(wallet.usdtBalance * market.buyRate).toLocaleString()}
               </h3>
             </div>
@@ -715,11 +733,11 @@ export default function BuyUsdtPage() {
                       </td>
 
                       <td className="p-3 text-yellow-400 font-semibold">
-                        PKR {item.rate}
+                        Pkr {item.rate}
                       </td>
 
                       <td className="p-3 text-green-400 font-semibold">
-                        PKR {item.pkrAmount.toLocaleString()}
+                        Pkr {item.pkrAmount.toLocaleString()}
                       </td>
 
                       <td className="p-3 text-gray-400 whitespace-nowrap">
@@ -745,10 +763,10 @@ export default function BuyUsdtPage() {
 
             {/* Wallet Balance */}
             <div className="flex items-center justify-between bg-black rounded-xl p-4 border border-zinc-700">
-              <span className="text-gray-400">PKR Wallet Balance</span>
+              <span className="text-gray-400">Pkr Wallet Balance</span>
 
               <span className="text-green-400 font-bold text-lg">
-                PKR {wallet.walletBalance.toLocaleString()}
+                Pkr {wallet.walletBalance.toLocaleString()}
               </span>
             </div>
 
@@ -757,7 +775,7 @@ export default function BuyUsdtPage() {
               <span className="text-gray-400">Total Required</span>
 
               <span className="text-blue-400 font-bold text-lg">
-                PKR {totalPkr.toLocaleString()}
+                Pkr {totalPkr.toLocaleString()}
               </span>
             </div>
 
@@ -772,7 +790,7 @@ export default function BuyUsdtPage() {
                     : "text-red-400"
                 }`}
               >
-                PKR {(wallet.walletBalance - totalPkr).toLocaleString()}
+                Pkr {(wallet.walletBalance - totalPkr).toLocaleString()}
               </span>
             </div>
 
@@ -797,7 +815,7 @@ export default function BuyUsdtPage() {
                   </p>
 
                   <p className="text-sm text-gray-300">
-                    You have enough PKR balance to buy this USDT amount.
+                    You have enough Pkr balance to buy this USDT amount.
                   </p>
                 </div>
               </div>
@@ -808,7 +826,7 @@ export default function BuyUsdtPage() {
                 </p>
 
                 <p className="text-sm text-gray-300 mt-1">
-                  Your PKR wallet balance is lower than the required amount.
+                  Your Pkr wallet balance is lower than the required amount.
                 </p>
               </div>
             )}
@@ -968,7 +986,7 @@ export default function BuyUsdtPage() {
               </p>
 
               <h3 className="text-3xl font-black text-green-400 mt-2">
-                PKR {wallet.walletBalance.toLocaleString()}
+                Pkr {wallet.walletBalance.toLocaleString()}
               </h3>
             </div>
 
@@ -984,7 +1002,7 @@ export default function BuyUsdtPage() {
                     : "text-red-600"
                 }`}
               >
-                PKR {(wallet.walletBalance - totalPkr).toLocaleString()}
+                Pkr {(wallet.walletBalance - totalPkr).toLocaleString()}
               </h3>
             </div>
 
@@ -1016,7 +1034,7 @@ export default function BuyUsdtPage() {
               </p>
 
               <h3 className="text-3xl font-black text-cyan-400 mt-2">
-                PKR {market.buyRate}
+                Pkr {market.buyRate}
               </h3>
             </div>
 
@@ -1036,7 +1054,7 @@ export default function BuyUsdtPage() {
               </p>
 
               <h3 className="text-3xl font-black text-green-400 mt-2">
-                PKR {totalPkr.toLocaleString()}
+                Pkr {totalPkr.toLocaleString()}
               </h3>
             </div>
 
@@ -1059,7 +1077,7 @@ export default function BuyUsdtPage() {
 
             <div className="flex items-start gap-3">
               <CheckCircle className="text-green-400 mt-1" size={20} />
-              <p>PKR wallet balance is deducted automatically after a successful purchase.</p>
+              <p>Pkr wallet balance is deducted automatically after a successful purchase.</p>
             </div>
 
             <div className="flex items-start gap-3">
@@ -1080,4 +1098,8 @@ export default function BuyUsdtPage() {
   );
 }
 
+
+function setErrorMessage(arg0: string) {
+  throw new Error("Function not implemented.");
+}
 

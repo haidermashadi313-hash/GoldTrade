@@ -1,1411 +1,1242 @@
 ﻿"use client";
 
-// =======================================================
-// GoldTrade V18 - ADMIN Usdt PAGE (PART 1/8)
-// Imports 鈥?Types 鈥?API 鈥?React States
-// =======================================================
+/* ==========================================================
+   GoldTrade V18 Enterprise
+   Admin USDT Manager
+   COMPLETE VERSION
+   SECTION 1/4 - Foundation (Compile Safe)
+========================================================== */
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
-// =======================================================
-// API URL
-// =======================================================
+import {
+  DollarSign,
+  ShieldCheck,
+  RefreshCw,
+  Search,
+  TrendingUp,
+  TrendingDown,
+  ArrowDownRight,
+  ArrowUpRight,
+  CheckCircle,
+  XCircle,
+  Wallet,
+} from "lucide-react";
+
+/* ==========================================================
+   API URL
+========================================================== */
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-// =======================================================
-// TYPES
-// =======================================================
+/* ==========================================================
+   Interfaces
+========================================================== */
 
-type OrderStatus = "Pending" | "Approved" | "Rejected";
+interface UsdtSettings {
+  buyPrice: number;
+  sellPrice: number;
+  tradingEnabled: boolean;
+}
 
-type OrderType = "buy" | "sell";
-
-type FilterStatus =
-  | "ALL"
-  | "Pending"
-  | "Approved"
-  | "Rejected";
-
-type FilterType =
-  | "ALL"
-  | "buy"
-  | "sell";
-
-interface UsdtOrder {
+interface UsdtTransaction {
   _id: string;
-
   username: string;
-
-  type: OrderType;
-
-  status: OrderStatus;
-
-  network: "TRC20" | "BEP20" | "ERC20";
-
-  UsdtAmount: number;
-
-  PkrAmount: number;
-
-  WalletAddress: string;
-
-  receiptImage?: string;
-
-  processedBy?: string;
-
-  processedAt?: string;
-
+  amount: number;
+  walletAddress: string;
+  txHash?: string;
+  status: "Pending" | "Approved" | "Rejected";
   createdAt: string;
 }
 
-interface OrdersResponse {
-  success: boolean;
-
-  totalOrders: number;
-
-  orders: UsdtOrder[];
-}
-
-// =======================================================
-// COMPONENT
-// =======================================================
+/* ==========================================================
+   Component
+========================================================== */
 
 export default function AdminUsdtPage() {
-
-  // =====================================================
-  // ADMIN TOKEN
-  // =====================================================
-
-  const [token] = useState(
-    typeof window !== "undefined"
-      ? localStorage.getItem("token") || ""
-      : ""
-  );
-
-  // =====================================================
-  // PAGE LOADING
-  // =====================================================
+  /* ---------------- Loading ---------------- */
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const [actionLoading, setActionLoading] = useState("");
+  /* ---------------- Settings ---------------- */
 
-  // =====================================================
-  // ORDERS
-  // =====================================================
+  const [settings, setSettings] = useState<UsdtSettings>({
+    buyPrice: 0,
+    sellPrice: 0,
+    tradingEnabled: true,
+  });
 
-  const [orders, setOrders] = useState<UsdtOrder[]>([]);
+  /* ---------------- Transactions ---------------- */
 
-  // =====================================================
-  // SEARCH & FILTER
-  // =====================================================
+  const [deposits, setDeposits] = useState<UsdtTransaction[]>([]);
+  const [withdraws, setWithdraws] = useState<UsdtTransaction[]>([]);
+
+  /* ---------------- Search ---------------- */
 
   const [search, setSearch] = useState("");
 
-  const [statusFilter, setStatusFilter] =
-    useState<FilterStatus>("ALL");
+  /* ---------------- Pagination ---------------- */
 
-  const [typeFilter, setTypeFilter] =
-    useState<FilterType>("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
 
-  // =====================================================
-  // RECEIPT PREVIEW
-  // =====================================================
+  /* ==========================================================
+     JWT HEADER HELPER
+  ========================================================== */
 
-  const [selectedReceipt, setSelectedReceipt] =
-    useState("");
+  const getHeaders = () => {
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("token")
+        : "";
 
-  // =====================================================
-  // SUCCESS / ERROR MESSAGE
-  // =====================================================
-
-  const [successMessage, setSuccessMessage] =
-    useState("");
-
-  const [errorMessage, setErrorMessage] =
-    useState("");
-
-  // =====================================================
-  // SUMMARY COUNTERS
-  // =====================================================
-
-  const summary = useMemo(() => {
     return {
-      total: orders.length,
-
-      pending: orders.filter(
-        (item) => item.status === "Pending"
-      ).length,
-
-      approved: orders.filter(
-        (item) => item.status === "Approved"
-      ).length,
-
-      rejected: orders.filter(
-        (item) => item.status === "Rejected"
-      ).length,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
     };
-  }, [orders]);
+  };
 
-    // =====================================================
-  // LOAD ALL Usdt ORDERS
-  // GET /api/Usdt
-  // =====================================================
+  /* ==========================================================
+     LOAD USDT SETTINGS
+     GET /api/admin/usdt/settings
+  ========================================================== */
 
-  const loadOrders = async () => {
-    if (!token) {
-      setLoading(false);
-      setErrorMessage("Admin token missing. Please login again.");
-      return;
+  const loadUsdtSettings = async () => {
+    const response = await fetch(
+      `${API}/api/admin/usdt/settings`,
+      {
+        headers: getHeaders(),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to load settings.");
     }
 
+    setSettings({
+      buyPrice: Number(data.settings?.buyPrice || 0),
+      sellPrice: Number(data.settings?.sellPrice || 0),
+      tradingEnabled: Boolean(data.settings?.tradingEnabled),
+    });
+  };
+
+  /* ==========================================================
+     LOAD PENDING DEPOSITS
+  ========================================================== */
+
+  const loadDeposits = async () => {
+    const response = await fetch(
+      `${API}/api/admin/usdt/deposits`,
+      {
+        headers: getHeaders(),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to load deposits.");
+    }
+
+    setDeposits(data.deposits || []);
+  };
+
+  /* ==========================================================
+     LOAD PENDING WITHDRAWALS
+  ========================================================== */
+
+  const loadWithdraws = async () => {
+    const response = await fetch(
+      `${API}/api/admin/usdt/withdraws`,
+      {
+        headers: getHeaders(),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to load withdrawals.");
+    }
+
+    setWithdraws(data.withdraws || []);
+  };
+
+  /* ==========================================================
+     LOAD COMPLETE DASHBOARD
+  ========================================================== */
+
+  const loadDashboard = async () => {
     try {
       setLoading(true);
       setErrorMessage("");
-      setSuccessMessage("");
 
-      const response = await fetch(`${API}/api/Usdt`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data: OrdersResponse = await response.json();
-
-      // ================= SUCCESS =================
-
-      if (response.ok && data.success) {
-        setOrders(data.orders || []);
-        return;
-      }
-
-      // ================= EMPTY LIST (NO 404 BUG) =================
-
-      if (response.status === 404) {
-        setOrders([]);
-        return;
-      }
-
-      throw new Error("Unable to load Usdt orders.");
-
+      await Promise.all([
+        loadUsdtSettings(),
+        loadDeposits(),
+        loadWithdraws(),
+      ]);
     } catch (error: any) {
-      console.error("LOAD Usdt ORDERS ERROR:", error);
-
-      setOrders([]);
-
-      setErrorMessage(
-        error.message || "Unable to load Usdt orders."
-      );
-
+      setErrorMessage(error.message || "Unable to load dashboard.");
     } finally {
       setLoading(false);
     }
   };
 
-  // =====================================================
-  // REFRESH ORDERS
-  // =====================================================
+  /* ==========================================================
+     REFRESH DASHBOARD
+  ========================================================== */
 
-  const refreshOrders = async () => {
-    await loadOrders();
-  };
-
-  // =====================================================
-  // PAGE LOAD
-  // =====================================================
-
-  useEffect(() => {
-    loadOrders();
-  }, []);
-
-  // =====================================================
-  // AUTO CLEAR SUCCESS / ERROR MESSAGES
-  // =====================================================
-
-  useEffect(() => {
-    if (!successMessage && !errorMessage) return;
-
-    const timer = setTimeout(() => {
-      setSuccessMessage("");
-      setErrorMessage("");
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [successMessage, errorMessage]);
-
-  // =====================================================
-  // RECEIPT IMAGE URL
-  // =====================================================
-
-  const getReceiptUrl = (fileName?: string) => {
-    if (!fileName) return "";
-
-    return `${API}/uploads/Usdt/${fileName}`;
-  };
-
-  // =====================================================
-  // OPEN / CLOSE RECEIPT PREVIEW
-  // =====================================================
-
-  const openReceipt = (fileName?: string) => {
-    if (!fileName) return;
-    setSelectedReceipt(getReceiptUrl(fileName));
-  };
-
-  const closeReceipt = () => {
-    setSelectedReceipt("");
-  };
-
-    // =====================================================
-  // UPDATE ORDER STATUS
-  // PUT /api/Usdt/:id
-  // =====================================================
-
-  const updateOrderStatus = async (
-    orderId: string,
-    status: "Approved" | "Rejected"
-  ) => {
-    if (!token) {
-      setErrorMessage("Admin token missing. Please login again.");
-      return;
-    }
-
+  const refreshDashboard = async () => {
     try {
-      setActionLoading(orderId);
-      setErrorMessage("");
-      setSuccessMessage("");
+      setRefreshing(true);
+      await loadDashboard();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
-      const response = await fetch(`${API}/api/Usdt/${orderId}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status }),
-      });
+  /* ==========================================================
+     DEPOSIT ACTIONS
+  ========================================================== */
+
+  const approveDeposit = async (id: string) => {
+    try {
+      const response = await fetch(
+        `${API}/api/admin/usdt/deposits/${id}/approve`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+        }
+      );
 
       const data = await response.json();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || `Unable to ${status.toLowerCase()} order.`);
+      if (!response.ok) {
+        throw new Error(data.message || "Approval failed.");
       }
 
-      // Success Message
-      setSuccessMessage(
-        status === "Approved"
-          ? "Usdt order approved successfully."
-          : "Usdt order rejected successfully."
-      );
-
-      // Reload latest orders
-      await loadOrders();
-
+      alert("Deposit Approved Successfully.");
+      await loadDashboard();
     } catch (error: any) {
-      console.error(`${status} ORDER ERROR:`, error);
+      alert(error.message);
+    }
+  };
 
-      setErrorMessage(
-        error.message || `Unable to ${status.toLowerCase()} order.`
+  const rejectDeposit = async (id: string) => {
+    try {
+      const response = await fetch(
+        `${API}/api/admin/usdt/deposits/${id}/reject`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+        }
       );
 
-    } finally {
-      setActionLoading("");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Rejection failed.");
+      }
+
+      alert("Deposit Rejected Successfully.");
+      await loadDashboard();
+    } catch (error: any) {
+      alert(error.message);
     }
   };
 
-  // =====================================================
-  // APPROVE ORDER
-  // =====================================================
+  /* ==========================================================
+     WITHDRAW ACTIONS
+  ========================================================== */
 
-  const approveOrder = async (orderId: string) => {
-    await updateOrderStatus(orderId, "Approved");
-  };
+  const approveWithdraw = async (id: string) => {
+    try {
+      const response = await fetch(
+        `${API}/api/admin/usdt/withdraws/${id}/approve`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+        }
+      );
 
-  // =====================================================
-  // REJECT ORDER
-  // =====================================================
+      const data = await response.json();
 
-  const rejectOrder = async (orderId: string) => {
-    await updateOrderStatus(orderId, "Rejected");
-  };
+      if (!response.ok) {
+        throw new Error(data.message || "Approval failed.");
+      }
 
-  // =====================================================
-  // CHECK BUTTON LOADING
-  // =====================================================
-
-  const isProcessing = (orderId: string) => {
-    return actionLoading === orderId;
-  };
-
-  // =====================================================
-  // STATUS BADGE COLORS
-  // =====================================================
-
-  const getStatusBadge = (status: OrderStatus) => {
-    switch (status) {
-      case "Approved":
-        return "bg-green-100 text-green-700 border border-green-300";
-
-      case "Rejected":
-        return "bg-red-100 text-red-700 border border-red-300";
-
-      default:
-        return "bg-yellow-100 text-yellow-700 border border-yellow-300";
+      alert("Withdrawal Approved Successfully.");
+      await loadDashboard();
+    } catch (error: any) {
+      alert(error.message);
     }
   };
 
-  // =====================================================
-  // ORDER TYPE BADGE COLORS
-  // =====================================================
+  const rejectWithdraw = async (id: string) => {
+    try {
+      const response = await fetch(
+        `${API}/api/admin/usdt/withdraws/${id}/reject`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+        }
+      );
 
-  const getTypeBadge = (type: OrderType) => {
-    return type === "buy"
-      ? "bg-blue-100 text-blue-700 border border-blue-300"
-      : "bg-purple-100 text-purple-700 border border-purple-300";
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Rejection failed.");
+      }
+
+      alert("Withdrawal Rejected Successfully.");
+      await loadDashboard();
+    } catch (error: any) {
+      alert(error.message);
+    }
   };
 
-    // =====================================================
-  // SEARCH + FILTER ORDERS
-  // =====================================================
+  /* ==========================================================
+     INITIAL LOAD
+  ========================================================== */
 
-  const filteredOrders = useMemo(() => {
-    let data = [...orders];
+  useEffect(() => {
+    loadDashboard();
+  }, []);
 
-    // ---------------- STATUS FILTER ----------------
+  /* ==========================================================
+     SEARCH FILTERS
+  ========================================================== */
 
-    if (statusFilter !== "ALL") {
-      data = data.filter((item) => item.status === statusFilter);
-    }
+  const filteredDeposits = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
 
-    // ---------------- buy / sell FILTER ----------------
+    return deposits.filter((item) => {
+      if (!keyword) return true;
 
-    if (typeFilter !== "ALL") {
-      data = data.filter((item) => item.type === typeFilter);
-    }
+      return (
+        item.username.toLowerCase().includes(keyword) ||
+        item.walletAddress.toLowerCase().includes(keyword) ||
+        item.txHash?.toLowerCase().includes(keyword)
+      );
+    });
+  }, [search, deposits]);
 
-    // ---------------- SEARCH USERNAME / NETWORK / STATUS ----------------
+  const filteredWithdraws = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
 
-    if (search.trim()) {
-      const keyword = search.toLowerCase();
+    return withdraws.filter((item) => {
+      if (!keyword) return true;
 
-      data = data.filter((item) => {
-        return (
-          item.username.toLowerCase().includes(keyword) ||
-          item.network.toLowerCase().includes(keyword) ||
-          item.status.toLowerCase().includes(keyword) ||
-          item.type.toLowerCase().includes(keyword) ||
-          item.UsdtAmount.toString().includes(keyword) ||
-          item.PkrAmount.toString().includes(keyword)
-        );
-      });
-    }
+      return (
+        item.username.toLowerCase().includes(keyword) ||
+        item.walletAddress.toLowerCase().includes(keyword) ||
+        item.txHash?.toLowerCase().includes(keyword)
+      );
+    });
+  }, [search, withdraws]);
 
-    // ---------------- NEWEST FIRST ----------------
+  /* ==========================================================
+     PAGINATION (Deposits)
+  ========================================================== */
 
-    return data.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() -
-        new Date(a.createdAt).getTime()
-    );
-  }, [orders, search, statusFilter, typeFilter]);
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredDeposits.length / rowsPerPage)
+  );
 
-  // =====================================================
-  // FILTER SUMMARY
-  // =====================================================
+  const paginatedDeposits = useMemo(() => {
+    const start = (currentPage - 1) * rowsPerPage;
 
-  const visibleSummary = useMemo(() => {
+    return filteredDeposits.slice(start, start + rowsPerPage);
+  }, [filteredDeposits, currentPage]);
+
+  /* ==========================================================
+     ANALYTICS
+  ========================================================== */
+
+  const analytics = useMemo(() => {
     return {
-      total: filteredOrders.length,
-
-      buy: filteredOrders.filter((item) => item.type === "buy")
-        .length,
-
-      sell: filteredOrders.filter((item) => item.type === "sell")
-        .length,
-
-      pending: filteredOrders.filter(
-        (item) => item.status === "Pending"
+      pendingDeposits: deposits.filter(
+        (d) => d.status === "Pending"
       ).length,
 
-      approved: filteredOrders.filter(
-        (item) => item.status === "Approved"
+      pendingWithdraws: withdraws.filter(
+        (w) => w.status === "Pending"
       ).length,
 
-      rejected: filteredOrders.filter(
-        (item) => item.status === "Rejected"
-      ).length,
+      totalDepositAmount: deposits.reduce(
+        (sum, d) => sum + Number(d.amount || 0),
+        0
+      ),
+
+      totalWithdrawAmount: withdraws.reduce(
+        (sum, w) => sum + Number(w.amount || 0),
+        0
+      ),
     };
-  }, [filteredOrders]);
+  }, [deposits, withdraws]);
 
-  // =====================================================
-  // FILTER HANDLERS
-  // =====================================================
+  /* ==========================================================
+     LOADING SCREEN
+  ========================================================== */
 
-  const clearFilters = () => {
-    setSearch("");
-    setStatusFilter("ALL");
-    setTypeFilter("ALL");
-  };
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-black flex items-center justify-center">
+        <div className="flex items-center gap-3 text-cyan-400 text-xl font-bold">
+          <RefreshCw className="animate-spin" size={28} />
+          Loading Admin USDT Dashboard...
+        </div>
+      </main>
+    );
+  }
 
-  const handleStatusFilter = (value: FilterStatus) => {
-    setStatusFilter(value);
-  };
-
-  const handleTypeFilter = (value: FilterType) => {
-    setTypeFilter(value);
-  };
-
-  // =====================================================
-  // FORMAT DATE
-  // =====================================================
-
-  const formatDate = (date: string) => {
-    try {
-      return new Date(date).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-    } catch {
-      return "-";
-    }
-  };
-
-  const formatTime = (date: string) => {
-    try {
-      return new Date(date).toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      });
-    } catch {
-      return "-";
-    }
-  };
-
-  // =====================================================
-  // FORMAT AMOUNTS
-  // =====================================================
-
-  const formatPkr = (value: number) =>
-    new Intl.NumberFormat("en-PK", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(value);
-
-  const formatUsdt = (value: number) =>
-    new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-
-  // =====================================================
-  // COPY Wallet ADDRESS
-  // =====================================================
-
-  const copyWallet = async (address: string) => {
-    try {
-      await navigator.clipboard.writeText(address);
-      setSuccessMessage("Wallet address copied successfully.");
-    } catch {
-      setErrorMessage("Unable to copy Wallet address.");
-    }
-  };
-
-  // =====================================================
-  // HAS DATA
-  // =====================================================
-
-  const hasOrders = filteredOrders.length > 0;
-
-    // =====================================================
-  // JSX UI START
-  // PART 5/8
-  // =====================================================
+  /* ==========================================================
+     PAGE START
+  ========================================================== */
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-8">
-      <div className="mx-auto max-w-7xl">
+    <main className="min-h-screen bg-black text-white p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
 
-        {/* ===================================================== */}
+        {/* ============================================= */}
         {/* PAGE HEADER */}
-        {/* ===================================================== */}
+        {/* ============================================= */}
 
-        <div className="mb-6 rounded-3xl bg-gradient-to-r from-indigo-700 via-purple-700 to-blue-600 p-6 text-white shadow-xl">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <header className="flex flex-wrap justify-between items-center gap-5">
 
-            <div>
-              <h1 className="text-3xl font-bold">
-                Admin Usdt Orders
-              </h1>
+          <div>
+            <h1 className="flex items-center gap-3 text-4xl font-black text-cyan-400">
+              <DollarSign size={36} />
+              Admin USDT Manager
+            </h1>
 
-              <p className="mt-2 text-blue-100">
-                GoldTrade V18 鈥?Manage buy & sell Requests
-              </p>
+            <p className="text-gray-400 mt-2">
+              GoldTrade V18 Enterprise • Manage USDT Trading, Deposits & Withdrawals.
+            </p>
+          </div>
 
-              <p className="mt-2 text-sm text-blue-200">
-                Approve, Reject and Review every Usdt transaction securely.
-              </p>
-            </div>
+          <div className="flex gap-3 flex-wrap">
+            <Link
+              href="/admin"
+              className="bg-zinc-800 hover:bg-zinc-700 px-5 py-3 rounded-xl font-bold transition"
+            >
+              Admin Dashboard
+            </Link>
 
             <button
-              type="button"
-              onClick={refreshOrders}
-              disabled={loading}
-              className="rounded-xl bg-white px-5 py-3 font-semibold text-indigo-700 transition hover:bg-blue-50 disabled:opacity-50"
+              onClick={refreshDashboard}
+              disabled={refreshing}
+              className="bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 disabled:cursor-not-allowed text-black px-5 py-3 rounded-xl flex items-center gap-2 font-bold transition"
             >
-              {loading ? "Refreshing..." : "Refresh Orders"}
+              <RefreshCw
+                size={18}
+                className={refreshing ? "animate-spin" : ""}
+              />
+
+              {refreshing ? "Refreshing..." : "Refresh"}
             </button>
-
           </div>
-        </div>
 
-        {/* ===================================================== */}
-        {/* SUCCESS MESSAGE */}
-        {/* ===================================================== */}
+        </header>
 
-        {successMessage && (
-          <div className="mb-4 rounded-xl border border-green-300 bg-green-100 p-4 text-green-700">
-            {successMessage}
-          </div>
-        )}
-
-        {/* ===================================================== */}
+        {/* ============================================= */}
         {/* ERROR MESSAGE */}
-        {/* ===================================================== */}
+        {/* ============================================= */}
 
         {errorMessage && (
-          <div className="mb-4 rounded-xl border border-red-300 bg-red-100 p-4 text-red-700">
+          <div className="bg-red-500/10 border border-red-500 rounded-xl p-4 text-red-400 font-semibold">
             {errorMessage}
           </div>
         )}
 
-        {/* ===================================================== */}
-        {/* PAGE LOADING */}
-        {/* ===================================================== */}
+        {/* ============================================= */}
+        {/* LIVE USDT MARKET CARDS */}
+        {/* ============================================= */}
 
-        {loading ? (
-          <div className="rounded-2xl bg-white p-12 text-center shadow-lg">
+        <section className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
 
-            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+          <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5">
+            <TrendingUp className="text-green-400 mb-3" size={28} />
 
-            <p className="text-gray-600">
-              Loading Usdt Orders...
+            <p className="text-gray-500 text-sm uppercase tracking-wide">
+              Buy Price
             </p>
 
+            <h2 className="text-3xl font-black text-green-400 mt-2">
+              PKR {settings.buyPrice.toLocaleString()}
+            </h2>
           </div>
-        ) : (
-          <>
 
-            {/* ===================================================== */}
-            {/* SUMMARY CARDS */}
-            {/* ===================================================== */}
+          <div className="bg-zinc-900 border border-red-500 rounded-2xl p-5">
+            <TrendingDown className="text-red-400 mb-3" size={28} />
 
-            <div className="grid gap-4 md:grid-cols-4">
+            <p className="text-gray-500 text-sm uppercase tracking-wide">
+              Sell Price
+            </p>
 
-              {/* Total Orders */}
+            <h2 className="text-3xl font-black text-red-400 mt-2">
+              PKR {settings.sellPrice.toLocaleString()}
+            </h2>
+          </div>
 
-              <div className="rounded-2xl bg-white p-5 shadow-lg">
-                <p className="text-sm text-gray-500">
-                  Total Orders
-                </p>
+          <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-5">
+            <ArrowDownRight className="text-cyan-400 mb-3" size={28} />
 
-                <h2 className="mt-2 text-2xl font-bold text-indigo-700">
-                  {summary.total}
-                </h2>
-              </div>
+            <p className="text-gray-500 text-sm uppercase tracking-wide">
+              Pending Deposits
+            </p>
 
-              {/* Pending */}
+            <h2 className="text-3xl font-black text-cyan-400 mt-2">
+              {analytics.pendingDeposits}
+            </h2>
+          </div>
 
-              <div className="rounded-2xl bg-white p-5 shadow-lg">
-                <p className="text-sm text-gray-500">
-                  Pending
-                </p>
+          <div className="bg-zinc-900 border border-orange-500 rounded-2xl p-5">
+            <ArrowUpRight className="text-orange-400 mb-3" size={28} />
 
-                <h2 className="mt-2 text-2xl font-bold text-yellow-600">
-                  {summary.pending}
-                </h2>
-              </div>
+            <p className="text-gray-500 text-sm uppercase tracking-wide">
+              Pending Withdrawals
+            </p>
 
-              {/* Approved */}
+            <h2 className="text-3xl font-black text-orange-400 mt-2">
+              {analytics.pendingWithdraws}
+            </h2>
+          </div>
 
-              <div className="rounded-2xl bg-white p-5 shadow-lg">
-                <p className="text-sm text-gray-500">
-                  Approved
-                </p>
+        </section>
 
-                <h2 className="mt-2 text-2xl font-bold text-green-600">
-                  {summary.approved}
-                </h2>
-              </div>
+        {/* ============================================= */}
+        {/* MARKET ANALYTICS */}
+        {/* ============================================= */}
 
-              {/* Rejected */}
+        <section className="grid lg:grid-cols-2 gap-5">
 
-              <div className="rounded-2xl bg-white p-5 shadow-lg">
-                <p className="text-sm text-gray-500">
-                  Rejected
-                </p>
+          <div className="bg-zinc-900 border border-green-500 rounded-2xl p-6">
+            <p className="text-gray-500 text-sm uppercase tracking-wide">
+              Total Pending Deposit Value
+            </p>
 
-                <h2 className="mt-2 text-2xl font-bold text-red-600">
-                  {summary.rejected}
-                </h2>
-              </div>
+            <h2 className="text-4xl font-black text-green-400 mt-3">
+              {analytics.totalDepositAmount.toFixed(2)} USDT
+            </h2>
+          </div>
 
+          <div className="bg-zinc-900 border border-orange-500 rounded-2xl p-6">
+            <p className="text-gray-500 text-sm uppercase tracking-wide">
+              Total Pending Withdraw Value
+            </p>
+
+            <h2 className="text-4xl font-black text-orange-400 mt-3">
+              {analytics.totalWithdrawAmount.toFixed(2)} USDT
+            </h2>
+          </div>
+
+        </section>
+
+        {/* ============================================= */}
+        {/* TRADING STATUS PANEL */}
+        {/* ============================================= */}
+
+        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 space-y-6">
+
+          <div className="flex justify-between items-center flex-wrap gap-4">
+
+            <div>
+              <h2 className="text-2xl font-black text-cyan-400">
+                USDT Trading Status
+              </h2>
+
+              <p className="text-gray-400 text-sm mt-2">
+                Current market configuration used across GoldTrade.
+              </p>
             </div>
 
-            {/* ===================================================== */}
-            {/* buy / sell SUMMARY */}
-            {/* ===================================================== */}
-
-            <div className="mt-6 rounded-2xl bg-white p-5 shadow-lg">
-
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
-                <div>
-                  <h3 className="text-lg font-bold text-gray-800">
-                    Orders Overview
-                  </h3>
-
-                  <p className="text-sm text-gray-500">
-                    Live buy & sell Request Summary
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="rounded-xl bg-gray-200 px-5 py-3 font-semibold text-gray-700 transition hover:bg-gray-300"
-                >
-                  Clear Filters
-                </button>
-
-              </div>
-
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-
-                {/* buy */}
-
-                <div className="rounded-xl bg-blue-50 p-4">
-
-                  <p className="text-sm text-blue-600">
-                    buy Requests
-                  </p>
-
-                  <h4 className="text-2xl font-bold text-blue-700">
-                    {visibleSummary.buy}
-                  </h4>
-
-                </div>
-
-                {/* sell */}
-
-                <div className="rounded-xl bg-purple-50 p-4">
-
-                  <p className="text-sm text-purple-600">
-                    sell Requests
-                  </p>
-
-                  <h4 className="text-2xl font-bold text-purple-700">
-                    {visibleSummary.sell}
-                  </h4>
-
-                </div>
-
-              </div>
-
+            <div
+              className={`px-5 py-3 rounded-xl font-bold ${
+                settings.tradingEnabled
+                  ? "bg-green-500/20 border border-green-500 text-green-400"
+                  : "bg-red-500/20 border border-red-500 text-red-400"
+              }`}
+            >
+              {settings.tradingEnabled
+                ? "Trading Enabled"
+                : "Trading Disabled"}
             </div>
-                        {/* ===================================================== */}
-            {/* SEARCH & FILTER SECTION */}
-            {/* ===================================================== */}
 
-            <div className="mt-6 rounded-2xl bg-white p-5 shadow-lg">
+          </div>
 
-              <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid md:grid-cols-2 gap-5">
 
-                {/* SEARCH USERNAME */}
+            <div className="bg-black border border-green-500 rounded-xl p-5">
+              <p className="text-gray-500 text-sm">Current Buy Rate</p>
 
-                <div className="lg:col-span-2">
+              <h3 className="text-3xl font-black text-green-400 mt-2">
+                PKR {settings.buyPrice.toLocaleString()}
+              </h3>
+            </div>
 
-                  <label className="mb-2 block text-sm font-semibold text-gray-600">
-                    Search Username / Network / Amount
-                  </label>
+            <div className="bg-black border border-red-500 rounded-xl p-5">
+              <p className="text-gray-500 text-sm">Current Sell Rate</p>
 
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search username, TRC20, buy, sell, amount..."
-                    className="w-full rounded-xl border border-gray-300 p-4 outline-none transition focus:border-indigo-500"
-                  />
+              <h3 className="text-3xl font-black text-red-400 mt-2">
+                PKR {settings.sellPrice.toLocaleString()}
+              </h3>
+            </div>
 
-                </div>
+          </div>
 
-                {/* REFRESH BUTTON */}
+          <div className="bg-black border border-zinc-700 rounded-xl p-5">
+            <p className="text-gray-500 text-sm">Market Status</p>
 
-                <div className="flex items-end">
+            <h3
+              className={`text-2xl font-black mt-3 ${
+                settings.tradingEnabled
+                  ? "text-green-400"
+                  : "text-red-400"
+              }`}
+            >
+              {settings.tradingEnabled
+                ? "USDT Market LIVE"
+                : "USDT Market OFFLINE"}
+            </h3>
+          </div>
 
-                  <button
-                    type="button"
-                    onClick={refreshOrders}
-                    className="w-full rounded-xl bg-indigo-600 py-4 font-semibold text-white transition hover:bg-indigo-700"
-                  >
-                    Refresh Orders
-                  </button>
+        </section>
 
-                </div>
+        {/* ============================================= */}
+        {/* SEARCH BAR */}
+        {/* ============================================= */}
 
-              </div>
+        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 space-y-5">
 
-              {/* ===================================================== */}
-              {/* STATUS FILTER */}
-              {/* ===================================================== */}
+          <div>
+            <h2 className="text-2xl font-black text-cyan-400">
+              Search Transactions
+            </h2>
 
-              <div className="mt-6">
+            <p className="text-gray-400 text-sm mt-2">
+              Search by username, wallet address or transaction hash.
+            </p>
+          </div>
 
-                <label className="mb-3 block text-sm font-semibold text-gray-600">
-                  Filter By Status
-                </label>
+          <div className="relative">
+            <Search
+              size={18}
+              className="absolute left-4 top-4 text-gray-500"
+            />
 
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Search username, wallet address or TX Hash"
+              className="w-full bg-black border border-zinc-700 rounded-xl pl-11 pr-4 py-3 text-white focus:border-cyan-500 outline-none"
+            />
+          </div>
 
-                  {(["ALL", "Pending", "Approved", "Rejected"] as FilterStatus[]).map(
-                    (status) => (
-                      <button
-                        key={status}
-                        type="button"
-                        onClick={() => handleStatusFilter(status)}
-                        className={`rounded-xl p-3 font-semibold transition ${
-                          statusFilter === status
-                            ? "bg-indigo-600 text-white"
-                            : "border border-gray-300 bg-white text-gray-700 hover:border-indigo-400"
-                        }`}
-                      >
-                        {status}
-                      </button>
-                    )
-                  )}
+          <div className="flex flex-wrap gap-3">
 
-                </div>
+            <span className="bg-black border border-zinc-700 px-4 py-2 rounded-full text-sm">
+              Search:
+              <span className="text-cyan-400 font-bold ml-2">
+                {search || "None"}
+              </span>
+            </span>
 
-              </div>
+            <span className="bg-black border border-zinc-700 px-4 py-2 rounded-full text-sm">
+              Deposits:
+              <span className="text-green-400 font-bold ml-2">
+                {filteredDeposits.length}
+              </span>
+            </span>
 
-              {/* ===================================================== */}
-              {/* buy / sell FILTER */}
-              {/* ===================================================== */}
+            <span className="bg-black border border-zinc-700 px-4 py-2 rounded-full text-sm">
+              Withdrawals:
+              <span className="text-orange-400 font-bold ml-2">
+                {filteredWithdraws.length}
+              </span>
+            </span>
 
-              <div className="mt-6">
+          </div>
 
-                <label className="mb-3 block text-sm font-semibold text-gray-600">
-                  Filter By Order Type
-                </label>
+        </section>
 
-                <div className="grid grid-cols-3 gap-3">
+        {/* ============================================= */}
+        {/* PENDING USDT DEPOSITS */}
+        {/* ============================================= */}
 
-                  {(["ALL", "buy", "sell"] as FilterType[]).map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => handleTypeFilter(type)}
-                      className={`rounded-xl p-3 font-semibold transition ${
-                        typeFilter === type
-                          ? "bg-purple-600 text-white"
-                          : "border border-gray-300 bg-white text-gray-700 hover:border-purple-400"
-                      }`}
+        <section className="bg-zinc-900 border border-green-500 rounded-2xl overflow-hidden">
+
+          <div className="flex justify-between items-center px-6 py-5 border-b border-zinc-800 flex-wrap gap-3">
+            <div>
+              <h2 className="text-2xl font-black text-green-400">
+                Pending USDT Deposits
+              </h2>
+              <p className="text-gray-400 text-sm mt-1">
+                Review and approve incoming USDT deposits.
+              </p>
+            </div>
+
+            <span className="bg-green-500/20 border border-green-500 text-green-400 px-4 py-2 rounded-full text-sm font-bold">
+              {filteredDeposits.length} Pending
+            </span>
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden lg:block overflow-x-auto">
+            <table className="w-full min-w-[1100px]">
+              <thead className="bg-black text-gray-400 text-sm">
+                <tr>
+                  <th className="text-left px-5 py-4">User</th>
+                  <th className="text-left px-5 py-4">Wallet Address</th>
+                  <th className="text-left px-5 py-4">TX Hash</th>
+                  <th className="text-left px-5 py-4">Amount</th>
+                  <th className="text-left px-5 py-4">Date</th>
+                  <th className="text-center px-5 py-4">Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {paginatedDeposits.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-10 text-gray-500">
+                      No pending deposits found.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedDeposits.map((deposit) => (
+                    <tr
+                      key={deposit._id}
+                      className="border-t border-zinc-800 hover:bg-zinc-800/40 transition"
                     >
-                      {type}
-                    </button>
-                  ))}
-
-                </div>
-
-              </div>
-
-              {/* ===================================================== */}
-              {/* ACTIVE FILTER SUMMARY */}
-              {/* ===================================================== */}
-
-              <div className="mt-6 rounded-xl bg-slate-50 p-4">
-
-                <div className="grid gap-4 md:grid-cols-4">
-
-                  <div>
-                    <p className="text-sm text-gray-500">Search</p>
-
-                    <h4 className="font-bold text-indigo-700">
-                      {search || "None"}
-                    </h4>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-500">Status</p>
-
-                    <h4 className="font-bold text-yellow-600">
-                      {statusFilter}
-                    </h4>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-500">Type</p>
-
-                    <h4 className="font-bold text-purple-600">
-                      {typeFilter}
-                    </h4>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-500">Results</p>
-
-                    <h4 className="font-bold text-green-600">
-                      {filteredOrders.length}
-                    </h4>
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-
-            {/* ===================================================== */}
-            {/* RECEIPT PREVIEW MODAL */}
-            {/* ===================================================== */}
-
-            {selectedReceipt && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-
-                <div className="w-full max-w-3xl rounded-3xl bg-white p-5 shadow-2xl">
-
-                  <div className="mb-4 flex items-center justify-between">
-
-                    <h2 className="text-xl font-bold text-gray-800">
-                      Payment Receipt Preview
-                    </h2>
-
-                    <button
-                      type="button"
-                      onClick={closeReceipt}
-                      className="rounded-full bg-red-500 px-4 py-2 text-white transition hover:bg-red-600"
-                    >
-                      Close
-                    </button>
-
-                  </div>
-
-                  <img
-                    src={selectedReceipt}
-                    alt="Usdt Receipt"
-                    className="max-h-[70vh] w-full rounded-2xl object-contain"
-                  />
-
-                </div>
-
-              </div>
-            )}
-
-            {/* ===================================================== */}
-            {/* ORDERS TABLE STARTS IN PART 7 */}
-            {/* ===================================================== */}
-
-            {hasOrders && (
-              <div className="mt-6 overflow-hidden rounded-3xl bg-white shadow-xl">
-                                {/* ===================================================== */}
-                {/* DESKTOP TABLE */}
-                {/* ===================================================== */}
-
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse">
-
-                    <thead className="bg-slate-800 text-white">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">User</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Type</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Network</th>
-                        <th className="px-4 py-3 text-right text-sm font-semibold">Usdt</th>
-                        <th className="px-4 py-3 text-right text-sm font-semibold">Pkr</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Status</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Receipt</th>
-                        <th className="px-4 py-3 text-center text-sm font-semibold">Actions</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-
-                      {filteredOrders.map((order, index) => (
-                        <tr
-                          key={order._id}
-                          className={`border-b transition hover:bg-slate-50 ${
-                            index % 2 === 0 ? "bg-white" : "bg-slate-50"
-                          }`}
-                        >
-
-                          {/* USER */}
-
-                          <td className="px-4 py-4 align-top">
-                            <p className="font-bold text-gray-700">
-                              {order.username}
-                            </p>
-
-                            <p className="mt-1 text-xs text-gray-500">
-                              {formatDate(order.createdAt)}
-                            </p>
-
-                            <p className="text-xs text-gray-500">
-                              {formatTime(order.createdAt)}
-                            </p>
-                          </td>
-
-                          {/* buy / sell */}
-
-                          <td className="px-4 py-4 align-top">
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-bold ${getTypeBadge(
-                                order.type
-                              )}`}
-                            >
-                              {order.type}
-                            </span>
-                          </td>
-
-                          {/* NETWORK */}
-
-                          <td className="px-4 py-4 align-top">
-                            <span className="rounded-lg bg-orange-100 px-3 py-1 text-sm font-semibold text-orange-700">
-                              {order.network}
-                            </span>
-                          </td>
-
-                          {/* Usdt */}
-
-                          <td className="px-4 py-4 text-right align-top">
-                            <p className="font-bold text-blue-700">
-                              {formatUsdt(order.UsdtAmount)}
-                            </p>
-
-                            <p className="text-xs text-gray-500">
-                              Usdt
-                            </p>
-                          </td>
-
-                          {/* Pkr */}
-
-                          <td className="px-4 py-4 text-right align-top">
-                            <p className="font-bold text-green-700">
-                              Rs. {formatPkr(order.PkrAmount)}
-                            </p>
-                          </td>
-
-                          {/* STATUS */}
-
-                          <td className="px-4 py-4 align-top">
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusBadge(
-                                order.status
-                              )}`}
-                            >
-                              {order.status}
-                            </span>
-
-                            {order.processedBy && (
-                              <p className="mt-2 text-xs text-gray-500">
-                                By: {order.processedBy}
-                              </p>
-                            )}
-                          </td>
-
-                          {/* RECEIPT */}
-
-                          <td className="px-4 py-4 align-top">
-
-                            {order.receiptImage ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  openReceipt(order.receiptImage)
-                                }
-                                className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
-                              >
-                                View Receipt
-                              </button>
-                            ) : (
-                              <span className="text-xs text-gray-400">
-                                No Receipt
-                              </span>
-                            )}
-
-                          </td>
-
-                          {/* ACTION BUTTONS */}
-
-                          <td className="px-4 py-4 align-top">
-
-                            <div className="flex flex-col gap-2">
-
-                              <button
-                                type="button"
-                                disabled={
-                                  order.status !== "Pending" ||
-                                  isProcessing(order._id)
-                                }
-                                onClick={() =>
-                                  approveOrder(order._id)
-                                }
-                                className={`rounded-lg py-2 text-xs font-bold transition ${
-                                  order.status !== "Pending"
-                                    ? "cursor-not-allowed bg-gray-200 text-gray-500"
-                                    : "bg-green-600 text-white hover:bg-green-700"
-                                }`}
-                              >
-                                {isProcessing(order._id)
-                                  ? "Processing..."
-                                  : "Approve"}
-                              </button>
-
-                              <button
-                                type="button"
-                                disabled={
-                                  order.status !== "Pending" ||
-                                  isProcessing(order._id)
-                                }
-                                onClick={() =>
-                                  rejectOrder(order._id)
-                                }
-                                className={`rounded-lg py-2 text-xs font-bold transition ${
-                                  order.status !== "Pending"
-                                    ? "cursor-not-allowed bg-gray-200 text-gray-500"
-                                    : "bg-red-600 text-white hover:bg-red-700"
-                                }`}
-                              >
-                                {isProcessing(order._id)
-                                  ? "Processing..."
-                                  : "Reject"}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  copyWallet(order.WalletAddress)
-                                }
-                                className="rounded-lg bg-slate-700 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-                              >
-                                Copy Wallet
-                              </button>
-
-                            </div>
-
-                          </td>
-
-                        </tr>
-                      ))}
-
-                    </tbody>
-
-                  </table>
-                </div>
-
-                {/* ===================================================== */}
-                {/* MOBILE CARDS */}
-                {/* ===================================================== */}
-
-                <div className="border-t bg-slate-50 p-4 lg:hidden">
-
-                  <h3 className="mb-4 text-lg font-bold text-gray-700">
-                    Mobile Orders View
-                  </h3>
-
-                  <div className="space-y-4">
-
-                    {filteredOrders.map((order) => (
-                      <div
-                        key={`mobile-${order._id}`}
-                        className="rounded-2xl border bg-white p-4 shadow-sm"
-                      >
-
-                        <div className="mb-3 flex items-center justify-between">
-
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-bold ${getTypeBadge(
-                              order.type
-                            )}`}
-                          >
-                            {order.type}
-                          </span>
-
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusBadge(
-                              order.status
-                            )}`}
-                          >
-                            {order.status}
-                          </span>
-
-                        </div>
-
-                        <h4 className="font-bold text-gray-700">
-                          {order.username}
-                        </h4>
-
-                        <p className="mt-1 text-xs text-gray-500">
-                          {formatDate(order.createdAt)} 鈥?{formatTime(order.createdAt)}
-                        </p>
-
-                        <div className="mt-4 grid grid-cols-2 gap-3">
-
-                          <div className="rounded-lg bg-blue-50 p-3">
-                            <p className="text-xs text-blue-600">
-                              Usdt
-                            </p>
-
-                            <p className="font-bold text-blue-700">
-                              {formatUsdt(order.UsdtAmount)}
-                            </p>
-                          </div>
-
-                          <div className="rounded-lg bg-green-50 p-3">
-                            <p className="text-xs text-green-600">
-                              Pkr
-                            </p>
-
-                            <p className="font-bold text-green-700">
-                              Rs. {formatPkr(order.PkrAmount)}
-                            </p>
-                          </div>
-
-                        </div>
-
-                        <div className="mt-3 rounded-lg bg-orange-50 p-3">
-
-                          <p className="text-xs text-orange-600">
-                            Network
-                          </p>
-
-                          <p className="font-bold text-orange-700">
-                            {order.network}
-                          </p>
-
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap gap-2">
-
-                          {order.receiptImage && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                openReceipt(order.receiptImage)
-                              }
-                              className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white"
-                            >
-                              View Receipt
-                            </button>
-                          )}
+                      <td className="px-5 py-4 font-bold text-white">
+                        {deposit.username}
+                      </td>
+
+                      <td className="px-5 py-4 text-cyan-400 text-sm break-all">
+                        {deposit.walletAddress}
+                      </td>
+
+                      <td className="px-5 py-4 text-purple-400 text-xs break-all">
+                        {deposit.txHash || "No TX Hash"}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <span className="bg-green-500/10 border border-green-500 text-green-400 px-3 py-2 rounded-lg font-bold">
+                          {Number(deposit.amount).toFixed(2)} USDT
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4 text-gray-300 text-sm">
+                        {new Date(deposit.createdAt).toLocaleDateString()}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <div className="flex justify-center gap-2 flex-wrap">
 
                           <button
-                            type="button"
-                            onClick={() =>
-                              copyWallet(order.WalletAddress)
-                            }
-                            className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-white"
+                            onClick={() => approveDeposit(deposit._id)}
+                            className="bg-green-500 hover:bg-green-400 text-black px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition"
                           >
-                            Copy Wallet
+                            <CheckCircle size={14} />
+                            Approve
+                          </button>
+
+                          <button
+                            onClick={() => rejectDeposit(deposit._id)}
+                            className="bg-red-500 hover:bg-red-400 text-black px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition"
+                          >
+                            <XCircle size={14} />
+                            Reject
                           </button>
 
                         </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-                        {order.status === "Pending" && (
-                          <div className="mt-4 grid grid-cols-2 gap-2">
-
-                            <button
-                              type="button"
-                              disabled={isProcessing(order._id)}
-                              onClick={() =>
-                                approveOrder(order._id)
-                              }
-                              className="rounded-lg bg-green-600 py-2 text-sm font-bold text-white"
-                            >
-                              {isProcessing(order._id)
-                                ? "..."
-                                : "Approve"}
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={isProcessing(order._id)}
-                              onClick={() =>
-                                rejectOrder(order._id)
-                              }
-                              className="rounded-lg bg-red-600 py-2 text-sm font-bold text-white"
-                            >
-                              {isProcessing(order._id)
-                                ? "..."
-                                : "Reject"}
-                            </button>
-
-                          </div>
-                        )}
-
-                      </div>
-                    ))}
-
-                  </div>
-
-                </div>
-                                {/* ===================================================== */}
-                {/* TABLE FOOTER SUMMARY */}
-                {/* ===================================================== */}
-
-                <div className="border-t bg-slate-100 px-6 py-4">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
-                    <div>
-                      <p className="text-sm text-gray-500">
-                        Showing Orders
-                      </p>
-
-                      <h3 className="text-lg font-bold text-gray-700">
-                        {visibleSummary.total} Order(s)
-                      </h3>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3 text-sm">
-
-                      <div className="rounded-xl bg-blue-100 px-4 py-2">
-                        <span className="font-semibold text-blue-700">
-                          buy:
-                        </span>{" "}
-                        {visibleSummary.buy}
-                      </div>
-
-                      <div className="rounded-xl bg-purple-100 px-4 py-2">
-                        <span className="font-semibold text-purple-700">
-                          sell:
-                        </span>{" "}
-                        {visibleSummary.sell}
-                      </div>
-
-                      <div className="rounded-xl bg-green-100 px-4 py-2">
-                        <span className="font-semibold text-green-700">
-                          Approved:
-                        </span>{" "}
-                        {visibleSummary.approved}
-                      </div>
-
-                      <div className="rounded-xl bg-yellow-100 px-4 py-2">
-                        <span className="font-semibold text-yellow-700">
-                          Pending:
-                        </span>{" "}
-                        {visibleSummary.pending}
-                      </div>
-
-                      <div className="rounded-xl bg-red-100 px-4 py-2">
-                        <span className="font-semibold text-red-700">
-                          Rejected:
-                        </span>{" "}
-                        {visibleSummary.rejected}
-                      </div>
-
-                    </div>
-
+          {/* Mobile Cards */}
+          <div className="lg:hidden p-5 space-y-4">
+            {paginatedDeposits.map((deposit) => (
+              <div
+                key={deposit._id}
+                className="bg-black border border-zinc-700 rounded-xl p-5 space-y-4"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-black text-lg text-white">
+                      {deposit.username}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(deposit.createdAt).toLocaleDateString()}
+                    </p>
                   </div>
                 </div>
 
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Wallet Address</p>
+                  <p className="text-cyan-400 text-sm break-all mt-1">
+                    {deposit.walletAddress}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">TX Hash</p>
+                  <p className="text-purple-400 text-xs break-all mt-1">
+                    {deposit.txHash || "No TX Hash"}
+                  </p>
+                </div>
+
+                <div className="bg-zinc-900 border border-green-500 rounded-xl p-4">
+                  <p className="text-xs text-gray-500 uppercase">Deposit Amount</p>
+                  <h3 className="text-2xl font-black text-green-400 mt-2">
+                    {Number(deposit.amount).toFixed(2)} USDT
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => approveDeposit(deposit._id)}
+                    className="bg-green-500 hover:bg-green-400 text-black py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition"
+                  >
+                    <CheckCircle size={18} />
+                    Approve
+                  </button>
+
+                  <button
+                    onClick={() => rejectDeposit(deposit._id)}
+                    className="bg-red-500 hover:bg-red-400 text-black py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition"
+                  >
+                    <XCircle size={18} />
+                    Reject
+                  </button>
+                </div>
               </div>
-            )}
+            ))}
+          </div>
+        </section>
 
-            {/* ===================================================== */}
-            {/* EMPTY STATE */}
-            {/* ===================================================== */}
+        {/* ============================================= */}
+        {/* PENDING USDT WITHDRAWALS */}
+        {/* ============================================= */}
 
-            {!hasOrders && (
-              <div className="mt-6 rounded-3xl bg-white p-12 text-center shadow-lg">
+        <section className="bg-zinc-900 border border-orange-500 rounded-2xl overflow-hidden">
 
-                <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-indigo-100">
-                  <span className="text-5xl">馃搵</span>
+          <div className="flex justify-between items-center px-6 py-5 border-b border-zinc-800 flex-wrap gap-3">
+            <div>
+              <h2 className="text-2xl font-black text-orange-400">
+                Pending USDT Withdrawals
+              </h2>
+              <p className="text-gray-400 text-sm mt-1">
+                Review outgoing USDT withdrawal requests.
+              </p>
+            </div>
+
+            <span className="bg-orange-500/20 border border-orange-500 text-orange-400 px-4 py-2 rounded-full text-sm font-bold">
+              {filteredWithdraws.length} Pending
+            </span>
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden lg:block overflow-x-auto">
+            <table className="w-full min-w-[1000px]">
+              <thead className="bg-black text-gray-400 text-sm">
+                <tr>
+                  <th className="text-left px-5 py-4">User</th>
+                  <th className="text-left px-5 py-4">Wallet Address</th>
+                  <th className="text-left px-5 py-4">Amount</th>
+                  <th className="text-left px-5 py-4">Date</th>
+                  <th className="text-center px-5 py-4">Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredWithdraws.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-10 text-gray-500">
+                      No pending withdrawals found.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredWithdraws.map((withdraw) => (
+                    <tr
+                      key={withdraw._id}
+                      className="border-t border-zinc-800 hover:bg-zinc-800/40 transition"
+                    >
+                      <td className="px-5 py-4 font-bold text-white">
+                        {withdraw.username}
+                      </td>
+
+                      <td className="px-5 py-4 text-cyan-400 text-sm break-all">
+                        {withdraw.walletAddress}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <span className="bg-orange-500/10 border border-orange-500 text-orange-400 px-3 py-2 rounded-lg font-bold">
+                          {Number(withdraw.amount).toFixed(2)} USDT
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4 text-gray-300 text-sm">
+                        {new Date(withdraw.createdAt).toLocaleDateString()}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <div className="flex justify-center gap-2 flex-wrap">
+
+                          <button
+                            onClick={() => approveWithdraw(withdraw._id)}
+                            className="bg-green-500 hover:bg-green-400 text-black px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition"
+                          >
+                            <CheckCircle size={14} />
+                            Approve
+                          </button>
+
+                          <button
+                            onClick={() => rejectWithdraw(withdraw._id)}
+                            className="bg-red-500 hover:bg-red-400 text-black px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition"
+                          >
+                            <XCircle size={14} />
+                            Reject
+                          </button>
+
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="lg:hidden p-5 space-y-4">
+            {filteredWithdraws.map((withdraw) => (
+              <div
+                key={withdraw._id}
+                className="bg-black border border-zinc-700 rounded-xl p-5 space-y-4"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-black text-lg text-white">
+                      {withdraw.username}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(withdraw.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
 
-                <h2 className="mt-6 text-2xl font-bold text-gray-700">
-                  No Usdt Orders Found
-                </h2>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Wallet Address</p>
+                  <p className="text-cyan-400 text-sm break-all mt-1">
+                    {withdraw.walletAddress}
+                  </p>
+                </div>
 
-                <p className="mt-3 text-gray-500">
-                  buy and sell requests submitted by users will appear here.
-                </p>
+                <div className="bg-zinc-900 border border-orange-500 rounded-xl p-4">
+                  <p className="text-xs text-gray-500 uppercase">Withdraw Amount</p>
+                  <h3 className="text-2xl font-black text-orange-400 mt-2">
+                    {Number(withdraw.amount).toFixed(2)} USDT
+                  </h3>
+                </div>
 
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => approveWithdraw(withdraw._id)}
+                    className="bg-green-500 hover:bg-green-400 text-black py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition"
+                  >
+                    <CheckCircle size={18} />
+                    Approve
+                  </button>
+
+                  <button
+                    onClick={() => rejectWithdraw(withdraw._id)}
+                    className="bg-red-500 hover:bg-red-400 text-black py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition"
+                  >
+                    <XCircle size={18} />
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ============================================= */}
+        {/* PAGINATION */}
+        {/* ============================================= */}
+
+        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 space-y-6">
+
+          <div className="flex flex-wrap justify-between items-center gap-4">
+
+            <div>
+              <h2 className="text-2xl font-black text-cyan-400">
+                USDT Deposit Pagination
+              </h2>
+
+              <p className="text-gray-400 text-sm mt-2">
+                Showing {(currentPage - 1) * rowsPerPage + 1} to {Math.min(currentPage * rowsPerPage, filteredDeposits.length)} of {filteredDeposits.length} deposits.
+              </p>
+            </div>
+
+            <span className="bg-cyan-500/20 border border-cyan-500 text-cyan-400 px-4 py-2 rounded-full font-bold text-sm">
+              Page {currentPage} / {totalPages}
+            </span>
+
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-2">
+
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 font-bold"
+            >
+              Previous
+            </button>
+
+            {Array.from({ length: totalPages }, (_, index) => {
+              const page = index + 1;
+
+              return (
                 <button
-                  type="button"
-                  onClick={refreshOrders}
-                  className="mt-6 rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white transition hover:bg-indigo-700"
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-10 h-10 rounded-lg font-bold transition ${
+                    currentPage === page
+                      ? "bg-cyan-500 text-black"
+                      : "bg-zinc-800 hover:bg-zinc-700"
+                  }`}
                 >
-                  Refresh Orders
+                  {page}
                 </button>
+              );
+            })}
+
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() =>
+                setCurrentPage((p) => Math.min(p + 1, totalPages))
+              }
+              className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 font-bold"
+            >
+              Next
+            </button>
+
+          </div>
+
+        </section>
+
+        {/* ============================================= */}
+        {/* QUICK ACTIONS */}
+        {/* ============================================= */}
+
+        <section className="grid md:grid-cols-3 gap-5">
+
+          <Link
+            href="/admin/wallet"
+            className="bg-zinc-900 border border-green-500 rounded-2xl p-6 hover:border-green-400 transition"
+          >
+            <Wallet className="text-green-400 mb-3" size={30} />
+
+            <h3 className="font-black text-xl text-green-400">
+              Wallet Manager
+            </h3>
+
+            <p className="text-gray-400 text-sm mt-2">
+              Open PKR, Gold and USDT wallet management.
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/gold"
+            className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6 hover:border-yellow-400 transition"
+          >
+            <ShieldCheck className="text-yellow-400 mb-3" size={30} />
+
+            <h3 className="font-black text-xl text-yellow-400">
+              Gold Manager
+            </h3>
+
+            <p className="text-gray-400 text-sm mt-2">
+              Manage Gold buy/sell market settings.
+            </p>
+          </Link>
+
+          <Link
+            href="/admin"
+            className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 hover:border-cyan-400 transition"
+          >
+            <DollarSign className="text-cyan-400 mb-3" size={30} />
+
+            <h3 className="font-black text-xl text-cyan-400">
+              Admin Dashboard
+            </h3>
+
+            <p className="text-gray-400 text-sm mt-2">
+              Return to GoldTrade Enterprise Dashboard.
+            </p>
+          </Link>
+
+        </section>
+
+        {/* ============================================= */}
+        {/* SYSTEM SUMMARY */}
+        {/* ============================================= */}
+
+        <section className="bg-zinc-900 border border-purple-500 rounded-2xl p-6 space-y-6">
+
+          <h2 className="text-2xl font-black text-purple-400">
+            USDT System Summary
+          </h2>
+
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
+
+            <div className="bg-black border border-green-500 rounded-xl p-5 text-center">
+              <p className="text-gray-500 text-xs uppercase">Buy Rate</p>
+              <h3 className="text-2xl font-black text-green-400 mt-2">
+                {settings.buyPrice}
+              </h3>
+            </div>
+
+            <div className="bg-black border border-red-500 rounded-xl p-5 text-center">
+              <p className="text-gray-500 text-xs uppercase">Sell Rate</p>
+              <h3 className="text-2xl font-black text-red-400 mt-2">
+                {settings.sellPrice}
+              </h3>
+            </div>
+
+            <div className="bg-black border border-cyan-500 rounded-xl p-5 text-center">
+              <p className="text-gray-500 text-xs uppercase">Pending Deposits</p>
+              <h3 className="text-2xl font-black text-cyan-400 mt-2">
+                {analytics.pendingDeposits}
+              </h3>
+            </div>
+
+            <div className="bg-black border border-orange-500 rounded-xl p-5 text-center">
+              <p className="text-gray-500 text-xs uppercase">Pending Withdrawals</p>
+              <h3 className="text-2xl font-black text-orange-400 mt-2">
+                {analytics.pendingWithdraws}
+              </h3>
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* ============================================= */}
+        {/* FOOTER */}
+        {/* ============================================= */}
+
+        <footer className="border-t border-zinc-800 pt-8 pb-6">
+
+          <div className="grid md:grid-cols-3 gap-8">
+
+            <div>
+              <h3 className="text-lg font-black text-cyan-400 mb-3">
+                GoldTrade V18 Enterprise
+              </h3>
+
+              <p className="text-gray-500 text-sm leading-6">
+                Enterprise USDT management system for deposits, withdrawals, market pricing and trading controls.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black text-green-400 mb-3">
+                Admin Features
+              </h3>
+
+              <ul className="space-y-2 text-sm text-gray-500">
+                <li>• Live Buy/Sell Rate</li>
+                <li>• Trading Status</li>
+                <li>• Deposit Approval</li>
+                <li>• Withdraw Approval</li>
+                <li>• Search Transactions</li>
+                <li>• Mobile Responsive Dashboard</li>
+                <li>• Pagination</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black text-purple-400 mb-3">
+                Market Status
+              </h3>
+
+              <div className="space-y-3 text-sm">
+
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Trading</span>
+                  <span
+                    className={`font-bold ${
+                      settings.tradingEnabled
+                        ? "text-green-400"
+                        : "text-red-400"
+                    }`}
+                  >
+                    {settings.tradingEnabled ? "LIVE" : "OFFLINE"}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Buy Price</span>
+                  <span className="font-bold text-green-400">
+                    PKR {settings.buyPrice}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Sell Price</span>
+                  <span className="font-bold text-red-400">
+                    PKR {settings.sellPrice}
+                  </span>
+                </div>
 
               </div>
-            )}
-
-            {/* ===================================================== */}
-            {/* ADMIN INFORMATION */}
-            {/* ===================================================== */}
-
-            <div className="mt-8 rounded-2xl border border-blue-200 bg-blue-50 p-5">
-
-              <h3 className="mb-3 text-lg font-bold text-blue-700">
-                Admin Usdt Order Management
-              </h3>
-
-              <ul className="space-y-2 text-sm text-gray-700">
-                <li>鈥?Approve buy requests after verifying payment receipt.</li>
-                <li>鈥?Approve sell requests after verifying Wallet transfer.</li>
-                <li>鈥?Rejected orders remain visible for audit history.</li>
-                <li>鈥?Every approval updates Wallet Balance automatically.</li>
-                <li>鈥?Pkr and Usdt Wallet history is created automatically.</li>
-              </ul>
-
             </div>
 
-            {/* ===================================================== */}
-            {/* SECURITY NOTICE */}
-            {/* ===================================================== */}
+          </div>
 
-            <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5">
+          <div className="border-t border-zinc-800 mt-8 pt-6 flex flex-wrap justify-between items-center gap-4">
 
-              <h3 className="mb-2 text-lg font-bold text-green-700">
-                GoldTrade V18 Secure Admin Panel
-              </h3>
+            <p className="text-gray-500 text-sm">
+              © 2026 GoldTrade V18 Enterprise Admin USDT Manager.
+            </p>
 
-              <p className="text-sm leading-6 text-gray-700">
-                Every admin approval or rejection is securely logged inside
-                GoldTrade V18. Wallet balances, transaction history and order
-                status are synchronized automatically after each action.
-              </p>
+            <button
+              onClick={refreshDashboard}
+              disabled={refreshing}
+              className="bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 disabled:cursor-not-allowed text-black px-5 py-2 rounded-lg font-bold flex items-center gap-2 transition"
+            >
+              <RefreshCw
+                size={16}
+                className={refreshing ? "animate-spin" : ""}
+              />
+              {refreshing ? "Refreshing..." : "Refresh Dashboard"}
+            </button>
 
-            </div>
+          </div>
 
-            {/* ===================================================== */}
-            {/* FOOTER */}
-            {/* ===================================================== */}
-
-            <div className="mt-10 border-t pt-6 text-center">
-
-              <h4 className="text-lg font-bold text-slate-700">
-                GoldTrade V18 Admin Dashboard
-              </h4>
-
-              <p className="mt-2 text-sm text-gray-500">
-                Pkr 鈥?Usdt 鈥?Gold 鈥?Wallet Management
-              </p>
-
-              <p className="mt-1 text-xs text-gray-400">
-                Secure 鈥?Fast 鈥?Professional Digital Trading Platform
-              </p>
-
-            </div>
-
-          </>
-        )}
+        </footer>
 
       </div>
-    </div>
+    </main>
   );
 }
-
-
