@@ -171,7 +171,7 @@ export default function AdminWalletPage() {
 
   const loadWalletStats = async () => {
     const response = await fetch(
-      `${API}/api/gold/admin/dashboard`,
+      `${API}/api/admin/wallet/stats`,
       {
         headers: getHeaders(),
       }
@@ -180,7 +180,7 @@ export default function AdminWalletPage() {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.message || "Unable to load dashboard.");
+      throw new Error(data.message || "Unable to load wallet statistics.");
     }
 
     setStats({
