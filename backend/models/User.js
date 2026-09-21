@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 
 // =====================================================
 // GOLDTRADE V18 ENTERPRISE USER MODEL
+// LINUX + RENDER FINAL VERSION
 // =====================================================
 
 const UserSchema = new mongoose.Schema(
@@ -17,7 +18,6 @@ const UserSchema = new mongoose.Schema(
       unique: true,
       trim: true,
       lowercase: true,
-      index: true,
     },
 
     fullName: {
@@ -52,8 +52,31 @@ const UserSchema = new mongoose.Schema(
       trim: true,
     },
 
+    address: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    profileImage: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    dateOfBirth: {
+      type: Date,
+      default: null,
+    },
+
+    gender: {
+      type: String,
+      enum: ["Male", "Female", "Other"],
+      default: "Male",
+    },
+
     // =====================================================
-    // LOGIN
+    // LOGIN INFORMATION
     // =====================================================
 
     password: {
@@ -66,7 +89,6 @@ const UserSchema = new mongoose.Schema(
       type: String,
       enum: ["user", "admin"],
       default: "user",
-      index: true,
     },
 
     // =====================================================
@@ -92,7 +114,8 @@ const UserSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-        // =====================================================
+
+    // =====================================================
     // PKR WALLET
     // =====================================================
 
@@ -159,7 +182,7 @@ const UserSchema = new mongoose.Schema(
     },
 
     // =====================================================
-    // TRADING PROFIT & LOSS
+    // TRADING STATS
     // =====================================================
 
     totalProfit: {
@@ -226,32 +249,6 @@ const UserSchema = new mongoose.Schema(
     dailyTradingLimit: {
       type: Number,
       default: 5000000,
-    },
-        // =====================================================
-    // PROFILE INFORMATION
-    // =====================================================
-
-    profileImage: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-
-    dateOfBirth: {
-      type: Date,
-      default: null,
-    },
-
-    gender: {
-      type: String,
-      enum: ["Male", "Female", "Other"],
-      default: "Male",
-    },
-
-    address: {
-      type: String,
-      default: "",
-      trim: true,
     },
 
     // =====================================================
@@ -390,20 +387,16 @@ const UserSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-      },
+  },
   {
     timestamps: true,
     versionKey: false,
   }
 );
-
 // =====================================================
-// DATABASE INDEXES
+// DATABASE INDEXES (NO DUPLICATE WARNINGS)
 // =====================================================
 
-UserSchema.index({ username: 1 });
-UserSchema.index({ email: 1 });
-UserSchema.index({ role: 1 });
 UserSchema.index({ walletFrozen: 1 });
 UserSchema.index({ kycStatus: 1 });
 UserSchema.index({ createdAt: -1 });
@@ -428,7 +421,7 @@ UserSchema.pre("save", async function (next) {
 });
 
 // =====================================================
-// PASSWORD COMPARE METHOD
+// PASSWORD COMPARE
 // =====================================================
 
 UserSchema.methods.comparePassword = async function (password) {
@@ -441,7 +434,6 @@ UserSchema.methods.comparePassword = async function (password) {
 
 UserSchema.methods.isAccountLocked = function () {
   if (!this.accountLockedUntil) return false;
-
   return this.accountLockedUntil > new Date();
 };
 
@@ -466,18 +458,14 @@ UserSchema.methods.recordFailedLogin = async function () {
   this.loginAttempts += 1;
 
   if (this.loginAttempts >= 5) {
-    const lockMinutes = 30;
-
-    this.accountLockedUntil = new Date(
-      Date.now() + lockMinutes * 60 * 1000
-    );
+    this.accountLockedUntil = new Date(Date.now() + 30 * 60 * 1000);
   }
 
   return this.save();
 };
 
 // =====================================================
-// WALLET TOTAL VALUE (VIRTUAL)
+// WALLET SUMMARY (VIRTUAL)
 // =====================================================
 
 UserSchema.virtual("walletSummary").get(function () {
@@ -486,22 +474,23 @@ UserSchema.virtual("walletSummary").get(function () {
     goldBalance: Number(this.goldBalance || 0),
     usdtBalance: Number(this.usdtBalance || 0),
 
-    totalTransactions: Number(this.totalTransactions || 0),
+    totalProfit: Number(this.totalProfit || 0),
+    totalLoss: Number(this.totalLoss || 0),
     totalTradingVolume: Number(this.totalTradingVolume || 0),
+    totalTransactions: Number(this.totalTransactions || 0),
   };
 });
 
 // =====================================================
-// SAFE JSON OUTPUT
+// SAFE JSON RESPONSE
 // =====================================================
 
 UserSchema.set("toJSON", {
   virtuals: true,
-  transform: function (doc, ret) {
+  transform(doc, ret) {
     delete ret.password;
     delete ret.refreshToken;
     delete ret.__v;
-
     return ret;
   },
 });

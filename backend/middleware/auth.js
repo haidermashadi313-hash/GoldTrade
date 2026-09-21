@@ -9,7 +9,6 @@ const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    // Authorization header missing
     if (!authHeader) {
       return res.status(401).json({
         success: false,
@@ -17,7 +16,6 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Header format: Bearer <token>
     if (!authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
@@ -26,13 +24,6 @@ const verifyToken = async (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: "JWT token missing.",
-      });
-    }
 
     const decoded = jwt.verify(
       token,
@@ -62,142 +53,93 @@ const verifyToken = async (req, res, next) => {
 };
 
 // =====================================================
-// ADMIN ROLE CHECK
+// ADMIN CHECK
 // =====================================================
 
 const isAdmin = (req, res, next) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required.",
-      });
-    }
-
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access only.",
-      });
-    }
-
-    next();
-  } catch (error) {
-    console.error("Admin Authorization Error:", error);
-
-    return res.status(500).json({
+  if (!req.user) {
+    return res.status(401).json({
       success: false,
-      message: "Authorization failed.",
+      message: "Authentication required.",
     });
   }
+
+  if (req.user.role !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Admin access only.",
+    });
+  }
+
+  next();
 };
 
 // =====================================================
-// USER ROLE CHECK
+// USER CHECK
 // =====================================================
 
 const isUser = (req, res, next) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required.",
-      });
-    }
-
-    next();
-  } catch (error) {
-    console.error("User Authorization Error:", error);
-
-    return res.status(500).json({
+  if (!req.user) {
+    return res.status(401).json({
       success: false,
-      message: "Authorization failed.",
+      message: "Authentication required.",
     });
   }
+
+  next();
 };
 
 // =====================================================
 // WALLET FREEZE CHECK
-// Prevent trading, deposits, withdrawals if frozen.
 // =====================================================
 
 const checkWalletStatus = (req, res, next) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required.",
-      });
-    }
-
-    if (req.user.walletFrozen) {
-      return res.status(403).json({
-        success: false,
-        message: "Your wallet has been frozen by the administrator.",
-      });
-    }
-
-    next();
-  } catch (error) {
-    console.error("Wallet Status Error:", error);
-
-    return res.status(500).json({
+  if (!req.user) {
+    return res.status(401).json({
       success: false,
-      message: "Wallet verification failed.",
+      message: "Authentication required.",
     });
   }
+
+  if (req.user.walletFrozen) {
+    return res.status(403).json({
+      success: false,
+      message: "Your wallet has been frozen by administrator.",
+    });
+  }
+
+  next();
 };
 
 // =====================================================
-// OPTIONAL SELF OR ADMIN CHECK
-// Used for profile/history routes
+// SELF OR ADMIN CHECK
 // =====================================================
 
 const isSelfOrAdmin = (req, res, next) => {
-  try {
-    const username = req.params.username;
+  const username = req.params.username;
 
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required.",
-      });
-    }
-
-    if (
-      req.user.role === "admin" ||
-      req.user.username === username
-    ) {
-      return next();
-    }
-
-    return res.status(403).json({
+  if (!req.user) {
+    return res.status(401).json({
       success: false,
-      message: "Access denied.",
-    });
-  } catch (error) {
-    console.error("Self/Admin Check Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Authorization failed.",
+      message: "Authentication required.",
     });
   }
+
+  if (
+    req.user.role === "admin" ||
+    req.user.username === username
+  ) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    message: "Access denied.",
+  });
 };
-router.post("/buy", verifyToken, checkWalletStatus, buyGold);
 
-router.post("/withdraw", verifyToken, checkWalletStatus, withdrawUSDT);
-
-router.get("/admin/users", verifyToken, isAdmin, getUsers);
-
-router.get(
-  "/history/:username",
-  verifyToken,
-  isSelfOrAdmin,
-  getHistory
-);
 // =====================================================
-// GENERATE ACCESS TOKEN
+// ACCESS TOKEN
 // =====================================================
 
 const generateAccessToken = (user) => {
@@ -215,7 +157,7 @@ const generateAccessToken = (user) => {
 };
 
 // =====================================================
-// GENERATE REFRESH TOKEN
+// REFRESH TOKEN
 // =====================================================
 
 const generateRefreshToken = (user) => {
@@ -226,7 +168,8 @@ const generateRefreshToken = (user) => {
       role: user.role,
       type: "refresh",
     },
-    process.env.JWT_REFRESH_SECRET || "goldtrade_v18_refresh_secret",
+    process.env.JWT_REFRESH_SECRET ||
+      "goldtrade_v18_refresh_secret",
     {
       expiresIn: process.env.JWT_REFRESH_EXPIRE || "30d",
     }
@@ -240,25 +183,22 @@ const generateRefreshToken = (user) => {
 const verifyRefreshToken = (token) => {
   return jwt.verify(
     token,
-    process.env.JWT_REFRESH_SECRET || "goldtrade_v18_refresh_secret"
+    process.env.JWT_REFRESH_SECRET ||
+      "goldtrade_v18_refresh_secret"
   );
 };
 
 // =====================================================
 // CREATE LOGIN RESPONSE
-// Standard response for login/auth routes
 // =====================================================
 
 const createLoginResponse = (user) => {
-  const accessToken = generateAccessToken(user);
-  const refreshToken = generateRefreshToken(user);
-
   return {
     success: true,
     message: "Login successful.",
 
-    accessToken,
-    refreshToken,
+    accessToken: generateAccessToken(user),
+    refreshToken: generateRefreshToken(user),
 
     user: {
       id: user._id,
@@ -277,7 +217,7 @@ const createLoginResponse = (user) => {
 };
 
 // =====================================================
-// EXTRACT TOKEN FROM HEADER
+// EXTRACT TOKEN
 // =====================================================
 
 const extractToken = (req) => {
@@ -290,39 +230,30 @@ const extractToken = (req) => {
   return authHeader.substring(7);
 };
 // =====================================================
-// OPTIONAL ADMIN OR SELF CHECK BY USER ID
+// OPTIONAL ADMIN OR OWNER CHECK BY USER ID
 // =====================================================
 
 const isOwnerOrAdminById = (req, res, next) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required.",
-      });
-    }
-
-    const requestedUserId = req.params.userId || req.params.id;
-
-    if (
-      req.user.role === "admin" ||
-      String(req.user._id) === String(requestedUserId)
-    ) {
-      return next();
-    }
-
-    return res.status(403).json({
+  if (!req.user) {
+    return res.status(401).json({
       success: false,
-      message: "Access denied.",
-    });
-  } catch (error) {
-    console.error("Owner/Admin Check Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Authorization failed.",
+      message: "Authentication required.",
     });
   }
+
+  const requestedUserId = req.params.userId || req.params.id;
+
+  if (
+    req.user.role === "admin" ||
+    String(req.user._id) === String(requestedUserId)
+  ) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    message: "Access denied.",
+  });
 };
 
 // =====================================================
@@ -330,41 +261,32 @@ const isOwnerOrAdminById = (req, res, next) => {
 // =====================================================
 
 const isAdminWithActiveWallet = (req, res, next) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required.",
-      });
-    }
-
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access only.",
-      });
-    }
-
-    if (req.user.walletFrozen) {
-      return res.status(403).json({
-        success: false,
-        message: "Admin wallet is frozen.",
-      });
-    }
-
-    next();
-  } catch (error) {
-    console.error("Admin Wallet Check Error:", error);
-
-    return res.status(500).json({
+  if (!req.user) {
+    return res.status(401).json({
       success: false,
-      message: "Authorization failed.",
+      message: "Authentication required.",
     });
   }
+
+  if (req.user.role !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Admin access only.",
+    });
+  }
+
+  if (req.user.walletFrozen) {
+    return res.status(403).json({
+      success: false,
+      message: "Admin wallet is frozen.",
+    });
+  }
+
+  next();
 };
 
 // =====================================================
-// AUTH INFO (OPTIONAL DEBUG ROUTE)
+// AUTH INFO (DEBUG)
 // =====================================================
 
 const getAuthInfo = (req, res) => {
@@ -396,7 +318,7 @@ const getAuthInfo = (req, res) => {
 };
 
 // =====================================================
-// EXPORT ENTERPRISE AUTH MIDDLEWARE
+// FINAL EXPORT (ONLY ONE MODULE.EXPORTS)
 // =====================================================
 
 module.exports = {
@@ -417,9 +339,9 @@ module.exports = {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
-  extractToken,
   createLoginResponse,
+  extractToken,
 
-  // Optional Debug
+  // Debug
   getAuthInfo,
 };
