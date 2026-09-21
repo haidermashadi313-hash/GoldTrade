@@ -1,8 +1,8 @@
 "use strict";
 
 // =======================================================
-// GoldTrade V18 - SETTINGS ROUTES
-// Linux + Render Compatible
+// GoldTrade V18 Enterprise - SETTINGS ROUTES
+// Linux + Render + Vercel Production Compatible
 // =======================================================
 
 const express = require("express");
@@ -15,7 +15,7 @@ const router = express.Router();
 const Settings = require("../models/Settings");
 
 // =======================================================
-// MIDDLEWARE (FINAL)
+// AUTH MIDDLEWARE
 // =======================================================
 
 const { verifyToken, isAdmin } = require("../middleware/auth");
@@ -26,15 +26,16 @@ const { verifyToken, isAdmin } = require("../middleware/auth");
 // =======================================================
 
 router.get("/health", (req, res) => {
-  return res.json({
+  return res.status(200).json({
     success: true,
-    message: "Settings API Working - GoldTrade V18",
+    message: "GoldTrade V18 Settings API Working",
+    version: "V18 Enterprise",
     timestamp: new Date(),
   });
 });
 
 // =======================================================
-// CREATE DEFAULT SETTINGS (AUTO)
+// CREATE DEFAULT SETTINGS (AUTO CREATE)
 // =======================================================
 
 const getSettings = async () => {
@@ -44,40 +45,62 @@ const getSettings = async () => {
     settings = await Settings.create({
       buyGoldPrice: 31250,
       sellGoldPrice: 30950,
-      goldPriceUSD: 3350,
+      goldPriceUSD: 3420.5,
+
+      // Keep this field name exactly like model
       UsdtoPkr: 305,
+
       goldTradingEnabled: true,
       marketStatus: "OPEN",
       maintenanceMode: false,
+
       updatedBy: "SYSTEM",
     });
   }
 
   return settings;
 };
+
 // =======================================================
-// GET PUBLIC SETTINGS
+// SAFE NUMBER CONVERTER
+// =======================================================
+
+const toNumber = (value, fallback = 0) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+};
+
+// =======================================================
+// PUBLIC SETTINGS
 // GET /api/settings/public
-// Used by Gold Dashboard / buy / sell Pages
+// Used by Dashboard / Buy / Sell / Market
 // =======================================================
 
 router.get("/public", async (req, res) => {
   try {
     const settings = await getSettings();
 
-    return res.json({
+    return res.status(200).json({
       success: true,
+
       buyGoldPrice: settings.buyGoldPrice,
       sellGoldPrice: settings.sellGoldPrice,
       goldPriceUSD: settings.goldPriceUSD,
+
+      // Compatibility for all frontend pages
       UsdtoPkr: settings.UsdtoPkr,
+      usdToPkr: settings.UsdtoPkr,
+
       goldTradingEnabled: settings.goldTradingEnabled,
       marketStatus: settings.marketStatus,
       maintenanceMode: settings.maintenanceMode,
+
+      updatedBy: settings.updatedBy,
       updatedAt: settings.updatedAt,
     });
-  } catch (err) {
-    console.error("PUBLIC SETTINGS ERROR:", err);
+
+  } catch (error) {
+    console.error("PUBLIC SETTINGS ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -87,7 +110,7 @@ router.get("/public", async (req, res) => {
 });
 
 // =======================================================
-// GET COMPLETE SETTINGS (ADMIN)
+// ADMIN SETTINGS
 // GET /api/settings
 // =======================================================
 
@@ -95,12 +118,13 @@ router.get("/", verifyToken, isAdmin, async (req, res) => {
   try {
     const settings = await getSettings();
 
-    return res.json({
+    return res.status(200).json({
       success: true,
       settings,
     });
-  } catch (err) {
-    console.error("GET SETTINGS ERROR:", err);
+
+  } catch (error) {
+    console.error("GET SETTINGS ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -110,7 +134,7 @@ router.get("/", verifyToken, isAdmin, async (req, res) => {
 });
 
 // =======================================================
-// GET GOLD PRICE ONLY
+// GOLD PRICE API
 // GET /api/settings/gold-price
 // =======================================================
 
@@ -118,17 +142,23 @@ router.get("/gold-price", async (req, res) => {
   try {
     const settings = await getSettings();
 
-    return res.json({
+    return res.status(200).json({
       success: true,
+
       buyPrice: settings.buyGoldPrice,
       sellPrice: settings.sellGoldPrice,
+
       usdPrice: settings.goldPriceUSD,
+
       UsdtoPkr: settings.UsdtoPkr,
+      usdToPkr: settings.UsdtoPkr,
+
       marketStatus: settings.marketStatus,
       tradingEnabled: settings.goldTradingEnabled,
     });
-  } catch (err) {
-    console.error("GOLD PRICE ERROR:", err);
+
+  } catch (error) {
+    console.error("GOLD PRICE ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -138,124 +168,7 @@ router.get("/gold-price", async (req, res) => {
 });
 
 // =======================================================
-// UPDATE SETTINGS
-// PUT /api/settings/update
-// =======================================================
-
-router.put("/update", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const {
-      buyGoldPrice,
-      sellGoldPrice,
-      goldPriceUSD,
-      UsdtoPkr,
-      goldTradingEnabled,
-      marketStatus,
-      maintenanceMode,
-    } = req.body;
-
-    let settings = await getSettings();
-
-    // ---------- GOLD buy PRICE ----------
-    if (buyGoldPrice !== undefined) {
-      settings.buyGoldPrice = Number(buyGoldPrice);
-    }
-
-    // ---------- GOLD sell PRICE ----------
-    if (sellGoldPrice !== undefined) {
-      settings.sellGoldPrice = Number(sellGoldPrice);
-    }
-
-    // ---------- LIVE GOLD USD PRICE ----------
-    if (goldPriceUSD !== undefined) {
-      settings.goldPriceUSD = Number(goldPriceUSD);
-    }
-
-    // ---------- USD TO Pkr RATE ----------
-    if (UsdtoPkr !== undefined) {
-      settings.UsdtoPkr = Number(UsdtoPkr);
-    }
-
-    // ---------- ENABLE / DISABLE GOLD TRADING ----------
-    if (goldTradingEnabled !== undefined) {
-      settings.goldTradingEnabled = Boolean(goldTradingEnabled);
-    }
-
-    // ---------- MARKET OPEN / CLOSE ----------
-    if (marketStatus !== undefined) {
-      settings.marketStatus =
-        marketStatus === "CLOSED" ? "CLOSED" : "OPEN";
-    }
-
-    // ---------- MAINTENANCE MODE ----------
-    if (maintenanceMode !== undefined) {
-      settings.maintenanceMode = Boolean(maintenanceMode);
-    }
-
-    // ---------- ADMIN INFO ----------
-    settings.updatedBy =
-      req.user.username || req.user.email || "ADMIN";
-
-    settings.updatedAt = new Date();
-
-    await settings.save();
-
-    return res.json({
-      success: true,
-      message: "Settings updated successfully.",
-      settings,
-    });
-  } catch (err) {
-    console.error("UPDATE SETTINGS ERROR:", err);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to update settings.",
-      error: err.message,
-    });
-  }
-});
-
-// =======================================================
-// RESET SETTINGS TO DEFAULT
-// POST /api/settings/reset
-// =======================================================
-
-router.post("/reset", verifyToken, isAdmin, async (req, res) => {
-  try {
-    let settings = await getSettings();
-
-    settings.buyGoldPrice = 31250;
-    settings.sellGoldPrice = 30950;
-    settings.goldPriceUSD = 3350;
-    settings.UsdtoPkr = 305;
-    settings.goldTradingEnabled = true;
-    settings.marketStatus = "OPEN";
-    settings.maintenanceMode = false;
-    settings.updatedBy =
-      req.user.username || req.user.email || "ADMIN";
-    settings.updatedAt = new Date();
-
-    await settings.save();
-
-    return res.json({
-      success: true,
-      message: "Settings reset successfully.",
-      settings,
-    });
-  } catch (err) {
-    console.error("RESET SETTINGS ERROR:", err);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to reset settings.",
-      error: err.message,
-    });
-  }
-});
-
-// =======================================================
-// GET MARKET STATUS
+// MARKET STATUS API
 // GET /api/settings/market-status
 // =======================================================
 
@@ -263,19 +176,155 @@ router.get("/market-status", async (req, res) => {
   try {
     const settings = await getSettings();
 
-    return res.json({
+    return res.status(200).json({
       success: true,
+
       marketStatus: settings.marketStatus,
       goldTradingEnabled: settings.goldTradingEnabled,
       maintenanceMode: settings.maintenanceMode,
+
+      updatedBy: settings.updatedBy,
       updatedAt: settings.updatedAt,
     });
-  } catch (err) {
-    console.error("MARKET STATUS ERROR:", err);
+
+  } catch (error) {
+    console.error("MARKET STATUS ERROR:", error);
 
     return res.status(500).json({
       success: false,
       message: "Unable to load market status.",
+    });
+  }
+});
+// =======================================================
+// UPDATE SETTINGS
+// PUT /api/settings/update
+// =======================================================
+
+router.put("/update", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const settings = await getSettings();
+
+    const {
+      buyGoldPrice,
+      sellGoldPrice,
+      goldPriceUSD,
+      UsdtoPkr,
+      usdToPkr,
+      goldTradingEnabled,
+      marketStatus,
+      maintenanceMode,
+    } = req.body;
+
+    // GOLD BUY PRICE
+    if (buyGoldPrice !== undefined) {
+      settings.buyGoldPrice = toNumber(
+        buyGoldPrice,
+        settings.buyGoldPrice
+      );
+    }
+
+    // GOLD SELL PRICE
+    if (sellGoldPrice !== undefined) {
+      settings.sellGoldPrice = toNumber(
+        sellGoldPrice,
+        settings.sellGoldPrice
+      );
+    }
+
+    // GOLD USD PRICE
+    if (goldPriceUSD !== undefined) {
+      settings.goldPriceUSD = toNumber(
+        goldPriceUSD,
+        settings.goldPriceUSD
+      );
+    }
+
+    // USD → PKR (support both names)
+    if (UsdtoPkr !== undefined || usdToPkr !== undefined) {
+      settings.UsdtoPkr = toNumber(
+        UsdtoPkr ?? usdToPkr,
+        settings.UsdtoPkr
+      );
+    }
+
+    // GOLD TRADING ENABLE / DISABLE
+    if (goldTradingEnabled !== undefined) {
+      settings.goldTradingEnabled = Boolean(goldTradingEnabled);
+    }
+
+    // MARKET STATUS
+    if (marketStatus !== undefined) {
+      settings.marketStatus =
+        String(marketStatus).toUpperCase() === "CLOSED"
+          ? "CLOSED"
+          : "OPEN";
+    }
+
+    // MAINTENANCE MODE
+    if (maintenanceMode !== undefined) {
+      settings.maintenanceMode = Boolean(maintenanceMode);
+    }
+
+    // UPDATED BY
+    settings.updatedBy =
+      req.user.username || req.user.email || "ADMIN";
+
+    await settings.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Settings updated successfully.",
+      settings,
+    });
+
+  } catch (error) {
+    console.error("UPDATE SETTINGS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update settings.",
+      error: error.message,
+    });
+  }
+});
+
+// =======================================================
+// RESET SETTINGS
+// POST /api/settings/reset
+// =======================================================
+
+router.post("/reset", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const settings = await getSettings();
+
+    settings.buyGoldPrice = 31250;
+    settings.sellGoldPrice = 30950;
+    settings.goldPriceUSD = 3420.5;
+    settings.UsdtoPkr = 305;
+
+    settings.goldTradingEnabled = true;
+    settings.marketStatus = "OPEN";
+    settings.maintenanceMode = false;
+
+    settings.updatedBy =
+      req.user.username || req.user.email || "ADMIN";
+
+    await settings.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Settings reset successfully.",
+      settings,
+    });
+
+  } catch (error) {
+    console.error("RESET SETTINGS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to reset settings.",
+      error: error.message,
     });
   }
 });
@@ -295,21 +344,22 @@ router.put("/toggle-market", verifyToken, isAdmin, async (req, res) => {
     settings.updatedBy =
       req.user.username || req.user.email || "ADMIN";
 
-    settings.updatedAt = new Date();
-
     await settings.save();
 
-    return res.json({
+    return res.status(200).json({
       success: true,
       message: `Market is now ${settings.marketStatus}.`,
       marketStatus: settings.marketStatus,
+      goldTradingEnabled: settings.goldTradingEnabled,
     });
-  } catch (err) {
-    console.error("TOGGLE MARKET ERROR:", err);
+
+  } catch (error) {
+    console.error("TOGGLE MARKET ERROR:", error);
 
     return res.status(500).json({
       success: false,
       message: "Failed to toggle market status.",
+      error: error.message,
     });
   }
 });
@@ -321,18 +371,12 @@ router.put("/toggle-market", verifyToken, isAdmin, async (req, res) => {
 
 router.put("/toggle-trading", verifyToken, isAdmin, async (req, res) => {
   try {
-    let settings = await Settings.findOne();
-
-    if (!settings) {
-      settings = await Settings.create({
-        goldTradingEnabled: true,
-        marketStatus: "OPEN",
-      });
-    }
+    const settings = await getSettings();
 
     settings.goldTradingEnabled = !settings.goldTradingEnabled;
-    settings.updatedBy = req.user.username || req.user.email || "ADMIN";
-    settings.updatedAt = new Date();
+
+    settings.updatedBy =
+      req.user.username || req.user.email || "ADMIN";
 
     await settings.save();
 
@@ -351,6 +395,49 @@ router.put("/toggle-trading", verifyToken, isAdmin, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to update trading status.",
+      error: error.message,
+    });
+  }
+});
+
+// =======================================================
+// UPDATE USD → PKR ONLY
+// PUT /api/settings/usdt-rate
+// Used by Admin Dashboard
+// =======================================================
+
+router.put("/usdt-rate", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const settings = await getSettings();
+
+    const rate = req.body.UsdtoPkr ?? req.body.usdToPkr;
+
+    if (rate === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "USD to PKR rate is required.",
+      });
+    }
+
+    settings.UsdtoPkr = toNumber(rate, settings.UsdtoPkr);
+    settings.updatedBy =
+      req.user.username || req.user.email || "ADMIN";
+
+    await settings.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "USD to PKR rate updated successfully.",
+      UsdtoPkr: settings.UsdtoPkr,
+      usdToPkr: settings.UsdtoPkr,
+    });
+
+  } catch (error) {
+    console.error("USD TO PKR UPDATE ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update USD to PKR rate.",
       error: error.message,
     });
   }
