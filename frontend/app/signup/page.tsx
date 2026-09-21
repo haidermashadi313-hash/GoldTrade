@@ -49,8 +49,8 @@ export default function SignupPage() {
     try {
       setLoading(true);
 
-      // 馃憞 Backend signup endpoint
-      const response = await fetch(`${API}/api/auth/signup`, {
+      // Backend signup endpoint
+      const response = await fetch(`${API}/api/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -81,7 +81,7 @@ export default function SignupPage() {
 
       if (response.status === 404) {
         alert(
-          "Signup API not found. Check backend route /api/auth/signup on Render."
+          "Signup API not found. Check backend route /api/auth/register on Render."
         );
         return;
       }
