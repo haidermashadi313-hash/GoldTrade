@@ -1,59 +1,100 @@
 ﻿"use client";
 
-import { Wallet, ArrowUpRight, ArrowDownLeft, Coins } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Wallet,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Coins,
+  DollarSign,
+  TrendingUp,
+} from "lucide-react";
 
 export default function QuickActions() {
+  const router = useRouter();
+
   const actions = [
     {
-      title: "Deposit",
-      icon: Wallet,
-      link: "/deposit",
-      color: "bg-green-600 hover:bg-green-700 text-white",
+      title: "Deposit PKR",
+      icon: ArrowDownCircle,
+      color: "from-green-600 to-green-500",
+      path: "/wallet/deposit",
     },
     {
-      title: "Withdraw",
-      icon: ArrowDownLeft,
-      link: "/withdraw",
-      color: "bg-red-600 hover:bg-red-700 text-white",
+      title: "Withdraw PKR",
+      icon: ArrowUpCircle,
+      color: "from-red-600 to-red-500",
+      path: "/wallet/withdraw",
+    },
+    {
+      title: "Deposit USDT",
+      icon: DollarSign,
+      color: "from-cyan-600 to-cyan-500",
+      path: "/usdt/deposit",
+    },
+    {
+      title: "Withdraw USDT",
+      icon: Wallet,
+      color: "from-purple-600 to-purple-500",
+      path: "/usdt/withdraw",
     },
     {
       title: "Buy Gold",
       icon: Coins,
-      link: "/gold",
-      color: "bg-yellow-500 hover:bg-yellow-400 text-black",
+      color: "from-yellow-500 to-amber-400",
+      path: "/gold/buy",
     },
     {
       title: "Sell Gold",
-      icon: ArrowUpRight,
-      link: "/gold",
-      color: "bg-blue-600 hover:bg-blue-700 text-white",
+      icon: TrendingUp,
+      color: "from-orange-600 to-orange-500",
+      path: "/gold/sell",
     },
   ];
 
   return (
-    <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6">
-      <h2 className="text-yellow-400 text-xl font-bold mb-5">
-        Quick Actions
-      </h2>
+    <section className="mt-8">
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-bold text-cyan-400">
+            Quick Actions
+          </h2>
+          <p className="text-gray-400 text-sm mt-1">
+            Deposit, Withdraw, Buy & Sell directly from your wallet.
+          </p>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {actions.map((item) => {
-          const Icon = item.icon;
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {actions.map((action) => {
+          const Icon = action.icon;
 
           return (
             <button
-              key={item.title}
-              onClick={() => (window.location.href = item.link)}
-              className={`${item.color} rounded-xl p-4 font-semibold flex items-center justify-center gap-2 transition duration-200`}
+              key={action.title}
+              onClick={() => router.push(action.path)}
+              className={`bg-gradient-to-r ${action.color}
+                rounded-2xl p-5
+                text-white
+                shadow-lg
+                hover:scale-105
+                transition-all
+                duration-300
+                flex flex-col
+                items-center
+                justify-center
+                gap-3
+                min-h-[130px]`}
             >
-              <Icon size={20} />
-              <span>{item.title}</span>
+              <Icon size={36} strokeWidth={2.5} />
+
+              <span className="text-sm md:text-base font-bold text-center">
+                {action.title}
+              </span>
             </button>
           );
         })}
       </div>
-    </div>
+    </section>
   );
-}
-
-
+  }
