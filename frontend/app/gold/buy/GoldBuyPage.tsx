@@ -8,7 +8,7 @@ import axios from "axios";
 // ==========================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-cky2.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-2.onrender.com";
 
 // ==========================================
 // TYPES

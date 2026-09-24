@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 // ==========================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-cky2.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-2.onrender.com";
 
 export default function LoginPage() {
   const router = useRouter();

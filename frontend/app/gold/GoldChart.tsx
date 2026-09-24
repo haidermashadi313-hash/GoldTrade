@@ -43,7 +43,7 @@ const GoldChart: React.FC = () => {
   const fetchPrice = async () => {
     try {
       const res = await axios.get(
-        "https://https://goldtrade-cky2.onrender.com/api/gold/price"
+        "https://https://goldtrade-2.onrender.com/api/gold/price"
       );
 
       const data = res.data;
