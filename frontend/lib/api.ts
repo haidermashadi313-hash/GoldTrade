@@ -1,11 +1,16 @@
-// GoldTrade V17 ENTERPRISE API SERVICE
-// Frontend -> Backend Connection
-
+// =====================================================
+// GoldTrade V18 Enterprise API Service
+// Frontend -> Render Backend Connection
+// =====================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://goldtrade-cky2.onrender.com";
 
+// =====================================================
 // Generic API Request
+// =====================================================
+
 export async function apiFetch(
   endpoint: string,
   options: RequestInit = {}
@@ -33,31 +38,39 @@ export async function apiFetch(
   return data;
 }
 
-// Login API
-export const loginUser = (email: string, password: string) =>
+// =====================================================
+// AUTH APIs
+// =====================================================
+
+export const loginUser = (username: string, password: string) =>
   apiFetch("/api/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ username, password }),
   });
 
-// Signup API
 export const signupUser = (payload: any) =>
   apiFetch("/api/auth/signup", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 
-// Dashboard APIs
+// =====================================================
+// USER APIs
+// =====================================================
+
 export const getUser = (username: string) =>
   apiFetch(`/api/users/${username}`);
 
 export const getMarket = () =>
   apiFetch("/api/settings/market");
 
-export const getGoldhistory = (username: string) =>
+export const getGoldHistory = (username: string) =>
   apiFetch(`/api/gold/history/${username}`);
 
 export const getTransactions = (username: string) =>
   apiFetch(`/api/transactions/${username}`);
+
+export const getWallet = (username: string) =>
+  apiFetch(`/api/wallet/${username}`);
 
 export default API;

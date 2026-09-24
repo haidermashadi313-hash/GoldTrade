@@ -19,7 +19,7 @@ import Link from "next/link";
 // ======================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "https://https://goldtrade-cky2.onrender.com";
 
 // ======================================================
 // TYPES

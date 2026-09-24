@@ -18,7 +18,7 @@ import {
 
 // Production (Vercel) + Localhost Compatible API
 const API =
- process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
+ process.env.NEXT_PUBLIC_API_URL || "https://https://goldtrade-cky2.onrender.com";
 
 interface MarketData {
   goldPriceUSD: number;
