@@ -53,11 +53,12 @@ const failed = (res, status, message) => {
   });
 };
 // =====================================================
-// REGISTER USER
-// POST /api/auth/register
+// SIGNUP ALIAS
+// POST /api/auth/signup
+// Same handler as /register
 // =====================================================
 
-router.post("/register", async (req, res) => {
+router.post("/signup", async (req, res) => {
   try {
     const {
       username,
@@ -65,10 +66,6 @@ router.post("/register", async (req, res) => {
       email,
       password,
     } = req.body;
-
-    // -----------------------------
-    // Validation
-    // -----------------------------
 
     if (!username || !password) {
       return failed(
@@ -79,30 +76,15 @@ router.post("/register", async (req, res) => {
     }
 
     const cleanUsername = username.trim().toLowerCase();
-
-    const cleanEmail = email
-      ? email.trim().toLowerCase()
-      : "";
-
-    // -----------------------------
-    // Username Exists?
-    // -----------------------------
+    const cleanEmail = email ? email.trim().toLowerCase() : "";
 
     const usernameExists = await User.findOne({
       username: cleanUsername,
     });
 
     if (usernameExists) {
-      return failed(
-        res,
-        409,
-        "Username already exists."
-      );
+      return failed(res, 409, "Username already exists.");
     }
-
-    // -----------------------------
-    // Email Exists?
-    // -----------------------------
 
     if (cleanEmail) {
       const emailExists = await User.findOne({
@@ -110,52 +92,27 @@ router.post("/register", async (req, res) => {
       });
 
       if (emailExists) {
-        return failed(
-          res,
-          409,
-          "Email already exists."
-        );
+        return failed(res, 409, "Email already exists.");
       }
     }
 
-    // -----------------------------
-    // Password Hash
-    // -----------------------------
-
     const hashedPassword = await bcrypt.hash(password, 12);
-
-    // -----------------------------
-    // Create User
-    // -----------------------------
 
     const user = await User.create({
       username: cleanUsername,
-      fullName:
-        fullName?.trim() || cleanUsername,
+      fullName: fullName?.trim() || cleanUsername,
       email: cleanEmail,
       password: hashedPassword,
       role: "user",
     });
 
-    // -----------------------------
-    // Auto Create Wallet
-    // -----------------------------
-
     await Wallet.create({
       username: cleanUsername,
-
       balance: 0,
-
       pkrBalance: 0,
-
       goldBalance: 0,
-
       usdtBalance: 0,
     });
-
-    // -----------------------------
-    // JWT Token
-    // -----------------------------
 
     const token = jwt.sign(
       {
@@ -171,7 +128,6 @@ router.post("/register", async (req, res) => {
 
     return success(res, "Registration successful.", {
       token,
-
       user: {
         id: user._id,
         username: user.username,
@@ -182,13 +138,9 @@ router.post("/register", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("REGISTER ERROR:", error);
+    console.error("SIGNUP ERROR:", error);
 
-    return failed(
-      res,
-      500,
-      "Registration failed."
-    );
+    return failed(res, 500, "Registration failed.");
   }
 });
 // =====================================================
