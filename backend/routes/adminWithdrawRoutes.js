@@ -1,24 +1,30 @@
 // ======================================================
-// GoldTrade V18 Enterprise Admin Withdraw Routes
-// PART 1/4 - Imports + Router + Middleware
+// GoldTrade V18 Enterprise
+// Admin Withdraw Routes (PART 1/2)
 // ======================================================
+
+"use strict";
 
 const express = require("express");
 const mongoose = require("mongoose");
 
 const router = express.Router();
 
-// ================= MODELS =================
+// ======================================================
+// MODELS
+// ======================================================
 
 const User = require("../models/User");
 const Withdraw = require("../models/Withdraw");
 
-// Wallet history Model (Reuse existing model if already loaded)
+// ======================================================
+// WALLET HISTORY MODEL
+// ======================================================
 
-const Wallethistory =
-  mongoose.models.Wallethistory ||
+const WalletHistory =
+  mongoose.models.WalletHistory ||
   mongoose.model(
-    "Wallethistory",
+    "WalletHistory",
     new mongoose.Schema(
       {
         username: String,
@@ -38,34 +44,41 @@ const Wallethistory =
     )
   );
 
-// ================= MIDDLEWARE =================
+// ======================================================
+// MIDDLEWARE
+// ======================================================
 
 const { verifyToken, isAdmin } = require("../middleware/auth");
 
 // ======================================================
-// RESPONSE HELPERS
+// ADMIN AUTH
 // ======================================================
 
-const successResponse = (res, message, data = {}) => {
-  return res.status(200).json({
+router.use(verifyToken);
+router.use(isAdmin);
+
+// ======================================================
+// HELPERS
+// ======================================================
+
+const success = (res, message, extra = {}) =>
+  res.status(200).json({
     success: true,
     message,
-    data,
+    ...extra,
   });
-};
 
-const errorResponse = (res, message, status = 500) => {
-  return res.status(status).json({
+const failure = (res, message, status = 500) =>
+  res.status(status).json({
     success: false,
     message,
   });
-};
 
 // ======================================================
-// CREATE Wallet history
+// SAVE WALLET HISTORY
 // ======================================================
 
-const createWallethistory = async ({
+const saveWalletHistory = async ({
   username,
   amount,
   balanceBefore,
@@ -73,10 +86,10 @@ const createWallethistory = async ({
   note,
   createdBy,
 }) => {
-  await Wallethistory.create({
+  await WalletHistory.create({
     username,
     type: "Withdraw",
-    action: "deduct",
+    action: "Debit",
     amount,
     balanceBefore,
     balanceAfter,
@@ -87,45 +100,11 @@ const createWallethistory = async ({
 };
 
 // ======================================================
-// ALL ROUTES REQUIRE ADMIN LOGIN
+// GET ALL WITHDRAW REQUESTS
+// GET /api/admin/withdraws
 // ======================================================
 
-router.use(verifyToken);
-router.use(isAdmin);
-
-// ======================================================
-// GET /api/admin/withdraws/pending
-// Dashboard Pending Withdraw Requests
-// ======================================================
-
-router.get("/pending", async (req, res) => {
-  try {
-    const pendingWithdraws = await Withdraw.find({
-      status: "Pending",
-    })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    return successResponse(
-      res,
-      "Pending withdraw requests loaded successfully.",
-      pendingWithdraws
-    );
-  } catch (err) {
-    console.error("Pending Withdraw Error:", err);
-
-    return errorResponse(res, err.message);
-  }
-});
-
-// ======================================================
-// GET /api/admin/withdraws/all
-// All Withdraw Requests
-// Optional Search:
-// /api/admin/withdraws/all?username=hashi
-// ======================================================
-
-router.get("/all", async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const filter = {};
 
@@ -141,21 +120,42 @@ router.get("/all", async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    return successResponse(
-      res,
-      "Withdraw history loaded successfully.",
-      withdraws
-    );
-  } catch (err) {
-    console.error("Withdraw history Error:", err);
+    return success(res, "Withdraw requests loaded successfully.", {
+      withdraws,
+    });
+  } catch (error) {
+    console.error("GET WITHDRAW ERROR:", error);
 
-    return errorResponse(res, err.message);
+    return failure(res, error.message);
   }
 });
 
 // ======================================================
+// GET PENDING WITHDRAW REQUESTS
+// GET /api/admin/withdraws/pending
+// ======================================================
+
+router.get("/pending", async (req, res) => {
+  try {
+    const withdraws = await Withdraw.find({
+      status: "Pending",
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return success(res, "Pending withdraw requests loaded successfully.", {
+      withdraws,
+    });
+  } catch (error) {
+    console.error("PENDING WITHDRAW ERROR:", error);
+
+    return failure(res, error.message);
+  }
+});
+
+// ======================================================
+// GET SINGLE WITHDRAW REQUEST
 // GET /api/admin/withdraws/:id
-// Single Withdraw Details
 // ======================================================
 
 router.get("/:id", async (req, res) => {
@@ -163,76 +163,68 @@ router.get("/:id", async (req, res) => {
     const withdraw = await Withdraw.findById(req.params.id).lean();
 
     if (!withdraw) {
-      return errorResponse(res, "Withdraw request not found.", 404);
+      return failure(res, "Withdraw request not found.", 404);
     }
 
-    return successResponse(
-      res,
-      "Withdraw details loaded successfully.",
-      withdraw
-    );
-  } catch (err) {
-    console.error("Withdraw Details Error:", err);
+    return success(res, "Withdraw details loaded successfully.", {
+      withdraw,
+    });
+  } catch (error) {
+    console.error("WITHDRAW DETAILS ERROR:", error);
 
-    return errorResponse(res, err.message);
+    return failure(res, error.message);
   }
 });
-
 // ======================================================
-// POST /api/admin/withdraws/:id/approve
-// Approve Withdraw + Deduct Wallet
+// APPROVE WITHDRAW
+// PUT /api/admin/withdraws/:id/approve
 // ======================================================
 
-router.post("/:id/approve", async (req, res) => {
+router.put("/:id/approve", async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
     session.startTransaction();
 
-    // Find Withdraw Request
     const withdraw = await Withdraw.findById(req.params.id).session(session);
 
     if (!withdraw) {
       await session.abortTransaction();
-      return errorResponse(res, "Withdraw request not found.", 404);
+      return failure(res, "Withdraw request not found.", 404);
     }
 
-    if (withdraw.status === "Approved") {
+    if (withdraw.status !== "Pending") {
       await session.abortTransaction();
-      return errorResponse(res, "Withdraw already approved.", 400);
+      return failure(res, `Withdraw already ${withdraw.status}.`, 400);
     }
 
-    // Find User
     const user = await User.findOne({
       username: withdraw.username,
     }).session(session);
 
     if (!user) {
       await session.abortTransaction();
-      return errorResponse(res, "User not found.", 404);
+      return failure(res, "User not found.", 404);
     }
 
-    const balanceBefore = Number(user.WalletBalance || 0);
-    const withdrawAmount = Number(withdraw.requestAmount || 0);
+    // GoldTrade V18 Wallet Balance
+    const balanceBefore = Number(user.pkrBalance || 0);
 
-    // Balance Check
-    if (balanceBefore < withdrawAmount) {
+    const amount =
+      Number(withdraw.amount || withdraw.requestAmount || 0);
+
+    if (balanceBefore < amount) {
       await session.abortTransaction();
-      return errorResponse(
-        res,
-        "Insufficient Wallet balance for withdrawal.",
-        400
-      );
+      return failure(res, "Insufficient wallet balance.", 400);
     }
 
-    const balanceAfter = balanceBefore - withdrawAmount;
+    const balanceAfter = balanceBefore - amount;
 
-    // Deduct Wallet
-    user.WalletBalance = balanceAfter;
+    // Deduct PKR Wallet
+    user.pkrBalance = balanceAfter;
 
-    // Update User Statistics
     user.totalWithdraw =
-      Number(user.totalWithdraw || 0) + withdrawAmount;
+      Number(user.totalWithdraw || 0) + amount;
 
     await user.save({ session });
 
@@ -243,10 +235,10 @@ router.post("/:id/approve", async (req, res) => {
 
     await withdraw.save({ session });
 
-    // Save Wallet history
-    await createWallethistory({
+    // Wallet History
+    await saveWalletHistory({
       username: user.username,
-      amount: withdrawAmount,
+      amount,
       balanceBefore,
       balanceAfter,
       note: `Withdraw Approved (#${withdraw._id})`,
@@ -255,19 +247,17 @@ router.post("/:id/approve", async (req, res) => {
 
     await session.commitTransaction();
 
-    return successResponse(res, "Withdraw approved successfully.", {
-      username: user.username,
-      WalletBalance: balanceAfter,
-      withdrawStatus: withdraw.status,
-      amount: withdrawAmount,
+    return success(res, "Withdraw approved successfully.", {
+      withdraw,
+      walletBalance: balanceAfter,
     });
 
-  } catch (err) {
+  } catch (error) {
     await session.abortTransaction();
 
-    console.error("Approve Withdraw Error:", err);
+    console.error("APPROVE WITHDRAW ERROR:", error);
 
-    return errorResponse(res, err.message);
+    return failure(res, error.message);
 
   } finally {
     session.endSession();
@@ -275,20 +265,20 @@ router.post("/:id/approve", async (req, res) => {
 });
 
 // ======================================================
-// POST /api/admin/withdraws/:id/reject
-// Reject Withdraw Request
+// REJECT WITHDRAW
+// PUT /api/admin/withdraws/:id/reject
 // ======================================================
 
-router.post("/:id/reject", async (req, res) => {
+router.put("/:id/reject", async (req, res) => {
   try {
     const withdraw = await Withdraw.findById(req.params.id);
 
     if (!withdraw) {
-      return errorResponse(res, "Withdraw request not found.", 404);
+      return failure(res, "Withdraw request not found.", 404);
     }
 
     if (withdraw.status !== "Pending") {
-      return errorResponse(
+      return failure(
         res,
         `Withdraw already ${withdraw.status}.`,
         400
@@ -305,21 +295,20 @@ router.post("/:id/reject", async (req, res) => {
 
     await withdraw.save();
 
-    return successResponse(res, "Withdraw rejected successfully.", {
-      withdrawId: withdraw._id,
-      username: withdraw.username,
-      status: withdraw.status,
+    return success(res, "Withdraw rejected successfully.", {
+      withdraw,
     });
-  } catch (err) {
-    console.error("Reject Withdraw Error:", err);
 
-    return errorResponse(res, err.message);
+  } catch (error) {
+    console.error("REJECT WITHDRAW ERROR:", error);
+
+    return failure(res, error.message);
   }
 });
 
 // ======================================================
+// WITHDRAW STATISTICS
 // GET /api/admin/withdraws/statistics
-// Withdraw Statistics for Admin Dashboard
 // ======================================================
 
 router.get("/statistics", async (req, res) => {
@@ -341,7 +330,11 @@ router.get("/statistics", async (req, res) => {
       {
         $group: {
           _id: null,
-          totalAmount: { $sum: "$requestAmount" },
+          totalAmount: {
+            $sum: {
+              $ifNull: ["$amount", "$requestAmount"],
+            },
+          },
         },
       },
     ]);
@@ -351,27 +344,26 @@ router.get("/statistics", async (req, res) => {
         ? Number(totalAmountResult[0].totalAmount)
         : 0;
 
-    return successResponse(
-      res,
-      "Withdraw statistics loaded successfully.",
-      {
+    return success(res, "Withdraw statistics loaded successfully.", {
+      statistics: {
         totalWithdraws,
         pendingWithdraws,
         approvedWithdraws,
         rejectedWithdraws,
         totalAmount,
-      }
-    );
-  } catch (err) {
-    console.error("Withdraw Statistics Error:", err);
+      },
+    });
 
-    return errorResponse(res, err.message);
+  } catch (error) {
+    console.error("WITHDRAW STATISTICS ERROR:", error);
+
+    return failure(res, error.message);
   }
 });
 
 // ======================================================
+// RECENT WITHDRAW REQUESTS
 // GET /api/admin/withdraws/recent
-// Latest Withdraw Requests
 // ======================================================
 
 router.get("/recent", async (req, res) => {
@@ -381,16 +373,27 @@ router.get("/recent", async (req, res) => {
       .limit(10)
       .lean();
 
-    return successResponse(
-      res,
-      "Recent withdraw requests loaded successfully.",
-      withdraws
-    );
-  } catch (err) {
-    console.error("Recent Withdraw Error:", err);
+    return success(res, "Recent withdraw requests loaded successfully.", {
+      withdraws,
+    });
 
-    return errorResponse(res, err.message);
+  } catch (error) {
+    console.error("RECENT WITHDRAW ERROR:", error);
+
+    return failure(res, error.message);
   }
+});
+
+// ======================================================
+// HEALTH CHECK
+// GET /api/admin/withdraws/health
+// ======================================================
+
+router.get("/health", (req, res) => {
+  return success(res, "Withdraw module is working.", {
+    version: "GoldTrade V18 Enterprise",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // ======================================================

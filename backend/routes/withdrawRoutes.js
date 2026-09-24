@@ -1,163 +1,273 @@
-/*
-========================================================
- GoldTrade V18 Enterprise
- Withdraw Routes
- Linux + Render Compatible
-========================================================
-*/
-
-"use strict";
+// =====================================================
+// GoldTrade V18 Enterprise
+// Withdraw Routes (PART 1/6)
+// Production Version
+// =====================================================
 
 const express = require("express");
 const router = express.Router();
 
-// ================= MODELS =================
-const Withdraw = require("../models/Withdraw");
+// =====================================================
+// MODELS
+// =====================================================
 
-// ================= MIDDLEWARE =================
+const Withdraw = require("../models/Withdraw");
+const User = require("../models/User");
+const WalletHistory = require("../models/WalletHistory");
+
+// =====================================================
+// MIDDLEWARE
+// =====================================================
+
 const { verifyToken, isAdmin } = require("../middleware/auth");
 
-// ======================================================
-// USER CREATE WITHDRAW REQUEST
-// POST /api/withdraw
-// ======================================================
+// =====================================================
+// HEALTH CHECK
+// GET /api/admin/withdraws/health/check
+// =====================================================
 
-router.post("/", verifyToken, async (req, res) => {
+router.get("/health/check", verifyToken, isAdmin, (req, res) => {
+  return res.status(200).json({
+    success: true,
+    module: "Withdraw API",
+    version: "GoldTrade V18 Enterprise",
+    status: "Running",
+    timestamp: new Date(),
+  });
+});
+
+// =====================================================
+// WITHDRAW STATISTICS
+// GET /api/admin/withdraws/statistics
+// =====================================================
+
+router.get("/statistics", verifyToken, isAdmin, async (req, res) => {
   try {
-    const {
-      withdrawAmount,
-      walletType,
-      paymentMethod,
-      accountTitle,
-      accountNumber,
-      iban,
-      walletAddress,
-    } = req.body;
+    const withdrawals = await Withdraw.find().lean();
 
-    if (
-      !withdrawAmount ||
-      !walletType ||
-      !paymentMethod ||
-      !accountTitle ||
-      !accountNumber
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "All required fields are missing.",
-      });
+    const statistics = {
+      pendingRequests: 0,
+      approvedRequests: 0,
+      rejectedRequests: 0,
+      totalRequests: withdrawals.length,
+
+      pendingAmount: 0,
+      approvedAmount: 0,
+      rejectedAmount: 0,
+
+      totalPKR: 0,
+      totalGold: 0,
+      totalUSDT: 0,
+    };
+
+    for (const withdraw of withdrawals) {
+      const amount = Number(withdraw.amount || withdraw.requestAmount || 0);
+      const wallet = String(withdraw.walletType || "PKR").toUpperCase();
+      const status = String(withdraw.status || "Pending");
+
+      // Status counters
+      if (status === "Pending") {
+        statistics.pendingRequests++;
+        statistics.pendingAmount += amount;
+      }
+
+      if (status === "Approved") {
+        statistics.approvedRequests++;
+        statistics.approvedAmount += amount;
+      }
+
+      if (status === "Rejected") {
+        statistics.rejectedRequests++;
+        statistics.rejectedAmount += amount;
+      }
+
+      // Wallet totals
+      if (wallet === "PKR") statistics.totalPKR += amount;
+      if (wallet === "GOLD") statistics.totalGold += amount;
+      if (wallet === "USDT") statistics.totalUSDT += amount;
     }
 
-    const amount = Number(withdrawAmount);
-
-    if (isNaN(amount) || amount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid withdraw amount.",
-      });
-    }
-
-    const request = await Withdraw.create({
-      userId: req.user.id,
-      username: req.user.username.toLowerCase(),
-
-      withdrawAmount: amount,
-      walletType,
-      paymentMethod,
-
-      accountTitle: accountTitle.trim(),
-      accountNumber: accountNumber.trim(),
-
-      iban: iban || "",
-      walletAddress: walletAddress || "",
-
-      status: "Pending",
-
-      ipAddress: req.ip || "",
-      device: req.headers["user-agent"] || "",
-    });
-
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
-      message: "Withdraw request submitted successfully.",
-      request,
+      statistics,
     });
+
   } catch (error) {
-    console.error("CREATE WITHDRAW ERROR:", error);
+    console.error("WITHDRAW STATISTICS ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to submit withdraw request.",
-      error: error.message,
+      message: error.message,
     });
   }
 });
 
-// ======================================================
-// USER WITHDRAW HISTORY
-// GET /api/withdraw/history/:username
-// ======================================================
+// =====================================================
+// WITHDRAW DASHBOARD SUMMARY
+// GET /api/admin/withdraws/dashboard
+// =====================================================
 
-router.get("/history/:username", verifyToken, async (req, res) => {
+router.get("/dashboard", verifyToken, isAdmin, async (req, res) => {
   try {
-    const username = req.params.username.trim().toLowerCase();
+    const withdrawals = await Withdraw.find({})
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
 
-    if (username !== req.user.username.toLowerCase()) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied.",
-      });
-    }
+    const pending = withdrawals.filter((w) => w.status === "Pending");
+    const approved = withdrawals.filter((w) => w.status === "Approved");
+    const rejected = withdrawals.filter((w) => w.status === "Rejected");
 
-    const history = await Withdraw.find({ username })
+    return res.status(200).json({
+      success: true,
+
+      summary: {
+        pendingCount: pending.length,
+        approvedCount: approved.length,
+        rejectedCount: rejected.length,
+
+        pendingAmount: pending.reduce(
+          (sum, item) =>
+            sum + Number(item.amount || item.requestAmount || 0),
+          0
+        ),
+
+        approvedAmount: approved.reduce(
+          (sum, item) =>
+            sum + Number(item.amount || item.requestAmount || 0),
+          0
+        ),
+
+        rejectedAmount: rejected.reduce(
+          (sum, item) =>
+            sum + Number(item.amount || item.requestAmount || 0),
+          0
+        ),
+      },
+
+      recentWithdraws: withdrawals,
+    });
+
+  } catch (error) {
+    console.error("WITHDRAW DASHBOARD ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+// =====================================================
+// GET PENDING WITHDRAW REQUESTS
+// GET /api/admin/withdraws
+// =====================================================
+
+router.get("/", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const withdrawals = await Withdraw.find({ status: "Pending" })
       .sort({ createdAt: -1 })
       .lean();
 
     return res.status(200).json({
       success: true,
-      history,
+      withdrawals,
     });
+
   } catch (error) {
-    console.error("WITHDRAW HISTORY ERROR:", error);
+    console.error("GET PENDING WITHDRAWS ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load withdraw history.",
-      error: error.message,
+      message: "Failed to load pending withdraw requests.",
     });
   }
 });
 
-// ======================================================
-// ADMIN GET ALL WITHDRAW REQUESTS
-// GET /api/withdraw/admin
-// ======================================================
+// =====================================================
+// GET WITHDRAW HISTORY
+// GET /api/admin/withdraws/history
+// =====================================================
 
-router.get("/admin", verifyToken, isAdmin, async (req, res) => {
+router.get("/history", verifyToken, isAdmin, async (req, res) => {
   try {
-    const withdraws = await Withdraw.find()
+    const withdrawals = await Withdraw.find({})
       .sort({ createdAt: -1 })
       .lean();
 
     return res.status(200).json({
       success: true,
-      withdraws,
+      withdrawals,
     });
+
   } catch (error) {
-    console.error("ADMIN WITHDRAW LIST ERROR:", error);
+    console.error("GET WITHDRAW HISTORY ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load withdraw requests.",
-      error: error.message,
+      message: "Failed to load withdraw history.",
     });
   }
 });
-// ======================================================
-// ADMIN APPROVE WITHDRAW REQUEST
-// PUT /api/withdraw/admin/:id/approve
-// ======================================================
 
-router.put("/admin/:id/approve", verifyToken, isAdmin, async (req, res) => {
+// =====================================================
+// GET RECENT WITHDRAW REQUESTS
+// GET /api/admin/withdraws/recent
+// =====================================================
+
+router.get("/recent", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const withdrawals = await Withdraw.find({})
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      withdrawals,
+    });
+
+  } catch (error) {
+    console.error("GET RECENT WITHDRAWS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load recent withdraw requests.",
+    });
+  }
+});
+
+// =====================================================
+// GET ALL WITHDRAW REQUESTS
+// GET /api/admin/withdraws/all
+// Used by Admin Withdraw Manager Page
+// =====================================================
+
+router.get("/all", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const withdrawals = await Withdraw.find({})
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      withdrawals,
+    });
+
+  } catch (error) {
+    console.error("GET ALL WITHDRAWS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load withdraw requests.",
+    });
+  }
+});
+// =====================================================
+// APPROVE WITHDRAW REQUEST
+// POST /api/admin/withdraws/:id/approve
+// =====================================================
+
+router.post("/:id/approve", verifyToken, isAdmin, async (req, res) => {
   try {
     const { adminNote } = req.body;
 
@@ -170,44 +280,142 @@ router.put("/admin/:id/approve", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
+    // Prevent duplicate processing
     if (withdraw.status !== "Pending") {
       return res.status(400).json({
         success: false,
-        message: `Withdraw request already ${withdraw.status}.`,
+        message: `Withdraw already ${withdraw.status}.`,
       });
     }
 
-    // Enterprise Rule:
-    // ONLY update request status.
+    const user = await User.findById(withdraw.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    // Create wallet object if missing
+    if (!user.wallet) {
+      user.wallet = {
+        pkr: Number(user.pkrBalance || 0),
+        gold: Number(user.goldBalance || 0),
+        usdt: Number(user.usdtBalance || 0),
+      };
+    }
+
+    const walletType = String(withdraw.walletType || "PKR").toUpperCase();
+
+    const requestAmount = Number(
+      withdraw.requestAmount || withdraw.amount || 0
+    );
+
+    const adminAmount = Number(
+      withdraw.adminAmount || requestAmount
+    );
+
+    // =====================================================
+    // BALANCE CHECK + WALLET DEBIT
+    // =====================================================
+
+    switch (walletType) {
+      case "PKR":
+        if (user.wallet.pkr < adminAmount) {
+          return res.status(400).json({
+            success: false,
+            message: "Insufficient PKR balance.",
+          });
+        }
+
+        user.wallet.pkr -= adminAmount;
+        user.pkrBalance = user.wallet.pkr;
+        break;
+
+      case "GOLD":
+        if (user.wallet.gold < adminAmount) {
+          return res.status(400).json({
+            success: false,
+            message: "Insufficient GOLD balance.",
+          });
+        }
+
+        user.wallet.gold -= adminAmount;
+        user.goldBalance = user.wallet.gold;
+        break;
+
+      case "USDT":
+        if (user.wallet.usdt < adminAmount) {
+          return res.status(400).json({
+            success: false,
+            message: "Insufficient USDT balance.",
+          });
+        }
+
+        user.wallet.usdt -= adminAmount;
+        user.usdtBalance = user.wallet.usdt;
+        break;
+
+      default:
+        return res.status(400).json({
+          success: false,
+          message: "Invalid wallet type.",
+        });
+    }
+
+    // Save updated wallet
+    await user.save();
+
+    // =====================================================
+    // UPDATE WITHDRAW REQUEST
+    // =====================================================
+
     withdraw.status = "Approved";
-    withdraw.adminNote = adminNote || "Approved by Admin";
-    withdraw.reviewedBy = req.user.id;
-    withdraw.reviewedAt = new Date();
+    withdraw.adminAmount = adminAmount;
+    withdraw.adminNote = adminNote || "";
+    withdraw.approvedBy = req.user.username;
+    withdraw.approvedAt = new Date();
 
     await withdraw.save();
 
+    // =====================================================
+    // SAVE WALLET HISTORY
+    // =====================================================
+
+    await WalletHistory.create({
+      userId: user._id,
+      username: user.username,
+      walletType,
+      type: "Debit",
+      amount: adminAmount,
+      note: adminNote || "Withdraw Approved",
+      admin: req.user.username,
+      createdAt: new Date(),
+    });
+
     return res.status(200).json({
       success: true,
-      message: "Withdraw request approved successfully.",
+      message: `${walletType} withdraw approved successfully.`,
+      wallet: user.wallet,
       withdraw,
     });
+
   } catch (error) {
     console.error("APPROVE WITHDRAW ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to approve withdraw request.",
-      error: error.message,
+      message: error.message,
     });
   }
 });
+// =====================================================
+// REJECT WITHDRAW REQUEST
+// POST /api/admin/withdraws/:id/reject
+// =====================================================
 
-// ======================================================
-// ADMIN REJECT WITHDRAW REQUEST
-// PUT /api/withdraw/admin/:id/reject
-// ======================================================
-
-router.put("/admin/:id/reject", verifyToken, isAdmin, async (req, res) => {
+router.post("/:id/reject", verifyToken, isAdmin, async (req, res) => {
   try {
     const { adminNote } = req.body;
 
@@ -220,42 +428,84 @@ router.put("/admin/:id/reject", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
+    // Prevent duplicate processing
     if (withdraw.status !== "Pending") {
       return res.status(400).json({
         success: false,
-        message: `Withdraw request already ${withdraw.status}.`,
+        message: `Withdraw already ${withdraw.status}.`,
       });
     }
 
     withdraw.status = "Rejected";
-    withdraw.adminNote = adminNote || "Rejected by Admin";
-    withdraw.reviewedBy = req.user.id;
-    withdraw.reviewedAt = new Date();
+    withdraw.adminNote = adminNote || "";
+    withdraw.rejectedBy = req.user.username;
+    withdraw.rejectedAt = new Date();
 
     await withdraw.save();
 
     return res.status(200).json({
       success: true,
-      message: "Withdraw request rejected successfully.",
+      message: "Withdraw rejected successfully.",
       withdraw,
     });
+
   } catch (error) {
     console.error("REJECT WITHDRAW ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to reject withdraw request.",
-      error: error.message,
+      message: error.message,
     });
   }
 });
 
-// ======================================================
-// ADMIN SINGLE WITHDRAW DETAILS
-// GET /api/withdraw/admin/:id
-// ======================================================
+// =====================================================
+// DELETE WITHDRAW REQUEST
+// DELETE /api/admin/withdraws/:id
+// =====================================================
 
-router.get("/admin/:id", verifyToken, isAdmin, async (req, res) => {
+router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const withdraw = await Withdraw.findById(req.params.id);
+
+    if (!withdraw) {
+      return res.status(404).json({
+        success: false,
+        message: "Withdraw request not found.",
+      });
+    }
+
+    // Approved withdraws cannot be deleted
+    if (withdraw.status === "Approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Approved withdraw requests cannot be deleted.",
+      });
+    }
+
+    await Withdraw.findByIdAndDelete(req.params.id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Withdraw request deleted successfully.",
+    });
+
+  } catch (error) {
+    console.error("DELETE WITHDRAW ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+// =====================================================
+// GET SINGLE WITHDRAW DETAILS
+// GET /api/admin/withdraws/:id
+// IMPORTANT: Keep this route near the end.
+// =====================================================
+
+router.get("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const withdraw = await Withdraw.findById(req.params.id).lean();
 
@@ -270,34 +520,14 @@ router.get("/admin/:id", verifyToken, isAdmin, async (req, res) => {
       success: true,
       withdraw,
     });
+
   } catch (error) {
-    console.error("WITHDRAW DETAILS ERROR:", error);
+    console.error("GET SINGLE WITHDRAW ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load withdraw details.",
-      error: error.message,
+      message: error.message,
     });
   }
 });
-
-// ======================================================
-// HEALTH CHECK
-// GET /api/withdraw/health
-// ======================================================
-
-router.get("/health", (req, res) => {
-  return res.status(200).json({
-    success: true,
-    module: "Withdraw Manager Enterprise",
-    version: "GoldTrade V18",
-    status: "Working",
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// ======================================================
-// EXPORT ROUTER
-// ======================================================
-
 module.exports = router;

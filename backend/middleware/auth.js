@@ -1,70 +1,64 @@
+"use strict";
+
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
-// =====================================================
-// VERIFY JWT TOKEN
-// =====================================================
+// ===============================================
+// VERIFY JWT TOKEN (DEBUG VERSION)
+// ===============================================
 
-const verifyToken = async (req, res, next) => {
+const verifyToken = (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-      return res.status(401).json({
-        success: false,
-        message: "Authorization token missing.",
-      });
-    }
+    const authHeader = req.headers.authorization || "";
 
     if (!authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "Invalid authorization format.",
+        message: "Token missing.",
       });
     }
 
-    const token = authHeader.split(" ")[1];
+    const token = authHeader.substring(7);
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "goldtrade_v18_secret"
-    );
+    // DEBUG LOGS
+    console.log("====================================");
+    console.log("JWT SECRET:", process.env.JWT_SECRET);
+    console.log("TOKEN:", token.substring(0, 30) + "...");
+    console.log("====================================");
 
-    const user = await User.findById(decoded.id).select("-password");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
+    console.log("JWT VERIFIED USER:", decoded.username);
+    console.log("JWT VERIFIED ROLE:", decoded.role);
 
-    req.user = user;
+    req.user = decoded;
 
     next();
-  } catch (error) {
-    console.error("JWT Verification Error:", error.message);
+  } catch (err) {
+    console.log("JWT VERIFY ERROR:", err.message);
 
     return res.status(401).json({
       success: false,
-      message: "Invalid or expired token.",
+      message: "Invalid token.",
     });
   }
 };
 
-// =====================================================
+// ===============================================
 // ADMIN CHECK
-// =====================================================
+// ===============================================
 
 const isAdmin = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({
       success: false,
-      message: "Authentication required.",
+      message: "Unauthorized.",
     });
   }
 
-  if (req.user.role !== "admin") {
+  const role = String(req.user.role || "").toLowerCase();
+
+  if (role !== "admin") {
     return res.status(403).json({
       success: false,
       message: "Admin access only.",
@@ -72,6 +66,11 @@ const isAdmin = (req, res, next) => {
   }
 
   next();
+};
+
+module.exports = {
+  verifyToken,
+  isAdmin,
 };
 
 // =====================================================
@@ -139,21 +138,22 @@ const isSelfOrAdmin = (req, res, next) => {
 };
 
 // =====================================================
-// ACCESS TOKEN
+// ACCESS TOKEN (GoldTrade V18 FINAL)
 // =====================================================
 
 const generateAccessToken = (user) => {
-  return jwt.sign(
-    {
-      id: user._id,
-      username: user.username,
-      role: user.role,
-    },
-    process.env.JWT_SECRET || "goldtrade_v18_secret",
-    {
-      expiresIn: process.env.JWT_EXPIRE || "7d",
-    }
-  );
+  const payload = {
+    id: String(user._id),
+    username: String(user.username).trim().toLowerCase(),
+    role: String(user.role || "user").trim().toLowerCase(),
+  };
+
+  console.log("JWT SECRET USED:", process.env.JWT_SECRET);
+  console.log("JWT USER:", payload.username);
+
+  return jwt.sign(payload, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRE || "7d",
+  });
 };
 
 // =====================================================

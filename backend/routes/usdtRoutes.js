@@ -8,6 +8,8 @@ const fs = require("fs");
 
 const router = express.Router();
 
+console.log("USDT ROUTES LOADED");
+
 // =====================================================
 // MODELS
 // =====================================================
@@ -17,18 +19,19 @@ const Wallet = require("../models/Wallet");
 const WalletTransaction = require("../models/WalletTransaction");
 const UsdtOrder = require("../models/UsdtOrder");
 const Transaction = require("../models/Transaction");
+const UsdtSettings = require("../models/UsdtSettings");
 
 // =====================================================
-// MIDDLEWARE (FINAL)
+// MIDDLEWARE
 // =====================================================
 
 const { verifyToken, isAdmin } = require("../middleware/auth");
+
 // =====================================================
 // UPLOAD DIRECTORY
-// uploads/Usdtmiddleware/isAdmin
 // =====================================================
 
-const uploadDir = path.join(__dirname, "../uploads/Usdt");
+const uploadDir = path.join(__dirname, "../uploads/usdt");
 
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -39,41 +42,35 @@ if (!fs.existsSync(uploadDir)) {
 // =====================================================
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
+  destination: (req, file, cb) => cb(null, uploadDir),
 
   filename: (req, file, cb) => {
-    const uniqueName =
+    const filename =
       Date.now() +
       "-" +
       Math.round(Math.random() * 1000000) +
       path.extname(file.originalname);
 
-    cb(null, uniqueName);
+    cb(null, filename);
   },
 });
-
-// =====================================================
-// FILE FILTER
-// =====================================================
 
 const upload = multer({
   storage,
 
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
+    fileSize: 5 * 1024 * 1024,
   },
 
   fileFilter: (req, file, cb) => {
-    const allowedTypes = [
+    const allowed = [
       "image/jpeg",
       "image/jpg",
       "image/png",
       "image/webp",
     ];
 
-    if (!allowedTypes.includes(file.mimetype)) {
+    if (!allowed.includes(file.mimetype)) {
       return cb(
         new Error("Only JPG, PNG and WEBP images are allowed.")
       );
@@ -84,449 +81,235 @@ const upload = multer({
 });
 
 // =====================================================
-// CONSTANTS
+// DEFAULT USDT SETTINGS
 // =====================================================
 
-// Live Usdt price (Pkr)
-// Later Admin Panel se dynamic ho jayega.
-
-const Usdt_RATE = 280;
+const USDT_RATE = 280;
 
 // =====================================================
-// GET LIVE Usdt RATE
-// GET /api/Usdt/rate
-// Public API (NO TOKEN)
-// Used by buy Usdt, sell Usdt, Dashboard
+// GET LIVE USDT RATE
+// GET /api/usdt/rate
+// PUBLIC ROUTE
 // =====================================================
 
 router.get("/rate", async (req, res) => {
   try {
-    return res.status(200).json({
+    console.log("USDT RATE ROUTE HIT");
+
+    let settings = await UsdtSettings.findOne();
+
+    if (!settings) {
+      settings = new UsdtSettings({
+        buyRate: USDT_RATE,
+        sellRate: USDT_RATE,
+        marketStatus: "OPEN",
+      });
+
+      await settings.save();
+    }
+
+    return res.json({
       success: true,
-      currency: "Pkr",
-      rate: Number(Usdt_RATE),
-      buyRate: Number(Usdt_RATE),
-      sellRate: Number(Usdt_RATE),
-      updatedAt: new Date(),
+      currency: "PKR",
+
+      rate: Number(settings.buyRate),
+      buyRate: Number(settings.buyRate),
+      sellRate: Number(settings.sellRate),
+
+      marketStatus: settings.marketStatus || "OPEN",
+      updatedAt: settings.updatedAt || new Date(),
     });
-  } catch (error) {
-    console.error("Usdt RATE ERROR:", error);
+  } catch (err) {
+    console.error("USDT RATE ERROR:", err);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load Usdt rate.",
-      error: error.message,
+      message: "Unable to load USDT rate.",
+      error: err.message,
     });
   }
 });
 
 // =====================================================
-// GET LIVE Usdt PRICE
-// GET /api/Usdt/price
-// Public API (NO TOKEN)
-// Backward compatibility for Usdt
+// BACKWARD COMPATIBILITY
+// GET /api/usdt/price
 // =====================================================
 
 router.get("/price", async (req, res) => {
   try {
-    return res.status(200).json({
-      success: true,
-      currency: "Pkr",
-      rate: Number(Usdt_RATE),
-      buyRate: Number(Usdt_RATE),
-      sellRate: Number(Usdt_RATE),
-      updatedAt: new Date(),
-    });
-  } catch (error) {
-    console.error("Usdt PRICE ERROR:", error);
+    const settings = await UsdtSettings.findOne();
 
+    return res.json({
+      success: true,
+      currency: "PKR",
+      rate: Number(settings?.buyRate || DEFAULT_USDT_RATE),
+      buyRate: Number(settings?.buyRate || DEFAULT_USDT_RATE),
+      sellRate: Number(settings?.sellRate || DEFAULT_USDT_RATE),
+      updatedAt: settings?.updatedAt || new Date(),
+    });
+  } catch (err) {
     return res.status(500).json({
       success: false,
-      message: "Unable to load Usdt price.",
-      error: error.message,
+      message: "Unable to load USDT price.",
+      error: err.message,
     });
   }
 });
-// ======================================================
+
+// =====================================================
 // GET USDT SETTINGS
 // GET /api/usdt/settings
-// ======================================================
+// ADMIN ONLY
+// =====================================================
 
 router.get("/settings", verifyToken, isAdmin, async (req, res) => {
   try {
-    const settings = await UsdtSettings.getSettings();
+    console.log("USDT SETTINGS ROUTE HIT");
 
-    return res.status(200).json({
+    let settings = await UsdtSettings.findOne();
+
+    if (!settings) {
+      settings = new UsdtSettings({
+        buyRate: DEFAULT_USDT_RATE,
+        sellRate: DEFAULT_USDT_RATE,
+        marketStatus: "OPEN",
+      });
+
+      await settings.save();
+    }
+
+    return res.json({
       success: true,
       settings,
     });
-  } catch (error) {
-    console.error("GET USDT SETTINGS ERROR:", error);
+  } catch (err) {
+    console.error("GET USDT SETTINGS ERROR:", err);
 
     return res.status(500).json({
       success: false,
       message: "Unable to load USDT settings.",
-      error: error.message,
+      error: err.message,
     });
   }
 });
-// ======================================================
-// GET LIVE USDT PRICE
-// GET /api/usdt/price
-// ======================================================
-
-router.get("/price", async (req, res) => {
-  try {
-    const settings = await UsdtSettings.getSettings();
-
-    return res.status(200).json({
-      success: true,
-
-      buyPrice: settings.buyUsdtPrice,
-      sellPrice: settings.sellUsdtPrice,
-
-      usdtPriceUSD: settings.usdtPriceUSD,
-      usdToPkr: settings.usdToPkr,
-
-      tradingEnabled: settings.usdtTradingEnabled,
-      marketStatus: settings.marketStatus,
-
-      marketMessage: settings.marketMessage,
-
-      minimumBuyUsdt: settings.minimumBuyUsdt,
-      maximumBuyUsdt: settings.maximumBuyUsdt,
-
-      minimumSellUsdt: settings.minimumSellUsdt,
-      maximumSellUsdt: settings.maximumSellUsdt,
-
-      updatedAt: settings.updatedAt,
-    });
-  } catch (error) {
-    console.error("GET USDT PRICE ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load USDT market price.",
-      error: error.message,
-    });
-  }
-});
-
-// ======================================================
-// GET USDT RATES ONLY
-// GET /api/usdt/rates
-// ======================================================
-
-router.get("/rates", async (req, res) => {
-  try {
-    const settings = await UsdtSettings.getSettings();
-
-    return res.status(200).json({
-      success: true,
-
-      buyRate: settings.buyUsdtPrice,
-      sellRate: settings.sellUsdtPrice,
-
-      usdPrice: settings.usdtPriceUSD,
-      usdToPkr: settings.usdToPkr,
-
-      marketStatus: settings.marketStatus,
-      tradingEnabled: settings.usdtTradingEnabled,
-    });
-  } catch (error) {
-    console.error("GET USDT RATES ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load USDT rates.",
-    });
-  }
-});
-// ======================================================
-// UPDATE USDT SETTINGS
-// PUT /api/usdt/settings
-// Admin Only
-// ======================================================
-
-router.put("/settings", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const settings = await UsdtSettings.getSettings();
-
-    const {
-      buyUsdtPrice,
-      sellUsdtPrice,
-
-      usdtPriceUSD,
-      usdToPkr,
-
-      usdtTradingEnabled,
-      marketStatus,
-      marketMessage,
-
-      minimumBuyUsdt,
-      maximumBuyUsdt,
-
-      minimumSellUsdt,
-      maximumSellUsdt,
-
-      updateReason,
-    } = req.body;
-
-    // ============================================
-    // VALIDATION
-    // ============================================
-
-    if (buyUsdtPrice <= 0 || sellUsdtPrice <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Buy and Sell price must be greater than zero.",
-      });
-    }
-
-    if (minimumBuyUsdt > maximumBuyUsdt) {
-      return res.status(400).json({
-        success: false,
-        message: "Minimum Buy cannot be greater than Maximum Buy.",
-      });
-    }
-
-    if (minimumSellUsdt > maximumSellUsdt) {
-      return res.status(400).json({
-        success: false,
-        message: "Minimum Sell cannot be greater than Maximum Sell.",
-      });
-    }
-
-    if (!["OPEN", "CLOSED"].includes(marketStatus)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid market status.",
-      });
-    }
-// ======================================================
-// ADMIN USDT DASHBOARD ANALYTICS
+// =====================================================
+// ADMIN USDT DASHBOARD
 // GET /api/usdt/admin/dashboard
-// Admin Only
-// ======================================================
+// =====================================================
 
 router.get("/admin/dashboard", verifyToken, isAdmin, async (req, res) => {
   try {
-
-    const settings = await UsdtSettings.getSettings();
-
-    // ============================================
-    // TOTAL TRADES
-    // ============================================
-
-    const totalTrades = await UsdtTrade.countDocuments();
-
-    const completedTrades = await UsdtTrade.countDocuments({
-      status: "Completed",
-    });
-
-    const pendingTrades = await UsdtTrade.countDocuments({
-      status: "Pending",
-    });
-
-    const rejectedTrades = await UsdtTrade.countDocuments({
-      status: "Rejected",
-    });
-
-    // ============================================
-    // BUY / SELL ORDERS
-    // ============================================
-
-    const buyOrders = await UsdtTrade.find({
-      type: "BUY",
-      status: "Completed",
-    });
-
-    const sellOrders = await UsdtTrade.find({
-      type: "SELL",
-      status: "Completed",
-    });
-
-    // ============================================
-    // BUY ANALYTICS
-    // ============================================
-
-    const totalBuyUsdt = buyOrders.reduce(
-      (sum, order) => sum + Number(order.usdtAmount || 0),
-      0
-    );
-
-    const totalBuyVolume = buyOrders.reduce(
-      (sum, order) => sum + Number(order.totalAmount || 0),
-      0
-    );
-
-    // ============================================
-    // SELL ANALYTICS
-    // ============================================
-
-    const totalSellUsdt = sellOrders.reduce(
-      (sum, order) => sum + Number(order.usdtAmount || 0),
-      0
-    );
-
-    const totalSellVolume = sellOrders.reduce(
-      (sum, order) => sum + Number(order.totalAmount || 0),
-      0
-    );
-
-    // ============================================
-    // WALLET TOTALS
-    // ============================================
+    const users = await User.countDocuments();
 
     const wallets = await Wallet.find();
 
-    const totalWalletUsdt = wallets.reduce(
-      (sum, wallet) => sum + Number(wallet.usdtBalance || 0),
-      0
-    );
+    let totalUsdtBalance = 0;
+    let totalPkrBalance = 0;
 
-    const activeWallets = wallets.filter(
-      (wallet) => !wallet.walletFrozen
-    ).length;
-
-    const frozenWallets = wallets.filter(
-      (wallet) => wallet.walletFrozen
-    ).length;
-
-    // ============================================
-    // RESPONSE
-    // ============================================
-
-    return res.status(200).json({
-      success: true,
-
-      analytics: {
-
-        totalTrades,
-        completedTrades,
-        pendingTrades,
-        rejectedTrades,
-
-        totalBuyUsdt,
-        totalSellUsdt,
-
-        totalBuyVolume,
-        totalSellVolume,
-
-        totalWalletUsdt,
-
-        activeWallets,
-        frozenWallets,
-
-        buyPrice: settings.buyUsdtPrice,
-        sellPrice: settings.sellUsdtPrice,
-
-        usdToPkr: settings.usdToPkr,
-
-        marketStatus: settings.marketStatus,
-        tradingEnabled: settings.usdtTradingEnabled,
-
-        updatedAt: settings.updatedAt,
-      },
+    wallets.forEach((wallet) => {
+      totalUsdtBalance += Number(wallet.usdtBalance || 0);
+      totalPkrBalance += Number(wallet.pkrBalance || 0);
     });
 
-  } catch (error) {
+    const pendingBuy = await UsdtOrder.countDocuments({
+      type: "buy",
+      status: "pending",
+    });
 
+    const pendingSell = await UsdtOrder.countDocuments({
+      type: "sell",
+      status: "pending",
+    });
+
+    const completedOrders = await UsdtOrder.countDocuments({
+      status: "completed",
+    });
+
+    const totalVolumeAgg = await UsdtOrder.aggregate([
+      {
+        $group: {
+          _id: null,
+          volume: { $sum: "$amount" },
+        },
+      },
+    ]);
+
+    const totalVolume =
+      totalVolumeAgg.length > 0 ? totalVolumeAgg[0].volume : 0;
+
+    return res.json({
+      success: true,
+
+      dashboard: {
+        totalUsers: users,
+
+        walletBalance: totalPkrBalance,
+
+        usdtBalance: totalUsdtBalance,
+
+        usdtRate: USDT_RATE,
+
+        buyRate: USDT_RATE,
+
+        sellRate: USDT_RATE,
+
+        pendingBuyOrders: pendingBuy,
+
+        pendingSellOrders: pendingSell,
+
+        completedOrders,
+
+        usdtVolume: totalVolume,
+
+        portfolioValue: totalUsdtBalance * USDT_RATE,
+      },
+    });
+  } catch (error) {
     console.error("USDT ADMIN DASHBOARD ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load USDT dashboard analytics.",
+      message: "Unable to load dashboard.",
       error: error.message,
     });
-
   }
 });
-// ======================================================
-// LIVE USDT CHART
-// GET /api/usdt/chart
-// Public API
-// ======================================================
+// =====================================================
+// ADMIN UPDATE USDT RATE
+// PUT /api/usdt/settings
+// ADMIN ONLY
+// =====================================================
 
-router.get("/chart", async (req, res) => {
+router.put("/settings", verifyToken, isAdmin, async (req, res) => {
   try {
-    const settings = await UsdtSettings.getSettings();
+    console.log("UPDATE USDT SETTINGS ROUTE HIT");
 
-    const chart = [];
+    const {
+      buyRate,
+      sellRate,
+      marketStatus,
+    } = req.body;
 
-    for (let hour = 0; hour < 24; hour++) {
-      const variation = Math.sin(hour / 3) * 0.8;
+    let settings = await UsdtSettings.findOne();
 
-      chart.push({
-        hour: `${String(hour).padStart(2, "0")}:00`,
-
-        buyPrice: Number(
-          (settings.buyUsdtPrice + variation).toFixed(2)
-        ),
-
-        sellPrice: Number(
-          (settings.sellUsdtPrice + variation - 0.35).toFixed(2)
-        ),
-      });
+    if (!settings) {
+      settings = new UsdtSettings();
     }
 
-    return res.status(200).json({
-      success: true,
+    if (buyRate !== undefined)
+      settings.buyRate = Number(buyRate);
 
-      marketStatus: settings.marketStatus,
-      tradingEnabled: settings.usdtTradingEnabled,
+    if (sellRate !== undefined)
+      settings.sellRate = Number(sellRate);
 
-      currentBuyPrice: settings.buyUsdtPrice,
-      currentSellPrice: settings.sellUsdtPrice,
-
-      chart,
-    });
-  } catch (error) {
-    console.error("USDT CHART ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load USDT chart.",
-      error: error.message,
-    });
-  }
-});
-    // ============================================
-    // UPDATE SETTINGS
-    // ============================================
-
-    settings.buyUsdtPrice = Number(buyUsdtPrice);
-    settings.sellUsdtPrice = Number(sellUsdtPrice);
-
-    settings.usdtPriceUSD = Number(usdtPriceUSD);
-    settings.usdToPkr = Number(usdToPkr);
-
-    settings.usdtTradingEnabled = Boolean(usdtTradingEnabled);
-
-    settings.marketStatus = marketStatus;
-    settings.marketMessage = marketMessage?.trim() || "USDT Market Updated";
-
-    settings.minimumBuyUsdt = Number(minimumBuyUsdt);
-    settings.maximumBuyUsdt = Number(maximumBuyUsdt);
-
-    settings.minimumSellUsdt = Number(minimumSellUsdt);
-    settings.maximumSellUsdt = Number(maximumSellUsdt);
-
-    settings.lastUpdatedBy =
-      req.user.username || req.user.email || "Admin";
-
-    settings.updateReason =
-      updateReason?.trim() || "Admin updated USDT Market Settings";
+    if (marketStatus)
+      settings.marketStatus = marketStatus;
 
     await settings.save();
 
-    // ============================================
-    // RESPONSE
-    // ============================================
-
     return res.status(200).json({
       success: true,
-      message: "USDT Market settings updated successfully.",
+      message: "USDT settings updated successfully.",
       settings,
     });
   } catch (error) {
@@ -534,1093 +317,357 @@ router.get("/chart", async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Unable to update USDT Market settings.",
+      message: "Unable to update USDT settings.",
       error: error.message,
     });
   }
 });
-
 // =====================================================
-// HEALTH CHECK
-// GET /api/Usdt/health
-// Public API (NO TOKEN)
-// =====================================================
-
-router.get("/health", async (req, res) => {
-  return res.status(200).json({
-    success: true,
-    module: "GoldTrade V18 Usdt API",
-    version: "V18 Final",
-    status: "Running",
-    endpoints: {
-      rate: "/api/Usdt/rate",
-      price: "/api/Usdt/price",
-      buy: "/api/Usdt/buy",
-      sell: "/api/Usdt/sell",
-      history: "/api/Usdt/history/:username",
-      balance: "/api/Usdt/balance/:username",
-    },
-    timestamp: new Date(),
-  });
-});
-
-// =====================================================
-// buy Usdt
-// POST /api/Usdt/buy
-// Wallet Purchase (Pkr -> Usdt)
+// BUY USDT
+// POST /api/usdt/buy
+// USER ONLY
 // =====================================================
 
 router.post("/buy", verifyToken, async (req, res) => {
-  const session = await mongoose.startSession();
-
   try {
-    session.startTransaction();
+    console.log("BUY USDT ROUTE HIT");
 
-    const { username, UsdtAmount } = req.body;
+    const { amount } = req.body;
 
-    // =====================================================
-    // VALIDATION
-    // =====================================================
-
-    if (!username || !UsdtAmount) {
-      await session.abortTransaction();
-
+    if (!amount || Number(amount) <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Username and Usdt amount are required.",
+        message: "Invalid USDT amount.",
       });
     }
 
-    const amount = Number(UsdtAmount);
+    const settings = await UsdtSettings.findOne();
 
-    if (isNaN(amount) || amount <= 0) {
-      await session.abortTransaction();
+    const buyRate = Number(settings?.buyRate || USDT_RATE);
+    const totalPKR = Number(amount) * buyRate;
 
-      return res.status(400).json({
-        success: false,
-        message: "Invalid Usdt amount.",
-      });
-    }
+    const wallet = await Wallet.findOne({ username: req.user.username });
 
-    const totalPkr = amount * Usdt_RATE;
-
-    // =====================================================
-    // FIND USER
-    // =====================================================
-
-    const user = await User.findOne({ username }).session(session);
-
-    if (!user) {
-      await session.abortTransaction();
-
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    // =====================================================
-    // FIND OR CREATE Wallet
-    // =====================================================
-
-    let Wallet = await Wallet.findOne({
-      userId: user._id,
-    }).session(session);
-
-    if (!Wallet) {
-      const createdWallet = await Wallet.create(
-        [
-          {
-            userId: user._id,
-            username: user.username,
-
-            PkrBalance: Number(user.WalletBalance || 0),
-            UsdtBalance: Number(user.UsdtBalance || 0),
-            goldBalance: Number(user.goldBalance || 0),
-          },
-        ],
-        { session }
-      );
-
-      Wallet = createdWallet[0];
-    }
-
-    // =====================================================
-    // CHECK Pkr BALANCE
-    // =====================================================
-
-    if (Number(Wallet.PkrBalance) < totalPkr) {
-      await session.abortTransaction();
-
-      return res.status(400).json({
-        success: false,
-        message: "Insufficient Pkr balance.",
-      });
-    }
-
-    const previousPkr = Number(Wallet.PkrBalance);
-    const previousUsdt = Number(Wallet.UsdtBalance || 0);
-
-    // =====================================================
-    // UPDATE Wallet
-    // =====================================================
-
-    Wallet.PkrBalance = previousPkr - totalPkr;
-    Wallet.UsdtBalance = previousUsdt + amount;
-
-    await Wallet.save({ session });
-
-    // =====================================================
-    // SYNC USER BALANCE
-    // =====================================================
-
-    user.WalletBalance = Wallet.PkrBalance;
-    user.UsdtBalance = Wallet.UsdtBalance;
-
-    await user.save({ session });
-
-    // =====================================================
-    // Pkr Wallet history
-    // =====================================================
-
-    await WalletTransaction.create(
-      [
-        {
-          userId: user._id,
-          username: user.username,
-
-          WalletType: "Pkr",
-          type: "DEBIT",
-
-          amount: totalPkr,
-
-          previousBalance: previousPkr,
-          newBalance: Wallet.PkrBalance,
-
-          adminUsername: "SYSTEM",
-          note: `Bought ${amount} Usdt @ Pkr ${Usdt_RATE}`,
-
-          createdAt: new Date(),
-        },
-      ],
-      { session }
-    );
-
-    // =====================================================
-    // Usdt Wallet history
-    // =====================================================
-
-    await WalletTransaction.create(
-      [
-        {
-          userId: user._id,
-          username: user.username,
-
-          WalletType: "Usdt",
-          type: "CREDIT",
-
-          amount,
-
-          previousBalance: previousUsdt,
-          newBalance: Wallet.UsdtBalance,
-
-          adminUsername: "SYSTEM",
-          note: `Purchased ${amount} Usdt`,
-
-          createdAt: new Date(),
-        },
-      ],
-      { session }
-    );
-
-    // =====================================================
-    // GLOBAL TRANSACTION LOG
-    // =====================================================
-
-    await Transaction.create(
-      [
-        {
-          username: user.username,
-
-          type: "Usdt buy",
-          amount,
-
-          method: "Wallet",
-          status: "Completed",
-
-          transactionId: `Usdtbuy-${Date.now()}`,
-
-          createdAt: new Date(),
-        },
-      ],
-      { session }
-    );
-
-    // =====================================================
-    // COMMIT
-    // =====================================================
-
-    await session.commitTransaction();
-
-    return res.status(200).json({
-      success: true,
-      message: "Usdt purchased successfully.",
-
-      transaction: {
-        type: "Usdt buy",
-        rate: Usdt_RATE,
-        UsdtAmount: amount,
-        totalPkr,
-      },
-
-      Wallet: {
-        PkrBalance: Wallet.PkrBalance,
-        UsdtBalance: Wallet.UsdtBalance,
-      },
-    });
-
-  } catch (error) {
-    await session.abortTransaction();
-
-    console.error("buy Usdt ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to purchase Usdt.",
-      error: error.message,
-    });
-
-  } finally {
-    session.endSession();
-  }
-});
-
-// =====================================================
-// buy Usdt REQUEST
-// POST /api/Usdt/buy/request
-// Bank Transfer / TRC20 Receipt Upload
-// =====================================================
-
-router.post(
-  "/buy/request",
-  verifyToken,
-  upload.single("receipt"),
-  async (req, res) => {
-    try {
-      const {
-        username,
-        PkrAmount,
-        UsdtAmount,
-        WalletAddress,
-        network,
-        paymentMethod,
-        bankName,
-        accountName,
-        accountNumber,
-        trxId,
-      } = req.body;
-
-      // =====================================================
-      // VALIDATION
-      // =====================================================
-
-      if (!username || !PkrAmount || !UsdtAmount || !WalletAddress) {
-        return res.status(400).json({
-          success: false,
-          message: "All required fields must be filled.",
-        });
-      }
-
-      const user = await User.findOne({ username });
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found.",
-        });
-      }
-
-      // =====================================================
-      // CREATE ORDER
-      // =====================================================
-
-      const order = await UsdtOrder.create({
-        username,
-
-        type: "buy",
-
-        network: network || "TRC20",
-        paymentMethod: paymentMethod || "BANK",
-
-        PkrAmount: Number(PkrAmount),
-        UsdtAmount: Number(UsdtAmount),
-
-        WalletAddress,
-
-        bankName: bankName || "",
-        accountName: accountName || "",
-        accountNumber: accountNumber || "",
-        trxId: trxId || "",
-
-        receiptImage: req.file ? req.file.filename : "",
-
-        status: "Pending",
-
-        createdAt: new Date(),
-      });
-
-      return res.status(201).json({
-        success: true,
-        message: "Usdt buy request submitted successfully.",
-        order,
-      });
-
-    } catch (error) {
-      console.error("buy REQUEST ERROR:", error);
-
-      return res.status(500).json({
-        success: false,
-        message: "Unable to submit Usdt buy request.",
-        error: error.message,
-      });
-    }
-  }
-);
-
-// =====================================================
-// sell Usdt REQUEST
-// POST /api/Usdt/sell
-// User sells Usdt to Company
-// =====================================================
-
-router.post("/sell", verifyToken, async (req, res) => {
-  try {
-    const {
-      username,
-      UsdtAmount,
-      PkrAmount,
-      WalletAddress,
-      network,
-      paymentMethod,
-      bankName,
-      accountName,
-      accountNumber,
-    } = req.body;
-
-    // =====================================================
-    // VALIDATION
-    // =====================================================
-
-    if (!username || !UsdtAmount || !WalletAddress) {
-      return res.status(400).json({
-        success: false,
-        message: "All required fields must be filled.",
-      });
-    }
-
-    const user = await User.findOne({ username });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    const Wallet = await Wallet.findOne({ userId: user._id });
-
-    if (!Wallet) {
+    if (!wallet) {
       return res.status(404).json({
         success: false,
         message: "Wallet not found.",
       });
     }
 
-    if (Number(Wallet.UsdtBalance || 0) < Number(UsdtAmount)) {
+    if (Number(wallet.pkrBalance || 0) < totalPKR) {
       return res.status(400).json({
         success: false,
-        message: "Insufficient Usdt balance.",
+        message: "Insufficient PKR balance.",
       });
     }
 
-    // =====================================================
-    // CREATE sell ORDER
-    // =====================================================
+    wallet.pkrBalance -= totalPKR;
+    wallet.usdtBalance += Number(amount);
+
+    await wallet.save();
 
     const order = await UsdtOrder.create({
-      username,
-
-      type: "sell",
-
-      network: network || "TRC20",
-      paymentMethod: paymentMethod || "BANK",
-
-      UsdtAmount: Number(UsdtAmount),
-
-      PkrAmount:
-        Number(PkrAmount) || Number(UsdtAmount) * Usdt_RATE,
-
-      WalletAddress,
-
-      bankName: bankName || "",
-      accountName: accountName || "",
-      accountNumber: accountNumber || "",
-
-      status: "Pending",
-
-      createdAt: new Date(),
+      username: req.user.username,
+      type: "BUY",
+      amount: Number(amount),
+      rate: buyRate,
+      total: totalPKR,
+      status: "Completed",
     });
 
-    return res.status(201).json({
+    await WalletTransaction.create({
+      username: req.user.username,
+      type: "BUY_USDT",
+      currency: "USDT",
+      amount: Number(amount),
+      rate: buyRate,
+      total: totalPKR,
+      status: "Completed",
+    });
+
+    return res.json({
       success: true,
-      message: "Usdt sell Request Submitted Successfully.",
+      message: "USDT purchased successfully.",
       order,
+      balances: {
+        pkrBalance: wallet.pkrBalance,
+        usdtBalance: wallet.usdtBalance,
+      },
     });
-
   } catch (error) {
-    console.error("sell REQUEST ERROR:", error);
+    console.error("BUY USDT ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to submit Usdt sell request.",
+      message: "Unable to buy USDT.",
       error: error.message,
     });
   }
 });
 
 // =====================================================
-// GET USER Usdt history
-// GET /api/Usdt/history/:username
-// GoldTrade V18 - Frontend Compatible
+// SELL USDT
+// POST /api/usdt/sell
+// USER ONLY
+// =====================================================
+
+router.post("/sell", verifyToken, async (req, res) => {
+  try {
+    console.log("SELL USDT ROUTE HIT");
+
+    const { amount } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid USDT amount.",
+      });
+    }
+
+    const settings = await UsdtSettings.findOne();
+
+    const sellRate = Number(settings?.sellRate || USDT_RATE);
+    const totalPKR = Number(amount) * sellRate;
+
+    const wallet = await Wallet.findOne({ username: req.user.username });
+
+    if (!wallet) {
+      return res.status(404).json({
+        success: false,
+        message: "Wallet not found.",
+      });
+    }
+
+    if (Number(wallet.usdtBalance || 0) < Number(amount)) {
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient USDT balance.",
+      });
+    }
+
+    wallet.usdtBalance -= Number(amount);
+    wallet.pkrBalance += totalPKR;
+
+    await wallet.save();
+
+    const order = await UsdtOrder.create({
+      username: req.user.username,
+      type: "SELL",
+      amount: Number(amount),
+      rate: sellRate,
+      total: totalPKR,
+      status: "Completed",
+    });
+
+    await WalletTransaction.create({
+      username: req.user.username,
+      type: "SELL_USDT",
+      currency: "USDT",
+      amount: Number(amount),
+      rate: sellRate,
+      total: totalPKR,
+      status: "Completed",
+    });
+
+    return res.json({
+      success: true,
+      message: "USDT sold successfully.",
+      order,
+      balances: {
+        pkrBalance: wallet.pkrBalance,
+        usdtBalance: wallet.usdtBalance,
+      },
+    });
+  } catch (error) {
+    console.error("SELL USDT ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to sell USDT.",
+      error: error.message,
+    });
+  }
+});
+
+// =====================================================
+// USER USDT HISTORY
+// GET /api/usdt/history/:username
+// USER / ADMIN
 // =====================================================
 
 router.get("/history/:username", verifyToken, async (req, res) => {
   try {
-    const { username } = req.params;
+    const username = req.params.username;
 
-    // =====================================================
-    // FIND USER
-    // =====================================================
-
-    const user = await User.findOne({ username });
-
-    if (!user) {
-      return res.status(404).json({
+    if (
+      req.user.role !== "admin" &&
+      req.user.username !== username
+    ) {
+      return res.status(403).json({
         success: false,
-        message: "User not found.",
+        message: "Access denied.",
       });
     }
 
-    // =====================================================
-    // FIND Wallet
-    // =====================================================
+    const history = await UsdtOrder.find({ username })
+      .sort({ createdAt: -1 });
 
-    const Wallet = require("../models/Wallet");
-
-    const userWallet = await Wallet.findOne({
-      userId: user._id,
+    return res.json({
+      success: true,
+      history,
     });
+  } catch (error) {
+    console.error("USDT HISTORY ERROR:", error);
 
-    
-    if (!userWallet) {
-      return res.status(200).json({
-        success: true,
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load USDT history.",
+      error: error.message,
+    });
+  }
+});
+// =====================================================
+// USER USDT PORTFOLIO
+// GET /api/usdt/portfolio/:username
+// USER / ADMIN
+// =====================================================
+
+router.get("/portfolio/:username", verifyToken, async (req, res) => {
+  try {
+    const username = req.params.username;
+
+    if (
+      req.user.role !== "admin" &&
+      req.user.username !== username
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied.",
+      });
+    }
+
+    const wallet = await Wallet.findOne({ username });
+
+    if (!wallet) {
+      return res.status(404).json({
+        success: false,
+        message: "Wallet not found.",
+      });
+    }
+
+    const settings = await UsdtSettings.findOne();
+
+    const buyRate = Number(settings?.buyRate || USDT_RATE);
+    const sellRate = Number(settings?.sellRate || USDT_RATE);
+
+    const usdtBalance = Number(wallet.usdtBalance || 0);
+
+    return res.status(200).json({
+      success: true,
+
+      portfolio: {
         username,
-        transactionCount: 0,
-        summary: {
-          totalCredits: 0,
-          totalDebits: 0,
-          currentUsdt: 0,
-        },
-        transactions: [],
-      });
-    }
+        usdtBalance,
+        pkrBalance: Number(wallet.pkrBalance || 0),
 
-    // =====================================================
-    // LOAD Usdt TRANSACTIONS
-    // =====================================================
+        buyRate,
+        sellRate,
 
-    const history = await WalletTransaction.find({
-      username,
-      WalletType: "Usdt",
-    })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // =====================================================
-    // FORMAT TRANSACTIONS
-    // =====================================================
-
-    const transactions = history.map((tx) => ({
-      _id: tx._id,
-
-      username: tx.username,
-
-      WalletType: tx.WalletType || "Usdt",
-      type: tx.type || "CREDIT",
-
-      amount: Number(tx.amount || 0),
-
-      previousBalance: Number(tx.previousBalance || 0),
-      newBalance: Number(tx.newBalance || 0),
-
-      note: tx.note || "",
-      adminUsername: tx.adminUsername || "SYSTEM",
-
-      createdAt: tx.createdAt,
-    }));
-
-    // =====================================================
-    // SUMMARY
-    // =====================================================
-
-    const totalCredits = transactions
-      .filter((tx) => tx.type === "CREDIT")
-      .reduce((sum, tx) => sum + tx.amount, 0);
-
-    const totalDebits = transactions
-      .filter((tx) => tx.type === "DEBIT")
-      .reduce((sum, tx) => sum + tx.amount, 0);
-
-    // =====================================================
-    // SUCCESS RESPONSE
-    // =====================================================
-
-    return res.status(200).json({
-      success: true,
-
-      username,
-
-      transactionCount: transactions.length,
-
-      summary: {
-        totalCredits,
-        totalDebits,
-        currentUsdt: Number(userWallet.UsdtBalance || 0),
+        portfolioValue: usdtBalance * USDT_RATE,
       },
-
-      transactions,
     });
 
   } catch (error) {
-    console.error("Usdt history ERROR:", error);
+    console.error("USDT PORTFOLIO ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load Usdt history.",
+      message: "Unable to load portfolio.",
       error: error.message,
     });
   }
 });
 
 // =====================================================
-// GET USER USDT BALANCE
-// GET /api/usdt/balance/:username
-// GoldTrade V18 FINAL FIX
+// ADMIN ALL USDT ORDERS
+// GET /api/usdt/orders
+// ADMIN ONLY
 // =====================================================
 
-router.get("/balance/:username", verifyToken, async (req, res) => {
+router.get("/orders", verifyToken, isAdmin, async (req, res) => {
   try {
-    const { username } = req.params;
-
-    // Find User
-    const user = await User.findOne({ username });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    // Find Wallet
-    let userWallet = await Wallet.findOne({ userId: user._id });
-
-    // Create Wallet if it doesn't exist
-    if (!userWallet) {
-      userWallet = await Wallet.create({
-        userId: user._id,
-        username: user.username,
-        PkrBalance: Number(user.WalletBalance || 0),
-        UsdtBalance: 0,
-        goldBalance: 0,
-        usdtHistory: [],
-      });
-    }
+    const orders = await UsdtOrder.find()
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
-      balance: {
-        PkrBalance: Number(userWallet.PkrBalance || 0),
-        UsdtBalance: Number(userWallet.UsdtBalance || 0),
-        goldBalance: Number(userWallet.goldBalance || 0),
-      },
-    });
-  } catch (error) {
-    console.error("USDT BALANCE ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load Wallet balance.",
-      error: error.message,
-    });
-  }
-});
-
-// =====================================================
-// ADMIN APPROVE / REJECT Usdt ORDER
-// PUT /api/Usdt/:id
-// GoldTrade v18 Production
-// =====================================================
-
-router.put("/:id", verifyToken, isAdmin, async (req, res) => {
-  const session = await mongoose.startSession();
-
-  try {
-    session.startTransaction();
-
-    const { status } = req.body;
-
-    // =====================================================
-    // VALIDATION
-    // =====================================================
-
-    if (!["Approved", "Rejected"].includes(status)) {
-      await session.abortTransaction();
-
-      return res.status(400).json({
-        success: false,
-        message: "Invalid order status.",
-      });
-    }
-
-    // =====================================================
-    // FIND ORDER
-    // =====================================================
-
-    const order = await UsdtOrder.findById(req.params.id).session(session);
-
-    if (!order) {
-      await session.abortTransaction();
-
-      return res.status(404).json({
-        success: false,
-        message: "Usdt order not found.",
-      });
-    }
-
-    if (order.status !== "Pending") {
-      await session.abortTransaction();
-
-      return res.status(400).json({
-        success: false,
-        message: "Order already processed.",
-      });
-    }
-
-    // =====================================================
-    // FIND USER
-    // =====================================================
-
-    const user = await User.findOne({
-      username: order.username,
-    }).session(session);
-
-    if (!user) {
-      await session.abortTransaction();
-
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    // =====================================================
-    // FIND OR CREATE Wallet
-    // =====================================================
-
-    let Wallet = await Wallet.findOne({
-      userId: user._id,
-    }).session(session);
-
-    if (!Wallet) {
-      const createdWallet = await Wallet.create(
-        [
-          {
-            userId: user._id,
-            username: user.username,
-
-            PkrBalance: Number(user.WalletBalance || 0),
-            UsdtBalance: Number(user.UsdtBalance || 0),
-            goldBalance: Number(user.goldBalance || 0),
-          },
-        ],
-        { session }
-      );
-
-      Wallet = createdWallet[0];
-    }
-
-    // =====================================================
-    // REJECT ORDER
-    // =====================================================
-
-    if (status === "Rejected") {
-      order.status = "Rejected";
-      order.processedBy = req.user.username;
-      order.processedAt = new Date();
-
-      await order.save({ session });
-
-      await session.commitTransaction();
-
-      return res.status(200).json({
-        success: true,
-        message: "Usdt order rejected successfully.",
-        order,
-      });
-    }
-
-    // =====================================================
-    // APPROVE ORDER
-    // =====================================================
-
-    const previousPkr = Number(Wallet.PkrBalance || 0);
-    const previousUsdt = Number(Wallet.UsdtBalance || 0);
-    const UsdtTransaction = require("../models/UsdtTransaction");
-
-    // ---------- buy ORDER ----------
-    if (order.type === "buy") {
-      Wallet.UsdtBalance += Number(order.UsdtAmount);
-
-      await WalletTransaction.create(
-        [
-          {
-            userId: user._id,
-            username: user.username,
-
-            WalletType: "Usdt",
-            type: "CREDIT",
-
-            amount: Number(order.UsdtAmount),
-
-            previousBalance: previousUsdt,
-            newBalance: Wallet.UsdtBalance,
-
-            adminUsername: req.user.username,
-            note: "Usdt buy Order Approved",
-
-            createdAt: new Date(),
-          },
-        ],
-        { session }
-      );
-    }
-
-    // ---------- sell ORDER ----------
-    if (order.type === "sell") {
-      if (previousUsdt < Number(order.UsdtAmount)) {
-        await session.abortTransaction();
-
-        return res.status(400).json({
-          success: false,
-          message: "Insufficient Usdt balance.",
-        });
-      }
-
-      Wallet.UsdtBalance -= Number(order.UsdtAmount);
-      Wallet.PkrBalance += Number(order.PkrAmount);
-
-      // Usdt Debit history
-      await WalletTransaction.create(
-        [
-          {
-            userId: user._id,
-            username: user.username,
-
-            WalletType: "Usdt",
-            type: "DEBIT",
-
-            amount: Number(order.UsdtAmount),
-
-            previousBalance: previousUsdt,
-            newBalance: Wallet.UsdtBalance,
-
-            adminUsername: req.user.username,
-            note: "Usdt sell Order Approved",
-
-            createdAt: new Date(),
-          },
-        ],
-        { session }
-      );
-
-      // Pkr Credit history
-      await WalletTransaction.create(
-        [
-          {
-            userId: user._id,
-            username: user.username,
-
-            WalletType: "Pkr",
-            type: "CREDIT",
-
-            amount: Number(order.PkrAmount),
-
-            previousBalance: previousPkr,
-            newBalance: Wallet.PkrBalance,
-
-            adminUsername: req.user.username,
-            note: "Pkr Credited Against Usdt sell",
-
-            createdAt: new Date(),
-          },
-        ],
-        { session }
-      );
-    }
-
-    // =====================================================
-    // SAVE Wallet
-    // =====================================================
-
-    await Wallet.save({ session });
-
-    // =====================================================
-    // SYNC USER BALANCES
-    // =====================================================
-
-    user.WalletBalance = Wallet.PkrBalance;
-    user.UsdtBalance = Wallet.UsdtBalance;
-
-    await user.save({ session });
-
-    // =====================================================
-    // UPDATE ORDER STATUS
-    // =====================================================
-
-    order.status = "Approved";
-    order.processedBy = req.user.username;
-    order.processedAt = new Date();
-
-    await order.save({ session });
-
-    // =====================================================
-    // GLOBAL TRANSACTION LOG
-    // =====================================================
-
-    await Transaction.create(
-      [
-        {
-          username: order.username,
-
-          type:
-            order.type === "buy"
-              ? "Usdt buy Approved"
-              : "Usdt sell Approved",
-
-          amount: Number(order.UsdtAmount),
-
-          method: order.network || "TRC20",
-          status: "Approved",
-
-          transactionId: order._id.toString(),
-
-          createdAt: new Date(),
-        },
-      ],
-      { session }
-    );
-
-    // =====================================================
-    // COMMIT TRANSACTION
-    // =====================================================
-
-    await session.commitTransaction();
-
-    return res.status(200).json({
-      success: true,
-      message: `Usdt ${order.type} order approved successfully.`,
-
-      Wallet: {
-        PkrBalance: Wallet.PkrBalance,
-        UsdtBalance: Wallet.UsdtBalance,
-      },
-
-      order,
-    });
-
-  } catch (error) {
-    await session.abortTransaction();
-
-    console.error("Usdt ORDER APPROVAL ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to process Usdt order.",
-      error: error.message,
-    });
-
-  } finally {
-    session.endSession();
-  }
-});
-
-// =====================================================
-// GET ALL Usdt ORDERS (ADMIN)
-// GET /api/Usdt
-// Frontend Admin Usdt Page Compatible
-// =====================================================
-
-router.get("/", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const orders = await UsdtOrder.find({})
-      .sort({ createdAt: -1 })
-      .lean();
-
-    return res.status(200).json({
-      success: true,
-      totalOrders: orders.length,
-
-      // Frontend Compatibility
-      requests: orders,
+      total: orders.length,
       orders,
     });
 
   } catch (error) {
-    console.error("GET Usdt ORDERS ERROR:", error);
+    console.error("USDT ORDERS ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load Usdt orders.",
+      message: "Unable to load USDT orders.",
       error: error.message,
     });
   }
 });
 
 // =====================================================
-// GET SINGLE Usdt ORDER (ADMIN)
-// GET /api/Usdt/:id
+// ADMIN DELETE USDT ORDER
+// DELETE /api/usdt/order/:id
+// ADMIN ONLY
 // =====================================================
 
-router.get("/:id", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const order = await UsdtOrder.findById(req.params.id).lean();
-
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Usdt order not found.",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      order,
-    });
-
-  } catch (error) {
-    console.error("GET SINGLE ORDER ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load Usdt order.",
-      error: error.message,
-    });
-  }
-});
-
-// =====================================================
-// DELETE Usdt ORDER (ADMIN)
-// DELETE /api/Usdt/:id
-// Only Pending Orders Can Be Deleted
-// =====================================================
-
-router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
+router.delete("/order/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const order = await UsdtOrder.findById(req.params.id);
 
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Usdt order not found.",
+        message: "Order not found.",
       });
     }
 
-    if (order.status === "Approved") {
-      return res.status(400).json({
-        success: false,
-        message: "Approved Usdt orders cannot be deleted.",
-      });
-    }
-
-    await UsdtOrder.findByIdAndDelete(req.params.id);
+    await order.deleteOne();
 
     return res.status(200).json({
       success: true,
-      message: "Usdt order deleted successfully.",
+      message: "USDT order deleted successfully.",
     });
 
   } catch (error) {
-    console.error("DELETE Usdt ORDER ERROR:", error);
+    console.error("DELETE USDT ORDER ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to delete Usdt order.",
+      message: "Unable to delete USDT order.",
       error: error.message,
     });
   }
 });
 
 // =====================================================
-// ADMIN DASHBOARD SUMMARY
-// GET /api/Usdt/dashboard
+// ADMIN HEALTH CHECK
+// GET /api/usdt/health
 // =====================================================
 
-router.get("/dashboard", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const pending = await UsdtOrder.countDocuments({ status: "Pending" });
-    const approved = await UsdtOrder.countDocuments({ status: "Approved" });
-    const rejected = await UsdtOrder.countDocuments({ status: "Rejected" });
-
-    const totalbuy = await UsdtOrder.aggregate([
-      { $match: { type: "buy", status: "Approved" } },
-      { $group: { _id: null, total: { $sum: "$UsdtAmount" } } },
-    ]);
-
-    const totalsell = await UsdtOrder.aggregate([
-      { $match: { type: "sell", status: "Approved" } },
-      { $group: { _id: null, total: { $sum: "$UsdtAmount" } } },
-    ]);
-
-    return res.status(200).json({
-      success: true,
-
-      stats: {
-        pendingOrders: pending,
-        approvedOrders: approved,
-        rejectedOrders: rejected,
-
-        totalbuyUsdt: totalbuy[0]?.total || 0,
-        totalsellUsdt: totalsell[0]?.total || 0,
-
-        currentRate: Usdt_RATE,
-      },
-    });
-
-  } catch (error) {
-    console.error("Usdt dashboard ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load dashboard statistics.",
-      error: error.message,
-    });
-  }
+router.get("/health", (req, res) => {
+  return res.status(200).json({
+    success: true,
+    module: "USDT",
+    version: "GoldTrade V18 Enterprise",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // =====================================================
-// MODULE EXPORT
+// EXPORT ROUTER
 // =====================================================
 
 module.exports = router;

@@ -1,61 +1,62 @@
-/*
-========================================================
- GoldTrade V18 Enterprise
- Payment Settings Routes (PART 1/3)
- Linux + Render + Vercel Compatible
-========================================================
-*/
+/* ==========================================================
+   GoldTrade V18 Enterprise
+   Payment Settings Routes (PART 1/4)
+   Render + Vercel + MongoDB Compatible
+========================================================== */
 
 "use strict";
 
 const express = require("express");
 const router = express.Router();
 
-// =============================
-// MODELS
-// =============================
 const PaymentSettings = require("../models/PaymentSettings");
-
-// =============================
-// MIDDLEWARE
-// =============================
 const { verifyToken, isAdmin } = require("../middleware/auth");
 
-// ======================================================
-// GET PAYMENT SETTINGS
-// GET /api/payment-settings
-// ======================================================
+/* ==========================================================
+   DEFAULT PAYMENT SETTINGS
+========================================================== */
 
-router.get("/", async (req, res) => {
-  try {
-    let settings = await PaymentSettings.findOne().lean();
+const defaultSettings = {
+  // JazzCash
+  jazzCashNumber: "",
+  jazzCashTitle: "",
 
-    // Auto create first settings document
-    if (!settings) {
-      settings = await PaymentSettings.create({});
-      settings = settings.toObject();
-    }
+  // Easypaisa
+  easypaisaNumber: "",
+  easypaisaTitle: "",
 
-    return res.status(200).json({
-      success: true,
-      settings,
-    });
+  // Bank
+  bankName: "",
+  bankAccountTitle: "",
+  bankAccountNumber: "",
+  iban: "",
 
-  } catch (error) {
-    console.error("PAYMENT SETTINGS LOAD ERROR:", error);
+  // USDT Wallets
+  usdtTRC20: "",
+  usdtBEP20: "",
+  usdtERC20: "",
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load payment settings.",
-      error: error.message,
-    });
-  }
-});
+  // Gold Wallet
+  goldWalletAddress: "",
+  goldWalletTitle: "",
 
-// ======================================================
-// ADMIN HEALTH CHECK
-// GET /api/payment-settings/health
-// ======================================================
+  // QR Images
+  jazzCashQR: "",
+  easypaisaQR: "",
+  binanceQR: "",
+
+  // Enable / Disable Switches
+  jazzCashEnabled: true,
+  easypaisaEnabled: true,
+  bankEnabled: true,
+  usdtEnabled: true,
+  goldEnabled: true,
+};
+
+/* ==========================================================
+   HEALTH CHECK
+   GET /api/payment-settings/health
+========================================================== */
 
 router.get("/health", (req, res) => {
   return res.status(200).json({
@@ -66,124 +67,86 @@ router.get("/health", (req, res) => {
   });
 });
 
-// ======================================================
-// ADMIN GET SETTINGS
-// GET /api/payment-settings/admin
-// Admin Only
-// ======================================================
+/* ==========================================================
+   PUBLIC PAYMENT SETTINGS
+   GET /api/payment-settings
+   Used by Wallet Deposit Page
+========================================================== */
 
-router.get(
-  "/admin",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      let settings = await PaymentSettings.findOne().lean();
+router.get("/", async (req, res) => {
+  try {
+    let settings = await PaymentSettings.findOne().lean();
 
-      if (!settings) {
-        settings = await PaymentSettings.create({});
-        settings = settings.toObject();
-      }
-
-      return res.status(200).json({
-        success: true,
-        settings,
-      });
-
-    } catch (error) {
-      console.error("ADMIN PAYMENT SETTINGS ERROR:", error);
-
-      return res.status(500).json({
-        success: false,
-        message: "Unable to load admin payment settings.",
-        error: error.message,
-      });
+    if (!settings) {
+      const created = await PaymentSettings.create(defaultSettings);
+      settings = created.toObject();
     }
+
+    return res.status(200).json({
+      success: true,
+      settings,
+    });
+  } catch (error) {
+    console.error("PUBLIC PAYMENT SETTINGS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load payment settings.",
+      error: error.message,
+    });
   }
-);
-// ======================================================
-// UPDATE PAYMENT SETTINGS
-// PUT /api/payment-settings
-// Admin Only
-// ======================================================
+});
+
+/* ==========================================================
+   ADMIN PAYMENT SETTINGS
+   GET /api/payment-settings/admin
+========================================================== */
+
+router.get("/admin", verifyToken, isAdmin, async (req, res) => {
+  try {
+    console.log("ADMIN PAYMENT SETTINGS FETCH");
+    console.log("USER:", req.user.username);
+    console.log("ROLE:", req.user.role);
+
+    let settings = await PaymentSettings.findOne().lean();
+
+    if (!settings) {
+      const created = await PaymentSettings.create(defaultSettings);
+      settings = created.toObject();
+    }
+
+    return res.status(200).json({
+      success: true,
+      settings,
+    });
+  } catch (error) {
+    console.error("ADMIN PAYMENT SETTINGS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load admin payment settings.",
+      error: error.message,
+    });
+  }
+});
 
 router.put("/", verifyToken, isAdmin, async (req, res) => {
   try {
+    console.log("====================================");
+    console.log("PAYMENT SETTINGS SAVE REQUEST");
+    console.log("USER:", req.user?.username);
+    console.log("ROLE:", req.user?.role);
+    console.log("BODY:", req.body);
+    console.log("====================================");
+
     let settings = await PaymentSettings.findOne();
 
     if (!settings) {
-      settings = new PaymentSettings();
+      settings = new PaymentSettings(defaultSettings);
     }
 
-    // =============================
-    // PKR PAYMENT METHODS
-    // =============================
-
-    settings.jazzCashNumber =
-      req.body.jazzCashNumber?.trim() || "";
-
-    settings.jazzCashTitle =
-      req.body.jazzCashTitle?.trim() || "";
-
-    settings.easypaisaNumber =
-      req.body.easypaisaNumber?.trim() || "";
-
-    settings.easypaisaTitle =
-      req.body.easypaisaTitle?.trim() || "";
-
-    settings.bankName =
-      req.body.bankName?.trim() || "";
-
-    settings.bankAccountTitle =
-      req.body.bankAccountTitle?.trim() || "";
-
-    settings.bankAccountNumber =
-      req.body.bankAccountNumber?.trim() || "";
-
-    settings.iban =
-      req.body.iban?.trim() || "";
-
-    // =============================
-    // USDT WALLETS
-    // =============================
-
-    settings.usdtTRC20 =
-      req.body.usdtTRC20?.trim() || "";
-
-    settings.usdtBEP20 =
-      req.body.usdtBEP20?.trim() || "";
-
-    settings.usdtERC20 =
-      req.body.usdtERC20?.trim() || "";
-
-    // =============================
-    // GOLD WALLET
-    // =============================
-
-    settings.goldWalletAddress =
-      req.body.goldWalletAddress?.trim() || "";
-
-    settings.goldWalletTitle =
-      req.body.goldWalletTitle?.trim() || "";
-
-    // =============================
-    // ENABLE / DISABLE METHODS
-    // =============================
-
-    settings.jazzCashEnabled =
-      req.body.jazzCashEnabled ?? true;
-
-    settings.easypaisaEnabled =
-      req.body.easypaisaEnabled ?? true;
-
-    settings.bankEnabled =
-      req.body.bankEnabled ?? true;
-
-    settings.usdtEnabled =
-      req.body.usdtEnabled ?? true;
-
-    settings.goldEnabled =
-      req.body.goldEnabled ?? true;
+    Object.assign(settings, req.body);
+    settings.updatedAt = new Date();
 
     await settings.save();
 
@@ -194,41 +157,44 @@ router.put("/", verifyToken, isAdmin, async (req, res) => {
     });
 
   } catch (error) {
-    console.error("PAYMENT SETTINGS UPDATE ERROR:", error);
+    console.error("Payment Settings UPDATE Error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to update payment settings.",
+      message: "Failed to update payment settings.",
       error: error.message,
     });
   }
 });
-// ======================================================
-// UPDATE QR IMAGES
-// PUT /api/payment-settings/qr
-// Admin Only
-// ======================================================
+
+/* ==========================================================
+   UPDATE QR IMAGE URLS
+   PUT /api/payment-settings/qr
+   Admin Only
+========================================================== */
 
 router.put("/qr", verifyToken, isAdmin, async (req, res) => {
   try {
+    console.log("========== PAYMENT QR UPDATE ==========");
+    console.log("USER :", req.user.username);
+    console.log("ROLE :", req.user.role);
+
     let settings = await PaymentSettings.findOne();
 
     if (!settings) {
-      settings = new PaymentSettings();
+      settings = new PaymentSettings(defaultSettings);
     }
 
-    // QR Image URLs (Cloudinary / Render uploads)
-    if (req.body.jazzCashQR !== undefined) {
-      settings.jazzCashQR = req.body.jazzCashQR;
-    }
+    settings.jazzCashQR =
+      req.body.jazzCashQR ?? settings.jazzCashQR;
 
-    if (req.body.easypaisaQR !== undefined) {
-      settings.easypaisaQR = req.body.easypaisaQR;
-    }
+    settings.easypaisaQR =
+      req.body.easypaisaQR ?? settings.easypaisaQR;
 
-    if (req.body.binanceQR !== undefined) {
-      settings.binanceQR = req.body.binanceQR;
-    }
+    settings.binanceQR =
+      req.body.binanceQR ?? settings.binanceQR;
+
+    settings.updatedAt = new Date();
 
     await settings.save();
 
@@ -249,17 +215,21 @@ router.put("/qr", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// ======================================================
-// RESET PAYMENT SETTINGS
-// DELETE /api/payment-settings/reset
-// Admin Only
-// ======================================================
+/* ==========================================================
+   RESET PAYMENT SETTINGS
+   DELETE /api/payment-settings/reset
+   Admin Only
+========================================================== */
 
 router.delete("/reset", verifyToken, isAdmin, async (req, res) => {
   try {
+    console.log("========== RESET PAYMENT SETTINGS ==========");
+    console.log("USER :", req.user.username);
+    console.log("ROLE :", req.user.role);
+
     await PaymentSettings.deleteMany({});
 
-    const settings = await PaymentSettings.create({});
+    const settings = await PaymentSettings.create(defaultSettings);
 
     return res.status(200).json({
       success: true,
@@ -278,8 +248,103 @@ router.delete("/reset", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// ======================================================
-// EXPORT ROUTER
-// ======================================================
+/* ==========================================================
+   DEBUG ROUTE (Production Testing)
+   GET /api/payment-settings/debug
+========================================================== */
+
+router.get("/debug", async (req, res) => {
+  try {
+    const settings = await PaymentSettings.findOne();
+
+    return res.status(200).json({
+      success: true,
+      exists: !!settings,
+      settings,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+/* ==========================================================
+   GOLDTRADE V18 ENTERPRISE
+   FINAL ROUTES + EXPORT
+========================================================== */
+
+/* ==========================================================
+   ADMIN AUTH TEST
+   GET /api/payment-settings/auth-check
+========================================================== */
+
+router.get("/auth-check", verifyToken, isAdmin, async (req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      message: "Admin authentication successful.",
+      admin: {
+        username: req.user.username,
+        role: req.user.role,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("PAYMENT SETTINGS AUTH CHECK ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Authentication check failed.",
+      error: error.message,
+    });
+  }
+});
+
+/* ==========================================================
+   DATABASE STATUS
+   GET /api/payment-settings/status
+========================================================== */
+
+router.get("/status", async (req, res) => {
+  try {
+    const count = await PaymentSettings.countDocuments();
+    const settings = await PaymentSettings.findOne().lean();
+
+    return res.status(200).json({
+      success: true,
+      databaseConnected: true,
+      totalDocuments: count,
+      settingsExists: !!settings,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("PAYMENT SETTINGS STATUS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      databaseConnected: false,
+      message: error.message,
+    });
+  }
+});
+
+/* ==========================================================
+   ROUTE NOT FOUND
+========================================================== */
+
+router.use((req, res) => {
+  return res.status(404).json({
+    success: false,
+    message: `Payment Settings API Not Found: ${req.method} ${req.originalUrl}`,
+  });
+});
+
+/* ==========================================================
+   EXPORT ROUTER (ONLY ONCE - LAST LINE)
+========================================================== */
 
 module.exports = router;
