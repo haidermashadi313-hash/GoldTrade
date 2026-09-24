@@ -1,14 +1,15 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 // ==========================================
-// API URL (Render + Local Compatible)
+// API URL (GoldTrade V18 FINAL)
 // ==========================================
+
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-cky2.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,81 +25,122 @@ export default function LoginPage() {
     useState<"success" | "error">("success");
 
   // ==========================================
-  // LOGIN FUNCTION (GoldTrade V18 FINAL)
+  // CHECK EXISTING LOGIN (FIXED)
   // ==========================================
-  const handleLogin = async (
-    e: React.FormEvent<HTMLFormElement>
-  ) => {
-    e.preventDefault();
 
-    setLoading(true);
-    setMessage("");
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
 
-    try {
-      const response = await fetch(`${API}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: username.trim(),
-          password: password.trim(),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Login failed.");
-      }
-
-      // JWT TOKEN
-      const jwtToken =
-        data.token ||
-        data.accessToken ||
-        data.jwt ||
-        data.data?.token;
-
-      if (!jwtToken) {
-        throw new Error("JWT token not received.");
-      }
-
-      // SAVE USER DATA
-      localStorage.setItem("token", jwtToken);
-      localStorage.setItem("username", data.user.username || "");
-      localStorage.setItem("email", data.user.email || "");
-      localStorage.setItem("userId", data.user._id || "");
-
-      const userRole = String(data.user.role || "user").toLowerCase();
-      localStorage.setItem("role", userRole);
-
-      setMessageType("success");
-      setMessage("Login successful. Redirecting...");
-
-      // Redirect after success
-      setTimeout(() => {
-        if (userRole === "admin") {
-          router.push("/admin-dashboard");
-        } else {
-          router.push("/dashboard");
-        }
-      }, 800);
-    } catch (error) {
-      console.error("LOGIN ERROR:", error);
-
-      setMessageType("error");
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to login."
-      );
-    } finally {
-      setLoading(false);
+    // Redirect ONLY if token exists
+    if (token && role === "admin") {
+      router.replace("/admin-dashboard");
+    } else if (token && role === "user") {
+      router.replace("/dashboard");
     }
-  };
+  }, [router]);
+
+// ==========================================
+// LOGIN FUNCTION (GoldTrade V18 FIXED)
+// ==========================================
+
+const handleLogin = async (
+  e: React.FormEvent<HTMLFormElement>
+) => {
+  e.preventDefault();
+
+  setLoading(true);
+  setMessage("");
+
+  try {
+    console.log("LOGIN API:", `${API}/api/auth/login`);
+
+    const response = await fetch(`${API}/api/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username: username.trim().toLowerCase(),
+        password: password.trim(),
+      }),
+    });
+
+    // Safe JSON Parse
+    const data = await response.json();
+
+    // DEBUG (Very Important)
+    console.log("LOGIN STATUS:", response.status);
+    console.log("LOGIN RESPONSE:", data);
+
+    // Backend Error
+    if (!response.ok || !data.success) {
+      throw new Error(
+        data?.message ||
+        data?.error ||
+        `Login failed (${response.status})`
+      );
+    }
+
+    // JWT Token
+    const jwtToken =
+      data.token ||
+      data.accessToken ||
+      data.jwt ||
+      data.data?.token;
+
+    if (!jwtToken) {
+      throw new Error("JWT token not received from backend.");
+    }
+
+    // User Object Safety
+    const user = data.user || {};
+
+    // Clear old session
+    localStorage.clear();
+
+    // Save new session
+    localStorage.setItem("token", jwtToken);
+    localStorage.setItem("username", user.username || "");
+    localStorage.setItem("email", user.email || "");
+    localStorage.setItem("userId", user._id || user.id || "");
+
+    const role = String(user.role || "user").toLowerCase();
+    localStorage.setItem("role", role);
+
+    setMessageType("success");
+    setMessage("Login successful. Redirecting...");
+
+    console.log("LOGIN SUCCESS");
+    console.log("ROLE:", role);
+
+    setTimeout(() => {
+      if (role === "admin") {
+        router.replace("/admin-dashboard");
+      } else {
+        router.replace("/dashboard");
+      }
+    }, 500);
+
+  } catch (error) {
+    console.error("LOGIN ERROR:", error);
+
+    localStorage.clear();
+
+    setMessageType("error");
+    setMessage(
+      error instanceof Error
+        ? error.message
+        : "Unable to connect to server."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
     // ==========================================
   // LOGIN PAGE UI
   // ==========================================
+
   return (
     <main className="min-h-screen bg-black flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md bg-zinc-900 border border-yellow-500 rounded-3xl p-8 shadow-2xl">
@@ -201,6 +243,7 @@ export default function LoginPage() {
           </p>
 
           <button
+            type="button"
             onClick={() => router.push("/signup")}
             className="mt-2 text-yellow-400 hover:text-yellow-300 font-semibold underline"
           >
@@ -215,6 +258,7 @@ export default function LoginPage() {
           </h3>
 
           <div className="space-y-2 text-sm">
+
             <div className="flex justify-between">
               <span className="text-gray-400">Username</span>
               <span className="text-green-400 font-semibold">hashi</span>
@@ -231,13 +275,14 @@ export default function LoginPage() {
                 Administrator
               </span>
             </div>
+
           </div>
         </div>
 
         {/* SECURITY NOTE */}
         <div className="mt-6 bg-zinc-800 border border-cyan-600 rounded-xl p-4">
           <p className="text-cyan-400 text-center text-sm">
-            GoldTrade Secure Login • JWT Protected •
+            GoldTrade Secure Login • JWT Protected • MongoDB Connected
           </p>
         </div>
 
@@ -245,7 +290,7 @@ export default function LoginPage() {
         <div className="mt-8 text-center text-xs text-gray-500 space-y-2">
           <p>© 2026 GoldTrade Enterprise Trading Platform</p>
           <p>PKR • Gold • USDT Wallet System</p>
-          <p>Powered by GoldTrade Enterprise</p>
+          <p>Powered by GoldTrade Enterprise V18</p>
         </div>
 
       </div>

@@ -1,108 +1,136 @@
 "use client";
 
-/* ==========================================================
-   GoldTrade V18 Enterprise
-   Admin Payment Settings (PART 1/3)
-   Linux + Render + Vercel Compatible
-========================================================== */
+// =====================================================
+// GoldTrade V18 Enterprise
+// PAYMENT SETTINGS MANAGER
+// PART 1/6
+// Production Version
+// Folder: frontend/app/admin/paymentsetting/page.tsx
+// =====================================================
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
 import {
-  ArrowLeft,
-  RefreshCw,
-  Save,
-  CreditCard,
-  Landmark,
   Wallet,
+  Landmark,
+  Building2,
+  CreditCard,
+  Copy,
+  Save,
+  RefreshCw,
+  Shield,
+  Search,
+  CheckCircle,
+  XCircle,
+  DollarSign,
   Coins,
 } from "lucide-react";
 
-/* ==========================================================
-   API URL
-========================================================== */
+// =====================================================
+// API URL
+// =====================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://goldtrade-cky2.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-/* ==========================================================
-   TYPES
-========================================================== */
+// =====================================================
+// TYPES
+// =====================================================
 
 interface PaymentSettings {
-  jazzCashNumber: string;
-  jazzCashTitle: string;
+  _id?: string;
 
-  easypaisaNumber: string;
-  easypaisaTitle: string;
-
+  // Bank Details
   bankName: string;
-  bankAccountTitle: string;
-  bankAccountNumber: string;
+  accountTitle: string;
+  accountNumber: string;
   iban: string;
 
-  usdtTRC20: string;
-  usdtBEP20: string;
-  usdtERC20: string;
+  // Easypaisa
+  easypaisaName: string;
+  easypaisaNumber: string;
 
+  // JazzCash
+  jazzcashName: string;
+  jazzcashNumber: string;
+
+  // Binance
+  usdtNetwork: string;
+  usdtAddress: string;
+
+  // Gold
   goldWalletAddress: string;
-  goldWalletTitle: string;
 
-  jazzCashQR: string;
-  easypaisaQR: string;
-  binanceQR: string;
+  // Status
+  depositsEnabled: boolean;
+  withdrawsEnabled: boolean;
 
-  jazzCashEnabled: boolean;
-  easypaisaEnabled: boolean;
-  bankEnabled: boolean;
-  usdtEnabled: boolean;
-  goldEnabled: boolean;
+  updatedAt?: string;
 }
 
-/* ==========================================================
-   DEFAULT SETTINGS
-========================================================== */
+interface PaymentStatistics {
+  totalBankAccounts: number;
+  totalWalletAddresses: number;
+  depositsEnabled: boolean;
+  withdrawsEnabled: boolean;
+}
 
-const defaultSettings: PaymentSettings = {
-  jazzCashNumber: "",
-  jazzCashTitle: "",
-
-  easypaisaNumber: "",
-  easypaisaTitle: "",
-
-  bankName: "",
-  bankAccountTitle: "",
-  bankAccountNumber: "",
-  iban: "",
-
-  usdtTRC20: "",
-  usdtBEP20: "",
-  usdtERC20: "",
-
-  goldWalletAddress: "",
-  goldWalletTitle: "",
-
-  jazzCashQR: "",
-  easypaisaQR: "",
-  binanceQR: "",
-
-  jazzCashEnabled: true,
-  easypaisaEnabled: true,
-  bankEnabled: true,
-  usdtEnabled: true,
-  goldEnabled: true,
-};
-
-/* ==========================================================
-   COMPONENT
-========================================================== */
+// =====================================================
+// COMPONENT
+// =====================================================
 
 export default function PaymentSettingsPage() {
+
+  // ===================================================
+  // AUTH
+  // ===================================================
+
+  const [token, setToken] = useState("");
+  const [adminName, setAdminName] =
+    useState("Administrator");
+
+  // ===================================================
+  // SETTINGS DATA
+  // ===================================================
+
   const [settings, setSettings] =
-    useState<PaymentSettings>(defaultSettings);
+    useState<PaymentSettings>({
+      bankName: "",
+      accountTitle: "",
+      accountNumber: "",
+      iban: "",
+
+      easypaisaName: "",
+      easypaisaNumber: "",
+
+      jazzcashName: "",
+      jazzcashNumber: "",
+
+      usdtNetwork: "TRC20",
+      usdtAddress: "",
+
+      goldWalletAddress: "",
+
+      depositsEnabled: true,
+      withdrawsEnabled: true,
+    });
+
+  const [statistics, setStatistics] =
+    useState<PaymentStatistics>({
+      totalBankAccounts: 1,
+      totalWalletAddresses: 2,
+      depositsEnabled: true,
+      withdrawsEnabled: true,
+    });
+
+  // ===================================================
+  // UI STATES
+  // ===================================================
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] =
+    useState(false);
+
   const [saving, setSaving] = useState(false);
 
   const [message, setMessage] = useState("");
@@ -110,117 +138,249 @@ export default function PaymentSettingsPage() {
     "success" | "error"
   >("success");
 
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("token") || ""
-      : "";
+  const [error, setError] = useState("");
 
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
+  // ===================================================
+  // SEARCH
+  // ===================================================
 
-  /* ==========================================================
-     LOAD PAYMENT SETTINGS
-  ========================================================== */
+  const [search, setSearch] = useState("");
 
-  const loadSettings = async () => {
-    try {
-      setLoading(true);
-      setMessage("");
-
-      const response = await fetch(
-        `${API}/api/payment-settings/admin`,
-        {
-          headers,
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Unable to load payment settings."
-        );
-      }
-
-      setSettings({
-        ...defaultSettings,
-        ...data.settings,
-      });
-
-    } catch (error) {
-      console.error("LOAD PAYMENT SETTINGS:", error);
-
-      setMessageType("error");
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to connect to server."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  // ===================================================
+  // TOKEN LOAD
+  // ===================================================
 
   useEffect(() => {
-    if (token) {
-      loadSettings();
-    } else {
-      setLoading(false);
+    const savedToken = localStorage.getItem("token");
+
+    if (!savedToken) {
+      window.location.href = "/login";
+      return;
     }
+
+    setToken(savedToken);
   }, []);
-    /* ==========================================================
-     SAVE PAYMENT SETTINGS
-  ========================================================== */
 
-  const saveSettings = async () => {
+  // ===================================================
+  // REQUEST HEADERS
+  // ===================================================
+
+  const adminHeaders = useMemo(
+    () => ({
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    }),
+    [token]
+  );
+
+  // ===================================================
+  // FORMAT DATE
+  // ===================================================
+
+  const formatDate = (date?: string) => {
+    if (!date) return "--";
+
+    return new Date(date).toLocaleString("en-GB", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  };
+
+  // ===================================================
+  // COPY TO CLIPBOARD
+  // ===================================================
+
+  const copyText = async (value: string) => {
     try {
-      setSaving(true);
-      setMessage("");
+      await navigator.clipboard.writeText(value);
 
+      setMessage("Copied successfully.");
+      setMessageType("success");
+    } catch {
+      setMessage("Unable to copy.");
+      setMessageType("error");
+    }
+  };
+
+  // ===================================================
+  // SEARCH FILTER
+  // ===================================================
+
+  const searchKeyword = search.trim().toLowerCase();
+
+  const showBankSection =
+    searchKeyword === "" ||
+    "bank account iban accounttitle".includes(searchKeyword);
+
+  const showEasyPaisaSection =
+    searchKeyword === "" ||
+    "easypaisa ep wallet mobile".includes(searchKeyword);
+
+  const showJazzCashSection =
+    searchKeyword === "" ||
+    "jazzcash jc wallet mobile".includes(searchKeyword);
+
+  const showUsdtSection =
+    searchKeyword === "" ||
+    "usdt trc20 bep20 binance crypto".includes(searchKeyword);
+
+  const showGoldSection =
+    searchKeyword === "" ||
+    "gold wallet address".includes(searchKeyword);
+      // ===================================================
+  // LOAD PAYMENT SETTINGS
+  // ===================================================
+
+  const loadPaymentSettings = async () => {
+    if (!token) return;
+
+    try {
+      setLoading(true);
+      setRefreshing(false);
+      setError("");
+
+      const [settingsRes, statisticsRes] = await Promise.all([
+        fetch(`${API}/api/admin/payment-settings`, {
+          headers: adminHeaders,
+          cache: "no-store",
+        }),
+
+        fetch(`${API}/api/admin/payment-settings/statistics`, {
+          headers: adminHeaders,
+          cache: "no-store",
+        }),
+      ]);
+
+      const settingsData = await settingsRes.json();
+      const statisticsData = await statisticsRes.json();
+
+      console.log("PAYMENT SETTINGS:", settingsData);
+      console.log("PAYMENT STATISTICS:", statisticsData);
+
+      // SETTINGS
+      if (settingsRes.ok && settingsData.success) {
+        setSettings({
+          bankName: settingsData.settings.bankName || "",
+          accountTitle: settingsData.settings.accountTitle || "",
+          accountNumber: settingsData.settings.accountNumber || "",
+          iban: settingsData.settings.iban || "",
+
+          easypaisaName: settingsData.settings.easypaisaName || "",
+          easypaisaNumber: settingsData.settings.easypaisaNumber || "",
+
+          jazzcashName: settingsData.settings.jazzcashName || "",
+          jazzcashNumber: settingsData.settings.jazzcashNumber || "",
+
+          usdtNetwork:
+            settingsData.settings.usdtNetwork || "TRC20",
+
+          usdtAddress: settingsData.settings.usdtAddress || "",
+
+          goldWalletAddress:
+            settingsData.settings.goldWalletAddress || "",
+
+          depositsEnabled:
+            settingsData.settings.depositsEnabled ?? true,
+
+          withdrawsEnabled:
+            settingsData.settings.withdrawsEnabled ?? true,
+
+          updatedAt: settingsData.settings.updatedAt,
+        });
+      } else {
+        setError(
+          settingsData.message ||
+            "Unable to load payment settings."
+        );
+      }
+
+      // STATISTICS
+      if (statisticsRes.ok && statisticsData.success) {
+        setStatistics(statisticsData.statistics);
+      }
+
+    } catch (err: any) {
+      console.error("LOAD PAYMENT SETTINGS ERROR:", err);
+
+      setError(
+        err.message || "Unable to load payment settings."
+      );
+
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // ===================================================
+  // REFRESH PAYMENT SETTINGS
+  // ===================================================
+
+  const refreshPaymentSettings = async () => {
+    setRefreshing(true);
+    await loadPaymentSettings();
+  };
+
+  // ===================================================
+  // ADMIN AUTH CHECK
+  // ===================================================
+
+  const checkAdminAuth = async () => {
+    if (!token) return;
+
+    try {
       const response = await fetch(
-        `${API}/api/payment-settings`,
+        `${API}/api/admin/auth/check`,
         {
-          method: "PUT",
-          headers,
-          body: JSON.stringify(settings),
+          headers: adminHeaders,
+          cache: "no-store",
         }
       );
 
       const data = await response.json();
 
+      console.log("ADMIN AUTH:", data);
+
       if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Unable to save payment settings."
-        );
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+        return;
       }
 
-      setSettings({
-        ...defaultSettings,
-        ...data.settings,
-      });
-
-      setMessageType("success");
-      setMessage("Payment settings saved successfully.");
+      setAdminName(data.user?.username || "Administrator");
 
     } catch (error) {
-      console.error("SAVE PAYMENT SETTINGS:", error);
-
-      setMessageType("error");
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Server connection failed."
-      );
-    } finally {
-      setSaving(false);
+      console.error("ADMIN AUTH ERROR:", error);
     }
   };
 
-  /* ==========================================================
-     INPUT HELPER
-  ========================================================== */
+  // ===================================================
+  // INITIAL LOAD
+  // ===================================================
+
+  useEffect(() => {
+    if (!token) return;
+
+    checkAdminAuth();
+    loadPaymentSettings();
+  }, [token]);
+
+  // ===================================================
+  // AUTO CLEAR MESSAGE
+  // ===================================================
+
+  useEffect(() => {
+    if (!message) return;
+
+    const timer = setTimeout(() => {
+      setMessage("");
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [message]);
+    // ===================================================
+  // UPDATE INPUT VALUE
+  // ===================================================
 
   const updateField = (
     field: keyof PaymentSettings,
@@ -232,552 +392,841 @@ export default function PaymentSettingsPage() {
     }));
   };
 
-  /* ==========================================================
-     LOADING SCREEN
-  ========================================================== */
+  // ===================================================
+  // TOGGLE DEPOSITS
+  // ===================================================
 
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-black flex items-center justify-center text-yellow-400">
-        <RefreshCw className="animate-spin mr-3" size={26} />
-        Loading Payment Settings...
-      </main>
-    );
-  }
+  const toggleDeposits = () => {
+    setSettings((prev) => ({
+      ...prev,
+      depositsEnabled: !prev.depositsEnabled,
+    }));
+  };
 
-  /* ==========================================================
-     PAGE UI START
-  ========================================================== */
+  // ===================================================
+  // TOGGLE WITHDRAWS
+  // ===================================================
+
+  const toggleWithdraws = () => {
+    setSettings((prev) => ({
+      ...prev,
+      withdrawsEnabled: !prev.withdrawsEnabled,
+    }));
+  };
+
+  // ===================================================
+  // SAVE PAYMENT SETTINGS
+  // PUT /api/admin/payment-settings
+  // ===================================================
+
+  const savePaymentSettings = async () => {
+    if (!token) return;
+
+    try {
+      setSaving(true);
+      setError("");
+
+      const response = await fetch(
+        `${API}/api/admin/payment-settings`,
+        {
+          method: "PUT",
+          headers: adminHeaders,
+          body: JSON.stringify(settings),
+        }
+      );
+
+      const data = await response.json();
+
+      console.log("SAVE PAYMENT SETTINGS:", data);
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Failed to save payment settings."
+        );
+      }
+
+      setSettings((prev) => ({
+        ...prev,
+        updatedAt: data.settings?.updatedAt || new Date().toISOString(),
+      }));
+
+      setMessage("Payment settings updated successfully.");
+      setMessageType("success");
+
+      await loadPaymentSettings();
+
+    } catch (err: any) {
+      console.error("SAVE PAYMENT SETTINGS ERROR:", err);
+
+      setMessage(
+        err.message || "Unable to save payment settings."
+      );
+      setMessageType("error");
+
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ===================================================
+  // RESET SETTINGS
+  // ===================================================
+
+  const resetPaymentSettings = () => {
+    loadPaymentSettings();
+
+    setMessage("Payment settings restored.");
+    setMessageType("success");
+  };
+
+  // ===================================================
+  // LAST UPDATED LABEL
+  // ===================================================
+
+  const lastUpdatedLabel = useMemo(() => {
+    return settings.updatedAt
+      ? formatDate(settings.updatedAt)
+      : "Never Updated";
+  }, [settings.updatedAt]);
+    // =====================================================
+  // PAGE UI START
+  // =====================================================
 
   return (
-    <main className="min-h-screen bg-black text-white p-6">
+    <div className="min-h-screen bg-[#0B1120] text-white p-6">
 
-      <div className="max-w-7xl mx-auto space-y-8">
+      {/* ========================================== */}
+      {/* HEADER */}
+      {/* ========================================== */}
 
-        {/* ================= HEADER ================= */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 mb-8">
 
-        <header className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-yellow-400">
+            GoldTrade V18 • Enterprise Payment Settings
+          </h1>
 
-          <div>
-            <h1 className="flex items-center gap-3 text-4xl font-black text-yellow-400">
-              <CreditCard size={38} />
-              Payment Settings
-            </h1>
+          <p className="text-gray-400 mt-2">
+            Manage Bank, Easypaisa, JazzCash, USDT and Gold payment details.
+          </p>
 
-            <p className="text-gray-400 mt-2">
-              Configure JazzCash, Easypaisa, Bank, USDT and Gold payment methods.
-            </p>
+          <p className="text-gray-500 text-sm mt-1">
+            Logged in as{" "}
+            <span className="text-green-400 font-semibold">
+              {adminName}
+            </span>
+          </p>
+        </div>
+
+        <div className="flex gap-3 flex-wrap">
+
+          <button
+            onClick={refreshPaymentSettings}
+            disabled={refreshing}
+            className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 text-black font-semibold px-5 py-3 rounded-xl transition"
+          >
+            <RefreshCw
+              size={18}
+              className={refreshing ? "animate-spin" : ""}
+            />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+
+          <button
+            onClick={savePaymentSettings}
+            disabled={saving}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-semibold px-5 py-3 rounded-xl transition"
+          >
+            <Save size={18} />
+            {saving ? "Saving..." : "Save Settings"}
+          </button>
+
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* SUCCESS / ERROR MESSAGE */}
+      {/* ========================================== */}
+
+      {message && (
+        <div
+          className={`mb-6 rounded-xl px-4 py-3 border ${
+            messageType === "success"
+              ? "bg-green-600/20 border-green-500 text-green-300"
+              : "bg-red-600/20 border-red-500 text-red-300"
+          }`}
+        >
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 rounded-xl px-4 py-3 border border-red-600 bg-red-600/10 text-red-300">
+          {error}
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* STATISTICS CARDS */}
+      {/* ========================================== */}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+
+        {/* BANK */}
+
+        <div className="rounded-2xl bg-[#111827] border border-blue-600/30 p-5">
+          <div className="flex justify-between items-center mb-3">
+            <Landmark className="text-blue-400" size={28} />
+            <span className="text-xs font-semibold text-blue-400">
+              BANK
+            </span>
           </div>
 
-          <div className="flex gap-3">
+          <p className="text-gray-400 text-sm">
+            Bank Accounts
+          </p>
 
-            <Link
-              href="/admin-dashboard"
-              className="bg-zinc-800 hover:bg-zinc-700 px-5 py-3 rounded-xl flex items-center gap-2 font-bold"
-            >
-              <ArrowLeft size={18} />
-              Dashboard
-            </Link>
+          <h2 className="text-3xl font-bold text-blue-400 mt-2">
+            {statistics.totalBankAccounts}
+          </h2>
+        </div>
+
+        {/* CRYPTO */}
+
+        <div className="rounded-2xl bg-[#111827] border border-cyan-600/30 p-5">
+          <div className="flex justify-between items-center mb-3">
+            <Wallet className="text-cyan-400" size={28} />
+            <span className="text-xs font-semibold text-cyan-400">
+              CRYPTO
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            Wallet Addresses
+          </p>
+
+          <h2 className="text-3xl font-bold text-cyan-400 mt-2">
+            {statistics.totalWalletAddresses}
+          </h2>
+        </div>
+
+        {/* DEPOSITS */}
+
+        <div className="rounded-2xl bg-[#111827] border border-green-600/30 p-5">
+          <div className="flex justify-between items-center mb-3">
+            <CheckCircle className="text-green-400" size={28} />
+            <span className="text-xs font-semibold text-green-400">
+              DEPOSITS
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            Deposit Module
+          </p>
+
+          <h2 className="text-xl font-bold text-green-400 mt-2">
+            {settings.depositsEnabled ? "Enabled" : "Disabled"}
+          </h2>
+        </div>
+
+        {/* WITHDRAWS */}
+
+        <div className="rounded-2xl bg-[#111827] border border-red-600/30 p-5">
+          <div className="flex justify-between items-center mb-3">
+            <XCircle className="text-red-400" size={28} />
+            <span className="text-xs font-semibold text-red-400">
+              WITHDRAWS
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            Withdraw Module
+          </p>
+
+          <h2 className="text-xl font-bold text-red-400 mt-2">
+            {settings.withdrawsEnabled ? "Enabled" : "Disabled"}
+          </h2>
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* SEARCH */}
+      {/* ========================================== */}
+
+      <div className="rounded-2xl bg-[#111827] border border-gray-700 p-5 mb-8">
+
+        <div className="relative">
+
+          <Search
+            size={20}
+            className="absolute left-4 top-3.5 text-gray-500"
+          />
+
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search Bank, Easypaisa, JazzCash, USDT, Gold..."
+            className="w-full bg-[#1F2937] border border-gray-600 rounded-xl py-3 pl-12 pr-4 outline-none focus:border-yellow-500 transition"
+          />
+
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* PAYMENT STATUS TOGGLES */}
+      {/* ========================================== */}
+
+      <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6 mb-8">
+
+        <h2 className="text-xl font-bold text-yellow-400 mb-5">
+          Payment Module Controls
+        </h2>
+
+        <div className="grid md:grid-cols-2 gap-6">
+
+          {/* DEPOSIT TOGGLE */}
+
+          <div className="flex items-center justify-between rounded-xl bg-[#1F2937] p-5 border border-green-500/20">
+
+            <div>
+              <p className="text-white font-semibold">
+                Deposit Requests
+              </p>
+
+              <p className="text-gray-400 text-sm">
+                Enable or disable new deposits.
+              </p>
+            </div>
 
             <button
-              type="button"
-              onClick={loadSettings}
-              className="bg-yellow-500 hover:bg-yellow-400 text-black px-5 py-3 rounded-xl flex items-center gap-2 font-bold"
+              onClick={toggleDeposits}
+              className={`px-4 py-2 rounded-full font-semibold transition ${
+                settings.depositsEnabled
+                  ? "bg-green-600 text-white"
+                  : "bg-gray-600 text-gray-300"
+              }`}
             >
-              <RefreshCw size={18} />
-              Refresh
+              {settings.depositsEnabled ? "ON" : "OFF"}
             </button>
 
           </div>
 
-        </header>
+          {/* WITHDRAW TOGGLE */}
 
-        {/* ================= MESSAGE ================= */}
+          <div className="flex items-center justify-between rounded-xl bg-[#1F2937] p-5 border border-red-500/20">
 
-        {message && (
-          <div
-            className={`rounded-xl px-4 py-3 font-semibold ${
-              messageType === "success"
-                ? "bg-green-600/20 border border-green-500 text-green-400"
-                : "bg-red-600/20 border border-red-500 text-red-400"
-            }`}
-          >
-            {message}
+            <div>
+              <p className="text-white font-semibold">
+                Withdraw Requests
+              </p>
+
+              <p className="text-gray-400 text-sm">
+                Enable or disable new withdrawals.
+              </p>
+            </div>
+
+            <button
+              onClick={toggleWithdraws}
+              className={`px-4 py-2 rounded-full font-semibold transition ${
+                settings.withdrawsEnabled
+                  ? "bg-green-600 text-white"
+                  : "bg-gray-600 text-gray-300"
+              }`}
+            >
+              {settings.withdrawsEnabled ? "ON" : "OFF"}
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* PAYMENT SETTINGS FORMS START */}
+      {/* ========================================== */}
+
+      <div className="space-y-8">        {/* ========================================== */}
+        {/* BANK ACCOUNT SETTINGS */}
+        {/* ========================================== */}
+
+        {showBankSection && (
+          <div className="rounded-2xl bg-[#111827] border border-blue-600/20 p-6">
+
+            <div className="flex items-center gap-3 mb-6">
+              <Landmark className="text-blue-400" size={28} />
+              <h2 className="text-2xl font-bold text-blue-400">
+                Bank Account Details
+              </h2>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-5">
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Bank Name
+                </label>
+
+                <input
+                  value={settings.bankName}
+                  onChange={(e) =>
+                    updateField("bankName", e.target.value)
+                  }
+                  placeholder="HBL / UBL / Meezan Bank"
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-blue-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Account Title
+                </label>
+
+                <input
+                  value={settings.accountTitle}
+                  onChange={(e) =>
+                    updateField("accountTitle", e.target.value)
+                  }
+                  placeholder="Syed Hussnain Haider"
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-blue-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Account Number
+                </label>
+
+                <div className="flex gap-2">
+
+                  <input
+                    value={settings.accountNumber}
+                    onChange={(e) =>
+                      updateField("accountNumber", e.target.value)
+                    }
+                    placeholder="0000-123456789"
+                    className="flex-1 bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-blue-500 outline-none"
+                  />
+
+                  <button
+                    onClick={() =>
+                      copyText(settings.accountNumber)
+                    }
+                    className="bg-blue-600 hover:bg-blue-700 rounded-xl px-4"
+                  >
+                    <Copy size={18} />
+                  </button>
+
+                </div>
+
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  IBAN
+                </label>
+
+                <div className="flex gap-2">
+
+                  <input
+                    value={settings.iban}
+                    onChange={(e) =>
+                      updateField("iban", e.target.value)
+                    }
+                    placeholder="PK36XXXX0000000000000000"
+                    className="flex-1 bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-blue-500 outline-none"
+                  />
+
+                  <button
+                    onClick={() => copyText(settings.iban)}
+                    className="bg-blue-600 hover:bg-blue-700 rounded-xl px-4"
+                  >
+                    <Copy size={18} />
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
           </div>
         )}
 
-        {/* ===================================================== */}
-        {/* PKR PAYMENT METHODS */}
-        {/* ===================================================== */}
+        {/* ========================================== */}
+        {/* EASYPAISA SETTINGS */}
+        {/* ========================================== */}
 
-        <section className="bg-zinc-900 border border-green-500 rounded-2xl p-6">
+        {showEasyPaisaSection && (
+          <div className="rounded-2xl bg-[#111827] border border-green-600/20 p-6">
 
-          <h2 className="text-2xl font-black text-green-400 mb-6">
-            PKR Payment Methods
-          </h2>
-
-          <div className="grid lg:grid-cols-2 gap-6">
-
-            {/* JazzCash */}
-
-            <div className="bg-black border border-zinc-700 rounded-xl p-5 space-y-4">
-
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-yellow-400">
-                  JazzCash
-                </h3>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateField(
-                      "jazzCashEnabled",
-                      !settings.jazzCashEnabled
-                    )
-                  }
-                  className={`px-3 py-1 rounded-lg text-sm font-bold ${
-                    settings.jazzCashEnabled
-                      ? "bg-green-600"
-                      : "bg-red-600"
-                  }`}
-                >
-                  {settings.jazzCashEnabled ? "Enabled" : "Disabled"}
-                </button>
-              </div>
-
-              <input
-                type="text"
-                placeholder="JazzCash Number"
-                value={settings.jazzCashNumber}
-                onChange={(e) =>
-                  updateField("jazzCashNumber", e.target.value)
-                }
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3"
-              />
-
-              <input
-                type="text"
-                placeholder="Account Title"
-                value={settings.jazzCashTitle}
-                onChange={(e) =>
-                  updateField("jazzCashTitle", e.target.value)
-                }
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3"
-              />
-
+            <div className="flex items-center gap-3 mb-6">
+              <Wallet className="text-green-400" size={28} />
+              <h2 className="text-2xl font-bold text-green-400">
+                Easypaisa Settings
+              </h2>
             </div>
 
-            {/* Easypaisa */}
+            <div className="grid md:grid-cols-2 gap-5">
 
-            <div className="bg-black border border-zinc-700 rounded-xl p-5 space-y-4">
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Easypaisa Account Name
+                </label>
 
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-green-400">
-                  Easypaisa
-                </h3>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateField(
-                      "easypaisaEnabled",
-                      !settings.easypaisaEnabled
-                    )
+                <input
+                  value={settings.easypaisaName}
+                  onChange={(e) =>
+                    updateField("easypaisaName", e.target.value)
                   }
-                  className={`px-3 py-1 rounded-lg text-sm font-bold ${
-                    settings.easypaisaEnabled
-                      ? "bg-green-600"
-                      : "bg-red-600"
-                  }`}
-                >
-                  {settings.easypaisaEnabled ? "Enabled" : "Disabled"}
-                </button>
+                  placeholder="Account Holder Name"
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-green-500 outline-none"
+                />
               </div>
 
-              <input
-                type="text"
-                placeholder="Easypaisa Number"
-                value={settings.easypaisaNumber}
-                onChange={(e) =>
-                  updateField("easypaisaNumber", e.target.value)
-                }
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3"
-              />
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Easypaisa Number
+                </label>
 
-              <input
-                type="text"
-                placeholder="Account Title"
-                value={settings.easypaisaTitle}
-                onChange={(e) =>
-                  updateField("easypaisaTitle", e.target.value)
-                }
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3"
-              />
+                <div className="flex gap-2">
+
+                  <input
+                    value={settings.easypaisaNumber}
+                    onChange={(e) =>
+                      updateField("easypaisaNumber", e.target.value)
+                    }
+                    placeholder="03XXXXXXXXX"
+                    className="flex-1 bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-green-500 outline-none"
+                  />
+
+                  <button
+                    onClick={() =>
+                      copyText(settings.easypaisaNumber)
+                    }
+                    className="bg-green-600 hover:bg-green-700 rounded-xl px-4"
+                  >
+                    <Copy size={18} />
+                  </button>
+
+                </div>
+
+              </div>
 
             </div>
 
           </div>
+        )}
 
-          {/* ================= BANK ACCOUNT ================= */}
+        {/* ========================================== */}
+        {/* JAZZCASH SETTINGS */}
+        {/* ========================================== */}
 
-          <div className="mt-8 bg-black border border-zinc-700 rounded-xl p-5">
+        {showJazzCashSection && (
+          <div className="rounded-2xl bg-[#111827] border border-purple-600/20 p-6">
 
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3 mb-6">
+              <CreditCard className="text-purple-400" size={28} />
+              <h2 className="text-2xl font-bold text-purple-400">
+                JazzCash Settings
+              </h2>
+            </div>
 
-              <h3 className="flex items-center gap-2 font-bold text-cyan-400">
-                <Landmark size={22} />
-                Bank Account
-              </h3>
+            <div className="grid md:grid-cols-2 gap-5">
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  JazzCash Account Name
+                </label>
+
+                <input
+                  value={settings.jazzcashName}
+                  onChange={(e) =>
+                    updateField("jazzcashName", e.target.value)
+                  }
+                  placeholder="JazzCash Holder Name"
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-purple-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  JazzCash Number
+                </label>
+
+                <div className="flex gap-2">
+
+                  <input
+                    value={settings.jazzcashNumber}
+                    onChange={(e) =>
+                      updateField("jazzcashNumber", e.target.value)
+                    }
+                    placeholder="03XXXXXXXXX"
+                    className="flex-1 bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-purple-500 outline-none"
+                  />
+
+                  <button
+                    onClick={() =>
+                      copyText(settings.jazzcashNumber)
+                    }
+                    className="bg-purple-600 hover:bg-purple-700 rounded-xl px-4"
+                  >
+                    <Copy size={18} />
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* USDT SETTINGS */}
+        {/* ========================================== */}
+
+        {showUsdtSection && (
+          <div className="rounded-2xl bg-[#111827] border border-cyan-600/20 p-6">
+
+            <div className="flex items-center gap-3 mb-6">
+              <DollarSign className="text-cyan-400" size={28} />
+              <h2 className="text-2xl font-bold text-cyan-400">
+                USDT Wallet Settings
+              </h2>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-5">
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  USDT Network
+                </label>
+
+                <select
+                  value={settings.usdtNetwork}
+                  onChange={(e) =>
+                    updateField("usdtNetwork", e.target.value)
+                  }
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-cyan-500 outline-none"
+                >
+                  <option value="TRC20">TRC20</option>
+                  <option value="BEP20">BEP20</option>
+                  <option value="ERC20">ERC20</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  USDT Wallet Address
+                </label>
+
+                <div className="flex gap-2">
+
+                  <input
+                    value={settings.usdtAddress}
+                    onChange={(e) =>
+                      updateField("usdtAddress", e.target.value)
+                    }
+                    placeholder="TXXXXXXXXXXXXXXXXXXXXXXXX"
+                    className="flex-1 bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-cyan-500 outline-none"
+                  />
+
+                  <button
+                    onClick={() =>
+                      copyText(settings.usdtAddress)
+                    }
+                    className="bg-cyan-600 hover:bg-cyan-700 rounded-xl px-4"
+                  >
+                    <Copy size={18} />
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* GOLD WALLET SETTINGS */}
+        {/* ========================================== */}
+
+        {showGoldSection && (
+          <div className="rounded-2xl bg-[#111827] border border-yellow-600/20 p-6">
+
+            <div className="flex items-center gap-3 mb-6">
+              <Coins className="text-yellow-400" size={28} />
+              <h2 className="text-2xl font-bold text-yellow-400">
+                Gold Wallet Settings
+              </h2>
+            </div>
+
+            <label className="block text-sm text-gray-300 mb-2">
+              Gold Wallet Address
+            </label>
+
+            <div className="flex gap-2">
+
+              <input
+                value={settings.goldWalletAddress}
+                onChange={(e) =>
+                  updateField(
+                    "goldWalletAddress",
+                    e.target.value
+                  )
+                }
+                placeholder="Gold wallet address"
+                className="flex-1 bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-yellow-500 outline-none"
+              />
 
               <button
-                type="button"
                 onClick={() =>
-                  updateField("bankEnabled", !settings.bankEnabled)
+                  copyText(settings.goldWalletAddress)
                 }
-                className={`px-3 py-1 rounded-lg text-sm font-bold ${
-                  settings.bankEnabled
-                    ? "bg-green-600"
-                    : "bg-red-600"
-                }`}
+                className="bg-yellow-500 hover:bg-yellow-600 text-black rounded-xl px-4"
               >
-                {settings.bankEnabled ? "Enabled" : "Disabled"}
+                <Copy size={18} />
               </button>
 
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-
-              <input
-                type="text"
-                placeholder="Bank Name"
-                value={settings.bankName}
-                onChange={(e) =>
-                  updateField("bankName", e.target.value)
-                }
-                className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3"
-              />
-
-              <input
-                type="text"
-                placeholder="Account Title"
-                value={settings.bankAccountTitle}
-                onChange={(e) =>
-                  updateField(
-                    "bankAccountTitle",
-                    e.target.value
-                  )
-                }
-                className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3"
-              />
-
-              <input
-                type="text"
-                placeholder="Account Number"
-                value={settings.bankAccountNumber}
-                onChange={(e) =>
-                  updateField(
-                    "bankAccountNumber",
-                    e.target.value
-                  )
-                }
-                className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3"
-              />
-
-              <input
-                type="text"
-                placeholder="IBAN"
-                value={settings.iban}
-                onChange={(e) =>
-                  updateField("iban", e.target.value)
-                }
-                className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3"
-              />
-
-            </div>
+            <p className="text-gray-500 text-sm mt-3">
+              This address will be shown to users for Gold deposits and withdrawals.
+            </p>
 
           </div>
+        )}        {/* ========================================== */}
+        {/* LAST UPDATED CARD */}
+        {/* ========================================== */}
 
-        </section>
-                {/* ===================================================== */}
-        {/* USDT PAYMENT WALLETS */}
-        {/* ===================================================== */}
+        <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6">
 
-        <section className="bg-zinc-900 border border-blue-500 rounded-2xl p-6">
-
-          <div className="flex items-center justify-between mb-6">
-
-            <h2 className="flex items-center gap-3 text-2xl font-black text-blue-400">
-              <Wallet size={26} />
-              USDT Wallets
-            </h2>
-
-            <button
-              type="button"
-              onClick={() =>
-                updateField("usdtEnabled", !settings.usdtEnabled)
-              }
-              className={`px-3 py-1 rounded-lg text-sm font-bold ${
-                settings.usdtEnabled
-                  ? "bg-green-600"
-                  : "bg-red-600"
-              }`}
-            >
-              {settings.usdtEnabled ? "Enabled" : "Disabled"}
-            </button>
-
-          </div>
-
-          <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
             <div>
-              <label className="block mb-2 text-blue-300 font-semibold">
-                TRC20 Wallet Address
-              </label>
+              <h2 className="text-xl font-bold text-yellow-400 mb-2">
+                Payment Settings Information
+              </h2>
 
-              <input
-                type="text"
-                value={settings.usdtTRC20}
-                onChange={(e) =>
-                  updateField("usdtTRC20", e.target.value)
-                }
-                placeholder="Enter TRC20 Wallet Address"
-                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-blue-500"
-              />
+              <p className="text-gray-400 text-sm">
+                Last Updated
+              </p>
+
+              <p className="text-green-400 font-semibold mt-1">
+                {lastUpdatedLabel}
+              </p>
             </div>
 
-            <div>
-              <label className="block mb-2 text-blue-300 font-semibold">
-                BEP20 Wallet Address
-              </label>
+            <div className="flex gap-3 flex-wrap">
 
-              <input
-                type="text"
-                value={settings.usdtBEP20}
-                onChange={(e) =>
-                  updateField("usdtBEP20", e.target.value)
-                }
-                placeholder="Enter BEP20 Wallet Address"
-                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-blue-500"
-              />
-            </div>
+              <button
+                onClick={resetPaymentSettings}
+                className="bg-gray-700 hover:bg-gray-600 px-5 py-3 rounded-xl font-semibold transition"
+              >
+                Reset Changes
+              </button>
 
-            <div>
-              <label className="block mb-2 text-blue-300 font-semibold">
-                ERC20 Wallet Address
-              </label>
-
-              <input
-                type="text"
-                value={settings.usdtERC20}
-                onChange={(e) =>
-                  updateField("usdtERC20", e.target.value)
-                }
-                placeholder="Enter ERC20 Wallet Address"
-                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-blue-500"
-              />
-            </div>
-
-          </div>
-
-        </section>
-
-        {/* ===================================================== */}
-        {/* GOLD PAYMENT WALLET */}
-        {/* ===================================================== */}
-
-        <section className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6">
-
-          <div className="flex items-center justify-between mb-6">
-
-            <h2 className="flex items-center gap-3 text-2xl font-black text-yellow-400">
-              <Coins size={26} />
-              Gold Wallet
-            </h2>
-
-            <button
-              type="button"
-              onClick={() =>
-                updateField("goldEnabled", !settings.goldEnabled)
-              }
-              className={`px-3 py-1 rounded-lg text-sm font-bold ${
-                settings.goldEnabled
-                  ? "bg-green-600"
-                  : "bg-red-600"
-              }`}
-            >
-              {settings.goldEnabled ? "Enabled" : "Disabled"}
-            </button>
-
-          </div>
-
-          <div className="space-y-4">
-
-            <div>
-              <label className="block mb-2 text-yellow-300 font-semibold">
-                Gold Wallet Title
-              </label>
-
-              <input
-                type="text"
-                value={settings.goldWalletTitle}
-                onChange={(e) =>
-                  updateField("goldWalletTitle", e.target.value)
-                }
-                placeholder="Company Gold Wallet"
-                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
-              />
-            </div>
-
-            <div>
-              <label className="block mb-2 text-yellow-300 font-semibold">
-                Gold Wallet Address
-              </label>
-
-              <textarea
-                rows={3}
-                value={settings.goldWalletAddress}
-                onChange={(e) =>
-                  updateField("goldWalletAddress", e.target.value)
-                }
-                placeholder="Gold Wallet Address"
-                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 resize-none"
-              />
+              <button
+                onClick={savePaymentSettings}
+                disabled={saving}
+                className="bg-green-600 hover:bg-green-700 disabled:opacity-60 px-5 py-3 rounded-xl font-semibold flex items-center gap-2 transition"
+              >
+                <Save size={18} />
+                {saving ? "Saving..." : "Save Payment Settings"}
+              </button>
 
             </div>
 
           </div>
 
-        </section>
-
-        {/* ===================================================== */}
-        {/* QR IMAGE LINKS */}
-        {/* ===================================================== */}
-
-        <section className="bg-zinc-900 border border-purple-500 rounded-2xl p-6">
-
-          <h2 className="text-2xl font-black text-purple-400 mb-6">
-            QR Code Images
-          </h2>
-
-          <div className="grid lg:grid-cols-3 gap-6">
-
-            {/* JazzCash QR */}
-
-            <div className="bg-black border border-zinc-700 rounded-xl p-4">
-
-              <label className="block mb-2 text-yellow-400 font-semibold">
-                JazzCash QR URL
-              </label>
-
-              <input
-                type="text"
-                value={settings.jazzCashQR}
-                onChange={(e) =>
-                  updateField("jazzCashQR", e.target.value)
-                }
-                placeholder="https://..."
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2"
-              />
-
-              {settings.jazzCashQR && (
-                <img
-                  src={settings.jazzCashQR}
-                  alt="JazzCash QR"
-                  className="mt-4 w-full h-40 object-contain rounded-lg bg-white"
-                />
-              )}
-
-            </div>
-
-            {/* Easypaisa QR */}
-
-            <div className="bg-black border border-zinc-700 rounded-xl p-4">
-
-              <label className="block mb-2 text-green-400 font-semibold">
-                Easypaisa QR URL
-              </label>
-
-              <input
-                type="text"
-                value={settings.easypaisaQR}
-                onChange={(e) =>
-                  updateField("easypaisaQR", e.target.value)
-                }
-                placeholder="https://..."
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2"
-              />
-
-              {settings.easypaisaQR && (
-                <img
-                  src={settings.easypaisaQR}
-                  alt="Easypaisa QR"
-                  className="mt-4 w-full h-40 object-contain rounded-lg bg-white"
-                />
-              )}
-
-            </div>
-
-            {/* Binance QR */}
-
-            <div className="bg-black border border-zinc-700 rounded-xl p-4">
-
-              <label className="block mb-2 text-blue-400 font-semibold">
-                Binance QR URL
-              </label>
-
-              <input
-                type="text"
-                value={settings.binanceQR}
-                onChange={(e) =>
-                  updateField("binanceQR", e.target.value)
-                }
-                placeholder="https://..."
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2"
-              />
-
-              {settings.binanceQR && (
-                <img
-                  src={settings.binanceQR}
-                  alt="Binance QR"
-                  className="mt-4 w-full h-40 object-contain rounded-lg bg-white"
-                />
-              )}
-
-            </div>
-
-          </div>
-
-        </section>
-
-        {/* ===================================================== */}
-        {/* SAVE BUTTON */}
-        {/* ===================================================== */}
-
-        <section className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6">
-
-          <button
-            type="button"
-            disabled={saving}
-            onClick={saveSettings}
-            className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 transition ${
-              saving
-                ? "bg-yellow-700 cursor-not-allowed text-black"
-                : "bg-yellow-500 hover:bg-yellow-400 text-black"
-            }`}
-          >
-            <Save size={22} />
-
-            {saving ? "Saving Payment Settings..." : "Save Payment Settings"}
-
-          </button>
-
-          <p className="text-center text-gray-500 text-sm mt-4">
-            GoldTrade V18 Enterprise • Payment Settings Module
-          </p>
-
-        </section>
+        </div>
 
       </div>
-    </main>
+
+      {/* ========================================== */}
+      {/* LOADING OVERLAY */}
+      {/* ========================================== */}
+
+      {(loading || saving) && (
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center">
+
+          <div className="bg-[#111827] border border-yellow-500/30 rounded-2xl px-8 py-6 flex flex-col items-center gap-4 shadow-2xl">
+
+            <RefreshCw
+              size={36}
+              className="animate-spin text-yellow-400"
+            />
+
+            <h3 className="text-xl font-bold text-yellow-400">
+              GoldTrade V18 Enterprise
+            </h3>
+
+            <p className="text-gray-300">
+              {saving
+                ? "Saving payment settings..."
+                : "Loading payment settings..."}
+            </p>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* FOOTER */}
+      {/* ========================================== */}
+
+      <footer className="mt-12 border-t border-gray-800 pt-6">
+
+        <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
+
+          <div>
+
+            <h3 className="text-yellow-400 font-bold text-lg">
+              GoldTrade V18 Enterprise
+            </h3>
+
+            <p className="text-gray-500 text-sm">
+              Payment Settings Management Module
+            </p>
+
+          </div>
+
+          <div className="flex flex-wrap gap-5 text-sm text-gray-400">
+
+            <div className="flex items-center gap-2">
+              <Shield size={16} className="text-green-400" />
+              Secure Payment Configuration
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Building2 size={16} className="text-blue-400" />
+              Bank + Easypaisa + JazzCash
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Wallet size={16} className="text-cyan-400" />
+              USDT Wallet Management
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Coins size={16} className="text-yellow-400" />
+              Gold Wallet Management
+            </div>
+
+          </div>
+
+        </div>
+
+      </footer>
+
+    </div>
   );
 }

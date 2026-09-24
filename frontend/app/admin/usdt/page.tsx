@@ -1,1242 +1,1525 @@
 ﻿"use client";
 
-/* ==========================================================
-   GoldTrade V18 Enterprise
-   Admin USDT Manager
-   COMPLETE VERSION
-   SECTION 1/4 - Foundation (Compile Safe)
-========================================================== */
+// =====================================================
+// GoldTrade V18 Enterprise
+// USDT SETTINGS MANAGER
+// PART 1/6
+// Production Version
+// Folder: frontend/app/admin/usdt/page.tsx
+// =====================================================
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 
 import {
+  Wallet,
   DollarSign,
-  ShieldCheck,
+  Save,
   RefreshCw,
-  Search,
+  Shield,
   TrendingUp,
   TrendingDown,
-  ArrowDownRight,
-  ArrowUpRight,
+  Settings,
+  Search,
   CheckCircle,
   XCircle,
-  Wallet,
+  Activity,
+  Coins,
+  ArrowUpDown,
 } from "lucide-react";
 
-/* ==========================================================
-   API URL
-========================================================== */
+// =====================================================
+// API URL
+// =====================================================
 
 const API =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-/* ==========================================================
-   Interfaces
-========================================================== */
+// =====================================================
+// TYPES
+// =====================================================
 
 interface UsdtSettings {
+  _id?: string;
+
   buyPrice: number;
   sellPrice: number;
+
+  usdtPriceUSD: number;
+  usdToPkr: number;
+
+  network: "TRC20" | "BEP20" | "ERC20";
+
+  marketStatus: "OPEN" | "CLOSED";
   tradingEnabled: boolean;
-}
 
-interface UsdtTransaction {
-  _id: string;
-  username: string;
-  amount: number;
+  minimumBuy: number;
+  minimumSell: number;
+
+  maximumBuy: number;
+  maximumSell: number;
+
   walletAddress: string;
-  txHash?: string;
-  status: "Pending" | "Approved" | "Rejected";
-  createdAt: string;
+
+  updatedAt?: string;
 }
 
-/* ==========================================================
-   Component
-========================================================== */
+interface UsdtStatistics {
+  currentBuyPrice: number;
+  currentSellPrice: number;
+
+  spread: number;
+
+  tradingEnabled: boolean;
+  marketStatus: "OPEN" | "CLOSED";
+}
+
+// =====================================================
+// COMPONENT
+// =====================================================
 
 export default function AdminUsdtPage() {
-  /* ---------------- Loading ---------------- */
+
+  // ===================================================
+  // AUTH
+  // ===================================================
+
+  const [token, setToken] = useState("");
+  const [adminName, setAdminName] =
+    useState("Administrator");
+
+  // ===================================================
+  // SETTINGS
+  // ===================================================
+
+  const [settings, setSettings] =
+    useState<UsdtSettings>({
+      buyPrice: 0,
+      sellPrice: 0,
+
+      usdtPriceUSD: 1,
+      usdToPkr: 0,
+
+      network: "TRC20",
+
+      marketStatus: "OPEN",
+      tradingEnabled: true,
+
+      minimumBuy: 10,
+      minimumSell: 10,
+
+      maximumBuy: 100000,
+      maximumSell: 100000,
+
+      walletAddress: "",
+    });
+
+  const [statistics, setStatistics] =
+    useState<UsdtStatistics>({
+      currentBuyPrice: 0,
+      currentSellPrice: 0,
+      spread: 0,
+      tradingEnabled: true,
+      marketStatus: "OPEN",
+    });
+
+  // ===================================================
+  // UI STATES
+  // ===================================================
 
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [refreshing, setRefreshing] =
+    useState(false);
 
-  /* ---------------- Settings ---------------- */
+  const [saving, setSaving] = useState(false);
 
-  const [settings, setSettings] = useState<UsdtSettings>({
-    buyPrice: 0,
-    sellPrice: 0,
-    tradingEnabled: true,
-  });
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<
+    "success" | "error"
+  >("success");
 
-  /* ---------------- Transactions ---------------- */
+  const [error, setError] = useState("");
 
-  const [deposits, setDeposits] = useState<UsdtTransaction[]>([]);
-  const [withdraws, setWithdraws] = useState<UsdtTransaction[]>([]);
-
-  /* ---------------- Search ---------------- */
+  // ===================================================
+  // SEARCH
+  // ===================================================
 
   const [search, setSearch] = useState("");
 
-  /* ---------------- Pagination ---------------- */
+  // ===================================================
+  // TOKEN LOAD
+  // ===================================================
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 10;
+  useEffect(() => {
+    const savedToken = localStorage.getItem("token");
 
-  /* ==========================================================
-     JWT HEADER HELPER
-  ========================================================== */
-
-  const getHeaders = () => {
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("token")
-        : "";
-
-    return {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
-  };
-
-  /* ==========================================================
-     LOAD USDT SETTINGS
-     GET /api/admin/usdt/settings
-  ========================================================== */
-
-  const loadUsdtSettings = async () => {
-    const response = await fetch(
-      `${API}/api/admin/usdt/settings`,
-      {
-        headers: getHeaders(),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Unable to load settings.");
+    if (!savedToken) {
+      window.location.href = "/login";
+      return;
     }
 
-    setSettings({
-      buyPrice: Number(data.settings?.buyPrice || 0),
-      sellPrice: Number(data.settings?.sellPrice || 0),
-      tradingEnabled: Boolean(data.settings?.tradingEnabled),
+    setToken(savedToken);
+  }, []);
+
+  // ===================================================
+  // REQUEST HEADERS
+  // ===================================================
+
+  const adminHeaders = useMemo(
+    () => ({
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    }),
+    [token]
+  );
+
+  // ===================================================
+  // FORMATTERS
+  // ===================================================
+
+  const formatMoney = (value: number = 0) =>
+    Number(value).toLocaleString("en-PK", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  const formatUsdt = (value: number = 0) =>
+    Number(value).toFixed(2);
+
+  const formatDate = (date?: string) => {
+    if (!date) return "--";
+
+    return new Date(date).toLocaleString("en-GB", {
+      dateStyle: "medium",
+      timeStyle: "short",
     });
   };
 
-  /* ==========================================================
-     LOAD PENDING DEPOSITS
-  ========================================================== */
+  // ===================================================
+  // UPDATE FIELD
+  // ===================================================
 
-  const loadDeposits = async () => {
-    const response = await fetch(
-      `${API}/api/admin/usdt/deposits`,
-      {
-        headers: getHeaders(),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Unable to load deposits.");
-    }
-
-    setDeposits(data.deposits || []);
+  const updateField = (
+    field: keyof UsdtSettings,
+    value: string | number | boolean
+  ) => {
+    setSettings((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
-  /* ==========================================================
-     LOAD PENDING WITHDRAWALS
-  ========================================================== */
+  // ===================================================
+  // LIVE SPREAD
+  // ===================================================
 
-  const loadWithdraws = async () => {
-    const response = await fetch(
-      `${API}/api/admin/usdt/withdraws`,
-      {
-        headers: getHeaders(),
-      }
+  const liveSpread = useMemo(() => {
+    return Math.max(
+      0,
+      Number(settings.buyPrice) - Number(settings.sellPrice)
     );
+  }, [settings.buyPrice, settings.sellPrice]);
 
-    const data = await response.json();
+  // ===================================================
+  // SEARCH FILTERS
+  // ===================================================
 
-    if (!response.ok) {
-      throw new Error(data.message || "Unable to load withdrawals.");
-    }
+  const keyword = search.toLowerCase();
 
-    setWithdraws(data.withdraws || []);
-  };
+  const showPriceSection =
+    keyword === "" ||
+    "buy sell usdt price usd pkr spread".includes(keyword);
 
-  /* ==========================================================
-     LOAD COMPLETE DASHBOARD
-  ========================================================== */
+  const showLimitSection =
+    keyword === "" ||
+    "minimum maximum limit trading".includes(keyword);
 
-  const loadDashboard = async () => {
+  const showWalletSection =
+    keyword === "" ||
+    "wallet address trc20 bep20 erc20 network".includes(keyword);
+
+  const showMarketSection =
+    keyword === "" ||
+    "market open closed trading enable".includes(keyword);
+      // ===================================================
+  // LOAD USDT SETTINGS
+  // ===================================================
+
+  const loadUsdtSettings = async () => {
+    if (!token) return;
+
     try {
       setLoading(true);
-      setErrorMessage("");
+      setRefreshing(false);
+      setError("");
 
-      await Promise.all([
-        loadUsdtSettings(),
-        loadDeposits(),
-        loadWithdraws(),
+      const [settingsRes, dashboardRes] = await Promise.all([
+        fetch(`${API}/api/admin/usdt/settings`, {
+          headers: adminHeaders,
+          cache: "no-store",
+        }),
+
+        fetch(`${API}/api/admin/usdt/dashboard`, {
+          headers: adminHeaders,
+          cache: "no-store",
+        }),
       ]);
-    } catch (error: any) {
-      setErrorMessage(error.message || "Unable to load dashboard.");
+
+      const settingsData = await settingsRes.json();
+      const dashboardData = await dashboardRes.json();
+
+      console.log("USDT SETTINGS:", settingsData);
+      console.log("USDT DASHBOARD:", dashboardData);
+
+      // SETTINGS
+      if (settingsRes.ok && settingsData.success) {
+        setSettings({
+          buyPrice: Number(settingsData.settings.buyPrice || 0),
+          sellPrice: Number(settingsData.settings.sellPrice || 0),
+
+          usdtPriceUSD: Number(settingsData.settings.usdtPriceUSD || 1),
+          usdToPkr: Number(settingsData.settings.usdToPkr || 0),
+
+          network: settingsData.settings.network || "TRC20",
+
+          marketStatus: settingsData.settings.marketStatus || "OPEN",
+
+          tradingEnabled:
+            settingsData.settings.tradingEnabled ?? true,
+
+          minimumBuy: Number(settingsData.settings.minimumBuy || 10),
+          minimumSell: Number(settingsData.settings.minimumSell || 10),
+
+          maximumBuy: Number(settingsData.settings.maximumBuy || 100000),
+          maximumSell: Number(settingsData.settings.maximumSell || 100000),
+
+          walletAddress: settingsData.settings.walletAddress || "",
+
+          updatedAt: settingsData.settings.updatedAt,
+        });
+      } else {
+        setError(
+          settingsData.message || "Unable to load USDT settings."
+        );
+      }
+
+      // DASHBOARD / STATISTICS
+      if (dashboardRes.ok && dashboardData.success) {
+        setStatistics({
+          currentBuyPrice: Number(
+            dashboardData.dashboard?.buyPrice ||
+              dashboardData.settings?.buyPrice ||
+              0
+          ),
+
+          currentSellPrice: Number(
+            dashboardData.dashboard?.sellPrice ||
+              dashboardData.settings?.sellPrice ||
+              0
+          ),
+
+          spread: Number(
+            dashboardData.dashboard?.spread ||
+              Math.max(
+                0,
+                Number(
+                  dashboardData.dashboard?.buyPrice ||
+                    settingsData.settings.buyPrice ||
+                    0
+                ) -
+                  Number(
+                    dashboardData.dashboard?.sellPrice ||
+                      settingsData.settings.sellPrice ||
+                      0
+                  )
+              )
+          ),
+
+          marketStatus:
+            dashboardData.dashboard?.marketStatus ||
+            settingsData.settings.marketStatus ||
+            "OPEN",
+
+          tradingEnabled:
+            dashboardData.dashboard?.tradingEnabled ??
+            settingsData.settings.tradingEnabled ??
+            true,
+        });
+      }
+
+    } catch (err: any) {
+      console.error("LOAD USDT SETTINGS ERROR:", err);
+
+      setError(
+        err.message || "Unable to load USDT settings."
+      );
+
     } finally {
       setLoading(false);
-    }
-  };
-
-  /* ==========================================================
-     REFRESH DASHBOARD
-  ========================================================== */
-
-  const refreshDashboard = async () => {
-    try {
-      setRefreshing(true);
-      await loadDashboard();
-    } finally {
       setRefreshing(false);
     }
   };
 
-  /* ==========================================================
-     DEPOSIT ACTIONS
-  ========================================================== */
+  // ===================================================
+  // REFRESH USDT SETTINGS
+  // ===================================================
 
-  const approveDeposit = async (id: string) => {
+  const refreshUsdtSettings = async () => {
+    setRefreshing(true);
+    await loadUsdtSettings();
+  };
+
+  // ===================================================
+  // ADMIN AUTH CHECK
+  // ===================================================
+
+  const checkAdminAuth = async () => {
+    if (!token) return;
+
     try {
       const response = await fetch(
-        `${API}/api/admin/usdt/deposits/${id}/approve`,
+        `${API}/api/admin/auth/check`,
         {
-          method: "POST",
-          headers: getHeaders(),
+          headers: adminHeaders,
+          cache: "no-store",
         }
       );
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Approval failed.");
+      console.log("ADMIN AUTH:", data);
+
+      if (!response.ok || !data.success) {
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+        return;
       }
 
-      alert("Deposit Approved Successfully.");
-      await loadDashboard();
-    } catch (error: any) {
-      alert(error.message);
+      setAdminName(data.user?.username || "Administrator");
+
+    } catch (error) {
+      console.error("ADMIN AUTH ERROR:", error);
     }
   };
 
-  const rejectDeposit = async (id: string) => {
-    try {
-      const response = await fetch(
-        `${API}/api/admin/usdt/deposits/${id}/reject`,
-        {
-          method: "POST",
-          headers: getHeaders(),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Rejection failed.");
-      }
-
-      alert("Deposit Rejected Successfully.");
-      await loadDashboard();
-    } catch (error: any) {
-      alert(error.message);
-    }
-  };
-
-  /* ==========================================================
-     WITHDRAW ACTIONS
-  ========================================================== */
-
-  const approveWithdraw = async (id: string) => {
-    try {
-      const response = await fetch(
-        `${API}/api/admin/usdt/withdraws/${id}/approve`,
-        {
-          method: "POST",
-          headers: getHeaders(),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Approval failed.");
-      }
-
-      alert("Withdrawal Approved Successfully.");
-      await loadDashboard();
-    } catch (error: any) {
-      alert(error.message);
-    }
-  };
-
-  const rejectWithdraw = async (id: string) => {
-    try {
-      const response = await fetch(
-        `${API}/api/admin/usdt/withdraws/${id}/reject`,
-        {
-          method: "POST",
-          headers: getHeaders(),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Rejection failed.");
-      }
-
-      alert("Withdrawal Rejected Successfully.");
-      await loadDashboard();
-    } catch (error: any) {
-      alert(error.message);
-    }
-  };
-
-  /* ==========================================================
-     INITIAL LOAD
-  ========================================================== */
+  // ===================================================
+  // INITIAL LOAD
+  // ===================================================
 
   useEffect(() => {
-    loadDashboard();
-  }, []);
+    if (!token) return;
 
-  /* ==========================================================
-     SEARCH FILTERS
-  ========================================================== */
+    checkAdminAuth();
+    loadUsdtSettings();
+  }, [token]);
 
-  const filteredDeposits = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
+  // ===================================================
+  // AUTO CLEAR MESSAGE
+  // ===================================================
 
-    return deposits.filter((item) => {
-      if (!keyword) return true;
+  useEffect(() => {
+    if (!message) return;
 
-      return (
-        item.username.toLowerCase().includes(keyword) ||
-        item.walletAddress.toLowerCase().includes(keyword) ||
-        item.txHash?.toLowerCase().includes(keyword)
+    const timer = setTimeout(() => {
+      setMessage("");
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [message]);
+    // ===================================================
+  // TOGGLE MARKET STATUS
+  // ===================================================
+
+  const toggleMarketStatus = () => {
+    setSettings((prev) => ({
+      ...prev,
+      marketStatus:
+        prev.marketStatus === "OPEN" ? "CLOSED" : "OPEN",
+    }));
+  };
+
+  // ===================================================
+  // TOGGLE USDT TRADING
+  // ===================================================
+
+  const toggleTrading = () => {
+    setSettings((prev) => ({
+      ...prev,
+      tradingEnabled: !prev.tradingEnabled,
+    }));
+  };
+
+  // ===================================================
+  // AUTO CALCULATE SELL PRICE
+  // Keeps minimum spread of 0.50 PKR
+  // ===================================================
+
+  useEffect(() => {
+    if (!settings.buyPrice) return;
+
+    const minimumSpread = 0.5;
+
+    if (
+      settings.sellPrice >= settings.buyPrice ||
+      settings.buyPrice - settings.sellPrice < minimumSpread
+    ) {
+      setSettings((prev) => ({
+        ...prev,
+        sellPrice: Math.max(
+          0,
+          Number(prev.buyPrice) - minimumSpread
+        ),
+      }));
+    }
+  }, [settings.buyPrice]);
+
+  // ===================================================
+  // SAVE USDT SETTINGS
+  // PUT /api/admin/usdt/settings
+  // ===================================================
+
+  const saveUsdtSettings = async () => {
+    if (!token) return;
+
+    try {
+      setSaving(true);
+      setError("");
+
+      const payload = {
+        buyPrice: Number(settings.buyPrice),
+        sellPrice: Number(settings.sellPrice),
+
+        usdtPriceUSD: Number(settings.usdtPriceUSD),
+        usdToPkr: Number(settings.usdToPkr),
+
+        network: settings.network,
+
+        marketStatus: settings.marketStatus,
+        tradingEnabled: settings.tradingEnabled,
+
+        minimumBuy: Number(settings.minimumBuy),
+        minimumSell: Number(settings.minimumSell),
+
+        maximumBuy: Number(settings.maximumBuy),
+        maximumSell: Number(settings.maximumSell),
+
+        walletAddress: settings.walletAddress,
+      };
+
+      const response = await fetch(
+        `${API}/api/admin/usdt/settings`,
+        {
+          method: "PUT",
+          headers: adminHeaders,
+          body: JSON.stringify(payload),
+        }
       );
-    });
-  }, [search, deposits]);
 
-  const filteredWithdraws = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
+      const data = await response.json();
 
-    return withdraws.filter((item) => {
-      if (!keyword) return true;
+      console.log("SAVE USDT SETTINGS:", data);
 
-      return (
-        item.username.toLowerCase().includes(keyword) ||
-        item.walletAddress.toLowerCase().includes(keyword) ||
-        item.txHash?.toLowerCase().includes(keyword)
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Failed to save USDT settings."
+        );
+      }
+
+      setSettings((prev) => ({
+        ...prev,
+        updatedAt:
+          data.settings?.updatedAt ||
+          new Date().toISOString(),
+      }));
+
+      setStatistics((prev) => ({
+        ...prev,
+        currentBuyPrice: Number(settings.buyPrice),
+        currentSellPrice: Number(settings.sellPrice),
+        spread:
+          Number(settings.buyPrice) -
+          Number(settings.sellPrice),
+        marketStatus: settings.marketStatus,
+        tradingEnabled: settings.tradingEnabled,
+      }));
+
+      setMessage("USDT settings updated successfully.");
+      setMessageType("success");
+
+      await loadUsdtSettings();
+
+    } catch (err: any) {
+      console.error("SAVE USDT SETTINGS ERROR:", err);
+
+      setMessage(
+        err.message || "Unable to save USDT settings."
       );
-    });
-  }, [search, withdraws]);
+      setMessageType("error");
 
-  /* ==========================================================
-     PAGINATION (Deposits)
-  ========================================================== */
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredDeposits.length / rowsPerPage)
-  );
+  // ===================================================
+  // RESET USDT SETTINGS
+  // ===================================================
 
-  const paginatedDeposits = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage;
+  const resetUsdtSettings = async () => {
+    await loadUsdtSettings();
 
-    return filteredDeposits.slice(start, start + rowsPerPage);
-  }, [filteredDeposits, currentPage]);
+    setMessage("USDT settings restored.");
+    setMessageType("success");
+  };
 
-  /* ==========================================================
-     ANALYTICS
-  ========================================================== */
+  // ===================================================
+  // LAST UPDATED LABEL
+  // ===================================================
 
-  const analytics = useMemo(() => {
-    return {
-      pendingDeposits: deposits.filter(
-        (d) => d.status === "Pending"
-      ).length,
-
-      pendingWithdraws: withdraws.filter(
-        (w) => w.status === "Pending"
-      ).length,
-
-      totalDepositAmount: deposits.reduce(
-        (sum, d) => sum + Number(d.amount || 0),
-        0
-      ),
-
-      totalWithdrawAmount: withdraws.reduce(
-        (sum, w) => sum + Number(w.amount || 0),
-        0
-      ),
-    };
-  }, [deposits, withdraws]);
-
-  /* ==========================================================
-     LOADING SCREEN
-  ========================================================== */
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-black flex items-center justify-center">
-        <div className="flex items-center gap-3 text-cyan-400 text-xl font-bold">
-          <RefreshCw className="animate-spin" size={28} />
-          Loading Admin USDT Dashboard...
-        </div>
-      </main>
-    );
-  }
-
-  /* ==========================================================
-     PAGE START
-  ========================================================== */
+  const lastUpdatedLabel = useMemo(() => {
+    return settings.updatedAt
+      ? formatDate(settings.updatedAt)
+      : "Never Updated";
+  }, [settings.updatedAt]);
+    // =====================================================
+  // PAGE UI START
+  // =====================================================
 
   return (
-    <main className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[#0B1120] text-white p-6">
 
-        {/* ============================================= */}
-        {/* PAGE HEADER */}
-        {/* ============================================= */}
+      {/* ========================================== */}
+      {/* HEADER */}
+      {/* ========================================== */}
 
-        <header className="flex flex-wrap justify-between items-center gap-5">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 mb-8">
 
-          <div>
-            <h1 className="flex items-center gap-3 text-4xl font-black text-cyan-400">
-              <DollarSign size={36} />
-              Admin USDT Manager
-            </h1>
+        <div>
+          <h1 className="text-3xl font-bold text-cyan-400">
+            GoldTrade V18 • Enterprise USDT Manager
+          </h1>
 
-            <p className="text-gray-400 mt-2">
-              GoldTrade V18 Enterprise • Manage USDT Trading, Deposits & Withdrawals.
-            </p>
+          <p className="text-gray-400 mt-2">
+            Manage live USDT prices, wallet network, trading status and limits.
+          </p>
+
+          <p className="text-gray-500 text-sm mt-1">
+            Logged in as{" "}
+            <span className="text-green-400 font-semibold">
+              {adminName}
+            </span>
+          </p>
+        </div>
+
+        <div className="flex gap-3 flex-wrap">
+
+          <button
+            onClick={refreshUsdtSettings}
+            disabled={refreshing}
+            className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 disabled:opacity-60 text-black font-semibold px-5 py-3 rounded-xl transition"
+          >
+            <RefreshCw
+              size={18}
+              className={refreshing ? "animate-spin" : ""}
+            />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+
+          <button
+            onClick={saveUsdtSettings}
+            disabled={saving}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-semibold px-5 py-3 rounded-xl transition"
+          >
+            <Save size={18} />
+            {saving ? "Saving..." : "Save Settings"}
+          </button>
+
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* SUCCESS / ERROR MESSAGE */}
+      {/* ========================================== */}
+
+      {message && (
+        <div
+          className={`mb-6 rounded-xl px-4 py-3 border ${
+            messageType === "success"
+              ? "bg-green-600/20 border-green-500 text-green-300"
+              : "bg-red-600/20 border-red-500 text-red-300"
+          }`}
+        >
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 rounded-xl px-4 py-3 border border-red-600 bg-red-600/10 text-red-300">
+          {error}
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* LIVE USDT PRICE CARDS */}
+      {/* ========================================== */}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+
+        {/* BUY PRICE */}
+
+        <div className="rounded-2xl bg-[#111827] border border-green-600/30 p-5">
+
+          <div className="flex justify-between items-center mb-3">
+            <TrendingUp className="text-green-400" size={28} />
+            <span className="text-xs font-semibold text-green-400">
+              BUY PRICE
+            </span>
           </div>
 
-          <div className="flex gap-3 flex-wrap">
-            <Link
-              href="/admin"
-              className="bg-zinc-800 hover:bg-zinc-700 px-5 py-3 rounded-xl font-bold transition"
-            >
-              Admin Dashboard
-            </Link>
+          <p className="text-gray-400 text-sm">
+            Current Buy USDT Price
+          </p>
+
+          <h2 className="text-3xl font-bold text-green-400 mt-2">
+            PKR {formatMoney(statistics.currentBuyPrice)}
+          </h2>
+
+        </div>
+
+        {/* SELL PRICE */}
+
+        <div className="rounded-2xl bg-[#111827] border border-red-600/30 p-5">
+
+          <div className="flex justify-between items-center mb-3">
+            <TrendingDown className="text-red-400" size={28} />
+            <span className="text-xs font-semibold text-red-400">
+              SELL PRICE
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            Current Sell USDT Price
+          </p>
+
+          <h2 className="text-3xl font-bold text-red-400 mt-2">
+            PKR {formatMoney(statistics.currentSellPrice)}
+          </h2>
+
+        </div>
+
+        {/* SPREAD */}
+
+        <div className="rounded-2xl bg-[#111827] border border-blue-600/30 p-5">
+
+          <div className="flex justify-between items-center mb-3">
+            <ArrowUpDown className="text-blue-400" size={28} />
+            <span className="text-xs font-semibold text-blue-400">
+              SPREAD
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            Buy / Sell Difference
+          </p>
+
+          <h2 className="text-3xl font-bold text-blue-400 mt-2">
+            PKR {formatMoney(liveSpread)}
+          </h2>
+
+        </div>
+
+        {/* MARKET */}
+
+        <div className="rounded-2xl bg-[#111827] border border-purple-600/30 p-5">
+
+          <div className="flex justify-between items-center mb-3">
+            <Activity className="text-purple-400" size={28} />
+            <span className="text-xs font-semibold text-purple-400">
+              MARKET
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            USDT Market Status
+          </p>
+
+          <h2
+            className={`text-xl font-bold mt-2 ${
+              settings.marketStatus === "OPEN"
+                ? "text-green-400"
+                : "text-red-400"
+            }`}
+          >
+            {settings.marketStatus}
+          </h2>
+
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* USD / PKR / NETWORK */}
+      {/* ========================================== */}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+
+        {/* USDT USD */}
+
+        <div className="rounded-2xl bg-[#111827] border border-cyan-600/20 p-5">
+
+          <div className="flex justify-between items-center mb-2">
+            <DollarSign className="text-cyan-400" size={24} />
+            <span className="text-cyan-400 text-xs font-semibold">
+              USDT USD
+            </span>
+          </div>
+
+          <h3 className="text-2xl font-bold text-cyan-400">
+            ${formatUsdt(settings.usdtPriceUSD)}
+          </h3>
+
+          <p className="text-gray-400 text-sm mt-2">
+            Current USDT Value
+          </p>
+
+        </div>
+
+        {/* USD TO PKR */}
+
+        <div className="rounded-2xl bg-[#111827] border border-green-600/20 p-5">
+
+          <div className="flex justify-between items-center mb-2">
+            <Coins className="text-green-400" size={24} />
+            <span className="text-green-400 text-xs font-semibold">
+              USD → PKR
+            </span>
+          </div>
+
+          <h3 className="text-2xl font-bold text-green-400">
+            {formatMoney(settings.usdToPkr)}
+          </h3>
+
+          <p className="text-gray-400 text-sm mt-2">
+            Exchange Rate
+          </p>
+
+        </div>
+
+        {/* NETWORK */}
+
+        <div className="rounded-2xl bg-[#111827] border border-orange-600/20 p-5">
+
+          <div className="flex justify-between items-center mb-2">
+            <Wallet className="text-orange-400" size={24} />
+            <span className="text-orange-400 text-xs font-semibold">
+              NETWORK
+            </span>
+          </div>
+
+          <h3 className="text-2xl font-bold text-orange-400">
+            {settings.network}
+          </h3>
+
+          <p className="text-gray-400 text-sm mt-2">
+            Active Wallet Network
+          </p>
+
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* SEARCH */}
+      {/* ========================================== */}
+
+      <div className="rounded-2xl bg-[#111827] border border-gray-700 p-5 mb-8">
+
+        <div className="relative">
+
+          <Search
+            size={20}
+            className="absolute left-4 top-3.5 text-gray-500"
+          />
+
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search USDT Price, Network, Wallet, Market..."
+            className="w-full bg-[#1F2937] border border-gray-600 rounded-xl py-3 pl-12 pr-4 outline-none focus:border-cyan-500 transition"
+          />
+
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* MARKET CONTROL PANEL */}
+      {/* ========================================== */}
+
+      <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6 mb-8">
+
+        <h2 className="text-xl font-bold text-cyan-400 mb-5">
+          USDT Market Controls
+        </h2>
+
+        <div className="grid md:grid-cols-2 gap-6">
+
+          {/* MARKET STATUS */}
+
+          <div className="flex items-center justify-between rounded-xl bg-[#1F2937] p-5 border border-purple-500/20">
+
+            <div>
+              <p className="font-semibold text-white">
+                USDT Market Status
+              </p>
+
+              <p className="text-gray-400 text-sm">
+                Open or close USDT market.
+              </p>
+            </div>
 
             <button
-              onClick={refreshDashboard}
-              disabled={refreshing}
-              className="bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 disabled:cursor-not-allowed text-black px-5 py-3 rounded-xl flex items-center gap-2 font-bold transition"
+              onClick={toggleMarketStatus}
+              className={`px-4 py-2 rounded-full font-semibold transition ${
+                settings.marketStatus === "OPEN"
+                  ? "bg-green-600 text-white"
+                  : "bg-red-600 text-white"
+              }`}
             >
-              <RefreshCw
-                size={18}
-                className={refreshing ? "animate-spin" : ""}
-              />
-
-              {refreshing ? "Refreshing..." : "Refresh"}
+              {settings.marketStatus}
             </button>
+
           </div>
 
-        </header>
+          {/* TRADING */}
 
-        {/* ============================================= */}
-        {/* ERROR MESSAGE */}
-        {/* ============================================= */}
+          <div className="flex items-center justify-between rounded-xl bg-[#1F2937] p-5 border border-green-500/20">
 
-        {errorMessage && (
-          <div className="bg-red-500/10 border border-red-500 rounded-xl p-4 text-red-400 font-semibold">
-            {errorMessage}
+            <div>
+              <p className="font-semibold text-white">
+                USDT Trading
+              </p>
+
+              <p className="text-gray-400 text-sm">
+                Enable or disable USDT Buy/Sell.
+              </p>
+            </div>
+
+            <button
+              onClick={toggleTrading}
+              className={`px-4 py-2 rounded-full font-semibold transition ${
+                settings.tradingEnabled
+                  ? "bg-green-600 text-white"
+                  : "bg-gray-600 text-gray-300"
+              }`}
+            >
+              {settings.tradingEnabled ? "ON" : "OFF"}
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* USDT SETTINGS FORMS START */}
+      {/* ========================================== */}
+
+      <div className="space-y-8">        {/* ========================================== */}
+        {/* USDT BUY / SELL PRICE SETTINGS */}
+        {/* ========================================== */}
+
+        {showPriceSection && (
+          <div className="rounded-2xl bg-[#111827] border border-cyan-600/20 p-6">
+
+            <div className="flex items-center gap-3 mb-6">
+              <TrendingUp className="text-cyan-400" size={28} />
+              <h2 className="text-2xl font-bold text-cyan-400">
+                USDT Buy / Sell Prices
+              </h2>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+
+              {/* BUY PRICE */}
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Buy USDT Price (PKR)
+                </label>
+
+                <input
+                  type="number"
+                  value={settings.buyPrice}
+                  onChange={(e) =>
+                    updateField("buyPrice", Number(e.target.value))
+                  }
+                  placeholder="Enter Buy Price"
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-cyan-500 outline-none"
+                />
+
+                <p className="text-cyan-400 text-xs mt-2">
+                  Price users pay when buying USDT.
+                </p>
+              </div>
+
+              {/* SELL PRICE */}
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Sell USDT Price (PKR)
+                </label>
+
+                <input
+                  type="number"
+                  value={settings.sellPrice}
+                  onChange={(e) =>
+                    updateField("sellPrice", Number(e.target.value))
+                  }
+                  placeholder="Enter Sell Price"
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-red-500 outline-none"
+                />
+
+                <p className="text-red-400 text-xs mt-2">
+                  Price users receive when selling USDT.
+                </p>
+              </div>
+
+            </div>
+
+            {/* LIVE SPREAD */}
+
+            <div className="mt-6 bg-[#1F2937] rounded-xl p-5 border border-blue-600/20">
+
+              <div className="flex justify-between items-center">
+
+                <div>
+                  <p className="text-gray-400 text-sm">
+                    Current Spread
+                  </p>
+
+                  <h3 className="text-2xl font-bold text-blue-400 mt-1">
+                    PKR {formatMoney(liveSpread)}
+                  </h3>
+                </div>
+
+                <ArrowUpDown className="text-blue-400" size={32} />
+
+              </div>
+
+              <p className="text-gray-500 text-sm mt-3">
+                Spread = Buy Price − Sell Price
+              </p>
+
+            </div>
+
           </div>
         )}
 
-        {/* ============================================= */}
-        {/* LIVE USDT MARKET CARDS */}
-        {/* ============================================= */}
+        {/* ========================================== */}
+        {/* USD PRICE + EXCHANGE RATE */}
+        {/* ========================================== */}
 
-        <section className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
+        {showPriceSection && (
+          <div className="rounded-2xl bg-[#111827] border border-green-600/20 p-6">
 
-          <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5">
-            <TrendingUp className="text-green-400 mb-3" size={28} />
-
-            <p className="text-gray-500 text-sm uppercase tracking-wide">
-              Buy Price
-            </p>
-
-            <h2 className="text-3xl font-black text-green-400 mt-2">
-              PKR {settings.buyPrice.toLocaleString()}
-            </h2>
-          </div>
-
-          <div className="bg-zinc-900 border border-red-500 rounded-2xl p-5">
-            <TrendingDown className="text-red-400 mb-3" size={28} />
-
-            <p className="text-gray-500 text-sm uppercase tracking-wide">
-              Sell Price
-            </p>
-
-            <h2 className="text-3xl font-black text-red-400 mt-2">
-              PKR {settings.sellPrice.toLocaleString()}
-            </h2>
-          </div>
-
-          <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-5">
-            <ArrowDownRight className="text-cyan-400 mb-3" size={28} />
-
-            <p className="text-gray-500 text-sm uppercase tracking-wide">
-              Pending Deposits
-            </p>
-
-            <h2 className="text-3xl font-black text-cyan-400 mt-2">
-              {analytics.pendingDeposits}
-            </h2>
-          </div>
-
-          <div className="bg-zinc-900 border border-orange-500 rounded-2xl p-5">
-            <ArrowUpRight className="text-orange-400 mb-3" size={28} />
-
-            <p className="text-gray-500 text-sm uppercase tracking-wide">
-              Pending Withdrawals
-            </p>
-
-            <h2 className="text-3xl font-black text-orange-400 mt-2">
-              {analytics.pendingWithdraws}
-            </h2>
-          </div>
-
-        </section>
-
-        {/* ============================================= */}
-        {/* MARKET ANALYTICS */}
-        {/* ============================================= */}
-
-        <section className="grid lg:grid-cols-2 gap-5">
-
-          <div className="bg-zinc-900 border border-green-500 rounded-2xl p-6">
-            <p className="text-gray-500 text-sm uppercase tracking-wide">
-              Total Pending Deposit Value
-            </p>
-
-            <h2 className="text-4xl font-black text-green-400 mt-3">
-              {analytics.totalDepositAmount.toFixed(2)} USDT
-            </h2>
-          </div>
-
-          <div className="bg-zinc-900 border border-orange-500 rounded-2xl p-6">
-            <p className="text-gray-500 text-sm uppercase tracking-wide">
-              Total Pending Withdraw Value
-            </p>
-
-            <h2 className="text-4xl font-black text-orange-400 mt-3">
-              {analytics.totalWithdrawAmount.toFixed(2)} USDT
-            </h2>
-          </div>
-
-        </section>
-
-        {/* ============================================= */}
-        {/* TRADING STATUS PANEL */}
-        {/* ============================================= */}
-
-        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 space-y-6">
-
-          <div className="flex justify-between items-center flex-wrap gap-4">
-
-            <div>
-              <h2 className="text-2xl font-black text-cyan-400">
-                USDT Trading Status
+            <div className="flex items-center gap-3 mb-6">
+              <DollarSign className="text-green-400" size={28} />
+              <h2 className="text-2xl font-bold text-green-400">
+                USDT USD & Exchange Rate
               </h2>
-
-              <p className="text-gray-400 text-sm mt-2">
-                Current market configuration used across GoldTrade.
-              </p>
             </div>
 
-            <div
-              className={`px-5 py-3 rounded-xl font-bold ${
-                settings.tradingEnabled
-                  ? "bg-green-500/20 border border-green-500 text-green-400"
-                  : "bg-red-500/20 border border-red-500 text-red-400"
-              }`}
-            >
-              {settings.tradingEnabled
-                ? "Trading Enabled"
-                : "Trading Disabled"}
+            <div className="grid md:grid-cols-2 gap-6">
+
+              {/* USD PRICE */}
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  USDT Price (USD)
+                </label>
+
+                <input
+                  type="number"
+                  step="0.01"
+                  value={settings.usdtPriceUSD}
+                  onChange={(e) =>
+                    updateField("usdtPriceUSD", Number(e.target.value))
+                  }
+                  placeholder="1.00"
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-green-500 outline-none"
+                />
+              </div>
+
+              {/* USD TO PKR */}
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  USD to PKR Rate
+                </label>
+
+                <input
+                  type="number"
+                  value={settings.usdToPkr}
+                  onChange={(e) =>
+                    updateField("usdToPkr", Number(e.target.value))
+                  }
+                  placeholder="Enter Exchange Rate"
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-green-500 outline-none"
+                />
+              </div>
+
             </div>
 
-          </div>
+            {/* LIVE CONVERSION */}
 
-          <div className="grid md:grid-cols-2 gap-5">
+            <div className="mt-6 bg-[#1F2937] rounded-xl p-5 border border-green-500/20">
 
-            <div className="bg-black border border-green-500 rounded-xl p-5">
-              <p className="text-gray-500 text-sm">Current Buy Rate</p>
-
-              <h3 className="text-3xl font-black text-green-400 mt-2">
-                PKR {settings.buyPrice.toLocaleString()}
-              </h3>
-            </div>
-
-            <div className="bg-black border border-red-500 rounded-xl p-5">
-              <p className="text-gray-500 text-sm">Current Sell Rate</p>
-
-              <h3 className="text-3xl font-black text-red-400 mt-2">
-                PKR {settings.sellPrice.toLocaleString()}
-              </h3>
-            </div>
-
-          </div>
-
-          <div className="bg-black border border-zinc-700 rounded-xl p-5">
-            <p className="text-gray-500 text-sm">Market Status</p>
-
-            <h3
-              className={`text-2xl font-black mt-3 ${
-                settings.tradingEnabled
-                  ? "text-green-400"
-                  : "text-red-400"
-              }`}
-            >
-              {settings.tradingEnabled
-                ? "USDT Market LIVE"
-                : "USDT Market OFFLINE"}
-            </h3>
-          </div>
-
-        </section>
-
-        {/* ============================================= */}
-        {/* SEARCH BAR */}
-        {/* ============================================= */}
-
-        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 space-y-5">
-
-          <div>
-            <h2 className="text-2xl font-black text-cyan-400">
-              Search Transactions
-            </h2>
-
-            <p className="text-gray-400 text-sm mt-2">
-              Search by username, wallet address or transaction hash.
-            </p>
-          </div>
-
-          <div className="relative">
-            <Search
-              size={18}
-              className="absolute left-4 top-4 text-gray-500"
-            />
-
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="Search username, wallet address or TX Hash"
-              className="w-full bg-black border border-zinc-700 rounded-xl pl-11 pr-4 py-3 text-white focus:border-cyan-500 outline-none"
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-
-            <span className="bg-black border border-zinc-700 px-4 py-2 rounded-full text-sm">
-              Search:
-              <span className="text-cyan-400 font-bold ml-2">
-                {search || "None"}
-              </span>
-            </span>
-
-            <span className="bg-black border border-zinc-700 px-4 py-2 rounded-full text-sm">
-              Deposits:
-              <span className="text-green-400 font-bold ml-2">
-                {filteredDeposits.length}
-              </span>
-            </span>
-
-            <span className="bg-black border border-zinc-700 px-4 py-2 rounded-full text-sm">
-              Withdrawals:
-              <span className="text-orange-400 font-bold ml-2">
-                {filteredWithdraws.length}
-              </span>
-            </span>
-
-          </div>
-
-        </section>
-
-        {/* ============================================= */}
-        {/* PENDING USDT DEPOSITS */}
-        {/* ============================================= */}
-
-        <section className="bg-zinc-900 border border-green-500 rounded-2xl overflow-hidden">
-
-          <div className="flex justify-between items-center px-6 py-5 border-b border-zinc-800 flex-wrap gap-3">
-            <div>
-              <h2 className="text-2xl font-black text-green-400">
-                Pending USDT Deposits
-              </h2>
-              <p className="text-gray-400 text-sm mt-1">
-                Review and approve incoming USDT deposits.
-              </p>
-            </div>
-
-            <span className="bg-green-500/20 border border-green-500 text-green-400 px-4 py-2 rounded-full text-sm font-bold">
-              {filteredDeposits.length} Pending
-            </span>
-          </div>
-
-          {/* Desktop Table */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full min-w-[1100px]">
-              <thead className="bg-black text-gray-400 text-sm">
-                <tr>
-                  <th className="text-left px-5 py-4">User</th>
-                  <th className="text-left px-5 py-4">Wallet Address</th>
-                  <th className="text-left px-5 py-4">TX Hash</th>
-                  <th className="text-left px-5 py-4">Amount</th>
-                  <th className="text-left px-5 py-4">Date</th>
-                  <th className="text-center px-5 py-4">Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {paginatedDeposits.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-10 text-gray-500">
-                      No pending deposits found.
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedDeposits.map((deposit) => (
-                    <tr
-                      key={deposit._id}
-                      className="border-t border-zinc-800 hover:bg-zinc-800/40 transition"
-                    >
-                      <td className="px-5 py-4 font-bold text-white">
-                        {deposit.username}
-                      </td>
-
-                      <td className="px-5 py-4 text-cyan-400 text-sm break-all">
-                        {deposit.walletAddress}
-                      </td>
-
-                      <td className="px-5 py-4 text-purple-400 text-xs break-all">
-                        {deposit.txHash || "No TX Hash"}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <span className="bg-green-500/10 border border-green-500 text-green-400 px-3 py-2 rounded-lg font-bold">
-                          {Number(deposit.amount).toFixed(2)} USDT
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4 text-gray-300 text-sm">
-                        {new Date(deposit.createdAt).toLocaleDateString()}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <div className="flex justify-center gap-2 flex-wrap">
-
-                          <button
-                            onClick={() => approveDeposit(deposit._id)}
-                            className="bg-green-500 hover:bg-green-400 text-black px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition"
-                          >
-                            <CheckCircle size={14} />
-                            Approve
-                          </button>
-
-                          <button
-                            onClick={() => rejectDeposit(deposit._id)}
-                            className="bg-red-500 hover:bg-red-400 text-black px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition"
-                          >
-                            <XCircle size={14} />
-                            Reject
-                          </button>
-
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Cards */}
-          <div className="lg:hidden p-5 space-y-4">
-            {paginatedDeposits.map((deposit) => (
-              <div
-                key={deposit._id}
-                className="bg-black border border-zinc-700 rounded-xl p-5 space-y-4"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-black text-lg text-white">
-                      {deposit.username}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(deposit.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
+              <div className="flex justify-between items-center">
 
                 <div>
-                  <p className="text-xs text-gray-500 uppercase">Wallet Address</p>
-                  <p className="text-cyan-400 text-sm break-all mt-1">
-                    {deposit.walletAddress}
+                  <p className="text-gray-400 text-sm">
+                    Estimated PKR Value
                   </p>
-                </div>
 
-                <div>
-                  <p className="text-xs text-gray-500 uppercase">TX Hash</p>
-                  <p className="text-purple-400 text-xs break-all mt-1">
-                    {deposit.txHash || "No TX Hash"}
-                  </p>
-                </div>
-
-                <div className="bg-zinc-900 border border-green-500 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 uppercase">Deposit Amount</p>
-                  <h3 className="text-2xl font-black text-green-400 mt-2">
-                    {Number(deposit.amount).toFixed(2)} USDT
+                  <h3 className="text-2xl font-bold text-green-400 mt-1">
+                    PKR{" "}
+                    {formatMoney(
+                      Number(settings.usdtPriceUSD) *
+                        Number(settings.usdToPkr)
+                    )}
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => approveDeposit(deposit._id)}
-                    className="bg-green-500 hover:bg-green-400 text-black py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition"
-                  >
-                    <CheckCircle size={18} />
-                    Approve
-                  </button>
+                <Coins className="text-green-400" size={30} />
 
-                  <button
-                    onClick={() => rejectDeposit(deposit._id)}
-                    className="bg-red-500 hover:bg-red-400 text-black py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition"
-                  >
-                    <XCircle size={18} />
-                    Reject
-                  </button>
-                </div>
               </div>
-            ))}
-          </div>
-        </section>
 
-        {/* ============================================= */}
-        {/* PENDING USDT WITHDRAWALS */}
-        {/* ============================================= */}
-
-        <section className="bg-zinc-900 border border-orange-500 rounded-2xl overflow-hidden">
-
-          <div className="flex justify-between items-center px-6 py-5 border-b border-zinc-800 flex-wrap gap-3">
-            <div>
-              <h2 className="text-2xl font-black text-orange-400">
-                Pending USDT Withdrawals
-              </h2>
-              <p className="text-gray-400 text-sm mt-1">
-                Review outgoing USDT withdrawal requests.
+              <p className="text-gray-500 text-sm mt-3">
+                Live conversion using USD exchange rate.
               </p>
+
             </div>
 
-            <span className="bg-orange-500/20 border border-orange-500 text-orange-400 px-4 py-2 rounded-full text-sm font-bold">
-              {filteredWithdraws.length} Pending
-            </span>
           </div>
+        )}
 
-          {/* Desktop Table */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full min-w-[1000px]">
-              <thead className="bg-black text-gray-400 text-sm">
-                <tr>
-                  <th className="text-left px-5 py-4">User</th>
-                  <th className="text-left px-5 py-4">Wallet Address</th>
-                  <th className="text-left px-5 py-4">Amount</th>
-                  <th className="text-left px-5 py-4">Date</th>
-                  <th className="text-center px-5 py-4">Action</th>
-                </tr>
-              </thead>
+        {/* ========================================== */}
+        {/* NETWORK & WALLET SETTINGS */}
+        {/* ========================================== */}
 
-              <tbody>
-                {filteredWithdraws.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-10 text-gray-500">
-                      No pending withdrawals found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredWithdraws.map((withdraw) => (
-                    <tr
-                      key={withdraw._id}
-                      className="border-t border-zinc-800 hover:bg-zinc-800/40 transition"
-                    >
-                      <td className="px-5 py-4 font-bold text-white">
-                        {withdraw.username}
-                      </td>
+        {showWalletSection && (
+          <div className="rounded-2xl bg-[#111827] border border-orange-600/20 p-6">
 
-                      <td className="px-5 py-4 text-cyan-400 text-sm break-all">
-                        {withdraw.walletAddress}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <span className="bg-orange-500/10 border border-orange-500 text-orange-400 px-3 py-2 rounded-lg font-bold">
-                          {Number(withdraw.amount).toFixed(2)} USDT
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4 text-gray-300 text-sm">
-                        {new Date(withdraw.createdAt).toLocaleDateString()}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <div className="flex justify-center gap-2 flex-wrap">
-
-                          <button
-                            onClick={() => approveWithdraw(withdraw._id)}
-                            className="bg-green-500 hover:bg-green-400 text-black px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition"
-                          >
-                            <CheckCircle size={14} />
-                            Approve
-                          </button>
-
-                          <button
-                            onClick={() => rejectWithdraw(withdraw._id)}
-                            className="bg-red-500 hover:bg-red-400 text-black px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition"
-                          >
-                            <XCircle size={14} />
-                            Reject
-                          </button>
-
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Cards */}
-          <div className="lg:hidden p-5 space-y-4">
-            {filteredWithdraws.map((withdraw) => (
-              <div
-                key={withdraw._id}
-                className="bg-black border border-zinc-700 rounded-xl p-5 space-y-4"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-black text-lg text-white">
-                      {withdraw.username}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(withdraw.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs text-gray-500 uppercase">Wallet Address</p>
-                  <p className="text-cyan-400 text-sm break-all mt-1">
-                    {withdraw.walletAddress}
-                  </p>
-                </div>
-
-                <div className="bg-zinc-900 border border-orange-500 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 uppercase">Withdraw Amount</p>
-                  <h3 className="text-2xl font-black text-orange-400 mt-2">
-                    {Number(withdraw.amount).toFixed(2)} USDT
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => approveWithdraw(withdraw._id)}
-                    className="bg-green-500 hover:bg-green-400 text-black py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition"
-                  >
-                    <CheckCircle size={18} />
-                    Approve
-                  </button>
-
-                  <button
-                    onClick={() => rejectWithdraw(withdraw._id)}
-                    className="bg-red-500 hover:bg-red-400 text-black py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition"
-                  >
-                    <XCircle size={18} />
-                    Reject
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ============================================= */}
-        {/* PAGINATION */}
-        {/* ============================================= */}
-
-        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 space-y-6">
-
-          <div className="flex flex-wrap justify-between items-center gap-4">
-
-            <div>
-              <h2 className="text-2xl font-black text-cyan-400">
-                USDT Deposit Pagination
+            <div className="flex items-center gap-3 mb-6">
+              <Wallet className="text-orange-400" size={28} />
+              <h2 className="text-2xl font-bold text-orange-400">
+                Wallet Network Settings
               </h2>
-
-              <p className="text-gray-400 text-sm mt-2">
-                Showing {(currentPage - 1) * rowsPerPage + 1} to {Math.min(currentPage * rowsPerPage, filteredDeposits.length)} of {filteredDeposits.length} deposits.
-              </p>
             </div>
 
-            <span className="bg-cyan-500/20 border border-cyan-500 text-cyan-400 px-4 py-2 rounded-full font-bold text-sm">
-              Page {currentPage} / {totalPages}
-            </span>
+            <div className="grid md:grid-cols-2 gap-6">
+
+              {/* NETWORK */}
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Active USDT Network
+                </label>
+
+                <select
+                  value={settings.network}
+                  onChange={(e) =>
+                    updateField("network", e.target.value)
+                  }
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-orange-500 outline-none"
+                >
+                  <option value="TRC20">TRC20</option>
+                  <option value="BEP20">BEP20</option>
+                  <option value="ERC20">ERC20</option>
+                </select>
+              </div>
+
+              {/* WALLET ADDRESS */}
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Wallet Address
+                </label>
+
+                <textarea
+                  value={settings.walletAddress}
+                  onChange={(e) =>
+                    updateField("walletAddress", e.target.value)
+                  }
+                  rows={3}
+                  placeholder="Enter USDT Wallet Address"
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 resize-none focus:border-orange-500 outline-none"
+                />
+              </div>
+
+            </div>
+
+            {/* WALLET PREVIEW */}
+
+            <div className="mt-6 bg-[#1F2937] rounded-xl p-5 border border-orange-500/20">
+
+              <p className="text-gray-400 text-sm mb-2">
+                Current Deposit Wallet
+              </p>
+
+              <p className="text-orange-300 break-all font-mono text-sm">
+                {settings.walletAddress || "No wallet address configured."}
+              </p>
+
+              <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-orange-500/10 border border-orange-500/30 px-4 py-2 text-orange-300 text-sm font-semibold">
+                <Wallet size={16} />
+                Network: {settings.network}
+              </div>
+
+            </div>
 
           </div>
+        )}
 
-          <div className="flex flex-wrap justify-center gap-2">
+        {/* ========================================== */}
+        {/* USDT TRADING LIMITS */}
+        {/* ========================================== */}
 
-            <button
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-              className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 font-bold"
-            >
-              Previous
-            </button>
+        {showLimitSection && (
+          <div className="rounded-2xl bg-[#111827] border border-purple-600/20 p-6">
 
-            {Array.from({ length: totalPages }, (_, index) => {
-              const page = index + 1;
+            <div className="flex items-center gap-3 mb-6">
+              <Settings className="text-purple-400" size={28} />
+              <h2 className="text-2xl font-bold text-purple-400">
+                USDT Trading Limits
+              </h2>
+            </div>
 
-              return (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`w-10 h-10 rounded-lg font-bold transition ${
-                    currentPage === page
-                      ? "bg-cyan-500 text-black"
-                      : "bg-zinc-800 hover:bg-zinc-700"
+            <div className="grid md:grid-cols-2 gap-6">
+
+              {/* MIN BUY */}
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Minimum Buy USDT
+                </label>
+
+                <input
+                  type="number"
+                  value={settings.minimumBuy}
+                  onChange={(e) =>
+                    updateField("minimumBuy", Number(e.target.value))
+                  }
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-purple-500 outline-none"
+                />
+              </div>
+
+              {/* MIN SELL */}
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Minimum Sell USDT
+                </label>
+
+                <input
+                  type="number"
+                  value={settings.minimumSell}
+                  onChange={(e) =>
+                    updateField("minimumSell", Number(e.target.value))
+                  }
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-purple-500 outline-none"
+                />
+              </div>
+
+              {/* MAX BUY */}
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Maximum Buy USDT
+                </label>
+
+                <input
+                  type="number"
+                  value={settings.maximumBuy}
+                  onChange={(e) =>
+                    updateField("maximumBuy", Number(e.target.value))
+                  }
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-purple-500 outline-none"
+                />
+              </div>
+
+              {/* MAX SELL */}
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Maximum Sell USDT
+                </label>
+
+                <input
+                  type="number"
+                  value={settings.maximumSell}
+                  onChange={(e) =>
+                    updateField("maximumSell", Number(e.target.value))
+                  }
+                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-purple-500 outline-none"
+                />
+              </div>
+
+            </div>
+
+            {/* LIMIT SUMMARY */}
+
+            <div className="grid md:grid-cols-2 gap-5 mt-6">
+
+              <div className="bg-[#1F2937] rounded-xl p-5 border border-green-600/20">
+
+                <p className="text-gray-400 text-sm">
+                  Buy Range
+                </p>
+
+                <h3 className="text-xl font-bold text-green-400 mt-2">
+                  {formatUsdt(settings.minimumBuy)} USDT →{" "}
+                  {formatUsdt(settings.maximumBuy)} USDT
+                </h3>
+
+              </div>
+
+              <div className="bg-[#1F2937] rounded-xl p-5 border border-red-600/20">
+
+                <p className="text-gray-400 text-sm">
+                  Sell Range
+                </p>
+
+                <h3 className="text-xl font-bold text-red-400 mt-2">
+                  {formatUsdt(settings.minimumSell)} USDT →{" "}
+                  {formatUsdt(settings.maximumSell)} USDT
+                </h3>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* MARKET SUMMARY */}
+        {/* ========================================== */}
+
+        {showMarketSection && (
+          <div className="rounded-2xl bg-[#111827] border border-blue-600/20 p-6">
+
+            <div className="flex items-center gap-3 mb-6">
+              <Shield className="text-blue-400" size={28} />
+              <h2 className="text-2xl font-bold text-blue-400">
+                USDT Market Summary
+              </h2>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-5">
+
+              <div className="bg-[#1F2937] rounded-xl p-5 border border-blue-500/20">
+
+                <p className="text-gray-400 text-sm">
+                  Market Status
+                </p>
+
+                <h3
+                  className={`text-2xl font-bold mt-2 ${
+                    settings.marketStatus === "OPEN"
+                      ? "text-green-400"
+                      : "text-red-400"
                   }`}
                 >
-                  {page}
-                </button>
-              );
-            })}
+                  {settings.marketStatus}
+                </h3>
 
-            <button
-              disabled={currentPage === totalPages}
-              onClick={() =>
-                setCurrentPage((p) => Math.min(p + 1, totalPages))
-              }
-              className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 font-bold"
-            >
-              Next
-            </button>
+              </div>
 
-          </div>
+              <div className="bg-[#1F2937] rounded-xl p-5 border border-green-500/20">
 
-        </section>
+                <p className="text-gray-400 text-sm">
+                  Trading Module
+                </p>
 
-        {/* ============================================= */}
-        {/* QUICK ACTIONS */}
-        {/* ============================================= */}
+                <h3
+                  className={`text-2xl font-bold mt-2 ${
+                    settings.tradingEnabled
+                      ? "text-green-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {settings.tradingEnabled
+                    ? "ENABLED"
+                    : "DISABLED"}
+                </h3>
 
-        <section className="grid md:grid-cols-3 gap-5">
+              </div>
 
-          <Link
-            href="/admin/wallet"
-            className="bg-zinc-900 border border-green-500 rounded-2xl p-6 hover:border-green-400 transition"
-          >
-            <Wallet className="text-green-400 mb-3" size={30} />
-
-            <h3 className="font-black text-xl text-green-400">
-              Wallet Manager
-            </h3>
-
-            <p className="text-gray-400 text-sm mt-2">
-              Open PKR, Gold and USDT wallet management.
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/gold"
-            className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6 hover:border-yellow-400 transition"
-          >
-            <ShieldCheck className="text-yellow-400 mb-3" size={30} />
-
-            <h3 className="font-black text-xl text-yellow-400">
-              Gold Manager
-            </h3>
-
-            <p className="text-gray-400 text-sm mt-2">
-              Manage Gold buy/sell market settings.
-            </p>
-          </Link>
-
-          <Link
-            href="/admin"
-            className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 hover:border-cyan-400 transition"
-          >
-            <DollarSign className="text-cyan-400 mb-3" size={30} />
-
-            <h3 className="font-black text-xl text-cyan-400">
-              Admin Dashboard
-            </h3>
-
-            <p className="text-gray-400 text-sm mt-2">
-              Return to GoldTrade Enterprise Dashboard.
-            </p>
-          </Link>
-
-        </section>
-
-        {/* ============================================= */}
-        {/* SYSTEM SUMMARY */}
-        {/* ============================================= */}
-
-        <section className="bg-zinc-900 border border-purple-500 rounded-2xl p-6 space-y-6">
-
-          <h2 className="text-2xl font-black text-purple-400">
-            USDT System Summary
-          </h2>
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-
-            <div className="bg-black border border-green-500 rounded-xl p-5 text-center">
-              <p className="text-gray-500 text-xs uppercase">Buy Rate</p>
-              <h3 className="text-2xl font-black text-green-400 mt-2">
-                {settings.buyPrice}
-              </h3>
             </div>
 
-            <div className="bg-black border border-red-500 rounded-xl p-5 text-center">
-              <p className="text-gray-500 text-xs uppercase">Sell Rate</p>
-              <h3 className="text-2xl font-black text-red-400 mt-2">
-                {settings.sellPrice}
-              </h3>
-            </div>
+            <div className="mt-6 bg-[#1F2937] rounded-xl p-5 border border-cyan-500/20">
 
-            <div className="bg-black border border-cyan-500 rounded-xl p-5 text-center">
-              <p className="text-gray-500 text-xs uppercase">Pending Deposits</p>
-              <h3 className="text-2xl font-black text-cyan-400 mt-2">
-                {analytics.pendingDeposits}
-              </h3>
-            </div>
-
-            <div className="bg-black border border-orange-500 rounded-xl p-5 text-center">
-              <p className="text-gray-500 text-xs uppercase">Pending Withdrawals</p>
-              <h3 className="text-2xl font-black text-orange-400 mt-2">
-                {analytics.pendingWithdraws}
-              </h3>
-            </div>
-
-          </div>
-
-        </section>
-
-        {/* ============================================= */}
-        {/* FOOTER */}
-        {/* ============================================= */}
-
-        <footer className="border-t border-zinc-800 pt-8 pb-6">
-
-          <div className="grid md:grid-cols-3 gap-8">
-
-            <div>
-              <h3 className="text-lg font-black text-cyan-400 mb-3">
-                GoldTrade V18 Enterprise
-              </h3>
-
-              <p className="text-gray-500 text-sm leading-6">
-                Enterprise USDT management system for deposits, withdrawals, market pricing and trading controls.
+              <p className="text-gray-400 text-sm mb-2">
+                Live Market Overview
               </p>
-            </div>
 
-            <div>
-              <h3 className="text-lg font-black text-green-400 mb-3">
-                Admin Features
-              </h3>
+              <div className="grid md:grid-cols-3 gap-4">
 
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li>• Live Buy/Sell Rate</li>
-                <li>• Trading Status</li>
-                <li>• Deposit Approval</li>
-                <li>• Withdraw Approval</li>
-                <li>• Search Transactions</li>
-                <li>• Mobile Responsive Dashboard</li>
-                <li>• Pagination</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-black text-purple-400 mb-3">
-                Market Status
-              </h3>
-
-              <div className="space-y-3 text-sm">
-
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Trading</span>
-                  <span
-                    className={`font-bold ${
-                      settings.tradingEnabled
-                        ? "text-green-400"
-                        : "text-red-400"
-                    }`}
-                  >
-                    {settings.tradingEnabled ? "LIVE" : "OFFLINE"}
-                  </span>
+                <div>
+                  <p className="text-xs text-gray-500">BUY</p>
+                  <p className="text-green-400 font-bold">
+                    PKR {formatMoney(settings.buyPrice)}
+                  </p>
                 </div>
 
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Buy Price</span>
-                  <span className="font-bold text-green-400">
-                    PKR {settings.buyPrice}
-                  </span>
+                <div>
+                  <p className="text-xs text-gray-500">SELL</p>
+                  <p className="text-red-400 font-bold">
+                    PKR {formatMoney(settings.sellPrice)}
+                  </p>
                 </div>
 
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Sell Price</span>
-                  <span className="font-bold text-red-400">
-                    PKR {settings.sellPrice}
-                  </span>
+                <div>
+                  <p className="text-xs text-gray-500">SPREAD</p>
+                  <p className="text-blue-400 font-bold">
+                    PKR {formatMoney(liveSpread)}
+                  </p>
                 </div>
 
               </div>
+
+            </div>
+
+          </div>
+        )}        {/* ========================================== */}
+        {/* LAST UPDATED CARD */}
+        {/* ========================================== */}
+
+        <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6">
+
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+
+            <div>
+              <h2 className="text-xl font-bold text-cyan-400 mb-2">
+                USDT Settings Information
+              </h2>
+
+              <p className="text-gray-400 text-sm">
+                Last Updated
+              </p>
+
+              <p className="text-green-400 font-semibold mt-1">
+                {lastUpdatedLabel}
+              </p>
+            </div>
+
+            <div className="flex gap-3 flex-wrap">
+
+              <button
+                onClick={resetUsdtSettings}
+                className="bg-gray-700 hover:bg-gray-600 px-5 py-3 rounded-xl font-semibold transition"
+              >
+                Reset Changes
+              </button>
+
+              <button
+                onClick={saveUsdtSettings}
+                disabled={saving}
+                className="bg-green-600 hover:bg-green-700 disabled:opacity-60 px-5 py-3 rounded-xl font-semibold flex items-center gap-2 transition"
+              >
+                <Save size={18} />
+
+                {saving ? "Saving..." : "Save USDT Settings"}
+              </button>
+
             </div>
 
           </div>
 
-          <div className="border-t border-zinc-800 mt-8 pt-6 flex flex-wrap justify-between items-center gap-4">
+        </div>
 
-            <p className="text-gray-500 text-sm">
-              © 2026 GoldTrade V18 Enterprise Admin USDT Manager.
+      </div>
+
+      {/* ========================================== */}
+      {/* LOADING OVERLAY */}
+      {/* ========================================== */}
+
+      {(loading || saving) && (
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center">
+
+          <div className="bg-[#111827] border border-cyan-500/30 rounded-2xl px-8 py-6 flex flex-col items-center gap-4 shadow-2xl">
+
+            <RefreshCw
+              size={36}
+              className="animate-spin text-cyan-400"
+            />
+
+            <h3 className="text-xl font-bold text-cyan-400">
+              GoldTrade V18 Enterprise
+            </h3>
+
+            <p className="text-gray-300">
+              {saving
+                ? "Saving USDT settings..."
+                : "Loading USDT settings..."}
             </p>
-
-            <button
-              onClick={refreshDashboard}
-              disabled={refreshing}
-              className="bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 disabled:cursor-not-allowed text-black px-5 py-2 rounded-lg font-bold flex items-center gap-2 transition"
-            >
-              <RefreshCw
-                size={16}
-                className={refreshing ? "animate-spin" : ""}
-              />
-              {refreshing ? "Refreshing..." : "Refresh Dashboard"}
-            </button>
 
           </div>
 
-        </footer>
+        </div>
+      )}
 
-      </div>
-    </main>
+      {/* ========================================== */}
+      {/* FOOTER */}
+      {/* ========================================== */}
+
+      <footer className="mt-12 border-t border-gray-800 pt-6">
+
+        <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
+
+          <div>
+
+            <h3 className="text-cyan-400 font-bold text-lg">
+              GoldTrade V18 Enterprise
+            </h3>
+
+            <p className="text-gray-500 text-sm">
+              USDT Trading Management Module
+            </p>
+
+          </div>
+
+          <div className="flex flex-wrap gap-5 text-sm text-gray-400">
+
+            <div className="flex items-center gap-2">
+              <Shield size={16} className="text-green-400" />
+              Secure USDT Configuration
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Wallet size={16} className="text-cyan-400" />
+              TRC20 • BEP20 • ERC20 Networks
+            </div>
+
+            <div className="flex items-center gap-2">
+              <TrendingUp size={16} className="text-green-400" />
+              Buy / Sell Price Engine
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Activity size={16} className="text-blue-400" />
+              Market Open / Closed Control
+            </div>
+
+          </div>
+
+        </div>
+
+      </footer>
+
+    </div>
   );
 }

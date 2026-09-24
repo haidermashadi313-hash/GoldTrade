@@ -1,1580 +1,1431 @@
 "use client";
 
-/* ==========================================================
-   GoldTrade V18 Enterprise
-   Admin Transaction Dashboard
-========================================================== */
+// =====================================================
+// GoldTrade V18 Enterprise
+// ADMIN TRANSACTIONS MANAGER
+// PART 1/6
+// Production Version
+// =====================================================
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 
 import {
-  ArrowLeft,
-  RefreshCw,
-  Search,
-  CalendarRange,
+  ArrowDownCircle,
+  ArrowUpCircle,
   Wallet,
-  Coins,
   DollarSign,
-  ShieldCheck,
+  Coins,
+  Search,
+  RefreshCw,
+  Filter,
+  Calendar,
+  Shield,
+  History,
+  User,
   CheckCircle,
   Clock,
   XCircle,
-  ArrowDownLeft,
-  ArrowUpRight,
-  Activity,
+  MinusCircle,
+  PlusCircle,
 } from "lucide-react";
 
+// =====================================================
+// API URL
+// =====================================================
+
 const API =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://goldtrade-cky2.onrender.com";
-  interface TransactionItem {
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+// =====================================================
+// TYPES
+// =====================================================
+
+interface TransactionItem {
   _id: string;
+
   username: string;
 
   walletType: "PKR" | "GOLD" | "USDT";
 
-  transactionType: string;
-
-  transactionMode: "CREDIT" | "DEBIT";
+  transactionType:
+    | "Deposit"
+    | "Withdraw"
+    | "Credit"
+    | "Debit";
 
   amount: number;
 
-  balanceBefore: number;
+  status?: "Pending" | "Approved" | "Rejected";
 
-  balanceAfter: number;
-
-  paymentMethod?: string;
+  transactionId?: string;
 
   note?: string;
 
-  status: "Pending" | "Completed" | "Rejected" | "Failed";
+  admin?: string;
 
   createdAt: string;
 }
 
-interface DashboardStats {
-  overview: {
-    totalTransactions: number;
-    completedTransactions: number;
-    pendingTransactions: number;
-    rejectedTransactions: number;
-    failedTransactions: number;
-    last24Hours: number;
-  };
+interface TransactionStatistics {
+  totalTransactions: number;
 
-  walletSummary: {
-    PKR: {
-      amount: number;
-      count: number;
-    };
-    GOLD: {
-      amount: number;
-      count: number;
-    };
-    USDT: {
-      amount: number;
-      count: number;
-    };
-  };
+  totalDeposits: number;
+  totalWithdraws: number;
+
+  totalCredits: number;
+  totalDebits: number;
+
+  totalPKR: number;
+  totalGold: number;
+  totalUSDT: number;
 }
+
+// =====================================================
+// COMPONENT
+// =====================================================
+
 export default function AdminTransactionsPage() {
 
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("token") || ""
-      : "";
+  // ===================================================
+  // AUTH
+  // ===================================================
 
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
+  const [token, setToken] = useState("");
+
+  const [adminName, setAdminName] =
+    useState("Administrator");
+
+  // ===================================================
+  // DATA
+  // ===================================================
 
   const [transactions, setTransactions] =
     useState<TransactionItem[]>([]);
 
-  const [stats, setStats] =
-    useState<DashboardStats | null>(null);
+  const [statistics, setStatistics] =
+    useState<TransactionStatistics>({
+      totalTransactions: 0,
+
+      totalDeposits: 0,
+      totalWithdraws: 0,
+
+      totalCredits: 0,
+      totalDebits: 0,
+
+      totalPKR: 0,
+      totalGold: 0,
+      totalUSDT: 0,
+    });
+
+  // ===================================================
+  // UI STATES
+  // ===================================================
 
   const [loading, setLoading] = useState(true);
 
-  const [search, setSearch] = useState("");
-
-  const [walletFilter, setWalletFilter] =
-    useState("ALL");
-
-  const [statusFilter, setStatusFilter] =
-    useState("ALL");
-
-  const [typeFilter, setTypeFilter] =
-    useState("ALL");
+  const [refreshing, setRefreshing] =
+    useState(false);
 
   const [message, setMessage] = useState("");
 
-  const [messageType, setMessageType] =
-    useState<"success" | "error">("success");
-      // ===========================================
-  // LOAD DASHBOARD
-  // ===========================================
+  const [messageType, setMessageType] = useState<
+    "success" | "error"
+  >("success");
 
-  const loadDashboard = async () => {
-    try {
-      setLoading(true);
+  const [error, setError] = useState("");
 
-      const [statsResponse, transactionsResponse] =
-        await Promise.all([
-          fetch(`${API}/api/transactions/admin/stats`, {
-            headers,
-          }),
+  // ===================================================
+  // SEARCH
+  // ===================================================
 
-          fetch(`${API}/api/transactions/admin`, {
-            headers,
-          }),
-        ]);
+  const [search, setSearch] = useState("");
 
-      const statsData = await statsResponse.json();
-      const transactionData =
-        await transactionsResponse.json();
+  // ===================================================
+  // FILTERS
+  // ===================================================
 
-      if (
-        !statsResponse.ok ||
-        !statsData.success
-      ) {
-        throw new Error("Unable to load statistics.");
-      }
+  const [walletFilter, setWalletFilter] = useState<
+    "ALL" | "PKR" | "GOLD" | "USDT"
+  >("ALL");
 
-      if (
-        !transactionsResponse.ok ||
-        !transactionData.success
-      ) {
-        throw new Error("Unable to load transactions.");
-      }
+  const [typeFilter, setTypeFilter] = useState<
+    "ALL" | "Deposit" | "Withdraw" | "Credit" | "Debit"
+  >("ALL");
 
-      setStats(statsData);
+  const [statusFilter, setStatusFilter] = useState<
+    "ALL" | "Pending" | "Approved" | "Rejected"
+  >("ALL");
 
-      setTransactions(
-        transactionData.transactions || []
-      );
-    } catch (error) {
-      console.error(error);
-
-      setMessageType("error");
-
-      setMessage("Unable to connect Transaction API.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // ===================================================
+  // TOKEN LOAD
+  // ===================================================
 
   useEffect(() => {
-    if (token) {
-      loadDashboard();
-    } else {
-      setLoading(false);
+    const savedToken = localStorage.getItem("token");
+
+    if (!savedToken) {
+      window.location.href = "/login";
+      return;
     }
+
+    setToken(savedToken);
   }, []);
-    const filteredTransactions = useMemo(() => {
-    return transactions.filter((item) => {
+
+  // ===================================================
+  // REQUEST HEADERS
+  // ===================================================
+
+  const adminHeaders = useMemo(
+    () => ({
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    }),
+    [token]
+  );
+
+  // ===================================================
+  // FORMATTERS
+  // ===================================================
+
+  const formatMoney = (value: number = 0) =>
+    Number(value).toLocaleString("en-PK", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  const formatDate = (date?: string) => {
+    if (!date) return "--";
+
+    return new Date(date).toLocaleString("en-GB", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  };
+
+  // ===================================================
+  // FILTERED TRANSACTIONS
+  // ===================================================
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((transaction) => {
 
       const searchMatch =
-        item.username
+        transaction.username
           .toLowerCase()
           .includes(search.toLowerCase()) ||
-        item.transactionType
+        (transaction.transactionId || "")
           .toLowerCase()
           .includes(search.toLowerCase());
 
       const walletMatch =
-        walletFilter === "ALL"
-          ? true
-          : item.walletType === walletFilter;
-
-      const statusMatch =
-        statusFilter === "ALL"
-          ? true
-          : item.status === statusFilter;
+        walletFilter === "ALL" ||
+        transaction.walletType === walletFilter;
 
       const typeMatch =
-        typeFilter === "ALL"
-          ? true
-          : item.transactionType === typeFilter;
+        typeFilter === "ALL" ||
+        transaction.transactionType === typeFilter;
+
+      const statusMatch =
+        statusFilter === "ALL" ||
+        (transaction.status || "Approved") === statusFilter;
 
       return (
         searchMatch &&
         walletMatch &&
-        statusMatch &&
-        typeMatch
+        typeMatch &&
+        statusMatch
       );
     });
   }, [
     transactions,
     search,
     walletFilter,
-    statusFilter,
     typeFilter,
-  ]);  // ==========================================================
-  // LOADING SCREEN
-  // ==========================================================
+    statusFilter,
+  ]);
+    // ===================================================
+  // LOAD TRANSACTIONS DASHBOARD
+  // ===================================================
 
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-black flex items-center justify-center text-yellow-400 text-xl font-bold">
-        <RefreshCw className="animate-spin mr-3" size={26} />
-        Loading Transaction Dashboard...
-      </main>
+  const loadTransactionsDashboard = async () => {
+    if (!token) return;
+
+    try {
+      setLoading(true);
+      setRefreshing(false);
+      setError("");
+
+      const [transactionsRes, statisticsRes] = await Promise.all([
+        fetch(`${API}/api/admin/transactions`, {
+          headers: adminHeaders,
+          cache: "no-store",
+        }),
+
+        fetch(`${API}/api/admin/transactions/statistics`, {
+          headers: adminHeaders,
+          cache: "no-store",
+        }),
+      ]);
+
+      const transactionsData = await transactionsRes.json();
+      const statisticsData = await statisticsRes.json();
+
+      console.log("TRANSACTIONS API:", transactionsData);
+      console.log("TRANSACTION STATISTICS API:", statisticsData);
+
+      // TRANSACTIONS
+      if (transactionsRes.ok && transactionsData.success) {
+        setTransactions(transactionsData.transactions || []);
+      } else {
+        setTransactions([]);
+        setError(
+          transactionsData.message || "Unable to load transactions."
+        );
+      }
+
+      // STATISTICS
+      if (statisticsRes.ok && statisticsData.success) {
+        setStatistics(statisticsData.statistics);
+      } else {
+        setStatistics({
+          totalTransactions: 0,
+          totalDeposits: 0,
+          totalWithdraws: 0,
+          totalCredits: 0,
+          totalDebits: 0,
+          totalPKR: 0,
+          totalGold: 0,
+          totalUSDT: 0,
+        });
+      }
+
+    } catch (err: any) {
+      console.error("LOAD TRANSACTIONS ERROR:", err);
+
+      setTransactions([]);
+      setError(
+        err.message || "Unable to load transactions dashboard."
+      );
+
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // ===================================================
+  // REFRESH TRANSACTIONS
+  // ===================================================
+
+  const refreshTransactions = async () => {
+    setRefreshing(true);
+    await loadTransactionsDashboard();
+  };
+
+  // ===================================================
+  // ADMIN AUTH CHECK
+  // ===================================================
+
+  const checkAdminAuth = async () => {
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${API}/api/admin/auth/check`, {
+        headers: adminHeaders,
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      console.log("ADMIN AUTH:", data);
+
+      if (!response.ok || !data.success) {
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+        return;
+      }
+
+      setAdminName(data.user?.username || "Administrator");
+
+    } catch (error) {
+      console.error("ADMIN AUTH ERROR:", error);
+    }
+  };
+
+  // ===================================================
+  // INITIAL LOAD
+  // ===================================================
+
+  useEffect(() => {
+    if (!token) return;
+
+    checkAdminAuth();
+    loadTransactionsDashboard();
+  }, [token]);
+
+  // ===================================================
+  // AUTO CLEAR MESSAGE
+  // ===================================================
+
+  useEffect(() => {
+    if (!message) return;
+
+    const timer = setTimeout(() => {
+      setMessage("");
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [message]);
+    // ===================================================
+  // STATUS BADGE COLOR
+  // ===================================================
+
+  const getStatusClass = (status?: string) => {
+    switch ((status || "").toUpperCase()) {
+      case "APPROVED":
+        return "text-green-400 bg-green-500/10 border border-green-500/30";
+
+      case "PENDING":
+        return "text-yellow-400 bg-yellow-500/10 border border-yellow-500/30";
+
+      case "REJECTED":
+        return "text-red-400 bg-red-500/10 border border-red-500/30";
+
+      default:
+        return "text-gray-300 bg-gray-700/20 border border-gray-600/30";
+    }
+  };
+
+  // ===================================================
+  // TRANSACTION TYPE COLOR
+  // ===================================================
+
+  const getTransactionClass = (
+    type: TransactionItem["transactionType"]
+  ) => {
+    switch (type) {
+      case "Deposit":
+        return "text-green-400 bg-green-500/10 border border-green-500/30";
+
+      case "Withdraw":
+        return "text-red-400 bg-red-500/10 border border-red-500/30";
+
+      case "Credit":
+        return "text-cyan-400 bg-cyan-500/10 border border-cyan-500/30";
+
+      case "Debit":
+        return "text-orange-400 bg-orange-500/10 border border-orange-500/30";
+
+      default:
+        return "text-gray-300 bg-gray-700/20 border border-gray-600/30";
+    }
+  };
+
+  // ===================================================
+  // WALLET COLOR
+  // ===================================================
+
+  const getWalletColor = (wallet: string) => {
+    switch (wallet.toUpperCase()) {
+      case "PKR":
+        return "text-green-400";
+
+      case "GOLD":
+        return "text-yellow-400";
+
+      case "USDT":
+        return "text-cyan-400";
+
+      default:
+        return "text-gray-300";
+    }
+  };
+
+  // ===================================================
+  // TRANSACTION ICON
+  // ===================================================
+
+  const getTransactionIcon = (
+    type: TransactionItem["transactionType"]
+  ) => {
+    switch (type) {
+      case "Deposit":
+        return ArrowDownCircle;
+
+      case "Withdraw":
+        return ArrowUpCircle;
+
+      case "Credit":
+        return PlusCircle;
+
+      case "Debit":
+        return MinusCircle;
+
+      default:
+        return History;
+    }
+  };
+
+  // ===================================================
+  // FILTERED SUMMARY
+  // ===================================================
+
+  const filteredStatistics = useMemo(() => {
+    return filteredTransactions.reduce(
+      (summary, transaction) => {
+        const amount = Number(transaction.amount || 0);
+
+        summary.totalAmount += amount;
+
+        switch (transaction.transactionType) {
+          case "Deposit":
+            summary.deposits++;
+            break;
+
+          case "Withdraw":
+            summary.withdraws++;
+            break;
+
+          case "Credit":
+            summary.credits++;
+            break;
+
+          case "Debit":
+            summary.debits++;
+            break;
+        }
+
+        switch (transaction.walletType) {
+          case "PKR":
+            summary.pkr += amount;
+            break;
+
+          case "GOLD":
+            summary.gold += amount;
+            break;
+
+          case "USDT":
+            summary.usdt += amount;
+            break;
+        }
+
+        return summary;
+      },
+      {
+        deposits: 0,
+        withdraws: 0,
+        credits: 0,
+        debits: 0,
+        totalAmount: 0,
+
+        pkr: 0,
+        gold: 0,
+        usdt: 0,
+      }
     );
-  }
+  }, [filteredTransactions]);
 
-  // ==========================================================
-  // PAGE START
-  // ==========================================================
+  // ===================================================
+  // RECENT TRANSACTIONS
+  // ===================================================
+
+  const recentTransactions = useMemo(() => {
+    return [...transactions]
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() -
+          new Date(a.createdAt).getTime()
+      )
+      .slice(0, 10);
+  }, [transactions]);
+
+  // ===================================================
+  // TRANSACTION COUNTS
+  // ===================================================
+
+  const pendingCount = useMemo(() => {
+    return transactions.filter(
+      (item) => item.status === "Pending"
+    ).length;
+  }, [transactions]);
+
+  const approvedCount = useMemo(() => {
+    return transactions.filter(
+      (item) => item.status === "Approved"
+    ).length;
+  }, [transactions]);
+
+  const rejectedCount = useMemo(() => {
+    return transactions.filter(
+      (item) => item.status === "Rejected"
+    ).length;
+  }, [transactions]);
+
+  // ===================================================
+  // CLEAR FILTERS
+  // ===================================================
+
+  const clearFilters = () => {
+    setSearch("");
+    setWalletFilter("ALL");
+    setTypeFilter("ALL");
+    setStatusFilter("ALL");
+  };
+    // =====================================================
+  // PAGE UI START
+  // =====================================================
 
   return (
-    <main className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[#0B1120] text-white p-6">
 
-        {/* ===================================================== */}
-        {/* HEADER */}
-        {/* ===================================================== */}
+      {/* ========================================== */}
+      {/* HEADER */}
+      {/* ========================================== */}
 
-        <header className="flex flex-wrap justify-between items-center gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 mb-8">
 
-          <div>
+        <div>
+          <h1 className="text-3xl font-bold text-yellow-400">
+            GoldTrade V18 • Enterprise Transaction Manager
+          </h1>
 
-            <h1 className="flex items-center gap-3 text-4xl font-black text-yellow-400">
-              <ShieldCheck size={38} />
-              Transaction Audit Dashboard
-            </h1>
+          <p className="text-gray-400 mt-2">
+            View and manage Deposit, Withdraw, Credit and Debit transactions.
+          </p>
 
-            <p className="text-gray-400 mt-2">
-              Enterprise ledger analytics for PKR, Gold and USDT transactions.
-            </p>
+          <p className="text-gray-500 text-sm mt-1">
+            Logged in as{" "}
+            <span className="text-green-400 font-semibold">
+              {adminName}
+            </span>
+          </p>
+        </div>
+
+        <button
+          onClick={refreshTransactions}
+          disabled={refreshing}
+          className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 text-black font-semibold px-5 py-3 rounded-xl transition"
+        >
+          <RefreshCw
+            size={18}
+            className={refreshing ? "animate-spin" : ""}
+          />
+
+          {refreshing ? "Refreshing..." : "Refresh Transactions"}
+        </button>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* SUCCESS / ERROR MESSAGE */}
+      {/* ========================================== */}
+
+      {message && (
+        <div
+          className={`mb-6 rounded-xl px-4 py-3 border ${
+            messageType === "success"
+              ? "bg-green-600/20 border-green-500 text-green-300"
+              : "bg-red-600/20 border-red-500 text-red-300"
+          }`}
+        >
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 rounded-xl px-4 py-3 border border-red-600 bg-red-600/10 text-red-300">
+          {error}
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* MAIN STATISTICS CARDS */}
+      {/* ========================================== */}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+
+        {/* TOTAL */}
+
+        <div className="rounded-2xl bg-[#111827] border border-blue-600/30 p-5">
+
+          <div className="flex justify-between items-center mb-3">
+            <History className="text-blue-400" size={28} />
+            <span className="text-xs text-blue-400 font-semibold">
+              TOTAL
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            All Transactions
+          </p>
+
+          <h2 className="text-3xl font-bold text-blue-400 mt-2">
+            {statistics.totalTransactions}
+          </h2>
+
+        </div>
+
+        {/* DEPOSITS */}
+
+        <div className="rounded-2xl bg-[#111827] border border-green-600/30 p-5">
+
+          <div className="flex justify-between items-center mb-3">
+            <ArrowDownCircle className="text-green-400" size={28} />
+            <span className="text-xs text-green-400 font-semibold">
+              DEPOSITS
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            Deposit Transactions
+          </p>
+
+          <h2 className="text-3xl font-bold text-green-400 mt-2">
+            {statistics.totalDeposits}
+          </h2>
+
+        </div>
+
+        {/* WITHDRAWS */}
+
+        <div className="rounded-2xl bg-[#111827] border border-red-600/30 p-5">
+
+          <div className="flex justify-between items-center mb-3">
+            <ArrowUpCircle className="text-red-400" size={28} />
+            <span className="text-xs text-red-400 font-semibold">
+              WITHDRAWS
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            Withdraw Transactions
+          </p>
+
+          <h2 className="text-3xl font-bold text-red-400 mt-2">
+            {statistics.totalWithdraws}
+          </h2>
+
+        </div>
+
+        {/* WALLET */}
+
+        <div className="rounded-2xl bg-[#111827] border border-purple-600/30 p-5">
+
+          <div className="flex justify-between items-center mb-3">
+            <Wallet className="text-purple-400" size={28} />
+            <span className="text-xs text-purple-400 font-semibold">
+              WALLET
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            Credit + Debit Transactions
+          </p>
+
+          <h2 className="text-3xl font-bold text-purple-400 mt-2">
+            {statistics.totalCredits + statistics.totalDebits}
+          </h2>
+
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* WALLET SUMMARY CARDS */}
+      {/* ========================================== */}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+
+        <div className="rounded-2xl bg-[#111827] border border-green-600/20 p-5">
+
+          <div className="flex justify-between items-center mb-2">
+            <DollarSign className="text-green-400" size={24} />
+            <span className="text-green-400 text-xs font-semibold">
+              PKR
+            </span>
+          </div>
+
+          <h3 className="text-2xl font-bold text-green-400">
+            PKR {formatMoney(statistics.totalPKR)}
+          </h3>
+
+          <p className="text-gray-400 text-sm mt-2">
+            Total PKR Transactions
+          </p>
+
+        </div>
+
+        <div className="rounded-2xl bg-[#111827] border border-yellow-600/20 p-5">
+
+          <div className="flex justify-between items-center mb-2">
+            <Coins className="text-yellow-400" size={24} />
+            <span className="text-yellow-400 text-xs font-semibold">
+              GOLD
+            </span>
+          </div>
+
+          <h3 className="text-2xl font-bold text-yellow-400">
+            {statistics.totalGold.toFixed(3)} Gold
+          </h3>
+
+          <p className="text-gray-400 text-sm mt-2">
+            Total Gold Transactions
+          </p>
+
+        </div>
+
+        <div className="rounded-2xl bg-[#111827] border border-cyan-600/20 p-5">
+
+          <div className="flex justify-between items-center mb-2">
+            <Wallet className="text-cyan-400" size={24} />
+            <span className="text-cyan-400 text-xs font-semibold">
+              USDT
+            </span>
+          </div>
+
+          <h3 className="text-2xl font-bold text-cyan-400">
+            {statistics.totalUSDT.toFixed(2)} USDT
+          </h3>
+
+          <p className="text-gray-400 text-sm mt-2">
+            Total USDT Transactions
+          </p>
+
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* STATUS SUMMARY */}
+      {/* ========================================== */}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+
+        <div className="rounded-xl bg-yellow-500/10 border border-yellow-500/30 p-4">
+
+          <div className="flex items-center justify-between">
+
+            <div>
+              <p className="text-yellow-400 text-sm">Pending</p>
+
+              <h3 className="text-2xl font-bold text-yellow-300">
+                {pendingCount}
+              </h3>
+            </div>
+
+            <Clock className="text-yellow-400" size={28} />
 
           </div>
 
-          <div className="flex gap-3">
+        </div>
 
-            <Link
-              href="/admin-dashboard"
-              className="bg-zinc-800 hover:bg-zinc-700 px-5 py-3 rounded-xl flex items-center gap-2 font-bold"
-            >
-              <ArrowLeft size={18} />
-              Dashboard
-            </Link>
+        <div className="rounded-xl bg-green-500/10 border border-green-500/30 p-4">
 
-            <button
-              type="button"
-              onClick={loadDashboard}
-              className="bg-yellow-500 hover:bg-yellow-400 text-black px-5 py-3 rounded-xl flex items-center gap-2 font-bold transition"
-            >
-              <RefreshCw size={18} />
-              Refresh
-            </button>
+          <div className="flex items-center justify-between">
+
+            <div>
+              <p className="text-green-400 text-sm">Approved</p>
+
+              <h3 className="text-2xl font-bold text-green-300">
+                {approvedCount}
+              </h3>
+            </div>
+
+            <CheckCircle className="text-green-400" size={28} />
 
           </div>
 
-        </header>
+        </div>
 
-        {/* ===================================================== */}
-        {/* MESSAGE */}
-        {/* ===================================================== */}
+        <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-4">
 
-        {message && (
-          <div
-            className={`rounded-xl px-4 py-3 font-semibold ${
-              messageType === "success"
-                ? "bg-green-600/20 border border-green-500 text-green-400"
-                : "bg-red-600/20 border border-red-500 text-red-400"
-            }`}
+          <div className="flex items-center justify-between">
+
+            <div>
+              <p className="text-red-400 text-sm">Rejected</p>
+
+              <h3 className="text-2xl font-bold text-red-300">
+                {rejectedCount}
+              </h3>
+            </div>
+
+            <XCircle className="text-red-400" size={28} />
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* SEARCH + FILTERS */}
+      {/* ========================================== */}
+
+      <div className="rounded-2xl bg-[#111827] border border-gray-700 p-5 mb-8">
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+
+          {/* SEARCH */}
+
+          <div className="relative lg:col-span-2">
+
+            <Search
+              size={20}
+              className="absolute left-4 top-3.5 text-gray-500"
+            />
+
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search username or transaction ID..."
+              className="w-full bg-[#1F2937] border border-gray-600 rounded-xl py-3 pl-12 pr-4 outline-none focus:border-yellow-500 transition"
+            />
+
+          </div>
+
+          {/* WALLET FILTER */}
+
+          <select
+            value={walletFilter}
+            onChange={(e) =>
+              setWalletFilter(
+                e.target.value as "ALL" | "PKR" | "GOLD" | "USDT"
+              )
+            }
+            className="bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
           >
-            {message}
-          </div>
-        )}
+            <option value="ALL">All Wallets</option>
+            <option value="PKR">PKR</option>
+            <option value="GOLD">GOLD</option>
+            <option value="USDT">USDT</option>
+          </select>
 
-        {/* ===================================================== */}
-        {/* ENTERPRISE ANALYTICS CARDS */}
-        {/* ===================================================== */}
+          {/* TYPE FILTER */}
 
-        <section className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
+          <select
+            value={typeFilter}
+            onChange={(e) =>
+              setTypeFilter(
+                e.target.value as
+                  | "ALL"
+                  | "Deposit"
+                  | "Withdraw"
+                  | "Credit"
+                  | "Debit"
+              )
+            }
+            className="bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+          >
+            <option value="ALL">All Types</option>
+            <option value="Deposit">Deposit</option>
+            <option value="Withdraw">Withdraw</option>
+            <option value="Credit">Credit</option>
+            <option value="Debit">Debit</option>
+          </select>
 
-          {/* TOTAL TRANSACTIONS */}
+        </div>
+
+        {/* STATUS FILTER */}
 
-          <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
 
-            <div className="flex justify-between items-center">
+          <select
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(
+                e.target.value as
+                  | "ALL"
+                  | "Pending"
+                  | "Approved"
+                  | "Rejected"
+              )
+            }
+            className="bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+          >
+            <option value="ALL">All Status</option>
+            <option value="Pending">Pending</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+          </select>
 
-              <p className="text-gray-400 text-sm">
-                Total Transactions
-              </p>
+          <button
+            onClick={clearFilters}
+            className="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 rounded-xl py-3 transition"
+          >
+            <Filter size={18} />
+            Clear Filters
+          </button>
 
-              <Activity className="text-cyan-400" size={22} />
+        </div>
 
-            </div>
+      </div>
 
-            <h2 className="text-3xl font-black text-cyan-400 mt-3">
-              {stats?.overview.totalTransactions ?? 0}
-            </h2>
+      {/* ========================================== */}
+      {/* TRANSACTIONS TABLE */}
+      {/* ========================================== */}
 
-            <p className="text-xs text-gray-500 mt-2">
-              Complete enterprise ledger records.
-            </p>
+      <div className="rounded-2xl border border-gray-700 bg-[#111827] overflow-hidden">
 
-          </div>
+        <div className="px-6 py-5 border-b border-gray-700 flex justify-between items-center">
 
-          {/* COMPLETED */}
+          <h2 className="text-xl font-bold text-yellow-400">
+            Transactions ({filteredTransactions.length})
+          </h2>
 
-          <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5">
+          <History className="text-yellow-400" />
 
-            <div className="flex justify-between items-center">
+        </div>
 
-              <p className="text-gray-400 text-sm">
-                Completed
-              </p>
+        <div className="overflow-x-auto">
 
-              <CheckCircle className="text-green-400" size={22} />
+          <table className="w-full min-w-[1400px]">
 
-            </div>
+            <thead className="bg-[#1F2937] text-gray-300 text-sm">
 
-            <h2 className="text-3xl font-black text-green-400 mt-3">
-              {stats?.overview.completedTransactions ?? 0}
-            </h2>
+              <tr>
 
-            <p className="text-xs text-gray-500 mt-2">
-              Successfully processed transactions.
-            </p>
+                <th className="text-left px-5 py-4">User</th>
 
-          </div>
+                <th className="text-center">Wallet</th>
 
-          {/* PENDING */}
+                <th className="text-center">Type</th>
 
-          <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-5">
+                <th className="text-center">Amount</th>
 
-            <div className="flex justify-between items-center">
+                <th className="text-center">Status</th>
 
-              <p className="text-gray-400 text-sm">
-                Pending
-              </p>
+                <th className="text-center">Transaction ID</th>
 
-              <Clock className="text-yellow-400" size={22} />
+                <th className="text-center">Admin Note</th>
 
-            </div>
+                <th className="text-center">Date</th>
 
-            <h2 className="text-3xl font-black text-yellow-400 mt-3">
-              {stats?.overview.pendingTransactions ?? 0}
-            </h2>
+              </tr>
 
-            <p className="text-xs text-gray-500 mt-2">
-              Waiting for admin verification.
-            </p>
+            </thead>
 
-          </div>
+            <tbody>
+                            {loading ? (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="py-12 text-center text-gray-400"
+                  >
+                    Loading transactions...
+                  </td>
+                </tr>
 
-          {/* REJECTED */}
+              ) : filteredTransactions.length === 0 ? (
 
-          <div className="bg-zinc-900 border border-red-500 rounded-2xl p-5">
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="py-12 text-center text-red-300"
+                  >
+                    No transactions found.
+                  </td>
+                </tr>
 
-            <div className="flex justify-between items-center">
+              ) : (
 
-              <p className="text-gray-400 text-sm">
-                Rejected
-              </p>
+                filteredTransactions.map((transaction) => {
 
-              <XCircle className="text-red-400" size={22} />
+                  const TransactionIcon = getTransactionIcon(
+                    transaction.transactionType
+                  );
 
-            </div>
-
-            <h2 className="text-3xl font-black text-red-400 mt-3">
-              {stats?.overview.rejectedTransactions ?? 0}
-            </h2>
-
-            <p className="text-xs text-gray-500 mt-2">
-              Requests rejected by administrator.
-            </p>
-
-          </div>
-
-        </section>
-
-        {/* ===================================================== */}
-        {/* WALLET ANALYTICS */}
-        {/* ===================================================== */}
-
-        <section className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-
-          {/* PKR */}
-
-          <div className="bg-zinc-900 border border-green-600 rounded-2xl p-5">
-
-            <div className="flex justify-between items-center">
-
-              <Wallet className="text-green-400" size={22} />
-
-              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full font-semibold">
-                PKR
-              </span>
-
-            </div>
-
-            <p className="text-gray-400 text-sm mt-3">
-              PKR Volume
-            </p>
-
-            <h2 className="text-2xl font-black text-green-400 mt-2">
-              PKR {Number(stats?.walletSummary.PKR.amount ?? 0).toLocaleString()}
-            </h2>
-
-            <p className="text-xs text-gray-500 mt-2">
-              {stats?.walletSummary.PKR.count ?? 0} transactions
-            </p>
-
-          </div>
-
-          {/* GOLD */}
-
-          <div className="bg-zinc-900 border border-yellow-600 rounded-2xl p-5">
-
-            <div className="flex justify-between items-center">
-
-              <Coins className="text-yellow-400" size={22} />
-
-              <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full font-semibold">
-                GOLD
-              </span>
-
-            </div>
-
-            <p className="text-gray-400 text-sm mt-3">
-              Gold Volume
-            </p>
-
-            <h2 className="text-2xl font-black text-yellow-400 mt-2">
-              {Number(stats?.walletSummary.GOLD.amount ?? 0).toFixed(2)} g
-            </h2>
-
-            <p className="text-xs text-gray-500 mt-2">
-              {stats?.walletSummary.GOLD.count ?? 0} transactions
-            </p>
-
-          </div>
-
-          {/* USDT */}
-
-          <div className="bg-zinc-900 border border-blue-600 rounded-2xl p-5">
-
-            <div className="flex justify-between items-center">
-
-              <DollarSign className="text-blue-400" size={22} />
-
-              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full font-semibold">
-                USDT
-              </span>
-
-            </div>
-
-            <p className="text-gray-400 text-sm mt-3">
-              USDT Volume
-            </p>
-
-            <h2 className="text-2xl font-black text-blue-400 mt-2">
-              {Number(stats?.walletSummary.USDT.amount ?? 0).toFixed(2)} USDT
-            </h2>
-
-            <p className="text-xs text-gray-500 mt-2">
-              {stats?.walletSummary.USDT.count ?? 0} transactions
-            </p>
-
-          </div>
-
-          {/* LAST 24 HOURS */}
-
-          <div className="bg-zinc-900 border border-purple-600 rounded-2xl p-5">
-
-            <div className="flex justify-between items-center">
-
-              <CalendarRange className="text-purple-400" size={22} />
-
-              <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded-full font-semibold">
-                LIVE
-              </span>
-
-            </div>
-
-            <p className="text-gray-400 text-sm mt-3">
-              Last 24 Hours
-            </p>
-
-            <h2 className="text-3xl font-black text-purple-400 mt-2">
-              {stats?.overview.last24Hours ?? 0}
-            </h2>
-
-            <p className="text-xs text-gray-500 mt-2">
-              Transactions in the last 24 hours.
-            </p>
-
-          </div>
-
-        </section>
-                <section className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6">
-
-          <div className="flex items-center gap-3 mb-6">
-
-            <Search className="text-yellow-400" size={24} />
-
-            <h2 className="text-2xl font-black text-yellow-400">
-              Transaction Filters
-            </h2>
-
-          </div>
-
-          <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-4">
-
-            {/* SEARCH USERNAME */}
-
-            <div className="relative">
-
-              <Search
-                className="absolute left-3 top-3 text-gray-500"
-                size={18}
-              />
-
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search username..."
-                className="w-full bg-black border border-zinc-700 rounded-xl pl-10 pr-4 py-3 outline-none focus:border-yellow-500"
-              />
-
-            </div>
-
-            {/* WALLET FILTER */}
-
-            <select
-              value={walletFilter}
-              onChange={(e) => setWalletFilter(e.target.value)}
-              className="bg-black border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
-            >
-              <option value="ALL">All Wallets</option>
-
-              <option value="PKR">PKR Wallet</option>
-
-              <option value="GOLD">Gold Wallet</option>
-
-              <option value="USDT">USDT Wallet</option>
-
-            </select>
-
-            {/* STATUS FILTER */}
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-black border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
-            >
-              <option value="ALL">All Status</option>
-
-              <option value="Completed">Completed</option>
-
-              <option value="Pending">Pending</option>
-
-              <option value="Rejected">Rejected</option>
-
-              <option value="Failed">Failed</option>
-
-            </select>
-
-            {/* TRANSACTION TYPE */}
-
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="bg-black border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
-            >
-              <option value="ALL">All Transactions</option>
-
-              <option value="DEPOSIT_REQUEST">Deposit Request</option>
-
-              <option value="DEPOSIT_APPROVED">Deposit Approved</option>
-
-              <option value="DEPOSIT_REJECTED">Deposit Rejected</option>
-
-              <option value="WITHDRAW_REQUEST">Withdraw Request</option>
-
-              <option value="WITHDRAW_APPROVED">Withdraw Approved</option>
-
-              <option value="WITHDRAW_REJECTED">Withdraw Rejected</option>
-
-              <option value="BUY_GOLD">Buy Gold</option>
-
-              <option value="SELL_GOLD">Sell Gold</option>
-
-              <option value="BUY_USDT">Buy USDT</option>
-
-              <option value="SELL_USDT">Sell USDT</option>
-
-              <option value="ADMIN_CREDIT">Admin Credit</option>
-
-              <option value="ADMIN_DEBIT">Admin Debit</option>
-
-            </select>
-
-          </div>
-
-          {/* ===================================================== */}
-          {/* DATE RANGE FILTER */}
-          {/* ===================================================== */}
-
-          <div className="grid md:grid-cols-2 gap-4 mt-5">
-
-            <div>
-
-              <label className="block text-gray-400 text-sm mb-2">
-                From Date
-              </label>
-
-              <input
-                type="date"
-                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
-              />
-
-            </div>
-
-            <div>
-
-              <label className="block text-gray-400 text-sm mb-2">
-                To Date
-              </label>
-
-              <input
-                type="date"
-                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
-              />
-
-            </div>
-
-          </div>
-
-          {/* ===================================================== */}
-          {/* FILTER SUMMARY */}
-          {/* ===================================================== */}
-
-          <div className="grid md:grid-cols-4 gap-4 mt-6">
-
-            <div className="bg-black rounded-xl p-4 border border-cyan-600">
-
-              <p className="text-gray-500 text-xs">
-                Filtered Records
-              </p>
-
-              <h3 className="text-2xl font-black text-cyan-400 mt-2">
-                {filteredTransactions.length}
-              </h3>
-
-            </div>
-
-            <div className="bg-black rounded-xl p-4 border border-green-600">
-
-              <p className="text-gray-500 text-xs">
-                Credits
-              </p>
-
-              <h3 className="text-2xl font-black text-green-400 mt-2">
-                {
-                  filteredTransactions.filter(
-                    (item) => item.transactionMode === "CREDIT"
-                  ).length
-                }
-              </h3>
-
-            </div>
-
-            <div className="bg-black rounded-xl p-4 border border-red-600">
-
-              <p className="text-gray-500 text-xs">
-                Debits
-              </p>
-
-              <h3 className="text-2xl font-black text-red-400 mt-2">
-                {
-                  filteredTransactions.filter(
-                    (item) => item.transactionMode === "DEBIT"
-                  ).length
-                }
-              </h3>
-
-            </div>
-
-            <div className="bg-black rounded-xl p-4 border border-yellow-600">
-
-              <p className="text-gray-500 text-xs">
-                Pending
-              </p>
-
-              <h3 className="text-2xl font-black text-yellow-400 mt-2">
-                {
-                  filteredTransactions.filter(
-                    (item) => item.status === "Pending"
-                  ).length
-                }
-              </h3>
-
-            </div>
-
-          </div>
-
-          {/* ===================================================== */}
-          {/* RESET FILTERS */}
-          {/* ===================================================== */}
-
-          <div className="mt-6 flex justify-end">
-
-            <button
-              type="button"
-              onClick={() => {
-                setSearch("");
-                setWalletFilter("ALL");
-                setStatusFilter("ALL");
-                setTypeFilter("ALL");
-              }}
-              className="bg-red-600 hover:bg-red-500 px-6 py-3 rounded-xl font-bold transition"
-            >
-              Reset Filters
-            </button>
-
-          </div>
-
-        </section>        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6">
-
-          <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
-
-            <div>
-
-              <h2 className="text-2xl font-black text-cyan-400">
-                Enterprise Transaction Ledger
-              </h2>
-
-              <p className="text-sm text-gray-500 mt-1">
-                Complete audit history of all user transactions.
-              </p>
-
-            </div>
-
-            <div className="bg-black border border-zinc-700 rounded-xl px-4 py-2">
-
-              <p className="text-xs text-gray-500">Showing</p>
-
-              <p className="text-cyan-400 font-bold">
-                {filteredTransactions.length} Records
-              </p>
-
-            </div>
-
-          </div>
-
-          {filteredTransactions.length === 0 ? (
-
-            <div className="text-center py-12 text-gray-500">
-              No transaction records found.
-            </div>
-
-          ) : (
-
-            <div className="overflow-x-auto rounded-xl border border-zinc-700">
-
-              <table className="w-full min-w-[1450px] text-sm">
-
-                {/* ======================================= */}
-                {/* TABLE HEADER */}
-                {/* ======================================= */}
-
-                <thead className="bg-black sticky top-0">
-
-                  <tr className="text-cyan-400 border-b border-zinc-700">
-
-                    <th className="p-4 text-left">User</th>
-
-                    <th className="p-4 text-left">Wallet</th>
-
-                    <th className="p-4 text-left">Transaction</th>
-
-                    <th className="p-4 text-left">Mode</th>
-
-                    <th className="p-4 text-left">Amount</th>
-
-                    <th className="p-4 text-left">Balance Before</th>
-
-                    <th className="p-4 text-left">Balance After</th>
-
-                    <th className="p-4 text-left">Payment Method</th>
-
-                    <th className="p-4 text-left">Status</th>
-
-                    <th className="p-4 text-left">Date</th>
-
-                  </tr>
-
-                </thead>
-
-                {/* ======================================= */}
-                {/* TABLE BODY */}
-                {/* ======================================= */}
-
-                <tbody>
-
-                  {filteredTransactions.map((item) => (
-
+                  return (
                     <tr
-                      key={item._id}
-                      className="border-b border-zinc-800 hover:bg-zinc-800 transition-all"
+                      key={transaction._id}
+                      className="border-b border-gray-800 hover:bg-[#1B2435] transition"
                     >
 
-                      {/* =================================== */}
                       {/* USER */}
-                      {/* =================================== */}
 
-                      <td className="p-4">
+                      <td className="px-5 py-4">
 
-                        <div>
+                        <div className="flex items-center gap-3">
 
-                          <p className="font-bold text-yellow-400">
-                            {item.username}
-                          </p>
-
-                          <p className="text-xs text-gray-500">
-                            {item._id.slice(-8).toUpperCase()}
-                          </p>
-
-                        </div>
-
-                      </td>
-
-                      {/* =================================== */}
-                      {/* WALLET */}
-                      {/* =================================== */}
-
-                      <td className="p-4">
-
-                        <div className="flex items-center gap-2">
-
-                          {item.walletType === "PKR" && (
-                            <Wallet
-                              size={18}
-                              className="text-green-400"
-                            />
-                          )}
-
-                          {item.walletType === "GOLD" && (
-                            <Coins
+                          <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                            <User
                               size={18}
                               className="text-yellow-400"
                             />
-                          )}
+                          </div>
 
-                          {item.walletType === "USDT" && (
-                            <DollarSign
-                              size={18}
-                              className="text-blue-400"
-                            />
-                          )}
+                          <div>
+                            <p className="font-semibold text-white">
+                              {transaction.username}
+                            </p>
 
-                          <span className="font-semibold">
-                            {item.walletType}
-                          </span>
+                            <p className="text-xs text-gray-500">
+                              {transaction.admin || "System"}
+                            </p>
+                          </div>
 
                         </div>
 
                       </td>
 
-                      {/* =================================== */}
-                      {/* TRANSACTION TYPE */}
-                      {/* =================================== */}
+                      {/* WALLET */}
 
-                      <td className="p-4">
+                      <td className="text-center">
 
-                        <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold">
-
-                          {item.transactionType.replaceAll("_", " ")}
-
+                        <span
+                          className={`font-semibold ${getWalletColor(
+                            transaction.walletType
+                          )}`}
+                        >
+                          {transaction.walletType}
                         </span>
-
-                        {item.note && (
-                          <p className="text-xs text-gray-500 mt-2">
-                            {item.note}
-                          </p>
-                        )}
 
                       </td>
 
-                      {/* =================================== */}
-                      {/* CREDIT / DEBIT */}
-                      {/* =================================== */}
+                      {/* TRANSACTION TYPE */}
 
-                      <td className="p-4">
+                      <td className="text-center">
 
-                        {item.transactionMode === "CREDIT" ? (
+                        <span
+                          className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${getTransactionClass(
+                            transaction.transactionType
+                          )}`}
+                        >
+                          <TransactionIcon size={14} />
 
-                          <span className="inline-flex items-center gap-2 bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold">
+                          {transaction.transactionType}
+                        </span>
 
-                            <ArrowDownLeft size={14} />
+                      </td>
 
-                            CREDIT
+                      {/* AMOUNT */}
 
+                      <td className="text-center font-semibold">
+
+                        {transaction.transactionType === "Withdraw" ||
+                        transaction.transactionType === "Debit" ? (
+
+                          <span className="text-red-400">
+                            -{" "}
+                            {transaction.walletType === "PKR"
+                              ? `PKR ${formatMoney(transaction.amount)}`
+                              : transaction.walletType === "GOLD"
+                              ? `${Number(transaction.amount).toFixed(3)} Gold`
+                              : `${Number(transaction.amount).toFixed(2)} USDT`}
                           </span>
 
                         ) : (
 
-                          <span className="inline-flex items-center gap-2 bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-xs font-bold">
-
-                            <ArrowUpRight size={14} />
-
-                            DEBIT
-
-                          </span>
-
-                        )}
-
-                      </td>
-
-                      {/* =================================== */}
-                      {/* AMOUNT */}
-                      {/* =================================== */}
-
-                      <td className="p-4 font-bold">
-
-                        {item.walletType === "PKR" && (
                           <span className="text-green-400">
-                            PKR {Number(item.amount).toLocaleString()}
+                            +{" "}
+                            {transaction.walletType === "PKR"
+                              ? `PKR ${formatMoney(transaction.amount)}`
+                              : transaction.walletType === "GOLD"
+                              ? `${Number(transaction.amount).toFixed(3)} Gold`
+                              : `${Number(transaction.amount).toFixed(2)} USDT`}
                           </span>
-                        )}
 
-                        {item.walletType === "GOLD" && (
-                          <span className="text-yellow-400">
-                            {Number(item.amount).toFixed(2)} g
-                          </span>
-                        )}
-
-                        {item.walletType === "USDT" && (
-                          <span className="text-blue-400">
-                            {Number(item.amount).toFixed(2)} USDT
-                          </span>
                         )}
 
                       </td>
 
-                      {/* =================================== */}
-                      {/* BALANCE BEFORE */}
-                      {/* =================================== */}
-
-                      <td className="p-4 text-gray-300">
-
-                        {item.walletType === "PKR"
-                          ? `PKR ${Number(item.balanceBefore).toLocaleString()}`
-                          : item.walletType === "GOLD"
-                          ? `${Number(item.balanceBefore).toFixed(2)} g`
-                          : `${Number(item.balanceBefore).toFixed(2)} USDT`}
-
-                      </td>
-
-                      {/* =================================== */}
-                      {/* BALANCE AFTER */}
-                      {/* =================================== */}
-
-                      <td className="p-4 text-green-400 font-semibold">
-
-                        {item.walletType === "PKR"
-                          ? `PKR ${Number(item.balanceAfter).toLocaleString()}`
-                          : item.walletType === "GOLD"
-                          ? `${Number(item.balanceAfter).toFixed(2)} g`
-                          : `${Number(item.balanceAfter).toFixed(2)} USDT`}
-
-                      </td>
-
-                      {/* =================================== */}
-                      {/* PAYMENT METHOD */}
-                      {/* =================================== */}
-
-                      <td className="p-4">
-
-                        <div>
-
-                          <p className="text-white font-medium">
-
-                            {item.paymentMethod || "GoldTrade"}
-
-                          </p>
-
-                          <p className="text-xs text-gray-500 mt-1">
-
-                            {item.note || "Enterprise Ledger Record"}
-
-                          </p>
-
-                        </div>
-
-                      </td>
-
-                      {/* =================================== */}
                       {/* STATUS */}
-                      {/* =================================== */}
 
-                      <td className="p-4">
+                      <td className="text-center">
 
-                        {item.status === "Completed" && (
-                          <span className="inline-flex items-center gap-2 bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold">
-                            <CheckCircle size={14} />
-                            Completed
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusClass(
+                            transaction.status || "Approved"
+                          )}`}
+                        >
+                          {transaction.status || "Approved"}
+                        </span>
+
+                      </td>
+
+                      {/* TRANSACTION ID */}
+
+                      <td className="text-center text-sm text-gray-300">
+
+                        {transaction.transactionId ? (
+                          <span className="font-mono text-xs text-cyan-400">
+                            {transaction.transactionId}
                           </span>
-                        )}
-
-                        {item.status === "Pending" && (
-                          <span className="inline-flex items-center gap-2 bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold">
-                            <Clock size={14} />
-                            Pending
-                          </span>
-                        )}
-
-                        {item.status === "Rejected" && (
-                          <span className="inline-flex items-center gap-2 bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-xs font-bold">
-                            <XCircle size={14} />
-                            Rejected
-                          </span>
-                        )}
-
-                        {item.status === "Failed" && (
-                          <span className="inline-flex items-center gap-2 bg-red-700/20 text-red-500 px-3 py-1 rounded-full text-xs font-bold">
-                            <XCircle size={14} />
-                            Failed
-                          </span>
+                        ) : (
+                          <span className="text-gray-500">—</span>
                         )}
 
                       </td>
 
-                      {/* =================================== */}
+                      {/* ADMIN NOTE */}
+
+                      <td className="text-center text-sm text-gray-300 max-w-[220px] truncate">
+
+                        {transaction.note ? (
+                          transaction.note
+                        ) : (
+                          <span className="text-gray-500">No Note</span>
+                        )}
+
+                      </td>
+
                       {/* DATE */}
-                      {/* =================================== */}
 
-                      <td className="p-4 whitespace-nowrap">
+                      <td className="text-center text-gray-400 text-sm">
 
-                        <div className="text-gray-300 text-sm">
+                        <div className="flex flex-col items-center gap-1">
 
-                          {new Date(item.createdAt).toLocaleDateString()}
+                          <Calendar
+                            size={14}
+                            className="text-gray-500"
+                          />
 
-                        </div>
-
-                        <div className="text-xs text-gray-500 mt-1">
-
-                          {new Date(item.createdAt).toLocaleTimeString()}
+                          {formatDate(transaction.createdAt)}
 
                         </div>
 
                       </td>
 
                     </tr>
+                  );
 
-                  ))}
+                })
 
-                </tbody>
+              )}
 
-              </table>
+            </tbody>
+                      </table>
+        </div>
+      </div>
 
-            </div>
+      {/* ========================================== */}
+      {/* RECENT TRANSACTION SUMMARY */}
+      {/* ========================================== */}
 
-          )}
+      <div className="rounded-2xl border border-gray-700 bg-[#111827] overflow-hidden mt-10 mb-10">
 
-        </section>
-                <section className="lg:hidden space-y-5">
+        <div className="px-6 py-5 border-b border-gray-700 flex justify-between items-center">
 
-          <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-purple-400">
+            Recent Transactions Summary
+          </h2>
 
-            <ShieldCheck className="text-cyan-400" size={24} />
+          <History className="text-purple-400" />
 
-            <h2 className="text-2xl font-black text-cyan-400">
-              Mobile Audit Ledger
-            </h2>
+        </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 p-6">
+
+          <div className="bg-[#1F2937] rounded-xl p-5 border border-green-600/20">
+            <ArrowDownCircle className="text-green-400 mb-3" size={28} />
+            <p className="text-gray-400 text-sm">Deposits (Filtered)</p>
+            <h3 className="text-2xl font-bold text-green-400 mt-2">
+              {filteredStatistics.deposits}
+            </h3>
           </div>
 
-          {filteredTransactions.length === 0 ? (
+          <div className="bg-[#1F2937] rounded-xl p-5 border border-red-600/20">
+            <ArrowUpCircle className="text-red-400 mb-3" size={28} />
+            <p className="text-gray-400 text-sm">Withdraws (Filtered)</p>
+            <h3 className="text-2xl font-bold text-red-400 mt-2">
+              {filteredStatistics.withdraws}
+            </h3>
+          </div>
 
-            <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-8 text-center text-gray-500">
-              No transactions available.
+          <div className="bg-[#1F2937] rounded-xl p-5 border border-cyan-600/20">
+            <DollarSign className="text-cyan-400 mb-3" size={28} />
+            <p className="text-gray-400 text-sm">Credits (Filtered)</p>
+            <h3 className="text-2xl font-bold text-cyan-400 mt-2">
+              {filteredStatistics.credits}
+            </h3>
+          </div>
+
+          <div className="bg-[#1F2937] rounded-xl p-5 border border-orange-600/20">
+            <Wallet className="text-orange-400 mb-3" size={28} />
+            <p className="text-gray-400 text-sm">Debits (Filtered)</p>
+            <h3 className="text-2xl font-bold text-orange-400 mt-2">
+              {filteredStatistics.debits}
+            </h3>
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* RECENT TRANSACTIONS LIST */}
+      {/* ========================================== */}
+
+      <div className="rounded-2xl border border-gray-700 bg-[#111827] overflow-hidden mb-10">
+
+        <div className="px-6 py-5 border-b border-gray-700 flex justify-between items-center">
+
+          <h2 className="text-xl font-bold text-yellow-400">
+            Latest 10 Transactions
+          </h2>
+
+          <Clock className="text-yellow-400" />
+
+        </div>
+
+        <div className="divide-y divide-gray-800">
+
+          {recentTransactions.length === 0 ? (
+
+            <div className="py-12 text-center text-gray-400">
+              No recent transactions available.
             </div>
 
           ) : (
 
-            filteredTransactions.map((item) => (
+            recentTransactions.map((item) => {
 
-              <div
-                key={`mobile-${item._id}`}
-                className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5 space-y-4"
-              >
+              const Icon = getTransactionIcon(item.transactionType);
 
-                {/* =========================================== */}
-                {/* USER HEADER */}
-                {/* =========================================== */}
+              return (
+                <div
+                  key={item._id}
+                  className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-6 py-4 hover:bg-[#1B2435] transition"
+                >
 
-                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-4">
 
-                  <div>
-
-                    <p className="text-lg font-black text-yellow-400">
-                      {item.username}
-                    </p>
-
-                    <p className="text-xs text-gray-500">
-                      ID : {item._id.slice(-8).toUpperCase()}
-                    </p>
-
-                  </div>
-
-                  {item.status === "Completed" && (
-                    <span className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold">
-                      Completed
-                    </span>
-                  )}
-
-                  {item.status === "Pending" && (
-                    <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold">
-                      Pending
-                    </span>
-                  )}
-
-                  {item.status === "Rejected" && (
-                    <span className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-xs font-bold">
-                      Rejected
-                    </span>
-                  )}
-
-                  {item.status === "Failed" && (
-                    <span className="bg-red-700/20 text-red-500 px-3 py-1 rounded-full text-xs font-bold">
-                      Failed
-                    </span>
-                  )}
-
-                </div>
-
-                {/* =========================================== */}
-                {/* WALLET + MODE */}
-                {/* =========================================== */}
-
-                <div className="flex justify-between items-center bg-black rounded-xl p-4">
-
-                  <div className="flex items-center gap-3">
-
-                    {item.walletType === "PKR" && (
-                      <Wallet className="text-green-400" size={22} />
-                    )}
-
-                    {item.walletType === "GOLD" && (
-                      <Coins className="text-yellow-400" size={22} />
-                    )}
-
-                    {item.walletType === "USDT" && (
-                      <DollarSign className="text-blue-400" size={22} />
-                    )}
+                    <div className="w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center">
+                      <Icon size={22} className="text-yellow-400" />
+                    </div>
 
                     <div>
-
-                      <p className="font-bold">
-                        {item.walletType} Wallet
+                      <p className="font-semibold text-white">
+                        {item.username}
                       </p>
 
-                      <p className="text-xs text-gray-500">
-                        {item.transactionType.replaceAll("_", " ")}
+                      <p className="text-gray-500 text-sm">
+                        {item.transactionType} • {item.walletType}
                       </p>
-
                     </div>
 
                   </div>
 
-                  {item.transactionMode === "CREDIT" ? (
+                  <div className="flex flex-wrap items-center gap-3">
 
-                    <span className="flex items-center gap-2 text-green-400 font-bold text-sm">
-                      <ArrowDownLeft size={16} />
-                      CREDIT
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${getTransactionClass(
+                        item.transactionType
+                      )}`}
+                    >
+                      {item.transactionType}
                     </span>
 
-                  ) : (
-
-                    <span className="flex items-center gap-2 text-red-400 font-bold text-sm">
-                      <ArrowUpRight size={16} />
-                      DEBIT
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusClass(
+                        item.status || "Approved"
+                      )}`}
+                    >
+                      {item.status || "Approved"}
                     </span>
 
-                  )}
-
-                </div>
-
-                {/* =========================================== */}
-                {/* AMOUNT */}
-                {/* =========================================== */}
-
-                <div className="bg-zinc-800 rounded-xl p-4">
-
-                  <p className="text-xs text-gray-500 mb-2">
-                    Transaction Amount
-                  </p>
-
-                  <h2
-                    className={`text-2xl font-black ${
-                      item.transactionMode === "CREDIT"
-                        ? "text-green-400"
-                        : "text-red-400"
-                    }`}
-                  >
-                    {item.walletType === "PKR"
-                      ? `PKR ${Number(item.amount).toLocaleString()}`
-                      : item.walletType === "GOLD"
-                      ? `${Number(item.amount).toFixed(2)} g`
-                      : `${Number(item.amount).toFixed(2)} USDT`}
-                  </h2>
-
-                </div>
-
-                {/* =========================================== */}
-                {/* BALANCE SUMMARY */}
-                {/* =========================================== */}
-
-                <div className="grid grid-cols-2 gap-3">
-
-                  <div className="bg-black rounded-xl p-3">
-
-                    <p className="text-xs text-gray-500">
-                      Before
-                    </p>
-
-                    <p className="font-bold text-white mt-1">
-
+                    <span
+                      className={`font-semibold ${getWalletColor(
+                        item.walletType
+                      )}`}
+                    >
                       {item.walletType === "PKR"
-                        ? `PKR ${Number(item.balanceBefore).toLocaleString()}`
+                        ? `PKR ${formatMoney(item.amount)}`
                         : item.walletType === "GOLD"
-                        ? `${Number(item.balanceBefore).toFixed(2)} g`
-                        : `${Number(item.balanceBefore).toFixed(2)} USDT`}
+                        ? `${Number(item.amount).toFixed(3)} Gold`
+                        : `${Number(item.amount).toFixed(2)} USDT`}
+                    </span>
 
-                    </p>
-
-                  </div>
-
-                  <div className="bg-black rounded-xl p-3">
-
-                    <p className="text-xs text-gray-500">
-                      After
-                    </p>
-
-                    <p className="font-bold text-green-400 mt-1">
-
-                      {item.walletType === "PKR"
-                        ? `PKR ${Number(item.balanceAfter).toLocaleString()}`
-                        : item.walletType === "GOLD"
-                        ? `${Number(item.balanceAfter).toFixed(2)} g`
-                        : `${Number(item.balanceAfter).toFixed(2)} USDT`}
-
-                    </p>
+                    <span className="text-gray-400 text-sm">
+                      {formatDate(item.createdAt)}
+                    </span>
 
                   </div>
 
                 </div>
-
-                {/* =========================================== */}
-                {/* PAYMENT METHOD */}
-                {/* =========================================== */}
-
-                <div className="bg-black rounded-xl p-4 space-y-3">
-
-                  <div className="flex justify-between">
-
-                    <span className="text-gray-500 text-sm">
-                      Payment Method
-                    </span>
-
-                    <span className="font-semibold text-white">
-                      {item.paymentMethod || "GoldTrade"}
-                    </span>
-
-                  </div>
-
-                  <div className="flex justify-between">
-
-                    <span className="text-gray-500 text-sm">
-                      Transaction Type
-                    </span>
-
-                    <span className="font-semibold text-yellow-400 text-right">
-                      {item.transactionType.replaceAll("_", " ")}
-                    </span>
-
-                  </div>
-
-                  {item.note && (
-
-                    <div>
-
-                      <p className="text-gray-500 text-sm mb-1">
-                        Admin Note
-                      </p>
-
-                      <p className="text-gray-300 text-sm">
-                        {item.note}
-                      </p>
-
-                    </div>
-
-                  )}
-
-                </div>
-
-                {/* =========================================== */}
-                {/* DATE */}
-                {/* =========================================== */}
-
-                <div className="flex justify-between items-center border-t border-zinc-800 pt-3 text-sm">
-
-                  <div className="flex items-center gap-2 text-gray-500">
-
-                    <Clock size={15} />
-
-                    {new Date(item.createdAt).toLocaleDateString()}
-
-                  </div>
-
-                  <span className="text-gray-400">
-                    {new Date(item.createdAt).toLocaleTimeString()}
-                  </span>
-
-                </div>
-
-              </div>
-
-            ))
+              );
+            })
 
           )}
 
-        </section>
-                <section className="bg-zinc-900 border border-purple-600 rounded-2xl p-6">
-
-          <h2 className="text-2xl font-black text-purple-400 mb-6">
-            Enterprise Audit Summary
-          </h2>
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
-
-            <div className="bg-black border border-cyan-700 rounded-xl p-4">
-              <p className="text-xs text-gray-500">Filtered Records</p>
-              <h3 className="text-3xl font-black text-cyan-400 mt-2">
-                {filteredTransactions.length}
-              </h3>
-            </div>
-
-            <div className="bg-black border border-green-700 rounded-xl p-4">
-              <p className="text-xs text-gray-500">Credit Transactions</p>
-              <h3 className="text-3xl font-black text-green-400 mt-2">
-                {
-                  filteredTransactions.filter(
-                    (item) => item.transactionMode === "CREDIT"
-                  ).length
-                }
-              </h3>
-            </div>
-
-            <div className="bg-black border border-red-700 rounded-xl p-4">
-              <p className="text-xs text-gray-500">Debit Transactions</p>
-              <h3 className="text-3xl font-black text-red-400 mt-2">
-                {
-                  filteredTransactions.filter(
-                    (item) => item.transactionMode === "DEBIT"
-                  ).length
-                }
-              </h3>
-            </div>
-
-            <div className="bg-black border border-yellow-700 rounded-xl p-4">
-              <p className="text-xs text-gray-500">Pending Approval</p>
-              <h3 className="text-3xl font-black text-yellow-400 mt-2">
-                {
-                  filteredTransactions.filter(
-                    (item) => item.status === "Pending"
-                  ).length
-                }
-              </h3>
-            </div>
-
-          </div>
-
-        </section>
-
-        {/* ===================================================== */}
-        {/* SECURITY & AUDIT POLICY */}
-        {/* ===================================================== */}
-
-        <section className="bg-zinc-900 border border-red-600 rounded-2xl p-6">
-
-          <div className="flex items-center gap-3 mb-6">
-
-            <ShieldCheck className="text-red-400" size={28} />
-
-            <h2 className="text-2xl font-black text-red-400">
-              Enterprise Security & Audit Policy
-            </h2>
-
-          </div>
-
-          <div className="space-y-4 text-gray-300">
-
-            <div className="flex gap-3 items-start">
-              <CheckCircle className="text-green-400 mt-1" size={18} />
-              <p>
-                Every PKR, GOLD and USDT transaction is permanently stored in the Enterprise Audit Ledger.
-              </p>
-            </div>
-
-            <div className="flex gap-3 items-start">
-              <CheckCircle className="text-green-400 mt-1" size={18} />
-              <p>
-                Deposit approvals and withdrawal approvals automatically generate transaction records.
-              </p>
-            </div>
-
-            <div className="flex gap-3 items-start">
-              <CheckCircle className="text-green-400 mt-1" size={18} />
-              <p>
-                Admin wallet credit and debit actions are logged with amount, wallet type and timestamp.
-              </p>
-            </div>
-
-            <div className="flex gap-3 items-start">
-              <CheckCircle className="text-green-400 mt-1" size={18} />
-              <p>
-                This dashboard is an audit ledger only. Wallet balances cannot be edited here.
-              </p>
-            </div>
-
-            <div className="flex gap-3 items-start">
-              <CheckCircle className="text-green-400 mt-1" size={18} />
-              <p>
-                Every audit entry includes wallet type, transaction mode, balances before/after, payment method and status.
-              </p>
-            </div>
-
-            <div className="flex gap-3 items-start">
-              <CheckCircle className="text-green-400 mt-1" size={18} />
-              <p>
-                Transaction history remains available for compliance reports and future exports.
-              </p>
-            </div>
-
-          </div>
-
-        </section>
-
-        {/* ===================================================== */}
-        {/* TRANSACTION STATUS GUIDE */}
-        {/* ===================================================== */}
-
-        <section className="bg-zinc-900 border border-cyan-600 rounded-2xl p-6">
-
-          <h2 className="text-2xl font-black text-cyan-400 mb-5">
-            Transaction Status Guide
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-4">
-
-            <div className="bg-black border border-green-700 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-green-400 font-bold">
-                <CheckCircle size={18} />
-                Completed
-              </div>
-
-              <p className="text-sm text-gray-400 mt-2">
-                Successfully processed and reflected in the user's wallet.
-              </p>
-            </div>
-
-            <div className="bg-black border border-yellow-700 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-yellow-400 font-bold">
-                <Clock size={18} />
-                Pending
-              </div>
-
-              <p className="text-sm text-gray-400 mt-2">
-                Waiting for administrator approval or processing.
-              </p>
-            </div>
-
-            <div className="bg-black border border-red-700 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-red-400 font-bold">
-                <XCircle size={18} />
-                Rejected
-              </div>
-
-              <p className="text-sm text-gray-400 mt-2">
-                Request rejected by administrator.
-              </p>
-            </div>
-
-            <div className="bg-black border border-red-900 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-red-500 font-bold">
-                <XCircle size={18} />
-                Failed
-              </div>
-
-              <p className="text-sm text-gray-400 mt-2">
-                Validation or processing error prevented completion.
-              </p>
-            </div>
-
-          </div>
-
-        </section>
-
-        {/* ===================================================== */}
-        {/* GOLDTRADE ENTERPRISE FOOTER */}
-        {/* ===================================================== */}
-
-        <footer className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 text-center">
-
-          <h3 className="text-yellow-400 font-black text-2xl">
-            GoldTrade V18 Enterprise
-          </h3>
-
-          <p className="text-gray-400 mt-2">
-            Admin Transaction Audit Dashboard
-          </p>
-
-          <div className="flex flex-wrap justify-center gap-3 mt-5">
-
-            <span className="bg-green-500/20 text-green-400 px-4 py-2 rounded-full text-sm font-semibold">
-              PKR Ledger
-            </span>
-
-            <span className="bg-yellow-500/20 text-yellow-400 px-4 py-2 rounded-full text-sm font-semibold">
-              Gold Ledger
-            </span>
-
-            <span className="bg-blue-500/20 text-blue-400 px-4 py-2 rounded-full text-sm font-semibold">
-              USDT Ledger
-            </span>
-
-            <span className="bg-purple-500/20 text-purple-400 px-4 py-2 rounded-full text-sm font-semibold">
-              Enterprise Audit
-            </span>
-
-          </div>
-
-          <div className="border-t border-zinc-800 mt-6 pt-6">
-
-            <p className="text-gray-500 text-sm">
-              GoldTrade Enterprise Admin Panel • Secure • Auditable • Linux Safe • Render Ready
-            </p>
-
-            <p className="text-gray-600 text-xs mt-2">
-              Version 18 Enterprise • Transaction Audit Manager
-            </p>
-
-          </div>
-
-        </footer>
+        </div>
 
       </div>
-    </main>
+
+      {/* ========================================== */}
+      {/* LOADING OVERLAY */}
+      {/* ========================================== */}
+
+      {loading && (
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center">
+
+          <div className="bg-[#111827] border border-yellow-500/30 rounded-2xl px-8 py-6 flex flex-col items-center gap-4 shadow-2xl">
+
+            <RefreshCw
+              size={36}
+              className="animate-spin text-yellow-400"
+            />
+
+            <h3 className="text-xl font-bold text-yellow-400">
+              GoldTrade V18 Enterprise
+            </h3>
+
+            <p className="text-gray-300">
+              Loading Transactions...
+            </p>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* FOOTER */}
+      {/* ========================================== */}
+
+      <footer className="mt-12 border-t border-gray-800 pt-6">
+
+        <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
+
+          <div>
+
+            <h3 className="text-yellow-400 font-bold text-lg">
+              GoldTrade V18 Enterprise
+            </h3>
+
+            <p className="text-gray-500 text-sm">
+              Enterprise Transaction Management Module
+            </p>
+
+          </div>
+
+          <div className="flex flex-wrap gap-5 text-sm text-gray-400">
+
+            <div className="flex items-center gap-2">
+              <Shield size={16} className="text-green-400" />
+              Secure Admin Transactions
+            </div>
+
+            <div className="flex items-center gap-2">
+              <History size={16} className="text-purple-400" />
+              Deposit + Withdraw + Wallet History
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Wallet size={16} className="text-cyan-400" />
+              PKR • GOLD • USDT Supported
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Calendar size={16} className="text-yellow-400" />
+              Version 18 Production
+            </div>
+
+          </div>
+
+        </div>
+
+      </footer>
+
+    </div>
   );
 }

@@ -1,600 +1,1293 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+// =====================================================
+// GoldTrade V18 Enterprise
+// Admin Withdraw Manager (PART 1/5)
+// Production Version
+// =====================================================
+
+import { useEffect, useMemo, useState } from "react";
+
 import {
   Wallet,
-  RefreshCw,
   Search,
-  Clock,
+  RefreshCw,
   CheckCircle,
   XCircle,
+  Clock,
+  DollarSign,
+  Coins,
+  User,
+  Calendar,
+  FileText,
+  Trash2,
 } from "lucide-react";
 
-// ==========================================
-// GoldTrade API V18
-// ==========================================
-const API =
-  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-api.onrender.com";
+// =====================================================
+// API URL
+// =====================================================
 
-// ==========================================
+const API =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+// =====================================================
 // TYPES
-// ==========================================
+// =====================================================
+
 interface WithdrawRequest {
-  amount: number;
-  userId: any;
   _id: string;
+
+  userId: string;
+
   username: string;
-  requestAmount: number;
+
+  email?: string;
+
+  walletType: "PKR" | "GOLD" | "USDT";
+
+  amount: number;
+
+  requestAmount?: number;
+
   adminAmount?: number;
-  currency: string;
-  paymentMethod: string;
-  accountTitle: string;
-  accountNumber: string;
-  bankName: string;
-  network?: string;
-  note?: string;
-  adminNote?: string;
+
+  walletAddress?: string;
+
+  transactionId?: string;
+
+  screenshot?: string;
+
   status: "Pending" | "Approved" | "Rejected";
+
+  adminNote?: string;
+
   createdAt: string;
+
+  approvedAt?: string;
+
+  rejectedAt?: string;
 }
 
-// ==========================================
-// PAGE
-// ==========================================
+interface WithdrawStatistics {
+  pendingRequests: number;
+  approvedRequests: number;
+  rejectedRequests: number;
+  totalRequests: number;
+
+  pendingAmount: number;
+  approvedAmount: number;
+  rejectedAmount: number;
+
+  totalPKR: number;
+  totalGold: number;
+  totalUSDT: number;
+}
+
+// =====================================================
+// DEFAULT STATISTICS
+// =====================================================
+
+const defaultStatistics: WithdrawStatistics = {
+  pendingRequests: 0,
+  approvedRequests: 0,
+  rejectedRequests: 0,
+  totalRequests: 0,
+
+  pendingAmount: 0,
+  approvedAmount: 0,
+  rejectedAmount: 0,
+
+  totalPKR: 0,
+  totalGold: 0,
+  totalUSDT: 0,
+};
+
+// =====================================================
+// COMPONENT START
+// =====================================================
+
 export default function AdminWithdrawPage() {
-  // ================= AUTH =================
-  const [token, setToken] = useState("");
 
-  // ================= DATA =================
+  // =====================================================
+  // STATES
+  // =====================================================
+
   const [withdraws, setWithdraws] = useState<WithdrawRequest[]>([]);
-  const [filteredWithdraws, setFilteredWithdraws] = useState<
-    WithdrawRequest[]
-  >([]);
 
-  // ================= UI =================
-  const [loading, setLoading] = useState(true);
+  const [statistics, setStatistics] =
+    useState<WithdrawStatistics>(defaultStatistics);
+
+  const [loading, setLoading] = useState(false);
+
   const [search, setSearch] = useState("");
 
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<
-    "success" | "error"
-  >("success");
 
-  // ================= ADMIN INPUTS =================
-  const [adminAmounts, setAdminAmounts] = useState<
-    Record<string, string>
-  >({});
-
-  const [adminNotes, setAdminNotes] = useState<
-    Record<string, string>
-  >({});
-
-  // ================= DASHBOARD TOTALS =================
-  const [pendingTotal, setPendingTotal] = useState(0);
-  const [approvedTotal, setApprovedTotal] = useState(0);
-  const [rejectedTotal, setRejectedTotal] = useState(0);
-
-  // ==========================================
-  // LOAD TOKEN
-  // ==========================================
-  useEffect(() => {
-    const jwt = localStorage.getItem("token");
-
-    if (!jwt) {
-      window.location.href = "/login";
-      return;
-    }
-
-    setToken(jwt);
-  }, []);
-
-  useEffect(() => {
-  const jwt = localStorage.getItem("token");
-
-  if (!jwt) {
-    window.location.href = "/login";
-    return;
-  }
-
-  setToken(jwt);
-}, []);
-
-  // ==========================================
-// LOAD WITHDRAW REQUESTS (FINAL V18 FIX)
-// ==========================================
-const loadWithdraws = async () => {
-  if (!token) return;
-
-  try {
-    setLoading(true);
-    setMessage("");
-
-    const response = await fetch(
-      `${API}/api/admin/withdraws/all`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      }
-    );
-
-    const result = await response.json();
-
-    console.log("ADMIN WITHDRAW RESPONSE:", result);
-
-    if (!response.ok || !result.success) {
-      throw new Error(result.message || "Unable to load withdraw requests.");
-    }
-
-    // API returns withdrawals array
-    const list: WithdrawRequest[] = result.withdrawals || result.data || [];
-
-    setWithdraws(list);
-    setFilteredWithdraws(list);
-
-    const pending = list.filter((i) => i.status === "Pending");
-const approved = list.filter((i) => i.status === "Approved");
-const rejected = list.filter((i) => i.status === "Rejected");
-
-setPendingTotal(
-  pending.reduce(
-    (sum, i) => sum + Number(i.requestAmount ?? i.amount ?? 0),
-    0
-  )
-);
-
-setApprovedTotal(
-  approved.reduce(
-    (sum, i) =>
-      sum +
-      Number(i.adminAmount ?? i.requestAmount ?? i.amount ?? 0),
-    0
-  )
-);
-
-setRejectedTotal(rejected.length);
-
-    // Default values for inputs
-    const amounts: Record<string, string> = {};
-    const notes: Record<string, string> = {};
-
-    list.forEach((item) => {
-      amounts[item._id] = String(item.requestAmount || 0);
-      notes[item._id] = item.adminNote || "";
-    });
-
-    setAdminAmounts(amounts);
-    setAdminNotes(notes);
-  } catch (err) {
-    console.error("LOAD WITHDRAWS ERROR:", err);
-
-    setMessageType("error");
-    setMessage(
-      err instanceof Error ? err.message : "Failed to load withdraw requests."
-    );
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // ==========================================
-  // INITIAL LOAD
-  // ==========================================
-  useEffect(() => {
-    if (token) {
-      loadWithdraws();
-    }
-  }, [token]);
-    // ==========================================
-  // APPROVE WITHDRAW REQUEST
-  // ==========================================
-  const handleApprove = async (item: WithdrawRequest) => {
-    try {
-      const amount = Number(
-        adminAmounts[item._id] ?? item.requestAmount
-      );
-
-      if (!amount || amount <= 0) {
-        setMessageType("error");
-        setMessage("Please enter a valid deduction amount.");
-        return;
-      }
-
-      const response = await fetch(
-        `${API}/api/withdraws/admin/${item._id}/approve`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            adminAmount: amount,
-            adminNote: adminNotes[item._id] || "",
-          }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Approval failed.");
-      }
-
-      setMessageType("success");
-      setMessage("Withdraw approved successfully.");
-
-      loadWithdraws();
-    } catch (err: any) {
-      console.error("APPROVE ERROR:", err);
-
-      setMessageType("error");
-      setMessage(err.message || "Unable to approve withdraw.");
-    }
-  };
-
-  // ==========================================
-  // REJECT WITHDRAW REQUEST
-  // ==========================================
-  const handleReject = async (item: WithdrawRequest) => {
-    try {
-      const response = await fetch(
-        `${API}/api/withdraws/admin/${item._id}/reject`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            adminNote:
-              adminNotes[item._id] || "Rejected by admin.",
-          }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Reject failed.");
-      }
-
-      setMessageType("success");
-      setMessage("Withdraw rejected successfully.");
-
-      loadWithdraws();
-    } catch (err: any) {
-      console.error("REJECT ERROR:", err);
-
-      setMessageType("error");
-      setMessage(err.message || "Unable to reject withdraw.");
-    }
-  };
-
-  // ==========================================
-// SEARCH USERNAME FILTER (FINAL FIX)
-// ==========================================
-useEffect(() => {
-  if (!search.trim()) {
-    setFilteredWithdraws(withdraws);
-    return;
-  }
-
-  const keyword = search.trim().toLowerCase();
-
-  const filtered = withdraws.filter((item) =>
-    (item.username || "").toLowerCase().includes(keyword)
+  const [messageType, setMessageType] = useState<"success" | "error">(
+    "success"
   );
 
-  setFilteredWithdraws(filtered);
-}, [search, withdraws]);
-  // ==========================================
-  // REFRESH BUTTON
-  // ==========================================
-  const refreshData = () => {
-    setMessage("");
-    loadWithdraws();
+  const [selectedWithdraw, setSelectedWithdraw] =
+    useState<WithdrawRequest | null>(null);
+
+  const [adminNote, setAdminNote] = useState("");
+
+  const [adminAmount, setAdminAmount] = useState("");
+
+  // =====================================================
+  // AUTH HEADERS
+  // =====================================================
+
+  const getHeaders = () => {
+    const token = localStorage.getItem("token");
+
+    return {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
   };
-    // ==========================================
-// PAGE UI START (PART 1/2)
-// ==========================================
-return (
-  <div className="min-h-screen bg-black text-white p-6">
 
-    {/* ================= HEADER ================= */}
-    <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
-      <div>
-        <h1 className="text-4xl font-black text-yellow-400">
-          Admin Withdraw Panel
-        </h1>
+  // =====================================================
+  // FORMAT HELPERS
+  // =====================================================
 
-        <p className="text-gray-400 mt-2">
-          GoldTrade V18 鈥?Manual Wallet Deduction System
-        </p>
-      </div>
+  const formatMoney = (value: number) =>
+    Number(value || 0).toLocaleString("en-PK", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
-      <button
-        onClick={refreshData}
-        className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-5 py-3 rounded-xl flex items-center gap-2"
-      >
-        <RefreshCw size={18} />
-        Refresh
-      </button>
-    </div>
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
 
-    {/* ================= MESSAGE ================= */}
-    {message && (
-      <div
-        className={`mb-6 rounded-xl px-4 py-3 font-semibold ${
-          messageType === "success"
-            ? "bg-green-600/20 border border-green-500 text-green-400"
-            : "bg-red-600/20 border border-red-500 text-red-400"
-        }`}
-      >
-        {message}
-      </div>
-    )}
+  const getWalletColor = (wallet?: string) => {
+     const walletType = String(wallet || "PKR").toUpperCase();
+     switch (walletType) {
+      case "PKR":
+        return "text-green-400";
 
-    {/* ================= DASHBOARD CARDS ================= */}
-    <div className="grid lg:grid-cols-3 gap-5 mb-10">
+      case "GOLD":
+        return "text-yellow-400";
 
-      <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
-        <div className="flex justify-between items-center">
-          <Clock size={34} className="text-yellow-400" />
-          <span className="text-yellow-400 font-semibold">
-            Pending Withdraw
-          </span>
+      case "USDT":
+        return "text-cyan-400";
+
+      default:
+        return "text-white";
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Approved":
+        return "bg-green-600/20 text-green-400 border border-green-500/30";
+
+      case "Rejected":
+        return "bg-red-600/20 text-red-400 border border-red-500/30";
+
+      default:
+        return "bg-yellow-600/20 text-yellow-400 border border-yellow-500/30";
+    }
+  };
+    // =====================================================
+  // LOAD WITHDRAW STATISTICS
+  // =====================================================
+
+  const loadStatistics = async () => {
+    try {
+      const response = await fetch(
+        `${API}/api/admin/withdraws/statistics`,
+        {
+          headers: getHeaders(),
+          cache: "no-store",
+        }
+      );
+
+      const result = await response.json();
+
+      console.log("WITHDRAW STATS:", result);
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || "Unable to load withdraw statistics."
+        );
+      }
+
+      setStatistics(result.statistics);
+
+    } catch (error: any) {
+      console.error("LOAD WITHDRAW STATS ERROR:", error);
+
+      setMessage(error.message);
+      setMessageType("error");
+    }
+  };
+
+  // =====================================================
+  // LOAD ALL WITHDRAW REQUESTS
+  // =====================================================
+
+  const loadWithdraws = async () => {
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        `${API}/api/admin/withdraws/all`,
+        {
+          headers: getHeaders(),
+          cache: "no-store",
+        }
+      );
+
+      const result = await response.json();
+
+      console.log("WITHDRAW RESPONSE:", result);
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || "Unable to load withdraw requests."
+        );
+      }
+
+      setWithdraws(result.withdrawals || []);
+
+    } catch (error: any) {
+      console.error("LOAD WITHDRAWS ERROR:", error);
+
+      setWithdraws([]);
+      setMessage(error.message);
+      setMessageType("error");
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =====================================================
+  // REFRESH PAGE
+  // =====================================================
+
+  const refreshPage = async () => {
+    await Promise.all([
+      loadStatistics(),
+      loadWithdraws(),
+    ]);
+  };
+
+  // =====================================================
+  // OPEN / CLOSE DETAILS MODAL
+  // =====================================================
+
+  const openWithdrawDetails = (withdraw: WithdrawRequest) => {
+    setSelectedWithdraw(withdraw);
+
+    setAdminNote(withdraw.adminNote || "");
+
+    setAdminAmount(
+      String(
+        withdraw.adminAmount ??
+          withdraw.requestAmount ??
+          withdraw.amount
+      )
+    );
+  };
+
+  const closeWithdrawDetails = () => {
+    setSelectedWithdraw(null);
+    setAdminNote("");
+    setAdminAmount("");
+  };
+
+  // =====================================================
+  // APPROVE WITHDRAW
+  // =====================================================
+
+  const approveWithdraw = async () => {
+    if (!selectedWithdraw) return;
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        `${API}/api/admin/withdraws/${selectedWithdraw._id}/approve`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            adminAmount: Number(adminAmount),
+            adminNote,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      console.log("APPROVE RESPONSE:", result);
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message);
+      }
+
+      setMessage(result.message);
+      setMessageType("success");
+
+      closeWithdrawDetails();
+
+      await refreshPage();
+
+    } catch (error: any) {
+      console.error("APPROVE WITHDRAW ERROR:", error);
+
+      setMessage(error.message);
+      setMessageType("error");
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =====================================================
+  // REJECT WITHDRAW
+  // =====================================================
+
+  const rejectWithdraw = async () => {
+    if (!selectedWithdraw) return;
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        `${API}/api/admin/withdraws/${selectedWithdraw._id}/reject`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            adminNote,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      console.log("REJECT RESPONSE:", result);
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message);
+      }
+
+      setMessage(result.message);
+      setMessageType("success");
+
+      closeWithdrawDetails();
+
+      await refreshPage();
+
+    } catch (error: any) {
+      console.error("REJECT WITHDRAW ERROR:", error);
+
+      setMessage(error.message);
+      setMessageType("error");
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =====================================================
+  // DELETE WITHDRAW REQUEST
+  // =====================================================
+
+  const deleteWithdraw = async (id: string) => {
+    const confirmed = window.confirm(
+      "Delete this withdraw request?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        `${API}/api/admin/withdraws/${id}`,
+        {
+          method: "DELETE",
+          headers: getHeaders(),
+        }
+      );
+
+      const result = await response.json();
+
+      console.log("DELETE RESPONSE:", result);
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message);
+      }
+
+      setMessage(result.message);
+      setMessageType("success");
+
+      await refreshPage();
+
+    } catch (error: any) {
+      console.error("DELETE WITHDRAW ERROR:", error);
+
+      setMessage(error.message);
+      setMessageType("error");
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =====================================================
+  // SEARCH FILTER
+  // =====================================================
+
+  const filteredWithdraws = useMemo(() => {
+    return withdraws.filter((withdraw) => {
+      const keyword = search.toLowerCase();
+
+      return (
+        withdraw.username?.toLowerCase().includes(keyword) ||
+        withdraw.email?.toLowerCase().includes(keyword) ||
+        withdraw.walletType?.toLowerCase().includes(keyword)
+      );
+    });
+  }, [withdraws, search]);
+
+  // =====================================================
+  // PAGE LOAD
+  // =====================================================
+
+  useEffect(() => {
+    refreshPage();
+  }, []);
+    // =====================================================
+  // PAGE UI START
+  // =====================================================
+
+  return (
+    <div className="min-h-screen bg-[#0B1120] text-white p-6">
+
+      {/* ========================================== */}
+      {/* PAGE HEADER */}
+      {/* ========================================== */}
+
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+
+        <div>
+          <h1 className="text-3xl font-bold text-yellow-400">
+            GoldTrade V18 • Admin Withdraw Manager
+          </h1>
+
+          <p className="text-gray-400 mt-2">
+            Manage PKR, GOLD and USDT withdraw requests from users.
+          </p>
         </div>
 
-        <h2 className="text-4xl font-black text-yellow-400 mt-5">
-          Pkr {Number(pendingTotal || 0).toLocaleString()}
-        </h2>
+        <button
+          onClick={refreshPage}
+          className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold px-5 py-3 rounded-xl transition"
+        >
+          <RefreshCw size={18} />
+          Refresh Withdraws
+        </button>
+
       </div>
 
-      <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
-        <div className="flex justify-between items-center">
-          <CheckCircle size={34} className="text-green-400" />
-          <span className="text-green-400 font-semibold">
-            Approved Amount
-          </span>
+      {/* ========================================== */}
+      {/* SUCCESS / ERROR MESSAGE */}
+      {/* ========================================== */}
+
+      {message && (
+        <div
+          className={`mb-6 rounded-xl px-4 py-3 border font-medium ${
+            messageType === "success"
+              ? "bg-green-600/20 border-green-500 text-green-300"
+              : "bg-red-600/20 border-red-500 text-red-300"
+          }`}
+        >
+          {message}
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* STATISTICS CARDS */}
+      {/* ========================================== */}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+
+        {/* Pending */}
+
+        <div className="rounded-2xl bg-[#111827] border border-yellow-600/30 p-5">
+
+          <div className="flex justify-between items-center mb-3">
+            <Clock className="text-yellow-400" size={28} />
+
+            <span className="text-xs font-semibold text-yellow-400">
+              PENDING
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            Pending Withdraw Requests
+          </p>
+
+          <h2 className="text-3xl font-bold text-yellow-300 mt-2">
+            {statistics.pendingRequests}
+          </h2>
+
+          <p className="text-yellow-400 mt-2 text-sm">
+            PKR {formatMoney(statistics.pendingAmount)}
+          </p>
+
         </div>
 
-        <h2 className="text-4xl font-black text-green-400 mt-5">
-          Pkr {Number(approvedTotal || 0).toLocaleString()}
-        </h2>
-      </div>
+        {/* Approved */}
 
-      <div className="bg-zinc-900 border border-red-500 rounded-3xl p-6">
-        <div className="flex justify-between items-center">
-          <XCircle size={34} className="text-red-400" />
-          <span className="text-red-400 font-semibold">
-            Rejected Requests
-          </span>
+        <div className="rounded-2xl bg-[#111827] border border-green-600/30 p-5">
+
+          <div className="flex justify-between items-center mb-3">
+            <CheckCircle className="text-green-400" size={28} />
+
+            <span className="text-xs font-semibold text-green-400">
+              APPROVED
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            Approved Withdraw Requests
+          </p>
+
+          <h2 className="text-3xl font-bold text-green-400 mt-2">
+            {statistics.approvedRequests}
+          </h2>
+
+          <p className="text-green-400 mt-2 text-sm">
+            PKR {formatMoney(statistics.approvedAmount)}
+          </p>
+
         </div>
 
-        <h2 className="text-4xl font-black text-red-400 mt-5">
-          {rejectedTotal || 0}
-        </h2>
+        {/* Rejected */}
+
+        <div className="rounded-2xl bg-[#111827] border border-red-600/30 p-5">
+
+          <div className="flex justify-between items-center mb-3">
+            <XCircle className="text-red-400" size={28} />
+
+            <span className="text-xs font-semibold text-red-400">
+              REJECTED
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            Rejected Withdraw Requests
+          </p>
+
+          <h2 className="text-3xl font-bold text-red-400 mt-2">
+            {statistics.rejectedRequests}
+          </h2>
+
+          <p className="text-red-400 mt-2 text-sm">
+            PKR {formatMoney(statistics.rejectedAmount)}
+          </p>
+
+        </div>
+
+        {/* Total */}
+
+        <div className="rounded-2xl bg-[#111827] border border-purple-600/30 p-5">
+
+          <div className="flex justify-between items-center mb-3">
+            <Wallet className="text-purple-400" size={28} />
+
+            <span className="text-xs font-semibold text-purple-400">
+              TOTAL
+            </span>
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            Total Withdraw Requests
+          </p>
+
+          <h2 className="text-3xl font-bold text-purple-400 mt-2">
+            {statistics.totalRequests}
+          </h2>
+
+          <p className="text-purple-300 mt-2 text-sm">
+            All Wallet Requests
+          </p>
+
+        </div>
+
       </div>
 
-    </div>
+      {/* ========================================== */}
+      {/* WALLET SUMMARY CARDS */}
+      {/* ========================================== */}
 
-    {/* ================= SEARCH ================= */}
-    <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-4 mb-8">
-      <div className="flex items-center gap-3">
-        <Search size={20} className="text-cyan-400" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
 
-        <input
-          type="text"
-          placeholder="Search username..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="bg-transparent outline-none w-full text-white placeholder:text-gray-500"
-        />
+        {/* PKR */}
+
+        <div className="rounded-2xl bg-[#111827] border border-green-600/20 p-5">
+
+          <div className="flex justify-between items-center mb-2">
+            <DollarSign className="text-green-400" size={24} />
+
+            <span className="text-green-400 text-xs font-semibold">
+              PKR
+            </span>
+          </div>
+
+          <h3 className="text-2xl font-bold text-green-400">
+            PKR {formatMoney(statistics.totalPKR)}
+          </h3>
+
+          <p className="text-gray-400 text-sm mt-2">
+            Total PKR Withdraw Amount
+          </p>
+
+        </div>
+
+        {/* GOLD */}
+
+        <div className="rounded-2xl bg-[#111827] border border-yellow-600/20 p-5">
+
+          <div className="flex justify-between items-center mb-2">
+            <Coins className="text-yellow-400" size={24} />
+
+            <span className="text-yellow-400 text-xs font-semibold">
+              GOLD
+            </span>
+          </div>
+
+          <h3 className="text-2xl font-bold text-yellow-400">
+            {statistics.totalGold.toFixed(3)} Gold
+          </h3>
+
+          <p className="text-gray-400 text-sm mt-2">
+            Total Gold Withdraw Amount
+          </p>
+
+        </div>
+
+        {/* USDT */}
+
+        <div className="rounded-2xl bg-[#111827] border border-cyan-600/20 p-5">
+
+          <div className="flex justify-between items-center mb-2">
+            <Wallet className="text-cyan-400" size={24} />
+
+            <span className="text-cyan-400 text-xs font-semibold">
+              USDT
+            </span>
+          </div>
+
+          <h3 className="text-2xl font-bold text-cyan-400">
+            {statistics.totalUSDT.toFixed(2)} USDT
+          </h3>
+
+          <p className="text-gray-400 text-sm mt-2">
+            Total USDT Withdraw Amount
+          </p>
+
+        </div>
+
       </div>
-    </div>
 
-    {/* ================= TABLE ================= */}
-<div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-5">
+      {/* ========================================== */}
+      {/* SEARCH BAR */}
+      {/* ========================================== */}
 
-  <h2 className="text-2xl font-black text-cyan-400 mb-6">
-    Withdraw Requests
-  </h2>
+      <div className="rounded-2xl bg-[#111827] border border-gray-700 p-5 mb-8">
 
-  {loading ? (
-    <div className="text-center py-10 text-gray-400">
-      Loading Withdraw Requests...
-    </div>
-  ) : filteredWithdraws.length === 0 ? (
-    <div className="text-center py-10 text-gray-500">
-      No withdraw requests found.
-    </div>
-  ) : (
-    <div className="overflow-x-auto">
+        <div className="relative">
 
-      <table className="w-full min-w-[1200px] text-sm">
+          <Search
+            size={20}
+            className="absolute left-4 top-3.5 text-gray-500"
+          />
 
-        <thead className="border-b border-zinc-700 text-yellow-400">
-          <tr className="text-left">
-            <th className="py-3 px-2">Username</th>
-            <th className="py-3 px-2">Request</th>
-            <th className="py-3 px-2">Payment</th>
-            <th className="py-3 px-2">Account</th>
-            <th className="py-3 px-2">Status</th>
-            <th className="py-3 px-2">Action</th>
-          </tr>
-        </thead>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search username..."
+            className="w-full bg-[#1F2937] border border-gray-600 rounded-xl py-3 pl-12 pr-4 outline-none focus:border-yellow-500 transition"
+          />
 
-        <tbody>
+        </div>
 
-          {filteredWithdraws.map((item) => (
+      </div>
 
-            <tr
-              key={item._id}
-              className="border-b border-zinc-800 hover:bg-zinc-800/40"
-            >
+      {/* ========================================== */}
+      {/* WITHDRAW REQUEST TABLE STARTS */}
+      {/* ========================================== */}
 
-              {/* USER */}
-              <td className="py-4 px-2">
-                <div className="font-bold text-cyan-400">
-                  {item.username || item.userId?.username || "Unknown User"}
-                </div>
+      <div className="rounded-2xl border border-gray-700 bg-[#111827] overflow-hidden">
 
-                <div className="text-xs text-gray-500 mt-1">
-                  {item.createdAt
-                    ? new Date(item.createdAt).toLocaleString()
-                    : "-"}
-                </div>
-              </td>
+        <div className="px-6 py-5 border-b border-gray-700 flex justify-between items-center">
 
-              {/* REQUEST */}
-              <td className="py-4 px-2">
-                <div className="font-bold text-green-400 text-lg">
-                  {item.currency || "Pkr"}{" "}
-                  {Number(item.requestAmount || 0).toLocaleString()}
-                </div>
+          <h2 className="text-xl font-bold text-cyan-400">
+            Withdraw Requests ({filteredWithdraws.length})
+          </h2>
 
-                {item.note && (
-                  <div className="text-xs text-gray-500 mt-2">
-                    {item.note}
-                  </div>
-                )}
-              </td>
+          <Wallet className="text-cyan-400" />
 
-              {/* PAYMENT */}
-              <td className="py-4 px-2">
-                <div className="font-semibold">
-                  {item.paymentMethod || "-"}
-                </div>
+        </div>
 
-                <div className="text-xs text-gray-500 mt-1">
-                  {item.bankName || item.network || "-"}
-                </div>
-              </td>
+        <div className="overflow-x-auto">
 
-              {/* ACCOUNT */}
-              <td className="py-4 px-2">
-                <div>{item.accountTitle || "-"}</div>
+          <table className="w-full min-w-[1100px]">
 
-                <div className="text-yellow-400 text-xs mt-1">
-                  {item.accountNumber || "-"}
-                </div>
-              </td>
+            <thead className="bg-[#1F2937] text-gray-300 text-sm">
 
-              {/* STATUS */}
-              <td className="py-4 px-2">
+              <tr>
+                <th className="text-left px-5 py-4">User</th>
+                <th className="text-center">Wallet</th>
+                <th className="text-center">Amount</th>
+                <th className="text-center">Wallet Address</th>
+                <th className="text-center">Status</th>
+                <th className="text-center">Date</th>
+                <th className="text-center">Actions</th>
+              </tr>
 
-                {item.status === "Pending" && (
-                  <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-semibold">
-                    Pending
-                  </span>
-                )}
+            </thead>
 
-                {item.status === "Approved" && (
-                  <span className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-semibold">
-                    Approved
-                  </span>
-                )}
+            <tbody>
+                            {loading ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="py-12 text-center text-gray-400"
+                  >
+                    Loading withdraw requests...
+                  </td>
+                </tr>
+              ) : filteredWithdraws.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="py-12 text-center text-red-300"
+                  >
+                    No withdraw requests found.
+                  </td>
+                </tr>
+              ) : (
+                filteredWithdraws.map((withdraw) => (
+                  <tr
+                    key={withdraw._id}
+                    className="border-b border-gray-800 hover:bg-[#1B2435] transition"
+                  >
+                    {/* USER */}
 
-                {item.status === "Rejected" && (
-                  <span className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-xs font-semibold">
-                    Rejected
-                  </span>
-                )}
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-2 font-semibold text-white">
+                        <User size={16} className="text-cyan-400" />
+                        {withdraw.username}
+                      </div>
 
-              </td>
+                      <p className="text-sm text-gray-400 mt-1">
+                        {withdraw.email || "No Email"}
+                      </p>
+                    </td>
 
-                           <td className="py-4 px-2">
+                    {/* WALLET TYPE */}
 
-                {item.status === "Pending" ? (
-
-                  <div className="flex flex-col gap-3">
-
-                    {/* Amount Input */}
-                    <input
-                      type="number"
-                      value={adminAmounts[item._id] ?? String(item.requestAmount)}
-                      onChange={(e) =>
-                        setAdminAmounts((prev) => ({
-                          ...prev,
-                          [item._id]: e.target.value,
-                        }))
-                      }
-                      placeholder={String(item.requestAmount)}
-                      className="w-32 bg-black border border-yellow-500 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-400"
-                    />
-
-                    {/* Admin Note */}
-                    <textarea
-                      rows={2}
-                      value={adminNotes[item._id] ?? ""}
-                      onChange={(e) =>
-                        setAdminNotes((prev) => ({
-                          ...prev,
-                          [item._id]: e.target.value,
-                        }))
-                      }
-                      placeholder="Admin note..."
-                      className="w-48 bg-black border border-zinc-700 rounded-lg px-3 py-2 text-white outline-none resize-none focus:border-cyan-500"
-                    />
-
-                    {/* Buttons */}
-                    <div className="flex gap-2 flex-wrap">
-
-                      <button
-                        type="button"
-                        onClick={() => handleApprove(item)}
-                        className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg text-white font-bold"
+                    <td className="text-center">
+                      <span
+                        className={`font-bold ${getWalletColor(
+                          withdraw.walletType
+                        )}`}
                       >
-                        Approve
-                      </button>
+                        {withdraw.walletType}
+                      </span>
+                    </td>
 
-                      <button
-                        type="button"
-                        onClick={() => handleReject(item)}
-                        className="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg text-white font-bold"
+                    {/* AMOUNT */}
+
+                    <td className="text-center font-semibold">
+                      {withdraw.walletType === "PKR" && (
+                        <span className="text-green-400">
+                          PKR{" "}
+                          {formatMoney(
+                            Number(withdraw.adminAmount ?? withdraw.amount)
+                          )}
+                        </span>
+                      )}
+
+                      {withdraw.walletType === "GOLD" && (
+                        <span className="text-yellow-400">
+                          {Number(
+                            withdraw.adminAmount ?? withdraw.amount
+                          ).toFixed(3)}{" "}
+                          Gold
+                        </span>
+                      )}
+
+                      {withdraw.walletType === "USDT" && (
+                        <span className="text-cyan-400">
+                          {Number(
+                            withdraw.adminAmount ?? withdraw.amount
+                          ).toFixed(2)}{" "}
+                          USDT
+                        </span>
+                      )}
+                    </td>
+
+                    {/* WALLET ADDRESS */}
+
+                    <td className="text-center text-gray-300">
+                      {withdraw.walletAddress ? (
+                        <span className="text-xs bg-gray-700 px-3 py-1 rounded-lg break-all">
+                          {withdraw.walletAddress}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500 text-xs">
+                          Not Provided
+                        </span>
+                      )}
+                    </td>
+
+                    {/* STATUS */}
+
+                    <td className="text-center">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
+                          withdraw.status
+                        )}`}
                       >
-                        Reject
-                      </button>
+                        {withdraw.status}
+                      </span>
+                    </td>
 
-                    </div>
+                    {/* DATE */}
 
-                  </div>
+                    <td className="text-center text-gray-300 text-sm">
+                      <div className="flex flex-col items-center gap-1">
+                        <Calendar size={14} className="text-gray-500" />
+                        {formatDate(withdraw.createdAt)}
+                      </div>
+                    </td>
 
-                ) : item.status === "Approved" ? (
+                    {/* ACTIONS */}
 
-                  <div className="text-green-400 text-sm font-semibold">
-                    ✅ Deducted: {item.currency || "Pkr"}{" "}
-                    {Number(
-                      item.adminAmount || item.requestAmount || 0
-                    ).toLocaleString()}
-                  </div>
+                    <td className="px-4 py-4">
+                      <div className="flex flex-wrap justify-center gap-2">
+                        <button
+                          onClick={() => openWithdrawDetails(withdraw)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition"
+                        >
+                          Details
+                        </button>
 
+                        {withdraw.status === "Pending" && (
+                          <button
+                            onClick={() => openWithdrawDetails(withdraw)}
+                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                          >
+                            <CheckCircle size={14} />
+                            Approve
+                          </button>
+                        )}
+                                                {/* REJECT */}
+
+                        {withdraw.status === "Pending" && (
+                          <button
+                            onClick={() => openWithdrawDetails(withdraw)}
+                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                          >
+                            <XCircle size={14} />
+                            Reject
+                          </button>
+                        )}
+
+                        {/* DELETE */}
+
+                        {withdraw.status !== "Approved" && (
+                          <button
+                            onClick={() => deleteWithdraw(withdraw._id)}
+                            className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                          >
+                            <Trash2 size={14} />
+                            Delete
+                          </button>
+                        )}
+
+                      </div>
+                    </td>
+
+                  </tr>
+                ))
+              )}
+                          </tbody>
+
+          </table>
+
+        </div>
+
+      </div>
+
+      {/* ========================================== */}
+      {/* WITHDRAW DETAILS MODAL */}
+      {/* ========================================== */}
+
+      {selectedWithdraw && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+
+          <div className="w-full max-w-2xl rounded-3xl bg-[#111827] border border-cyan-500/30 shadow-2xl overflow-hidden">
+
+            {/* Header */}
+
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-700">
+
+              <div>
+                <h2 className="text-2xl font-bold text-cyan-400">
+                  Withdraw Details
+                </h2>
+
+                <p className="text-sm text-gray-400 mt-1">
+                  Review user withdraw request before approval.
+                </p>
+              </div>
+
+              <button
+                onClick={closeWithdrawDetails}
+                className="text-gray-400 hover:text-red-400 transition"
+              >
+                <XCircle size={28} />
+              </button>
+
+            </div>
+
+            {/* Modal Body */}
+
+            <div className="p-6 space-y-5">
+
+              {/* User Information */}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div className="bg-[#1F2937] rounded-xl p-4">
+                  <p className="text-xs text-gray-400 mb-2">Username</p>
+
+                  <h3 className="text-white font-semibold">
+                    {selectedWithdraw.username}
+                  </h3>
+
+                  <p className="text-sm text-gray-400 mt-1">
+                    {selectedWithdraw.email || "No Email"}
+                  </p>
+                </div>
+
+                <div className="bg-[#1F2937] rounded-xl p-4">
+                  <p className="text-xs text-gray-400 mb-2">Wallet Type</p>
+
+                  <span
+                    className={`text-lg font-bold ${getWalletColor(
+                      selectedWithdraw.walletType
+                    )}`}
+                  >
+                    {selectedWithdraw.walletType}
+                  </span>
+                </div>
+
+              </div>
+
+              {/* Request Amount */}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div className="bg-[#1F2937] rounded-xl p-4">
+
+                  <p className="text-xs text-gray-400 mb-2">
+                    Requested Amount
+                  </p>
+
+                  <h3 className="text-2xl font-bold text-cyan-400">
+
+                    {selectedWithdraw.walletType === "PKR" &&
+                      `PKR ${formatMoney(Number(selectedWithdraw.amount))}`}
+
+                    {selectedWithdraw.walletType === "GOLD" &&
+                      `${Number(selectedWithdraw.amount).toFixed(3)} Gold`}
+
+                    {selectedWithdraw.walletType === "USDT" &&
+                      `${Number(selectedWithdraw.amount).toFixed(2)} USDT`}
+
+                  </h3>
+
+                </div>
+
+                <div className="bg-[#1F2937] rounded-xl p-4">
+
+                  <p className="text-xs text-gray-400 mb-2">
+                    Request Date
+                  </p>
+
+                  <h3 className="text-white font-semibold">
+                    {formatDate(selectedWithdraw.createdAt)}
+                  </h3>
+
+                </div>
+
+              </div>
+
+              {/* Wallet Address */}
+
+              <div className="bg-[#1F2937] rounded-xl p-4">
+
+                <p className="text-xs text-gray-400 mb-2">
+                  Wallet Address
+                </p>
+
+                <div className="flex items-center justify-between gap-3">
+
+                  <span className="text-cyan-300 break-all text-sm">
+                    {selectedWithdraw.walletAddress || "Not Provided"}
+                  </span>
+
+                  {selectedWithdraw.walletAddress && (
+                    <button
+                      onClick={() =>
+                        navigator.clipboard.writeText(
+                          selectedWithdraw.walletAddress ?? ""
+                        )
+                      }
+                      className="bg-cyan-500 hover:bg-cyan-600 text-black px-3 py-2 rounded-lg text-xs font-semibold"
+                    >
+                      Copy
+                    </button>
+                  )}
+
+                </div>
+
+              </div>
+
+              {/* Transaction ID */}
+
+              <div className="bg-[#1F2937] rounded-xl p-4">
+
+                <p className="text-xs text-gray-400 mb-2">
+                  Transaction ID
+                </p>
+
+                <span className="text-yellow-300 break-all text-sm">
+                  {selectedWithdraw.transactionId || "Not Provided"}
+                </span>
+
+              </div>
+
+              {/* Status */}
+
+              <div className="bg-[#1F2937] rounded-xl p-4 flex items-center justify-between">
+
+                <div>
+
+                  <p className="text-xs text-gray-400 mb-2">
+                    Current Status
+                  </p>
+
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
+                      selectedWithdraw.status
+                    )}`}
+                  >
+                    {selectedWithdraw.status}
+                  </span>
+
+                </div>
+
+                <FileText className="text-cyan-400" size={28} />
+
+              </div>
+
+              {/* Screenshot */}
+
+              <div>
+
+                <p className="text-sm text-gray-400 mb-3">
+                  Payment Screenshot
+                </p>
+
+                {selectedWithdraw.screenshot ? (
+                  <img
+                    src={selectedWithdraw.screenshot}
+                    alt="Withdraw Screenshot"
+                    className="w-full rounded-2xl border border-gray-700 object-contain max-h-80"
+                  />
                 ) : (
-
-                  <div className="text-red-400 text-sm font-semibold">
-                    ❌ {item.adminNote || "Withdraw Rejected"}
+                  <div className="rounded-2xl border border-dashed border-gray-600 p-8 text-center text-gray-500">
+                    No screenshot uploaded.
                   </div>
-
                 )}
 
-              </td>
+              </div>
 
-            </tr>
+              {/* Admin Amount */}
 
-          ))}
+              <div>
 
-        </tbody>
+                <label className="block text-sm text-gray-400 mb-2">
+                  Admin Approved Amount
+                </label>
 
-      </table>
+                <input
+                  type="number"
+                  value={adminAmount}
+                  onChange={(e) => setAdminAmount(e.target.value)}
+                  className="w-full rounded-xl bg-[#1F2937] border border-gray-600 p-4 outline-none focus:border-cyan-500 transition"
+                />
+
+              </div>
+
+              {/* Admin Note */}
+
+              <div>
+
+                <label className="block text-sm text-gray-400 mb-2">
+                  Admin Note
+                </label>
+
+                <textarea
+                  rows={4}
+                  value={adminNote}
+                  onChange={(e) => setAdminNote(e.target.value)}
+                  placeholder="Write approval or rejection note..."
+                  className="w-full rounded-xl bg-[#1F2937] border border-gray-600 p-4 outline-none resize-none focus:border-cyan-500 transition"
+                />
+
+              </div>            </div>
+
+            {/* ========================================== */}
+            {/* MODAL FOOTER BUTTONS */}
+            {/* ========================================== */}
+
+            <div className="border-t border-gray-700 px-6 py-5 flex flex-wrap justify-end gap-3">
+
+              {/* CLOSE */}
+
+              <button
+                onClick={closeWithdrawDetails}
+                className="bg-gray-700 hover:bg-gray-600 text-white px-5 py-3 rounded-xl font-semibold transition"
+              >
+                Close
+              </button>
+
+              {/* REJECT */}
+
+              {selectedWithdraw.status === "Pending" && (
+                <button
+                  disabled={loading}
+                  onClick={rejectWithdraw}
+                  className="bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-5 py-3 rounded-xl font-semibold flex items-center gap-2 transition"
+                >
+                  <XCircle size={18} />
+                  Reject Withdraw
+                </button>
+              )}
+
+              {/* APPROVE */}
+
+              {selectedWithdraw.status === "Pending" && (
+                <button
+                  disabled={loading}
+                  onClick={approveWithdraw}
+                  className="bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-5 py-3 rounded-xl font-semibold flex items-center gap-2 transition"
+                >
+                  <CheckCircle size={18} />
+                  Approve Withdraw
+                </button>
+              )}
+
+            </div>
+
+          </div>
 
         </div>
-  )}
-</div>
+      )}
 
-</div>
-);
+      {/* ========================================== */}
+      {/* LOADING OVERLAY */}
+      {/* ========================================== */}
+
+      {loading && (
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center">
+
+          <div className="bg-[#111827] border border-cyan-500/30 rounded-2xl px-8 py-6 flex flex-col items-center gap-4 shadow-2xl">
+
+            <RefreshCw
+              size={36}
+              className="text-cyan-400 animate-spin"
+            />
+
+            <div className="text-center">
+
+              <h3 className="text-lg font-bold text-cyan-400">
+                GoldTrade V18 Enterprise
+              </h3>
+
+              <p className="text-sm text-gray-300 mt-1">
+                Processing withdraw request...
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* FOOTER */}
+      {/* ========================================== */}
+
+      <footer className="mt-10 border-t border-gray-800 pt-6">
+
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+
+          <div>
+
+            <h3 className="text-cyan-400 font-bold text-lg">
+              GoldTrade V18 Enterprise
+            </h3>
+
+            <p className="text-sm text-gray-500">
+              Admin Withdraw Management Panel
+            </p>
+
+          </div>
+
+          <div className="flex flex-wrap items-center gap-5 text-sm text-gray-400">
+
+            <div className="flex items-center gap-2">
+              <CheckCircle size={16} className="text-green-400" />
+              Wallet Integration Active
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Wallet size={16} className="text-cyan-400" />
+              PKR • GOLD • USDT
+            </div>
+
+            <div className="flex items-center gap-2">
+              <RefreshCw size={16} className="text-yellow-400" />
+              Live Refresh Enabled
+            </div>
+
+          </div>
+
+        </div>
+
+      </footer>
+
+    </div>
+  );
 }
