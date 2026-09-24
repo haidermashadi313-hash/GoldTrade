@@ -1,8 +1,7 @@
 // =====================================================
 // GoldTrade V18 Enterprise
-// AUTH ROUTES
+// AUTH ROUTES (PRODUCTION)
 // PART 1/5
-// Production Version
 // =====================================================
 
 const express = require("express");
@@ -11,138 +10,179 @@ const router = express.Router();
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 
-// =====================================================
-// MODELS
-// =====================================================
-
 const User = require("../models/User");
 const Wallet = require("../models/Wallet");
 
-// =====================================================
-// MIDDLEWARE
-// =====================================================
-
-const {
-  verifyToken,
-  isAdmin,
-} = require("../middleware/auth");
+const { verifyToken, isAdmin } = require("../middleware/auth");
 
 // =====================================================
 // JWT CONFIG
 // =====================================================
 
-const JWT_SECRET =
-  process.env.JWT_SECRET || "goldtrade_v18_secret";
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  console.error("JWT_SECRET is missing in environment variables.");
+}
 
 // =====================================================
 // RESPONSE HELPERS
 // =====================================================
 
-const success = (res, message, data = {}) => {
-  return res.status(200).json({
+const success = (res, message, data = {}, status = 200) => {
+  return res.status(status).json({
     success: true,
     message,
     ...data,
   });
 };
 
-const failed = (res, status, message) => {
+const failed = (res, status, message, errors = null) => {
   return res.status(status).json({
     success: false,
     message,
+    ...(errors && { errors }),
   });
 };
+
 // =====================================================
-// SIGNUP ALIAS
+// GENERATE JWT TOKEN
+// =====================================================
+
+const generateToken = (user) => {
+  return jwt.sign(
+    {
+      id: user._id,
+      username: user.username,
+      role: user.role,
+    },
+    JWT_SECRET,
+    {
+      expiresIn: process.env.JWT_EXPIRE || "7d",
+    }
+  );
+};
+
+// =====================================================
+// AUTH HEALTH
+// GET /api/auth/health
+// =====================================================
+
+router.get("/health", (req, res) => {
+  return success(res, "GoldTrade Auth API Running.", {
+    version: "GoldTrade V18 Enterprise",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// =====================================================
+// REGISTER / SIGNUP
+// POST /api/auth/register
 // POST /api/auth/signup
-// Same handler as /register
 // =====================================================
 
-router.post("/signup", async (req, res) => {
+const registerHandler = async (req, res) => {
   try {
-    const {
-      username,
-      fullName,
-      email,
-      password,
-    } = req.body;
+    let { username, fullName, email, password } = req.body;
 
-    if (!username || !password) {
-      return failed(
-        res,
-        400,
-        "Username and password are required."
-      );
+    username = username?.trim().toLowerCase();
+    fullName = fullName?.trim() || username;
+    email = email?.trim().toLowerCase();
+
+    if (!username || !email || !password) {
+      return failed(res, 400, "Username, email and password are required.");
     }
 
-    const cleanUsername = username.trim().toLowerCase();
-    const cleanEmail = email ? email.trim().toLowerCase() : "";
+    if (password.length < 6) {
+      return failed(res, 400, "Password must be at least 6 characters.");
+    }
 
-    const usernameExists = await User.findOne({
-      username: cleanUsername,
+    const existingUser = await User.findOne({
+      $or: [{ username }, { email }],
     });
 
-    if (usernameExists) {
-      return failed(res, 409, "Username already exists.");
-    }
-
-    if (cleanEmail) {
-      const emailExists = await User.findOne({
-        email: cleanEmail,
-      });
-
-      if (emailExists) {
-        return failed(res, 409, "Email already exists.");
-      }
+    if (existingUser) {
+      return failed(res, 409, "Username or email already exists.");
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
+        // =====================================================
+    // CREATE USER
+    // =====================================================
 
     const user = await User.create({
-      username: cleanUsername,
-      fullName: fullName?.trim() || cleanUsername,
-      email: cleanEmail,
+      username,
+      fullName,
+      email,
       password: hashedPassword,
       role: "user",
+      lastLogin: new Date(),
     });
 
-    await Wallet.create({
-      username: cleanUsername,
-      balance: 0,
-      pkrBalance: 0,
-      goldBalance: 0,
-      usdtBalance: 0,
-    });
+    // =====================================================
+    // AUTO CREATE WALLET
+    // =====================================================
 
-    const token = jwt.sign(
+    let wallet = await Wallet.findOne({ username });
+
+    if (!wallet) {
+      wallet = await Wallet.create({
+        username,
+        balance: 0,
+        pkrBalance: 0,
+        goldBalance: 0,
+        usdtBalance: 0,
+      });
+    }
+
+    // =====================================================
+    // GENERATE TOKEN
+    // =====================================================
+
+    const token = generateToken(user);
+
+    return success(
+      res,
+      "Account created successfully.",
       {
-        id: user._id,
-        username: user.username,
-        role: user.role,
+        token,
+
+        user: {
+          id: user._id,
+          username: user.username,
+          fullName: user.fullName,
+          email: user.email,
+          role: user.role,
+        },
+
+        wallet: {
+          pkrBalance: wallet.pkrBalance || 0,
+          goldBalance: wallet.goldBalance || 0,
+          usdtBalance: wallet.usdtBalance || 0,
+        },
       },
-      JWT_SECRET,
-      {
-        expiresIn: "30d",
-      }
+      201
     );
-
-    return success(res, "Registration successful.", {
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-      },
-    });
-
   } catch (error) {
-    console.error("SIGNUP ERROR:", error);
+    console.error("REGISTER ERROR:", error);
 
-    return failed(res, 500, "Registration failed.");
+    return failed(
+      res,
+      500,
+      error.message || "Registration failed."
+    );
   }
-});
+};
+
+// =====================================================
+// BOTH ROUTES SUPPORTED
+// =====================================================
+
+// Old frontend compatibility
+router.post("/register", registerHandler);
+
+// New GoldTrade V18 frontend compatibility
+router.post("/signup", registerHandler);
 // =====================================================
 // LOGIN USER / ADMIN
 // POST /api/auth/login
@@ -150,13 +190,12 @@ router.post("/signup", async (req, res) => {
 
 router.post("/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    let { username, email, password } = req.body;
 
-    // -----------------------------
-    // Validation
-    // -----------------------------
+    // Accept username OR email from frontend
+    const loginValue = (username || email || "").trim().toLowerCase();
 
-    if (!username || !password) {
+    if (!loginValue || !password) {
       return failed(
         res,
         400,
@@ -164,11 +203,9 @@ router.post("/login", async (req, res) => {
       );
     }
 
-    const loginValue = username.trim().toLowerCase();
-
-    // -----------------------------
-    // Find User (Username or Email)
-    // -----------------------------
+    // =====================================================
+    // FIND USER BY USERNAME OR EMAIL
+    // =====================================================
 
     const user = await User.findOne({
       $or: [
@@ -178,16 +215,12 @@ router.post("/login", async (req, res) => {
     });
 
     if (!user) {
-      return failed(
-        res,
-        401,
-        "Invalid username or password."
-      );
+      return failed(res, 401, "Invalid username or password.");
     }
 
-    // -----------------------------
-    // Password Verify
-    // -----------------------------
+    // =====================================================
+    // VERIFY PASSWORD
+    // =====================================================
 
     const passwordMatched = await bcrypt.compare(
       password,
@@ -195,39 +228,19 @@ router.post("/login", async (req, res) => {
     );
 
     if (!passwordMatched) {
-      return failed(
-        res,
-        401,
-        "Invalid username or password."
-      );
+      return failed(res, 401, "Invalid username or password.");
     }
 
-    // -----------------------------
-    // Update Last Login
-    // -----------------------------
+    // =====================================================
+    // UPDATE LAST LOGIN
+    // =====================================================
 
     user.lastLogin = new Date();
     await user.save();
 
-    // -----------------------------
-    // JWT TOKEN
-    // -----------------------------
-
-    const token = jwt.sign(
-      {
-        id: user._id,
-        username: user.username,
-        role: user.role,
-      },
-      JWT_SECRET,
-      {
-        expiresIn: "30d",
-      }
-    );
-
-    // -----------------------------
-    // Wallet Check
-    // -----------------------------
+    // =====================================================
+    // ENSURE WALLET EXISTS
+    // =====================================================
 
     let wallet = await Wallet.findOne({
       username: user.username,
@@ -243,9 +256,15 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // -----------------------------
-    // SUCCESS RESPONSE
-    // -----------------------------
+    // =====================================================
+    // GENERATE JWT TOKEN
+    // =====================================================
+
+    const token = generateToken(user);
+
+    // =====================================================
+    // LOGIN SUCCESS RESPONSE
+    // =====================================================
 
     return success(res, "Login successful.", {
       token,
@@ -260,9 +279,9 @@ router.post("/login", async (req, res) => {
       },
 
       wallet: {
-        pkrBalance: wallet.pkrBalance || wallet.balance || 0,
-        goldBalance: wallet.goldBalance || 0,
-        usdtBalance: wallet.usdtBalance || 0,
+        pkrBalance: wallet.pkrBalance ?? wallet.balance ?? 0,
+        goldBalance: wallet.goldBalance ?? 0,
+        usdtBalance: wallet.usdtBalance ?? 0,
       },
     });
 
@@ -272,14 +291,13 @@ router.post("/login", async (req, res) => {
     return failed(
       res,
       500,
-      "Login failed."
+      error.message || "Login failed."
     );
   }
 });
 // =====================================================
 // GET CURRENT USER
 // GET /api/auth/me
-// Used by User Dashboard
 // =====================================================
 
 router.get("/me", verifyToken, async (req, res) => {
@@ -290,9 +308,19 @@ router.get("/me", verifyToken, async (req, res) => {
       return failed(res, 404, "User not found.");
     }
 
-    const wallet = await Wallet.findOne({
+    let wallet = await Wallet.findOne({
       username: user.username,
     });
+
+    if (!wallet) {
+      wallet = await Wallet.create({
+        username: user.username,
+        balance: 0,
+        pkrBalance: 0,
+        goldBalance: 0,
+        usdtBalance: 0,
+      });
+    }
 
     return success(res, "User profile loaded.", {
       user: {
@@ -306,27 +334,76 @@ router.get("/me", verifyToken, async (req, res) => {
       },
 
       wallet: {
-        pkrBalance: wallet?.pkrBalance ?? wallet?.balance ?? 0,
-        goldBalance: wallet?.goldBalance ?? 0,
-        usdtBalance: wallet?.usdtBalance ?? 0,
+        pkrBalance: wallet.pkrBalance ?? wallet.balance ?? 0,
+        goldBalance: wallet.goldBalance ?? 0,
+        usdtBalance: wallet.usdtBalance ?? 0,
       },
     });
 
   } catch (error) {
-    console.error("AUTH /ME ERROR:", error);
+    console.error("GET /ME ERROR:", error);
 
-    return failed(res, 500, "Unable to load user profile.");
+    return failed(
+      res,
+      500,
+      "Unable to load user profile."
+    );
+  }
+});
+
+// =====================================================
+// VERIFY TOKEN
+// GET /api/auth/verify
+// =====================================================
+
+router.get("/verify", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+
+    if (!user) {
+      return failed(res, 404, "User not found.");
+    }
+
+    return success(res, "Token verified successfully.", {
+      user: {
+        id: user._id,
+        username: user.username,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+      },
+    });
+
+  } catch (error) {
+    console.error("VERIFY TOKEN ERROR:", error);
+
+    return failed(res, 401, "Invalid or expired token.");
+  }
+});
+
+// =====================================================
+// LOGOUT
+// POST /api/auth/logout
+// =====================================================
+
+router.post("/logout", verifyToken, async (req, res) => {
+  try {
+    return success(res, "Logout successful.");
+  } catch (error) {
+    console.error("LOGOUT ERROR:", error);
+
+    return failed(res, 500, "Logout failed.");
   }
 });
 
 // =====================================================
 // ADMIN AUTH CHECK
-// GET /api/admin/auth/check
+// GET /api/auth/admin/check
 // Used by Admin Dashboard
 // =====================================================
 
 router.get(
-  "/admin/auth/check",
+  "/admin/check",
   verifyToken,
   isAdmin,
   async (req, res) => {
@@ -334,7 +411,7 @@ router.get(
       const admin = await User.findById(req.user.id).select("-password");
 
       if (!admin) {
-        return failed(res, 404, "Admin not found.");
+        return failed(res, 404, "Admin account not found.");
       }
 
       return success(res, "Admin authenticated.", {
@@ -359,38 +436,6 @@ router.get(
   }
 );
 // =====================================================
-// LOGOUT
-// POST /api/auth/logout
-// =====================================================
-
-router.post("/logout", verifyToken, async (req, res) => {
-  try {
-    return success(res, "Logout successful.");
-  } catch (error) {
-    console.error("LOGOUT ERROR:", error);
-
-    return failed(res, 500, "Logout failed.");
-  }
-});
-
-// =====================================================
-// VERIFY TOKEN
-// GET /api/auth/verify
-// =====================================================
-
-router.get("/verify", verifyToken, async (req, res) => {
-  try {
-    return success(res, "Token is valid.", {
-      user: req.user,
-    });
-  } catch (error) {
-    console.error("VERIFY TOKEN ERROR:", error);
-
-    return failed(res, 401, "Invalid token.");
-  }
-});
-
-// =====================================================
 // HEALTH CHECK
 // GET /api/auth/health
 // =====================================================
@@ -398,12 +443,25 @@ router.get("/verify", verifyToken, async (req, res) => {
 router.get("/health", (req, res) => {
   return success(res, "GoldTrade Auth API Running.", {
     version: "GoldTrade V18 Enterprise",
+    environment: process.env.NODE_ENV || "development",
     timestamp: new Date().toISOString(),
   });
 });
 
 // =====================================================
-// ROUTER EXPORT
+// ROUTE NOT FOUND (Auth Only)
+// =====================================================
+
+router.use((req, res) => {
+  return failed(
+    res,
+    404,
+    `Auth API Not Found: ${req.method} ${req.originalUrl}`
+  );
+});
+
+// =====================================================
+// EXPORT ROUTER
 // =====================================================
 
 module.exports = router;
