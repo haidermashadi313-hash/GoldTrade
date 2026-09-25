@@ -118,9 +118,8 @@ export default function SignupPage() {
     try {
       setLoading(true);
 
-      console.log("GoldTrade Signup API:", `${API}/api/auth/signup`);
-
-      const response = await fetch(`${API}/api/auth/signup`, {
+      console.log("GoldTrade Register API:", `${API}/api/auth/register`);
+      const response = await fetch(`${API}/api/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
