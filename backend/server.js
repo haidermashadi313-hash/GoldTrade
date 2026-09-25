@@ -12,34 +12,46 @@ const cors = require("cors");
 
 const app = express();
 
+const cors = require("cors");
+
 // =====================================================
-// CORS CONFIGURATION (Production)
+// GoldTrade V18 Enterprise CORS (Production + Localhost)
 // =====================================================
 
 const allowedOrigins = [
-  "http://localhost:3000",
   "https://infotradewithzoyanet.org",
+  "https://www.infotradewithzoyanet.org",
+
   "https://haidermashadi313-hash-goldtrade-git-main-flextrade-5000.vercel.app",
-  process.env.FRONTEND_URL,
-].filter(Boolean);
+  "https://haidermashadi313-hash-goldtrade-8hhubh2uq-flextrade-5000.vercel.app",
+
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Allow server-to-server requests
+    origin(origin, callback) {
+      // Allow Postman / server-to-server requests
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
+        console.log("✅ Allowed CORS:", origin);
         return callback(null, true);
       }
 
-      console.log("Blocked CORS Origin:", origin);
-
-      return callback(new Error("Not allowed by CORS"));
+      console.log("❌ Blocked CORS:", origin);
+      return callback(new Error("CORS policy does not allow this origin"));
     },
+
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Origin",
+      "Accept",
+    ],
   })
 );
 
