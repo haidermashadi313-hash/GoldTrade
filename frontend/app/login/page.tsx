@@ -41,7 +41,8 @@ export default function LoginPage() {
   }, [router]);
 
 // ==========================================
-// LOGIN FUNCTION (GoldTrade V18 FIXED)
+// LOGIN FUNCTION (GoldTrade V18 ENTERPRISE)
+// Production Ready (Render + Vercel)
 // ==========================================
 
 const handleLogin = async (
@@ -51,9 +52,13 @@ const handleLogin = async (
 
   setLoading(true);
   setMessage("");
+  setMessageType("error");
 
   try {
+    const loginValue = username.trim().toLowerCase();
+
     console.log("LOGIN API:", `${API}/api/auth/login`);
+    console.log("LOGIN USER:", loginValue);
 
     const response = await fetch(`${API}/api/auth/login`, {
       method: "POST",
@@ -61,28 +66,36 @@ const handleLogin = async (
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        username: username.trim().toLowerCase(),
+        username: loginValue, // username OR email
         password: password.trim(),
       }),
     });
 
     // Safe JSON Parse
-    const data = await response.json();
+    let data: any = {};
 
-    // DEBUG (Very Important)
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error("Invalid response received from backend.");
+    }
+
     console.log("LOGIN STATUS:", response.status);
     console.log("LOGIN RESPONSE:", data);
 
     // Backend Error
     if (!response.ok || !data.success) {
       throw new Error(
-        data?.message ||
-        data?.error ||
+        data.message ||
+        data.error ||
         `Login failed (${response.status})`
       );
     }
 
-    // JWT Token
+    // ==========================================
+    // JWT TOKEN
+    // ==========================================
+
     const jwtToken =
       data.token ||
       data.accessToken ||
@@ -90,49 +103,77 @@ const handleLogin = async (
       data.data?.token;
 
     if (!jwtToken) {
-      throw new Error("JWT token not received from backend.");
+      throw new Error("JWT token not received.");
     }
 
-    // User Object Safety
+    // ==========================================
+    // USER DATA
+    // ==========================================
+
     const user = data.user || {};
+    const wallet = data.wallet || {};
 
     // Clear old session
     localStorage.clear();
 
-    // Save new session
+    // Save JWT
     localStorage.setItem("token", jwtToken);
-    localStorage.setItem("username", user.username || "");
-    localStorage.setItem("email", user.email || "");
-    localStorage.setItem("userId", user._id || user.id || "");
 
+    // Save User
+    localStorage.setItem("userId", user.id || user._id || "");
+    localStorage.setItem("username", user.username || "");
+    localStorage.setItem("fullName", user.fullName || "");
+    localStorage.setItem("email", user.email || "");
+
+    // Save Role
     const role = String(user.role || "user").toLowerCase();
     localStorage.setItem("role", role);
 
-    setMessageType("success");
-    setMessage("Login successful. Redirecting...");
+    // Save Wallet
+    localStorage.setItem(
+      "wallet",
+      JSON.stringify({
+        pkrBalance: wallet.pkrBalance ?? 0,
+        goldBalance: wallet.goldBalance ?? 0,
+        usdtBalance: wallet.usdtBalance ?? 0,
+      })
+    );
 
     console.log("LOGIN SUCCESS");
     console.log("ROLE:", role);
 
+    setMessageType("success");
+    setMessage("Login successful! Redirecting...");
+
+    // Redirect
     setTimeout(() => {
       if (role === "admin") {
         router.replace("/admin-dashboard");
       } else {
         router.replace("/dashboard");
       }
-    }, 500);
+    }, 700);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("LOGIN ERROR:", error);
 
     localStorage.clear();
 
+    let errorMessage = "Unable to connect to GoldTrade server.";
+
+    if (error.message?.includes("Invalid username")) {
+      errorMessage = "Invalid username or password.";
+    } else if (error.message?.includes("Network")) {
+      errorMessage = "Cannot connect to backend server.";
+    } else if (error.message?.includes("JWT")) {
+      errorMessage = "Authentication token missing from server.";
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
     setMessageType("error");
-    setMessage(
-      error instanceof Error
-        ? error.message
-        : "Unable to connect to server."
-    );
+    setMessage(errorMessage);
+
   } finally {
     setLoading(false);
   }
