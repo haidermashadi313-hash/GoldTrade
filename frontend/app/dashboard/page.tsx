@@ -27,6 +27,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
+import router from "next/router";
 
 // =====================================================
 // API URL
@@ -100,6 +101,29 @@ export default function DashboardPage() {
     email: "",
     role: "user",
   });
+  // ===================================================
+// LOAD LOGIN SESSION
+// ===================================================
+
+useEffect(() => {
+  const savedToken = localStorage.getItem("token");
+  const savedUsername = localStorage.getItem("username");
+  const savedRole = localStorage.getItem("role");
+
+  if (!savedToken) {
+    router.replace("/login");
+    return;
+  }
+
+  setToken(savedToken);
+  setUsername(savedUsername || "");
+
+  setUser((prev) => ({
+    ...prev,
+    username: savedUsername || "",
+    role: (savedRole || "user") as "user" | "admin",
+  }));
+}, [router]);
 
   // ===================================================
   // WALLET
@@ -218,6 +242,63 @@ export default function DashboardPage() {
       dateStyle: "medium",
       timeStyle: "short",
     });
+    // ===================================================
+// LOAD LOGIN SESSION
+// ===================================================
+
+useEffect(() => {
+  const savedToken = localStorage.getItem("token");
+  const savedUsername = localStorage.getItem("username");
+  const savedRole = localStorage.getItem("role");
+
+  if (!savedToken) {
+    router.replace("/login");
+    return;
+  }
+
+  setToken(savedToken);
+  setUsername(savedUsername || "");
+
+  setUser((prev) => ({
+    ...prev,
+    username: savedUsername || "",
+    role: (savedRole || "user") as "user" | "admin",
+  }));
+}, [router]);
+
+// ===================================================
+// VERIFY TOKEN WITH BACKEND
+// ===================================================
+
+useEffect(() => {
+  if (!token) return;
+
+  const checkAuth = async () => {
+    try {
+      const response = await fetch(`${API}/api/auth/check`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        localStorage.clear();
+        router.replace("/login");
+        return;
+      }
+
+      setUser(data.user);
+    } catch (err) {
+      console.error("AUTH ERROR:", err);
+      router.replace("/login");
+    }
+  };
+
+  checkAuth();
+}, [token, router]);
 
   // ===================================================
   // PORTFOLIO VALUE
@@ -240,7 +321,7 @@ export default function DashboardPage() {
     currentToken: string
   ) => {
     try {
-      const response = await fetch(`${API}/api/auth/me`, {
+      const response = await fetch(`${API}/api/auth/check`, {
         headers: {
           Authorization: `Bearer ${currentToken}`,
         },

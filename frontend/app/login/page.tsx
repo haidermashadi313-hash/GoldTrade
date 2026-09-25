@@ -1,18 +1,28 @@
 ﻿"use client";
 
+// ======================================================
+// GoldTrade V18 Login Page (PART 1/4)
+// Render + Vercel Production Version
+// ======================================================
+
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-// ==========================================
-// API URL (GoldTrade V18 FINAL)
-// ==========================================
+// ======================================================
+// API URL
+// ======================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "https://goldtrade-2.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://goldtrade-2.onrender.com";
 
 export default function LoginPage() {
   const router = useRouter();
+
+  // ======================================================
+  // STATE
+  // ======================================================
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -24,155 +34,162 @@ export default function LoginPage() {
   const [messageType, setMessageType] =
     useState<"success" | "error">("success");
 
-  // ==========================================
-  // CHECK EXISTING LOGIN (FIXED)
-  // ==========================================
+  // ======================================================
+  // CHECK EXISTING LOGIN
+  // ======================================================
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
 
-    // Redirect ONLY if token exists
-    if (token && role === "admin") {
+    if (!token) return;
+
+    if (role === "admin") {
       router.replace("/admin-dashboard");
-    } else if (token && role === "user") {
-      router.replace("/dashboard");
+      return;
     }
+
+    router.replace("/dashboard");
   }, [router]);
 
-// ==========================================
-// LOGIN FUNCTION (GoldTrade V18 FINAL)
-// Render + Vercel Production
-// ==========================================
+  // ======================================================
+  // LOGIN FUNCTION
+  // ======================================================
 
-const handleLogin = async (
-  e: React.FormEvent<HTMLFormElement>
-) => {
-  e.preventDefault();
+  const handleLogin = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
+    e.preventDefault();
 
-  setLoading(true);
-  setMessage("");
-  setMessageType("error");
-
-  try {
-    const loginValue = username.trim().toLowerCase();
-
-    console.log("LOGIN API:", `${API}/api/auth/login`);
-    console.log("LOGIN USER:", loginValue);
-
-    const response = await fetch(`${API}/api/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        username: loginValue, // username OR email
-        password: password.trim(),
-      }),
-    });
-
-    // Safe JSON parse
-    let data: any = {};
+    setLoading(true);
+    setMessage("");
+    setMessageType("error");
 
     try {
-      data = await response.json();
-    } catch {
-      throw new Error("Invalid response received from backend.");
-    }
+      const loginValue = username.trim().toLowerCase();
 
-    console.log("LOGIN STATUS:", response.status);
-    console.log("LOGIN RESPONSE:", data);
+      console.log("LOGIN API:", `${API}/api/auth/login`);
+      console.log("LOGIN USER:", loginValue);
 
-    // Backend error
-    if (!response.ok || !data.success) {
-      throw new Error(
-        data.message ||
-        data.error ||
-        `Login failed (${response.status})`
+      const response = await fetch(`${API}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: loginValue,
+          password: password.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      console.log("LOGIN STATUS:", response.status);
+      console.log("LOGIN RESPONSE:", data);
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message ||
+            data.error ||
+            "Invalid username or password."
+        );
+      }
+
+      // ======================================================
+      // JWT TOKEN
+      // ======================================================
+
+      const jwtToken =
+        data.token ||
+        data.accessToken ||
+        data.jwt ||
+        data.data?.token;
+
+      if (!jwtToken) {
+        throw new Error("JWT token not received.");
+      }
+
+      // ======================================================
+      // USER DATA
+      // ======================================================
+
+      const user = data.user || {};
+
+      // Remove previous session
+      localStorage.clear();
+
+      // Save session
+      localStorage.setItem("token", jwtToken);
+      localStorage.setItem("userId", user.id || user._id || "");
+      localStorage.setItem("username", user.username || "");
+      localStorage.setItem("email", user.email || "");
+      localStorage.setItem(
+        "role",
+        (user.role || "user").toLowerCase()
       );
-    }
 
-    // ==========================
-    // JWT Token
-    // ==========================
-    const token =
-      data.token ||
-      data.accessToken ||
-      data.jwt ||
-      data.data?.token;
+      // ======================================================
+      // SAVE WALLET BALANCES
+      // ======================================================
 
-    if (!token) {
-      throw new Error("JWT token not received from backend.");
-    }
+      localStorage.setItem(
+        "wallet",
+        String(user.wallet ?? 0)
+      );
 
-    // ==========================
-    // User Object
-    // ==========================
-    const user = data.user || {};
-
-    // Remove old session
-    localStorage.clear();
-
-    // Save session
-    localStorage.setItem("token", token);
-    localStorage.setItem("userId", user.id || user._id || "");
-    localStorage.setItem("username", user.username || "");
-    localStorage.setItem("email", user.email || "");
-    localStorage.setItem(
-      "role",
-      (user.role || "user").toLowerCase()
-    );
-
-    // Wallet (optional)
-    if (data.wallet) {
       localStorage.setItem(
         "pkrBalance",
-        String(data.wallet.pkrBalance ?? 0)
+        String(user.pkrBalance ?? 0)
       );
 
       localStorage.setItem(
         "goldBalance",
-        String(data.wallet.goldBalance ?? 0)
+        String(user.goldBalance ?? 0)
       );
 
       localStorage.setItem(
         "usdtBalance",
-        String(data.wallet.usdtBalance ?? 0)
+        String(user.usdtBalance ?? 0)
       );
+
+      setMessageType("success");
+      setMessage("Login successful. Redirecting...");
+
+      console.log("LOGIN SUCCESS:", user);
+            // ======================================================
+      // REDIRECT USER AFTER LOGIN
+      // ======================================================
+
+      setTimeout(() => {
+        const role = (user.role || "user").toLowerCase();
+
+        if (role === "admin") {
+          router.replace("/admin-dashboard");
+        } else {
+          router.replace("/dashboard");
+        }
+      }, 800);
+
+    } catch (error: any) {
+      console.error("LOGIN ERROR:", error);
+
+      // Clear invalid session
+      localStorage.clear();
+
+      setMessageType("error");
+
+      setMessage(
+        error?.message ||
+          "Unable to connect to GoldTrade server."
+      );
+    } finally {
+      setLoading(false);
     }
+  };
 
-    setMessageType("success");
-    setMessage("Login successful. Redirecting...");
-
-    console.log("LOGIN SUCCESS");
-    console.log("ROLE:", user.role);
-
-    // Redirect after success
-    setTimeout(() => {
-      if ((user.role || "").toLowerCase() === "admin") {
-        router.replace("/admin-dashboard");
-      } else {
-        router.replace("/dashboard");
-      }
-    }, 800);
-
-  } catch (error: any) {
-    console.error("LOGIN ERROR:", error);
-
-    localStorage.clear();
-
-    setMessageType("error");
-    setMessage(
-      error?.message || "Unable to connect to GoldTrade server."
-    );
-  } finally {
-    setLoading(false);
-  }
-};
-
-    // ==========================================
-  // LOGIN PAGE UI
-  // ==========================================
+  // ======================================================
+  // LOGIN PAGE UI STARTS (PART 4)
+  // ======================================================
 
   return (
     <main className="min-h-screen bg-black flex items-center justify-center px-4 py-10">
@@ -205,9 +222,7 @@ const handleLogin = async (
         )}
 
         {/* LOGIN FORM */}
-        <form onSubmit={handleLogin} className="space-y-5">
-
-          {/* USERNAME */}
+        <form onSubmit={handleLogin} className="space-y-5">          {/* USERNAME / EMAIL */}
           <div>
             <label className="block text-yellow-400 font-semibold mb-2">
               Username or Email
@@ -243,7 +258,7 @@ const handleLogin = async (
 
               <button
                 type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
+                onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-yellow-400"
               >
                 {showPassword ? (
@@ -291,7 +306,6 @@ const handleLogin = async (
           </h3>
 
           <div className="space-y-2 text-sm">
-
             <div className="flex justify-between">
               <span className="text-gray-400">Username</span>
               <span className="text-green-400 font-semibold">hashi</span>
@@ -308,7 +322,6 @@ const handleLogin = async (
                 Administrator
               </span>
             </div>
-
           </div>
         </div>
 
