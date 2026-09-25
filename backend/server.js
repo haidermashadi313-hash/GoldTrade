@@ -1,7 +1,6 @@
 // =====================================================
 // GoldTrade V18 Enterprise Backend
-// SERVER.JS — PART 1/3
-// Production Ready (Render + Vercel)
+// SERVER.JS - PART 1/4
 // =====================================================
 
 require("dotenv").config();
@@ -12,10 +11,8 @@ const cors = require("cors");
 
 const app = express();
 
-const cors = require("cors");
-
 // =====================================================
-// GoldTrade V18 Enterprise CORS (Production + Localhost)
+// CORS CONFIGURATION
 // =====================================================
 
 const allowedOrigins = [
@@ -32,7 +29,6 @@ const allowedOrigins = [
 app.use(
   cors({
     origin(origin, callback) {
-      // Allow Postman / server-to-server requests
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
@@ -41,7 +37,7 @@ app.use(
       }
 
       console.log("❌ Blocked CORS:", origin);
-      return callback(new Error("CORS policy does not allow this origin"));
+      callback(new Error("CORS policy does not allow this origin"));
     },
 
     credentials: true,
@@ -55,7 +51,7 @@ app.use(
   })
 );
 
-// Handle preflight requests
+// OPTIONS Requests
 app.options("*", cors());
 
 // =====================================================
@@ -75,13 +71,18 @@ app.use((req, res, next) => {
   );
   next();
 });
+// =====================================================
+// GoldTrade V18 Enterprise Backend
+// SERVER.JS — PART 2/4
+// MongoDB + Health APIs + Route Imports
+// =====================================================
 
 // =====================================================
 // DATABASE CONNECTION
 // =====================================================
 
 if (!process.env.MONGO_URI) {
-  console.error("❌ MONGO_URI missing inside .env");
+  console.error("❌ MONGO_URI is missing.");
   process.exit(1);
 }
 
@@ -90,9 +91,9 @@ mongoose
     serverSelectionTimeoutMS: 10000,
   })
   .then(() => {
-    console.log("====================================");
+    console.log("========================================");
     console.log("✅ MongoDB Connected Successfully");
-    console.log("====================================");
+    console.log("========================================");
   })
   .catch((err) => {
     console.error("❌ MongoDB Connection Failed");
@@ -110,14 +111,11 @@ app.get("/", (req, res) => {
     backend: "GoldTrade V18 Enterprise",
     version: "V18",
     status: "ONLINE",
-    environment:
-      process.env.NODE_ENV || "development",
-
+    environment: process.env.NODE_ENV || "development",
     database:
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Disconnected",
-
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
   });
@@ -132,14 +130,11 @@ app.get("/api/status", (req, res) => {
     success: true,
     backend: "GoldTrade V18 Enterprise",
     version: "V18 Enterprise",
-    environment:
-      process.env.NODE_ENV || "development",
-
+    environment: process.env.NODE_ENV || "development",
     database:
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Disconnected",
-
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
   });
@@ -149,7 +144,7 @@ app.get("/api/status", (req, res) => {
 // ROUTE IMPORTS
 // =====================================================
 
-// ---------- PUBLIC ROUTES ----------
+// PUBLIC ROUTES
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const walletRoutes = require("./routes/walletRoutes");
@@ -162,7 +157,7 @@ const settingsRoutes = require("./routes/settingsRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
 const paymentSettingsRoutes = require("./routes/paymentSettingsRoutes");
 
-// ---------- ADMIN ROUTES ----------
+// ADMIN ROUTES
 const adminRoutes = require("./routes/adminRoutes");
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const adminUsersRoutes = require("./routes/adminUsersRoutes");
@@ -170,62 +165,67 @@ const adminGoldRoutes = require("./routes/adminGoldRoutes");
 const adminUsdtRoutes = require("./routes/adminUsdtRoutes");
 
 // =====================================================
-// API REQUEST LOGGER (Optional)
+// API LOGGER
 // =====================================================
 
 app.use("/api", (req, res, next) => {
   console.log(`📡 API -> ${req.method} ${req.originalUrl}`);
   next();
 });
+// =====================================================
+// GoldTrade V18 Enterprise Backend
+// SERVER.JS — PART 3/4
+// ALL API ROUTES (USER + ADMIN)
+// =====================================================
 
 // =====================================================
 // PUBLIC API ROUTES
 // =====================================================
 
-// ---------- Authentication ----------
+// Authentication
 app.use("/api/auth", authRoutes);
 
-// ---------- Users ----------
+// Users
 app.use("/api/users", userRoutes);
 
-// ---------- Wallet (USER + ADMIN) ----------
+// Wallet
 app.use("/api/wallet", walletRoutes);
 app.use("/api/admin/wallet", walletRoutes);
 
-// ---------- Gold ----------
+// Gold Trading
 app.use("/api/gold", goldRoutes);
 
-// ---------- USDT ----------
+// USDT Trading
 app.use("/api/usdt", usdtRoutes);
 
-// ---------- Deposits (USER + ADMIN) ----------
+// Deposits
 app.use("/api/deposit", depositRoutes);
 app.use("/api/admin/deposits", depositRoutes);
 
-// ---------- Withdraws (USER + ADMIN) ----------
+// Withdraws
 app.use("/api/withdraw", withdrawRoutes);
 app.use("/api/admin/withdraws", withdrawRoutes);
 
-// ---------- Market ----------
+// Market
 app.use("/api/market", marketRoutes);
 
-// ---------- Settings ----------
+// Settings
 app.use("/api/settings", settingsRoutes);
 
-// ---------- Transactions ----------
+// Transactions
 app.use("/api/transactions", transactionRoutes);
 
-// ---------- Payment Settings ----------
+// Payment Settings
 app.use("/api/payment-settings", paymentSettingsRoutes);
 
 // =====================================================
 // ADMIN API ROUTES
 // =====================================================
 
-// Authentication + Admin Panel
+// Main Admin Routes
 app.use("/api/admin", adminRoutes);
 
-// Dashboard Statistics
+// Dashboard
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 
 // Users Management
@@ -247,6 +247,12 @@ app.use("/api/payment-settings", (req, res, next) => {
   );
   next();
 });
+// =====================================================
+// GoldTrade V18 Enterprise Backend
+// SERVER.JS — PART 4/4 (FINAL)
+// Error Handlers + Server Start + Shutdown
+// =====================================================
+
 // =====================================================
 // JWT / AUTH ERROR HANDLER
 // =====================================================
@@ -315,7 +321,7 @@ app.use("/api/*", (req, res) => {
 app.use((err, req, res, next) => {
   console.error("========================================");
   console.error("GLOBAL SERVER ERROR");
-  console.error(err);
+  console.error(err.message || err);
   console.error("========================================");
 
   return res.status(err.status || 500).json({
@@ -334,10 +340,10 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log("========================================");
   console.log("🚀 GoldTrade V18 Enterprise Backend");
   console.log("========================================");
-  console.log(`🌐 Server     : http://0.0.0.0:${PORT}`);
-  console.log(`📦 Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(`🌐 Server      : http://0.0.0.0:${PORT}`);
+  console.log(`📦 Environment : ${process.env.NODE_ENV || "development"}`);
   console.log(
-    `🗄️ MongoDB    : ${
+    `🗄️ MongoDB      : ${
       mongoose.connection.readyState === 1
         ? "Connected"
         : "Connecting..."
@@ -384,7 +390,7 @@ process.on("unhandledRejection", (reason) => {
 });
 
 // =====================================================
-// EXPORT EXPRESS APP
+// EXPORT APP
 // =====================================================
 
 module.exports = app;
