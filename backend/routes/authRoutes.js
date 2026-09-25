@@ -135,19 +135,27 @@ const registerHandler = async (req, res) => {
       lastLogin: new Date(),
     });
 
-    // =====================================================
-    // CREATE WALLET (FIXED)
-    // userId added here
-    // =====================================================
+// =====================================================
+// CREATE WALLET (FINAL FIX)
+// =====================================================
 
-    const wallet = await Wallet.create({
-      userId: user._id,          // ✅ REQUIRED FIX
-      username: user.username,
-      balance: 0,
-      pkrBalance: 0,
-      goldBalance: 0,
-      usdtBalance: 0,
-    });
+const wallet = await Wallet.create({
+  userId: user._id,          // Required
+  username: user.username,
+
+  // Wallet Balances
+  balance: 0,
+  PkrBalance: 0,             // Match Wallet.js
+  goldBalance: 0,
+  UsdtBalance: 0,            // Match Wallet.js
+
+  // Totals
+  totalDeposit: 0,
+  totalWithdraw: 0,
+
+  // Status
+  status: "Active",
+});
 
     // =====================================================
     // JWT TOKEN
