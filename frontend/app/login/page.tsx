@@ -41,8 +41,8 @@ export default function LoginPage() {
   }, [router]);
 
 // ==========================================
-// LOGIN FUNCTION (GoldTrade V18 ENTERPRISE)
-// Production Ready (Render + Vercel)
+// LOGIN FUNCTION (GoldTrade V18 FINAL)
+// Render + Vercel Production
 // ==========================================
 
 const handleLogin = async (
@@ -71,7 +71,7 @@ const handleLogin = async (
       }),
     });
 
-    // Safe JSON Parse
+    // Safe JSON parse
     let data: any = {};
 
     try {
@@ -83,7 +83,7 @@ const handleLogin = async (
     console.log("LOGIN STATUS:", response.status);
     console.log("LOGIN RESPONSE:", data);
 
-    // Backend Error
+    // Backend error
     if (!response.ok || !data.success) {
       throw new Error(
         data.message ||
@@ -92,92 +92,84 @@ const handleLogin = async (
       );
     }
 
-    // ==========================================
-    // JWT TOKEN
-    // ==========================================
-
-    const jwtToken =
+    // ==========================
+    // JWT Token
+    // ==========================
+    const token =
       data.token ||
       data.accessToken ||
       data.jwt ||
       data.data?.token;
 
-    if (!jwtToken) {
-      throw new Error("JWT token not received.");
+    if (!token) {
+      throw new Error("JWT token not received from backend.");
     }
 
-    // ==========================================
-    // USER DATA
-    // ==========================================
-
+    // ==========================
+    // User Object
+    // ==========================
     const user = data.user || {};
-    const wallet = data.wallet || {};
 
-    // Clear old session
+    // Remove old session
     localStorage.clear();
 
-    // Save JWT
-    localStorage.setItem("token", jwtToken);
-
-    // Save User
+    // Save session
+    localStorage.setItem("token", token);
     localStorage.setItem("userId", user.id || user._id || "");
     localStorage.setItem("username", user.username || "");
-    localStorage.setItem("fullName", user.fullName || "");
     localStorage.setItem("email", user.email || "");
-
-    // Save Role
-    const role = String(user.role || "user").toLowerCase();
-    localStorage.setItem("role", role);
-
-    // Save Wallet
     localStorage.setItem(
-      "wallet",
-      JSON.stringify({
-        pkrBalance: wallet.pkrBalance ?? 0,
-        goldBalance: wallet.goldBalance ?? 0,
-        usdtBalance: wallet.usdtBalance ?? 0,
-      })
+      "role",
+      (user.role || "user").toLowerCase()
     );
 
-    console.log("LOGIN SUCCESS");
-    console.log("ROLE:", role);
+    // Wallet (optional)
+    if (data.wallet) {
+      localStorage.setItem(
+        "pkrBalance",
+        String(data.wallet.pkrBalance ?? 0)
+      );
+
+      localStorage.setItem(
+        "goldBalance",
+        String(data.wallet.goldBalance ?? 0)
+      );
+
+      localStorage.setItem(
+        "usdtBalance",
+        String(data.wallet.usdtBalance ?? 0)
+      );
+    }
 
     setMessageType("success");
-    setMessage("Login successful! Redirecting...");
+    setMessage("Login successful. Redirecting...");
 
-    // Redirect
+    console.log("LOGIN SUCCESS");
+    console.log("ROLE:", user.role);
+
+    // Redirect after success
     setTimeout(() => {
-      if (role === "admin") {
+      if ((user.role || "").toLowerCase() === "admin") {
         router.replace("/admin-dashboard");
       } else {
         router.replace("/dashboard");
       }
-    }, 700);
+    }, 800);
 
   } catch (error: any) {
     console.error("LOGIN ERROR:", error);
 
     localStorage.clear();
 
-    let errorMessage = "Unable to connect to GoldTrade server.";
-
-    if (error.message?.includes("Invalid username")) {
-      errorMessage = "Invalid username or password.";
-    } else if (error.message?.includes("Network")) {
-      errorMessage = "Cannot connect to backend server.";
-    } else if (error.message?.includes("JWT")) {
-      errorMessage = "Authentication token missing from server.";
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-
     setMessageType("error");
-    setMessage(errorMessage);
-
+    setMessage(
+      error?.message || "Unable to connect to GoldTrade server."
+    );
   } finally {
     setLoading(false);
   }
 };
+
     // ==========================================
   // LOGIN PAGE UI
   // ==========================================
