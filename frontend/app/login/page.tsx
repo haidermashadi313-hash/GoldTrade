@@ -1,8 +1,8 @@
 ﻿"use client";
 
 // ======================================================
-// GoldTrade V18 Login Page (PART 1/4)
-// Render + Vercel Production Version
+// GoldTrade V18 Enterprise Login Page
+// PART 1/4
 // ======================================================
 
 import { useEffect, useState } from "react";
@@ -17,11 +17,41 @@ const API =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://goldtrade-2.onrender.com";
 
+// ======================================================
+// TYPES
+// ======================================================
+
+interface UserData {
+  id?: string;
+  _id?: string;
+  username: string;
+  email: string;
+  role: "user" | "admin";
+
+  fullName?: string;
+  phone?: string;
+  country?: string;
+
+  wallet?: number;
+  pkrBalance?: number;
+  goldBalance?: number;
+  usdtBalance?: number;
+}
+
+interface LoginResponse {
+  success: boolean;
+  message?: string;
+  token?: string;
+  accessToken?: string;
+  jwt?: string;
+  user?: UserData;
+}
+
 export default function LoginPage() {
   const router = useRouter();
 
   // ======================================================
-  // STATE
+  // STATES
   // ======================================================
 
   const [username, setUsername] = useState("");
@@ -35,21 +65,20 @@ export default function LoginPage() {
     useState<"success" | "error">("success");
 
   // ======================================================
-  // CHECK EXISTING LOGIN
+  // CHECK EXISTING LOGIN SESSION
   // ======================================================
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const role = localStorage.getItem("role");
+    const savedToken = localStorage.getItem("token");
+    const savedRole = localStorage.getItem("role");
 
-    if (!token) return;
+    if (!savedToken) return;
 
-    if (role === "admin") {
+    if ((savedRole || "").toLowerCase() === "admin") {
       router.replace("/admin-dashboard");
-      return;
+    } else {
+      router.replace("/dashboard");
     }
-
-    router.replace("/dashboard");
   }, [router]);
 
   // ======================================================
@@ -68,9 +97,6 @@ export default function LoginPage() {
     try {
       const loginValue = username.trim().toLowerCase();
 
-      console.log("LOGIN API:", `${API}/api/auth/login`);
-      console.log("LOGIN USER:", loginValue);
-
       const response = await fetch(`${API}/api/auth/login`, {
         method: "POST",
         headers: {
@@ -82,43 +108,53 @@ export default function LoginPage() {
         }),
       });
 
-      const data = await response.json();
+      const data: LoginResponse = await response.json();
 
-      console.log("LOGIN STATUS:", response.status);
       console.log("LOGIN RESPONSE:", data);
 
       if (!response.ok || !data.success) {
         throw new Error(
-          data.message ||
-            data.error ||
-            "Invalid username or password."
+          data.message || "Invalid username or password."
         );
       }
 
       // ======================================================
-      // JWT TOKEN
+      // GET JWT TOKEN
       // ======================================================
 
       const jwtToken =
         data.token ||
         data.accessToken ||
-        data.jwt ||
-        data.data?.token;
+        data.jwt;
 
       if (!jwtToken) {
-        throw new Error("JWT token not received.");
+        throw new Error("JWT token not received from backend.");
       }
 
       // ======================================================
       // USER DATA
       // ======================================================
 
-      const user = data.user || {};
+      const user = data.user!;
 
-      // Remove previous session
-      localStorage.clear();
+      // ======================================================
+      // REMOVE OLD SESSION
+      // ======================================================
 
-      // Save session
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      localStorage.removeItem("username");
+      localStorage.removeItem("email");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("wallet");
+      localStorage.removeItem("pkrBalance");
+      localStorage.removeItem("goldBalance");
+      localStorage.removeItem("usdtBalance");
+
+      // ======================================================
+      // SAVE NEW SESSION
+      // ======================================================
+
       localStorage.setItem("token", jwtToken);
       localStorage.setItem("userId", user.id || user._id || "");
       localStorage.setItem("username", user.username || "");
@@ -127,10 +163,6 @@ export default function LoginPage() {
         "role",
         (user.role || "user").toLowerCase()
       );
-
-      // ======================================================
-      // SAVE WALLET BALANCES
-      // ======================================================
 
       localStorage.setItem(
         "wallet",
@@ -152,12 +184,12 @@ export default function LoginPage() {
         String(user.usdtBalance ?? 0)
       );
 
+      console.log("TOKEN SAVED:", localStorage.getItem("token"));
+
       setMessageType("success");
       setMessage("Login successful. Redirecting...");
-
-      console.log("LOGIN SUCCESS:", user);
             // ======================================================
-      // REDIRECT USER AFTER LOGIN
+      // REDIRECT USER
       // ======================================================
 
       setTimeout(() => {
@@ -173,22 +205,18 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("LOGIN ERROR:", error);
 
-      // Clear invalid session
-      localStorage.clear();
-
       setMessageType("error");
-
       setMessage(
-        error?.message ||
-          "Unable to connect to GoldTrade server."
+        error?.message || "Unable to connect to GoldTrade server."
       );
+
     } finally {
       setLoading(false);
     }
   };
 
   // ======================================================
-  // LOGIN PAGE UI STARTS (PART 4)
+  // LOGIN PAGE UI
   // ======================================================
 
   return (
@@ -222,7 +250,8 @@ export default function LoginPage() {
         )}
 
         {/* LOGIN FORM */}
-        <form onSubmit={handleLogin} className="space-y-5">          {/* USERNAME / EMAIL */}
+        <form onSubmit={handleLogin} className="space-y-5">
+                    {/* USERNAME / EMAIL */}
           <div>
             <label className="block text-yellow-400 font-semibold mb-2">
               Username or Email
@@ -235,7 +264,8 @@ export default function LoginPage() {
               placeholder="Enter username or email"
               autoComplete="username"
               required
-              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white outline-none focus:border-yellow-500"
+              disabled={loading}
+              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white outline-none focus:border-yellow-500 disabled:opacity-60"
             />
           </div>
 
@@ -253,12 +283,13 @@ export default function LoginPage() {
                 placeholder="Enter password"
                 autoComplete="current-password"
                 required
-                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 pr-12 text-white outline-none focus:border-yellow-500"
+                disabled={loading}
+                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 pr-12 text-white outline-none focus:border-yellow-500 disabled:opacity-60"
               />
 
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={() => setShowPassword((prev) => !prev)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-yellow-400"
               >
                 {showPassword ? (
@@ -282,6 +313,7 @@ export default function LoginPage() {
           >
             {loading ? "Signing In..." : "Login to GoldTrade"}
           </button>
+
         </form>
 
         {/* SIGNUP LINK */}
@@ -306,14 +338,19 @@ export default function LoginPage() {
           </h3>
 
           <div className="space-y-2 text-sm">
+
             <div className="flex justify-between">
               <span className="text-gray-400">Username</span>
-              <span className="text-green-400 font-semibold">hashi</span>
+              <span className="text-green-400 font-semibold">
+                hashi
+              </span>
             </div>
 
             <div className="flex justify-between">
               <span className="text-gray-400">Password</span>
-              <span className="text-white font-semibold">********</span>
+              <span className="text-white font-semibold">
+                ********
+              </span>
             </div>
 
             <div className="flex justify-between">
@@ -322,6 +359,7 @@ export default function LoginPage() {
                 Administrator
               </span>
             </div>
+
           </div>
         </div>
 
