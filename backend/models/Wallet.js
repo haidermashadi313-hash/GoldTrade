@@ -1,8 +1,16 @@
+// =====================================================
+// GoldTrade V18 Enterprise
+// Wallet Model (Render + Vercel Production)
+// =====================================================
+
 const mongoose = require("mongoose");
 
 const WalletSchema = new mongoose.Schema(
   {
-    // User Link
+    // =====================================================
+    // USER LINK
+    // =====================================================
+
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -11,39 +19,93 @@ const WalletSchema = new mongoose.Schema(
       index: true,
     },
 
-    // PKR Wallet
-    PkrBalance: {
+    username: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
+      unique: true,
+      index: true,
+    },
+
+    // =====================================================
+    // WALLET BALANCES
+    // =====================================================
+
+    balance: {
       type: Number,
       default: 0,
       min: 0,
     },
 
-    // Gold Wallet
+    pkrBalance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     goldBalance: {
       type: Number,
       default: 0,
       min: 0,
     },
 
-    // USDT Wallet
-    UsdtBalance: {
+    usdtBalance: {
       type: Number,
       default: 0,
       min: 0,
     },
 
-    // Totals
+    // =====================================================
+    // TOTALS
+    // =====================================================
+
     totalDeposit: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
     totalWithdraw: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
-    // Wallet Status
+    totalPkrDeposit: {
+      type: Number,
+      default: 0,
+    },
+
+    totalPkrWithdraw: {
+      type: Number,
+      default: 0,
+    },
+
+    totalGoldPurchased: {
+      type: Number,
+      default: 0,
+    },
+
+    totalGoldSold: {
+      type: Number,
+      default: 0,
+    },
+
+    totalUsdtDeposited: {
+      type: Number,
+      default: 0,
+    },
+
+    totalUsdtWithdrawn: {
+      type: Number,
+      default: 0,
+    },
+
+    // =====================================================
+    // STATUS
+    // =====================================================
+
     status: {
       type: String,
       enum: ["Active", "Suspended"],
@@ -56,6 +118,10 @@ const WalletSchema = new mongoose.Schema(
   }
 );
 
-// Render / Hot Reload Safe Export
+// =====================================================
+// SAFE EXPORT (Render Hot Reload)
+// =====================================================
+
 module.exports =
-  mongoose.models.Wallet || mongoose.model("Wallet", WalletSchema);
+  mongoose.models.Wallet ||
+  mongoose.model("Wallet", WalletSchema);

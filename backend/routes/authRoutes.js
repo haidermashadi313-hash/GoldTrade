@@ -194,7 +194,7 @@ const registerHandler = async (req, res) => {
 router.post("/register", registerHandler);
 router.post("/signup", registerHandler);
 // =====================================================
-// LOGIN USER / ADMIN
+// LOGIN USER / ADMIN (FINAL PRODUCTION)
 // POST /api/auth/login
 // =====================================================
 
@@ -207,16 +207,12 @@ router.post("/login", async (req, res) => {
       .toLowerCase();
 
     if (!loginValue || !password) {
-      return failed(
-        res,
-        400,
-        "Username/Email and password are required."
-      );
+      return failed(res, 400, "Username/Email and password are required.");
     }
 
-    // ---------------------------------------------
-    // Find User
-    // ---------------------------------------------
+    console.log("LOGIN REQUEST:", loginValue);
+
+    // Find by username OR email
     const user = await User.findOne({
       $or: [
         { username: loginValue },
@@ -225,31 +221,27 @@ router.post("/login", async (req, res) => {
     });
 
     if (!user) {
+      console.log("USER NOT FOUND");
       return failed(res, 401, "Invalid username or password.");
     }
 
-    // ---------------------------------------------
-    // Verify Password
-    // ---------------------------------------------
+    console.log("USER FOUND:", user.username);
+
+    // Compare password
     const matched = await bcrypt.compare(password, user.password);
+
+    console.log("PASSWORD MATCH:", matched);
 
     if (!matched) {
       return failed(res, 401, "Invalid username or password.");
     }
 
-    // ---------------------------------------------
-    // Update Last Login
-    // ---------------------------------------------
+    // Update last login
     user.lastLogin = new Date();
     await user.save();
 
-    // ---------------------------------------------
-    // ENSURE WALLET EXISTS
-    // IMPORTANT FIX
-    // ---------------------------------------------
-    let wallet = await Wallet.findOne({
-      userId: user._id,
-    });
+    // Wallet
+    let wallet = await Wallet.findOne({ userId: user._id });
 
     if (!wallet) {
       wallet = await Wallet.create({
@@ -262,39 +254,27 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // ---------------------------------------------
-    // Generate Token
-    // ---------------------------------------------
     const token = generateToken(user);
 
     return success(res, "Login successful.", {
       token,
-
       user: {
         id: user._id,
         username: user.username,
         fullName: user.fullName,
         email: user.email,
         role: user.role,
-        createdAt: user.createdAt,
-        lastLogin: user.lastLogin,
       },
-
       wallet: {
-        id: wallet._id,
-        pkrBalance: wallet.pkrBalance ?? wallet.balance ?? 0,
+        pkrBalance: wallet.pkrBalance ?? 0,
         goldBalance: wallet.goldBalance ?? 0,
         usdtBalance: wallet.usdtBalance ?? 0,
       },
     });
+
   } catch (error) {
     console.error("LOGIN ERROR:", error);
-
-    return failed(
-      res,
-      500,
-      error.message || "Login failed."
-    );
+    return failed(res, 500, error.message || "Login failed.");
   }
 });
 
