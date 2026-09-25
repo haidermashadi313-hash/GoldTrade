@@ -1,289 +1,344 @@
+// ======================================================
+// GoldTrade V18 - Gold Routes (PART 1/4)
+// ======================================================
+
 const express = require("express");
 const router = express.Router();
 
-const User = require("../models/User");
-const GoldOrder = require("../models/GoldOrder");
-const Settings = require("../models/Settings");
-const WalletTransaction = require("../models/WalletTransaction");
+const { verifyToken, isAdmin } = require("../middleware/auth");
 
 const {
-  verifyToken,
-  checkWalletStatus,
-} = require("../middleware/auth");
+  getGoldPrice,
+  buyGold,
+  sellGold,
+  getGoldHistory,
+  getPortfolio,
+  getSettings,
+  updateSettings,
+  getAdminDashboard,
+} = require("../controllers/goldController");
 
-// =====================================================
+// ======================================================
+// GOLD API HEALTH CHECK
+// GET /api/gold
+// ======================================================
+
+router.get("/", (req, res) => {
+  return res.json({
+    success: true,
+    message: "GoldTrade V18 Gold API Running",
+    version: "V18",
+    timestamp: new Date(),
+  });
+});
+
+// ======================================================
 // GET LIVE GOLD PRICE
 // GET /api/gold/price
-// =====================================================
+// ======================================================
 
-router.get("/price", async (req, res) => {
-  try {
-    let settings = await Settings.findOne();
+router.get("/price", getGoldPrice);
 
-    if (!settings) {
-      settings = await Settings.create({
-        buyGoldPrice: 312000,
-        sellGoldPrice: 310000,
-        goldPriceUSD: 3350,
-        usdToPkr: 295,
-        goldTradingEnabled: true,
-        marketStatus: "OPEN",
-      });
-    }
+// ======================================================
+// GET GOLD SETTINGS
+// GET /api/gold/settings
+// ======================================================
 
-    return res.json({
-      success: true,
-      buyPrice: settings.buyGoldPrice,
-      sellPrice: settings.sellGoldPrice,
-      goldPriceUSD: settings.goldPriceUSD,
-      usdToPkr: settings.usdToPkr,
-      tradingEnabled: settings.goldTradingEnabled,
-      marketStatus: settings.marketStatus,
-    });
-  } catch (error) {
-    console.error("Gold Price Error:", error);
+router.get("/settings", getSettings);
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load gold price.",
-    });
-  }
-});
-
-// =====================================================
+// ======================================================
 // BUY GOLD
 // POST /api/gold/buy
-// =====================================================
+// Protected Route
+// ======================================================
 
-router.post("/buy", verifyToken, checkWalletStatus, async (req, res) => {
-  try {
-    const { quantity } = req.body;
+router.post("/buy", verifyToken, buyGold);
 
-    const qty = Number(quantity);
-
-    if (!qty || qty <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid quantity.",
-      });
-    }
-
-    const settings = await Settings.findOne();
-
-    if (!settings || !settings.goldTradingEnabled) {
-      return res.status(400).json({
-        success: false,
-        message: "Gold trading is currently disabled.",
-      });
-    }
-
-    if (settings.marketStatus !== "OPEN") {
-      return res.status(400).json({
-        success: false,
-        message: "Market is closed.",
-      });
-    }
-
-    const totalAmount = qty * Number(settings.buyGoldPrice);
-
-    if (req.user.pkrBalance < totalAmount) {
-      return res.status(400).json({
-        success: false,
-        message: "Insufficient PKR balance.",
-      });
-    }
-
-    req.user.pkrBalance -= totalAmount;
-    req.user.goldBalance += qty;
-    req.user.totalGoldPurchased += qty;
-    req.user.totalTradingVolume += totalAmount;
-    req.user.totalTransactions += 1;
-
-    await req.user.save();
-
-    await GoldOrder.create({
-      username: req.user.username,
-      fullName: req.user.fullName,
-      orderType: "BUY",
-      quantity: qty,
-      price: settings.buyGoldPrice,
-      totalAmount,
-      status: "Approved",
-      paymentStatus: "Paid",
-      approvedBy: "SYSTEM",
-      approvedAt: new Date(),
-    });
-
-    await WalletTransaction.create({
-      username: req.user.username,
-      walletType: "GOLD",
-      transactionType: "BUY_GOLD",
-      amount: totalAmount,
-      status: "Completed",
-      note: `Bought ${qty} gram gold.`,
-    });
-
-    return res.json({
-      success: true,
-      message: "Gold purchased successfully.",
-      balances: {
-        pkrBalance: req.user.pkrBalance,
-        goldBalance: req.user.goldBalance,
-      },
-    });
-  } catch (error) {
-    console.error("Buy Gold Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Gold purchase failed.",
-    });
-  }
-});
-
-// =====================================================
+// ======================================================
 // SELL GOLD
 // POST /api/gold/sell
-// =====================================================
+// Protected Route
+// ======================================================
 
-router.post("/sell", verifyToken, checkWalletStatus, async (req, res) => {
+router.post("/sell", verifyToken, sellGold);
+
+// ======================================================
+// USER PORTFOLIO
+// GET /api/gold/portfolio/:username
+// Protected Route
+// ======================================================
+
+router.get("/portfolio/:username", verifyToken, getPortfolio);
+
+// ======================================================
+// MY PORTFOLIO
+// GET /api/gold/my-portfolio
+// Protected Route
+// ======================================================
+
+router.get("/my-portfolio", verifyToken, async (req, res) => {
   try {
-    const { quantity } = req.body;
+    // verifyToken middleware se username milta hai
+    req.params.username = req.user.username;
 
-    const qty = Number(quantity);
-
-    if (!qty || qty <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid quantity.",
-      });
-    }
-
-    const settings = await Settings.findOne();
-
-    if (!settings || !settings.goldTradingEnabled) {
-      return res.status(400).json({
-        success: false,
-        message: "Gold trading is disabled.",
-      });
-    }
-
-    if (req.user.goldBalance < qty) {
-      return res.status(400).json({
-        success: false,
-        message: "Insufficient Gold balance.",
-      });
-    }
-
-    const totalAmount = qty * Number(settings.sellGoldPrice);
-
-    req.user.goldBalance -= qty;
-    req.user.pkrBalance += totalAmount;
-    req.user.totalGoldSold += qty;
-    req.user.totalTradingVolume += totalAmount;
-    req.user.totalTransactions += 1;
-
-    await req.user.save();
-
-    await GoldOrder.create({
-      username: req.user.username,
-      fullName: req.user.fullName,
-      orderType: "SELL",
-      quantity: qty,
-      price: settings.sellGoldPrice,
-      totalAmount,
-      status: "Approved",
-      paymentStatus: "Paid",
-      approvedBy: "SYSTEM",
-      approvedAt: new Date(),
-    });
-
-    await WalletTransaction.create({
-      username: req.user.username,
-      walletType: "GOLD",
-      transactionType: "SELL_GOLD",
-      amount: totalAmount,
-      status: "Completed",
-      note: `Sold ${qty} gram gold.`,
-    });
-
-    return res.json({
-      success: true,
-      message: "Gold sold successfully.",
-      balances: {
-        pkrBalance: req.user.pkrBalance,
-        goldBalance: req.user.goldBalance,
-      },
-    });
+    return getPortfolio(req, res);
   } catch (error) {
-    console.error("Sell Gold Error:", error);
+    console.error("MY PORTFOLIO ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Gold selling failed.",
+      message: error.message,
     });
   }
 });
 
-// =====================================================
-// USER GOLD HISTORY
-// GET /api/gold/history
-// =====================================================
+// ======================================================
+// GET USER GOLD BALANCE
+// GET /api/gold/balance
+// Protected Route
+// ======================================================
 
-router.get("/history", verifyToken, async (req, res) => {
+router.get("/balance", verifyToken, async (req, res) => {
   try {
-    const history = await GoldOrder.find({
-      username: req.user.username,
-    }).sort({ createdAt: -1 });
+    const User = require("../models/User");
+
+    const user = await User.findById(req.user.id).select(
+      "wallet goldBalance pkrBalance usdtBalance username"
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
 
     return res.json({
       success: true,
-      history,
+      wallet: user.wallet || 0,
+      goldBalance: user.goldBalance || 0,
+      pkrBalance: user.pkrBalance || 0,
+      usdtBalance: user.usdtBalance || 0,
+      username: user.username,
     });
   } catch (error) {
-    console.error("Gold History Error:", error);
+    console.error("GOLD BALANCE ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load history.",
+      message: error.message,
     });
   }
 });
 
-// =====================================================
-// USER GOLD PORTFOLIO
-// GET /api/gold/portfolio
-// =====================================================
+// ======================================================
+// GOLD HISTORY
+// GET /api/gold/history/:username
+// Protected Route
+// ======================================================
 
-router.get("/portfolio", verifyToken, async (req, res) => {
+router.get("/history/:username", verifyToken, getGoldHistory);
+
+// ======================================================
+// MY GOLD HISTORY
+// GET /api/gold/my-history
+// Protected Route
+// ======================================================
+
+router.get("/my-history", verifyToken, async (req, res) => {
   try {
+    req.params.username = req.user.username;
+    return getGoldHistory(req, res);
+  } catch (error) {
+    console.error("MY HISTORY ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ======================================================
+// ADMIN DASHBOARD
+// GET /api/gold/admin/dashboard
+// Admin Only
+// ======================================================
+
+router.get(
+  "/admin/dashboard",
+  verifyToken,
+  isAdmin,
+  getAdminDashboard
+);
+
+// ======================================================
+// UPDATE GOLD SETTINGS
+// PUT /api/gold/admin/settings
+// Admin Only
+// ======================================================
+
+router.put(
+  "/admin/settings",
+  verifyToken,
+  isAdmin,
+  updateSettings
+);
+
+// ======================================================
+// GET ADMIN SETTINGS
+// GET /api/gold/admin/settings
+// Admin Only
+// ======================================================
+
+router.get(
+  "/admin/settings",
+  verifyToken,
+  isAdmin,
+  getSettings
+);
+
+// ======================================================
+// MARKET STATUS
+// GET /api/gold/market-status
+// ======================================================
+
+router.get("/market-status", async (req, res) => {
+  try {
+    const Settings = require("../models/Settings");
+
     const settings = await Settings.findOne();
 
-    const currentPrice = settings?.sellGoldPrice || 0;
+    if (!settings) {
+      return res.json({
+        success: true,
+        marketStatus: "OPEN",
+        tradingEnabled: true,
+      });
+    }
+
+    return res.json({
+      success: true,
+      marketStatus: settings.marketStatus || "OPEN",
+      tradingEnabled:
+        settings.goldTradingEnabled === undefined
+          ? true
+          : settings.goldTradingEnabled,
+    });
+  } catch (error) {
+    console.error("MARKET STATUS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ======================================================
+// GOLD STATS
+// GET /api/gold/stats
+// ======================================================
+
+router.get("/stats", verifyToken, async (req, res) => {
+  try {
+    const User = require("../models/User");
+    const GoldTrade = require("../models/GoldTrade");
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    const totalTrades = await GoldTrade.countDocuments({
+      userId: user._id,
+    });
+
+    const buyTrades = await GoldTrade.countDocuments({
+      userId: user._id,
+      type: "BUY",
+    });
+
+    const sellTrades = await GoldTrade.countDocuments({
+      userId: user._id,
+      type: "SELL",
+    });
+
+    const settings = await require("../models/Settings").findOne();
 
     const portfolioValue =
-      Number(req.user.goldBalance || 0) * currentPrice;
+      (user.goldBalance || 0) * (settings?.sellGoldPrice || 0);
 
     return res.json({
       success: true,
-      portfolio: {
-        goldBalance: req.user.goldBalance,
-        currentPrice,
+      stats: {
+        wallet: user.wallet || 0,
+        goldBalance: user.goldBalance || 0,
         portfolioValue,
+        totalTrades,
+        buyTrades,
+        sellTrades,
       },
     });
   } catch (error) {
-    console.error("Portfolio Error:", error);
+    console.error("GOLD STATS ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load portfolio.",
+      message: error.message,
     });
   }
 });
 
-// =====================================================
+// ======================================================
+// REFRESH GOLD PRICE
+// GET /api/gold/refresh-price
+// ======================================================
+
+router.get("/refresh-price", async (req, res) => {
+  try {
+    return getGoldPrice(req, res);
+  } catch (error) {
+    console.error("REFRESH PRICE ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ======================================================
+// ADMIN TEST ROUTE
+// GET /api/gold/admin/ping
+// ======================================================
+
+router.get("/admin/ping", verifyToken, isAdmin, (req, res) => {
+  return res.json({
+    success: true,
+    message: "Gold Admin API Working",
+    admin: req.user.username,
+    role: req.user.role,
+  });
+});
+
+// ======================================================
+// 404 HANDLER
+// ======================================================
+
+router.use((req, res) => {
+  return res.status(404).json({
+    success: false,
+    message: "Gold API route not found.",
+  });
+});
+
+// ======================================================
 // EXPORT ROUTER
-// =====================================================
+// ======================================================
 
 module.exports = router;
