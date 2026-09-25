@@ -182,14 +182,12 @@ router.post("/signup", async (req, res) => {
 // ======================================================
 // USER LOGIN
 // POST /api/auth/login
-// Username OR Email Login
+// GoldTrade V18 Enterprise
 // ======================================================
 
 router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-
-    console.log("LOGIN REQUEST:", req.body);
 
     if (!username || !password) {
       return res.status(400).json({
@@ -200,10 +198,7 @@ router.post("/login", async (req, res) => {
 
     const loginValue = username.trim().toLowerCase();
 
-    // ======================================================
-    // FIND USER BY USERNAME OR EMAIL
-    // ======================================================
-
+    // Find user by username OR email
     const user = await User.findOne({
       $or: [
         { username: loginValue },
@@ -212,32 +207,22 @@ router.post("/login", async (req, res) => {
     });
 
     if (!user) {
-      console.log("LOGIN FAILED - USER NOT FOUND:", loginValue);
-
       return res.status(401).json({
         success: false,
         message: "Invalid username or password.",
       });
     }
 
-    // ======================================================
-    // CHECK ACCOUNT STATUS
-    // ======================================================
-
+    // Check account status
     if (user.isActive === false) {
       return res.status(403).json({
         success: false,
-        message: "Your account has been disabled.",
+        message: "Account has been disabled.",
       });
     }
 
-    // ======================================================
-    // VERIFY PASSWORD
-    // ======================================================
-
+    // Verify password
     const passwordMatch = await bcrypt.compare(password, user.password);
-
-    console.log("PASSWORD MATCH:", passwordMatch);
 
     if (!passwordMatch) {
       return res.status(401).json({
@@ -246,19 +231,14 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // ======================================================
-    // UPDATE LAST LOGIN
-    // ======================================================
-
+    // Update last login
     user.lastLogin = new Date();
     await user.save();
 
-    // ======================================================
-    // CREATE JWT TOKEN
-    // ======================================================
-
+    // Generate JWT
     const token = generateToken(user);
 
+    // Success Response
     return res.status(200).json({
       success: true,
       message: "Login successful.",
@@ -270,19 +250,16 @@ router.post("/login", async (req, res) => {
         email: user.email,
         role: user.role,
 
-        wallet: user.wallet || 0,
-        pkrBalance: user.pkrBalance || 0,
-        usdtBalance: user.usdtBalance || 0,
-        goldBalance: user.goldBalance || 0,
-
         fullName: user.fullName || "",
         phone: user.phone || "",
         country: user.country || "",
 
-        lastLogin: user.lastLogin,
+        wallet: user.wallet || 0,
+        pkrBalance: user.pkrBalance || 0,
+        goldBalance: user.goldBalance || 0,
+        usdtBalance: user.usdtBalance || 0,
       },
     });
-
   } catch (error) {
     console.error("LOGIN ERROR:", error);
 
@@ -297,7 +274,6 @@ router.post("/login", async (req, res) => {
 // ======================================================
 // AUTH CHECK
 // GET /api/auth/check
-// Verify JWT & Return Logged In User
 // ======================================================
 
 router.get("/check", verifyToken, async (req, res) => {
@@ -311,10 +287,8 @@ router.get("/check", verifyToken, async (req, res) => {
       });
     }
 
-    return res.status(200).json({
+    return res.json({
       success: true,
-      message: "Token verified successfully.",
-
       user: {
         id: user._id,
         username: user.username,
@@ -327,26 +301,22 @@ router.get("/check", verifyToken, async (req, res) => {
 
         wallet: user.wallet || 0,
         pkrBalance: user.pkrBalance || 0,
-        usdtBalance: user.usdtBalance || 0,
         goldBalance: user.goldBalance || 0,
-
-        createdAt: user.createdAt,
-        lastLogin: user.lastLogin,
+        usdtBalance: user.usdtBalance || 0,
       },
     });
   } catch (error) {
     console.error("AUTH CHECK ERROR:", error);
 
-    return res.status(500).json({
+    return res.status(401).json({
       success: false,
-      message: "Authentication failed.",
-      error: error.message,
+      message: "Invalid or expired token.",
     });
   }
 });
 
 // ======================================================
-// USER PROFILE
+// GET USER PROFILE
 // GET /api/auth/profile
 // ======================================================
 
@@ -363,94 +333,28 @@ router.get("/profile", verifyToken, async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      user,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        fullName: user.fullName || "",
+        phone: user.phone || "",
+        country: user.country || "",
+        wallet: user.wallet || 0,
+        pkrBalance: user.pkrBalance || 0,
+        goldBalance: user.goldBalance || 0,
+        usdtBalance: user.usdtBalance || 0,
+        createdAt: user.createdAt,
+        lastLogin: user.lastLogin,
+      },
     });
   } catch (error) {
     console.error("PROFILE ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load profile.",
-      error: error.message,
-    });
-  }
-});
-
-// ======================================================
-// CHANGE PASSWORD
-// POST /api/auth/change-password
-// ======================================================
-
-router.post("/change-password", verifyToken, async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "Current password and new password are required.",
-      });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "New password must be at least 6 characters.",
-      });
-    }
-
-    const user = await User.findById(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    // Verify current password
-    const passwordMatch = await bcrypt.compare(
-      currentPassword,
-      user.password
-    );
-
-    if (!passwordMatch) {
-      return res.status(401).json({
-        success: false,
-        message: "Current password is incorrect.",
-      });
-    }
-
-    // Prevent same password
-    const samePassword = await bcrypt.compare(
-      newPassword,
-      user.password
-    );
-
-    if (samePassword) {
-      return res.status(400).json({
-        success: false,
-        message: "New password cannot be the same as current password.",
-      });
-    }
-
-    // Hash new password
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
-
-    await user.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Password changed successfully.",
-    });
-  } catch (error) {
-    console.error("CHANGE PASSWORD ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to change password.",
-      error: error.message,
+      message: "Failed to load profile.",
     });
   }
 });
@@ -473,18 +377,16 @@ router.put("/profile", verifyToken, async (req, res) => {
       });
     }
 
-    // Update fields
     if (fullName !== undefined) user.fullName = fullName.trim();
     if (phone !== undefined) user.phone = phone.trim();
     if (country !== undefined) user.country = country.trim();
 
-    // Update email only if unique
     if (email && email.trim().toLowerCase() !== user.email) {
-      const existingEmail = await User.findOne({
+      const exists = await User.findOne({
         email: email.trim().toLowerCase(),
       });
 
-      if (existingEmail && existingEmail._id.toString() !== user._id.toString()) {
+      if (exists && exists._id.toString() !== user._id.toString()) {
         return res.status(409).json({
           success: false,
           message: "Email already exists.",
@@ -507,10 +409,6 @@ router.put("/profile", verifyToken, async (req, res) => {
         fullName: user.fullName,
         phone: user.phone,
         country: user.country,
-        wallet: user.wallet || 0,
-        pkrBalance: user.pkrBalance || 0,
-        usdtBalance: user.usdtBalance || 0,
-        goldBalance: user.goldBalance || 0,
       },
     });
   } catch (error) {
@@ -518,8 +416,67 @@ router.put("/profile", verifyToken, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Unable to update profile.",
-      error: error.message,
+      message: "Profile update failed.",
+    });
+  }
+});
+
+// ======================================================
+// CHANGE PASSWORD
+// POST /api/auth/change-password
+// ======================================================
+
+router.post("/change-password", verifyToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current and new password are required.",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters.",
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    const match = await bcrypt.compare(currentPassword, user.password);
+
+    if (!match) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect.",
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Password changed successfully.",
+    });
+  } catch (error) {
+    console.error("CHANGE PASSWORD ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to change password.",
     });
   }
 });
@@ -541,7 +498,6 @@ router.post("/logout", verifyToken, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Logout failed.",
-      error: error.message,
     });
   }
 });
@@ -553,9 +509,9 @@ router.post("/logout", verifyToken, async (req, res) => {
 
 router.delete("/delete-account", verifyToken, async (req, res) => {
   try {
-    const deletedUser = await User.findByIdAndDelete(req.user.id);
+    const user = await User.findByIdAndDelete(req.user.id);
 
-    if (!deletedUser) {
+    if (!user) {
       return res.status(404).json({
         success: false,
         message: "User not found.",
@@ -571,14 +527,26 @@ router.delete("/delete-account", verifyToken, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Unable to delete account.",
-      error: error.message,
+      message: "Delete account failed.",
     });
   }
 });
 
 // ======================================================
-// 404 AUTH ROUTE HANDLER
+// AUTH API HEALTH CHECK
+// GET /api/auth/ping
+// ======================================================
+
+router.get("/ping", (req, res) => {
+  return res.json({
+    success: true,
+    message: "GoldTrade V18 Auth API Working",
+    timestamp: new Date(),
+  });
+});
+
+// ======================================================
+// 404 HANDLER
 // ======================================================
 
 router.use((req, res) => {

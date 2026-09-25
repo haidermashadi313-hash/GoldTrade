@@ -1,193 +1,72 @@
-// =====================================================
-// GoldTrade V18 Enterprise
-// Deposit Routes (PART 1/5)
-// Production Version
-// =====================================================
+// ======================================================
+// GoldTrade V18 Enterprise Backend
+// depositRoutes.js
+// PART 1/6
+// Production Ready (Render + PM2 + MongoDB)
+// ======================================================
 
 const express = require("express");
 const router = express.Router();
 
-// =====================================================
+// ======================================================
 // MODELS
-// =====================================================
+// ======================================================
 
 const Deposit = require("../models/Deposit");
 const User = require("../models/User");
-const WalletHistory = require("../models/WalletHistory");
 
-// =====================================================
+// ======================================================
 // MIDDLEWARE
-// =====================================================
+// ======================================================
 
 const { verifyToken, isAdmin } = require("../middleware/auth");
 
-// =====================================================
+// ======================================================
 // HEALTH CHECK
-// GET /api/admin/deposits/health/check
-// =====================================================
+// GET /api/deposit/health
+// ======================================================
 
-router.get("/health/check", verifyToken, isAdmin, (req, res) => {
+router.get("/health", (req, res) => {
   return res.status(200).json({
     success: true,
     module: "Deposit API",
-    version: "GoldTrade V18 Enterprise",
-    status: "Running",
-    timestamp: new Date(),
+    version: "V18 Enterprise",
+    status: "ONLINE",
+    timestamp: new Date().toISOString(),
   });
 });
 
-// =====================================================
-// GET DEPOSIT STATISTICS
-// IMPORTANT: STATIC ROUTE FIRST
-// GET /api/admin/deposits/statistics
-// =====================================================
+// ======================================================
+// GET USER DEPOSIT HISTORY
+// GET /api/deposit/history/:username
+// Used By Deposit Page
+// ======================================================
 
-router.get("/statistics", verifyToken, isAdmin, async (req, res) => {
+router.get("/history/:username", verifyToken, async (req, res) => {
   try {
-    const deposits = await Deposit.find().lean();
+    const { username } = req.params;
 
-    const statistics = {
-      pendingRequests: 0,
-      approvedRequests: 0,
-      rejectedRequests: 0,
-      totalRequests: deposits.length,
-
-      pendingAmount: 0,
-      approvedAmount: 0,
-      rejectedAmount: 0,
-
-      totalPKR: 0,
-      totalGold: 0,
-      totalUSDT: 0,
-    };
-
-    for (const deposit of deposits) {
-      const amount = Number(deposit.amount || 0);
-      const wallet = String(deposit.walletType || "PKR").toUpperCase();
-      const status = String(deposit.status || "Pending");
-
-      if (status === "Pending") {
-        statistics.pendingRequests++;
-        statistics.pendingAmount += amount;
-      }
-
-      if (status === "Approved") {
-        statistics.approvedRequests++;
-        statistics.approvedAmount += amount;
-      }
-
-      if (status === "Rejected") {
-        statistics.rejectedRequests++;
-        statistics.rejectedAmount += amount;
-      }
-
-      if (wallet === "PKR") statistics.totalPKR += amount;
-      if (wallet === "GOLD") statistics.totalGold += amount;
-      if (wallet === "USDT") statistics.totalUSDT += amount;
-    }
-
-    return res.json({
-      success: true,
-      statistics,
-    });
-
-  } catch (error) {
-    console.error("DEPOSIT STATISTICS ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-});
-
-// =====================================================
-// GET DASHBOARD SUMMARY
-// GET /api/admin/deposits/dashboard
-// =====================================================
-
-router.get("/dashboard", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const deposits = await Deposit.find()
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
-
-    const pending = deposits.filter((d) => d.status === "Pending");
-    const approved = deposits.filter((d) => d.status === "Approved");
-    const rejected = deposits.filter((d) => d.status === "Rejected");
-
-    return res.json({
-      success: true,
-
-      summary: {
-        pendingCount: pending.length,
-        approvedCount: approved.length,
-        rejectedCount: rejected.length,
-
-        pendingAmount: pending.reduce(
-          (sum, item) => sum + Number(item.amount || 0),
-          0
-        ),
-
-        approvedAmount: approved.reduce(
-          (sum, item) => sum + Number(item.amount || 0),
-          0
-        ),
-      },
-
-      recentDeposits: deposits,
-    });
-
-  } catch (error) {
-    console.error("DEPOSIT DASHBOARD ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-});
-// =====================================================
-// GET PENDING DEPOSITS
-// GET /api/admin/deposits
-// =====================================================
-
-router.get("/", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const deposits = await Deposit.find({ status: "Pending" })
+    const deposits = await Deposit.find({ username })
       .sort({ createdAt: -1 })
       .lean();
+
+    const history = deposits.map((deposit) => ({
+      _id: deposit._id,
+      username: deposit.username,
+      amount: Number(deposit.amount),
+      paymentMethod: deposit.paymentMethod,
+      transactionId: deposit.transactionId,
+      senderName: deposit.senderName || "",
+      proofImage: deposit.proofImage || "",
+      status: deposit.status,
+      note: deposit.note || "",
+      createdAt: deposit.createdAt,
+    }));
 
     return res.status(200).json({
       success: true,
-      deposits,
-    });
-
-  } catch (error) {
-    console.error("GET PENDING DEPOSITS ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to load pending deposits.",
-    });
-  }
-});
-
-// =====================================================
-// GET ALL DEPOSIT HISTORY
-// GET /api/admin/deposits/history
-// =====================================================
-
-router.get("/history", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const deposits = await Deposit.find({})
-      .sort({ createdAt: -1 })
-      .lean();
-
-    return res.status(200).json({
-      success: true,
-      deposits,
+      total: history.length,
+      history,
     });
 
   } catch (error) {
@@ -195,45 +74,346 @@ router.get("/history", verifyToken, isAdmin, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Failed to load deposit history.",
+      message: "Unable to load deposit history.",
     });
   }
 });
 
-// =====================================================
-// GET RECENT DEPOSITS
-// GET /api/admin/deposits/recent
-// =====================================================
+// ======================================================
+// GET USER PENDING DEPOSITS
+// GET /api/deposit/pending/:username
+// ======================================================
 
-router.get("/recent", verifyToken, isAdmin, async (req, res) => {
+router.get("/pending/:username", verifyToken, async (req, res) => {
   try {
-    const deposits = await Deposit.find({})
+    const pending = await Deposit.find({
+      username: req.params.username,
+      status: "PENDING",
+    })
       .sort({ createdAt: -1 })
-      .limit(20)
       .lean();
 
     return res.status(200).json({
       success: true,
-      deposits,
+      total: pending.length,
+      deposits: pending,
     });
 
   } catch (error) {
-    console.error("GET RECENT DEPOSITS ERROR:", error);
+    console.error("GET PENDING DEPOSITS ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Failed to load recent deposits.",
+      message: "Unable to load pending deposits.",
     });
   }
 });
 
-// =====================================================
-// GET ALL DEPOSITS (Pending + Approved + Rejected)
-// GET /api/admin/deposits/all
-// Used by Admin Deposit Manager page
-// =====================================================
+// ======================================================
+// GoldTrade V18 Enterprise Backend
+// depositRoutes.js
+// PART 2/6
+// Create Deposit API (Production)
+// ======================================================
 
-router.get("/all", verifyToken, isAdmin, async (req, res) => {
+// POST /api/deposit/create
+// Used By User Deposit Page
+
+router.post("/create", verifyToken, async (req, res) => {
+  try {
+    const {
+      amount,
+      paymentMethod,
+      transactionId,
+      senderName,
+      proofImage,
+    } = req.body;
+
+    // ==================================================
+    // VALIDATION
+    // ==================================================
+
+    if (!amount || !paymentMethod || !transactionId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Amount, payment method and transaction ID are required.",
+      });
+    }
+
+    const depositAmount = Number(amount);
+
+    if (isNaN(depositAmount) || depositAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid deposit amount.",
+      });
+    }
+
+    // ==================================================
+    // FIND USER
+    // ==================================================
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    // ==================================================
+    // DUPLICATE TRANSACTION CHECK
+    // ==================================================
+
+    const duplicate = await Deposit.findOne({
+      transactionId: transactionId.trim(),
+    });
+
+    if (duplicate) {
+      return res.status(409).json({
+        success: false,
+        message: "Transaction ID already submitted.",
+      });
+    }
+
+    // ==================================================
+    // CREATE DEPOSIT REQUEST
+    // ==================================================
+
+    const deposit = await Deposit.create({
+      userId: user._id,
+      username: user.username,
+      email: user.email,
+
+      amount: depositAmount,
+
+      paymentMethod: paymentMethod.toUpperCase(),
+
+      transactionId: transactionId.trim(),
+
+      senderName: senderName?.trim() || "",
+
+      proofImage: proofImage || "",
+
+      status: "PENDING",
+
+      note: "",
+    });
+
+    // ==================================================
+    // SUCCESS RESPONSE
+    // ==================================================
+
+    return res.status(201).json({
+      success: true,
+      message:
+        "Deposit request submitted successfully. Waiting for admin approval.",
+
+      deposit: {
+        _id: deposit._id,
+        amount: deposit.amount,
+        paymentMethod: deposit.paymentMethod,
+        transactionId: deposit.transactionId,
+        status: deposit.status,
+        createdAt: deposit.createdAt,
+      },
+    });
+
+  } catch (error) {
+    console.error("CREATE DEPOSIT ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to create deposit request.",
+    });
+  }
+});
+
+// ======================================================
+// GoldTrade V18 Enterprise Backend
+// depositRoutes.js
+// PART 3/6
+// Deposit Details API + User Deposit Summary
+// ======================================================
+
+// ======================================================
+// GET SINGLE DEPOSIT DETAILS
+// GET /api/deposit/details/:depositId
+// Used By Deposit Receipt / History Modal
+// ======================================================
+
+router.get("/details/:depositId", verifyToken, async (req, res) => {
+  try {
+    const deposit = await Deposit.findById(req.params.depositId).lean();
+
+    if (!deposit) {
+      return res.status(404).json({
+        success: false,
+        message: "Deposit not found.",
+      });
+    }
+
+    // User sirf apna deposit dekh sakta hai
+    if (
+      deposit.userId.toString() !== req.user.id &&
+      req.user.role !== "admin"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      deposit: {
+        _id: deposit._id,
+        username: deposit.username,
+        amount: Number(deposit.amount),
+        paymentMethod: deposit.paymentMethod,
+        transactionId: deposit.transactionId,
+        senderName: deposit.senderName || "",
+        proofImage: deposit.proofImage || "",
+        status: deposit.status,
+        note: deposit.note || "",
+        createdAt: deposit.createdAt,
+        updatedAt: deposit.updatedAt,
+      },
+    });
+
+  } catch (error) {
+    console.error("GET DEPOSIT DETAILS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load deposit details.",
+    });
+  }
+});
+
+// ======================================================
+// GET USER DEPOSIT SUMMARY
+// GET /api/deposit/summary/:username
+// Used By Dashboard + Deposit Page
+// ======================================================
+
+router.get("/summary/:username", verifyToken, async (req, res) => {
+  try {
+    const username = req.params.username;
+
+    const deposits = await Deposit.find({ username }).lean();
+
+    let totalDeposits = 0;
+    let approvedAmount = 0;
+    let pendingAmount = 0;
+    let rejectedAmount = 0;
+
+    deposits.forEach((deposit) => {
+      totalDeposits += 1;
+
+      const amount = Number(deposit.amount);
+
+      switch (deposit.status) {
+        case "APPROVED":
+          approvedAmount += amount;
+          break;
+
+        case "PENDING":
+          pendingAmount += amount;
+          break;
+
+        case "REJECTED":
+          rejectedAmount += amount;
+          break;
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      summary: {
+        username,
+        totalDeposits,
+        approvedAmount,
+        pendingAmount,
+        rejectedAmount,
+      },
+    });
+
+  } catch (error) {
+    console.error("GET DEPOSIT SUMMARY ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load deposit summary.",
+    });
+  }
+});
+
+// ======================================================
+// GET USER DEPOSIT STATISTICS
+// GET /api/deposit/statistics/:username
+// Used By Dashboard Cards
+// ======================================================
+
+router.get("/statistics/:username", verifyToken, async (req, res) => {
+  try {
+    const username = req.params.username;
+
+    const approved = await Deposit.countDocuments({
+      username,
+      status: "APPROVED",
+    });
+
+    const pending = await Deposit.countDocuments({
+      username,
+      status: "PENDING",
+    });
+
+    const rejected = await Deposit.countDocuments({
+      username,
+      status: "REJECTED",
+    });
+
+    const latestDeposit = await Deposit.findOne({ username })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      statistics: {
+        approved,
+        pending,
+        rejected,
+        latestDeposit,
+      },
+    });
+
+  } catch (error) {
+    console.error("GET DEPOSIT STATISTICS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load deposit statistics.",
+    });
+  }
+});
+
+// ======================================================
+// GoldTrade V18 Enterprise Backend
+// depositRoutes.js
+// PART 4/6
+// Admin Deposit APIs (Production)
+// ======================================================
+
+// ======================================================
+// GET ALL DEPOSITS
+// GET /api/admin/deposits
+// Used By Admin Deposit Page
+// ======================================================
+
+router.get("/admin/all", verifyToken, isAdmin, async (req, res) => {
   try {
     const deposits = await Deposit.find({})
       .sort({ createdAt: -1 })
@@ -241,6 +421,7 @@ router.get("/all", verifyToken, isAdmin, async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      total: deposits.length,
       deposits,
     });
 
@@ -249,37 +430,158 @@ router.get("/all", verifyToken, isAdmin, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Failed to load deposits.",
+      message: "Unable to load deposits.",
     });
   }
 });
-// =====================================================
-// APPROVE DEPOSIT
-// POST /api/admin/deposits/:id/approve
-// =====================================================
 
-router.post("/:id/approve", verifyToken, isAdmin, async (req, res) => {
+// ======================================================
+// GET PENDING DEPOSITS
+// GET /api/admin/deposits/pending
+// ======================================================
+
+router.get("/admin/pending", verifyToken, isAdmin, async (req, res) => {
   try {
-    const { adminNote } = req.body;
+    const pending = await Deposit.find({
+      status: "PENDING",
+    })
+      .sort({ createdAt: -1 })
+      .lean();
 
-    const deposit = await Deposit.findById(req.params.id);
+    return res.status(200).json({
+      success: true,
+      total: pending.length,
+      deposits: pending,
+    });
+
+  } catch (error) {
+    console.error("GET PENDING DEPOSITS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load pending deposits.",
+    });
+  }
+});
+
+// ======================================================
+// SEARCH DEPOSITS
+// GET /api/admin/deposits/search/:keyword
+// Search by Username / Email / Transaction ID
+// ======================================================
+
+router.get("/admin/search/:keyword", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const keyword = req.params.keyword;
+
+    const deposits = await Deposit.find({
+      $or: [
+        { username: { $regex: keyword, $options: "i" } },
+        { email: { $regex: keyword, $options: "i" } },
+        { transactionId: { $regex: keyword, $options: "i" } },
+      ],
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      total: deposits.length,
+      deposits,
+    });
+
+  } catch (error) {
+    console.error("SEARCH DEPOSITS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to search deposits.",
+    });
+  }
+});
+
+// ======================================================
+// DEPOSIT STATISTICS
+// GET /api/admin/deposits/statistics
+// Used By Admin Dashboard
+// ======================================================
+
+router.get("/admin/statistics", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const total = await Deposit.countDocuments();
+
+    const pending = await Deposit.countDocuments({
+      status: "PENDING",
+    });
+
+    const approved = await Deposit.countDocuments({
+      status: "APPROVED",
+    });
+
+    const rejected = await Deposit.countDocuments({
+      status: "REJECTED",
+    });
+
+    const approvedDeposits = await Deposit.find({
+      status: "APPROVED",
+    }).select("amount");
+
+    const totalApprovedAmount = approvedDeposits.reduce(
+      (sum, item) => sum + Number(item.amount || 0),
+      0
+    );
+
+    return res.status(200).json({
+      success: true,
+      statistics: {
+        total,
+        pending,
+        approved,
+        rejected,
+        totalApprovedAmount,
+      },
+    });
+
+  } catch (error) {
+    console.error("DEPOSIT STATISTICS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load deposit statistics.",
+    });
+  }
+});
+
+// ======================================================
+// GoldTrade V18 Enterprise Backend
+// depositRoutes.js
+// PART 5/6
+// Approve Deposit + Credit Wallet (Production)
+// ======================================================
+
+// PATCH /api/deposit/approve/:depositId
+// Used internally by Admin Routes
+
+router.patch("/approve/:depositId", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const { depositId } = req.params;
+
+    const deposit = await Deposit.findById(depositId);
 
     if (!deposit) {
       return res.status(404).json({
         success: false,
-        message: "Deposit request not found.",
+        message: "Deposit not found.",
       });
     }
 
-    // Already processed
-    if (deposit.status !== "Pending") {
+    if (deposit.status === "APPROVED") {
       return res.status(400).json({
         success: false,
-        message: `Deposit already ${deposit.status}.`,
+        message: "Deposit already approved.",
       });
     }
 
-    // Find User
     const user = await User.findById(deposit.userId);
 
     if (!user) {
@@ -289,7 +591,7 @@ router.post("/:id/approve", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    // Create wallet if missing
+    // Create wallet object if missing
     if (!user.wallet) {
       user.wallet = {
         pkr: Number(user.pkrBalance || 0),
@@ -298,59 +600,42 @@ router.post("/:id/approve", verifyToken, isAdmin, async (req, res) => {
       };
     }
 
-    const walletType = String(deposit.walletType).toUpperCase();
-    const amount = Number(deposit.amount || 0);
+    // Credit PKR Wallet
+    user.wallet.pkr =
+      Number(user.wallet.pkr || 0) + Number(deposit.amount);
 
-    // Credit wallet
-    switch (walletType) {
-      case "PKR":
-        user.wallet.pkr += amount;
-        user.pkrBalance = user.wallet.pkr;
-        break;
-
-      case "GOLD":
-        user.wallet.gold += amount;
-        user.goldBalance = user.wallet.gold;
-        break;
-
-      case "USDT":
-        user.wallet.usdt += amount;
-        user.usdtBalance = user.wallet.usdt;
-        break;
-
-      default:
-        return res.status(400).json({
-          success: false,
-          message: "Invalid wallet type.",
-        });
-    }
+    user.pkrBalance = user.wallet.pkr;
 
     await user.save();
 
-    // Update deposit
-    deposit.status = "Approved";
-    deposit.adminNote = adminNote || "";
+    // Update Deposit Status
+    deposit.status = "APPROVED";
+    deposit.note = req.body.note || "Deposit approved by Admin";
     deposit.approvedBy = req.user.username;
     deposit.approvedAt = new Date();
 
     await deposit.save();
 
-    // Save Wallet History
+    // Wallet History Entry
     await WalletHistory.create({
       userId: user._id,
       username: user.username,
-      walletType,
-      type: "Credit",
-      amount,
-      note: adminNote || "Deposit Approved",
+      walletType: "PKR",
+      type: "CREDIT",
+      amount: Number(deposit.amount),
+      balanceAfter: Number(user.wallet.pkr),
+      note: `Deposit Approved (${deposit.paymentMethod})`,
       admin: req.user.username,
-      createdAt: new Date(),
     });
 
     return res.status(200).json({
       success: true,
-      message: `${walletType} deposit approved successfully.`,
-      wallet: user.wallet,
+      message: "Deposit approved successfully.",
+      walletBalance: {
+        pkrBalance: Number(user.wallet.pkr),
+        goldBalance: Number(user.wallet.gold || 0),
+        usdtBalance: Number(user.wallet.usdt || 0),
+      },
       deposit,
     });
 
@@ -359,38 +644,54 @@ router.post("/:id/approve", verifyToken, isAdmin, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Unable to approve deposit.",
     });
   }
 });
-// =====================================================
+
+// ======================================================
+// GoldTrade V18 Enterprise Backend
+// depositRoutes.js
+// PART 6/6
+// Reject Deposit + Cancel Pending Deposit + Export Router
+// ======================================================
+
+// ======================================================
 // REJECT DEPOSIT
-// POST /api/admin/deposits/:id/reject
-// =====================================================
+// PATCH /api/deposit/reject/:depositId
+// Used By Admin Panel
+// ======================================================
 
-router.post("/:id/reject", verifyToken, isAdmin, async (req, res) => {
+router.patch("/reject/:depositId", verifyToken, isAdmin, async (req, res) => {
   try {
-    const { adminNote } = req.body;
+    const { depositId } = req.params;
+    const { note } = req.body;
 
-    const deposit = await Deposit.findById(req.params.id);
+    const deposit = await Deposit.findById(depositId);
 
     if (!deposit) {
       return res.status(404).json({
         success: false,
-        message: "Deposit request not found.",
+        message: "Deposit not found.",
       });
     }
 
-    // Prevent duplicate reject/approve
-    if (deposit.status !== "Pending") {
+    if (deposit.status === "APPROVED") {
       return res.status(400).json({
         success: false,
-        message: `Deposit already ${deposit.status}.`,
+        message: "Approved deposit cannot be rejected.",
       });
     }
 
-    deposit.status = "Rejected";
-    deposit.adminNote = adminNote || "";
+    if (deposit.status === "REJECTED") {
+      return res.status(400).json({
+        success: false,
+        message: "Deposit already rejected.",
+      });
+    }
+
+    deposit.status = "REJECTED";
+    deposit.note = note || "Deposit rejected by Admin";
     deposit.rejectedBy = req.user.username;
     deposit.rejectedAt = new Date();
 
@@ -407,40 +708,80 @@ router.post("/:id/reject", verifyToken, isAdmin, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Unable to reject deposit.",
     });
   }
 });
 
-// =====================================================
-// DELETE DEPOSIT REQUEST
-// DELETE /api/admin/deposits/:id
-// =====================================================
+// ======================================================
+// USER CANCEL PENDING DEPOSIT
+// DELETE /api/deposit/cancel/:depositId
+// User can cancel only PENDING deposit
+// ======================================================
 
-router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
+router.delete("/cancel/:depositId", verifyToken, async (req, res) => {
   try {
-    const deposit = await Deposit.findById(req.params.id);
+    const deposit = await Deposit.findById(req.params.depositId);
 
     if (!deposit) {
       return res.status(404).json({
         success: false,
-        message: "Deposit request not found.",
+        message: "Deposit not found.",
       });
     }
 
-    // Safety: Approved deposits cannot be deleted
-    if (deposit.status === "Approved") {
+    if (deposit.userId.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied.",
+      });
+    }
+
+    if (deposit.status !== "PENDING") {
       return res.status(400).json({
         success: false,
-        message: "Approved deposits cannot be deleted.",
+        message: "Only pending deposits can be cancelled.",
       });
     }
 
-    await Deposit.findByIdAndDelete(req.params.id);
+    await Deposit.findByIdAndDelete(deposit._id);
 
     return res.status(200).json({
       success: true,
-      message: "Deposit request deleted successfully.",
+      message: "Deposit request cancelled successfully.",
+    });
+
+  } catch (error) {
+    console.error("CANCEL DEPOSIT ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to cancel deposit.",
+    });
+  }
+});
+
+// ======================================================
+// ADMIN DELETE DEPOSIT (OPTIONAL)
+// DELETE /api/deposit/admin/:depositId
+// ======================================================
+
+router.delete("/admin/:depositId", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const deposit = await Deposit.findById(req.params.depositId);
+
+    if (!deposit) {
+      return res.status(404).json({
+        success: false,
+        message: "Deposit not found.",
+      });
+    }
+
+    await Deposit.findByIdAndDelete(deposit._id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Deposit deleted successfully.",
     });
 
   } catch (error) {
@@ -448,44 +789,13 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: error.message,
-    });
-  }
-});
-// =====================================================
-// GET SINGLE DEPOSIT DETAILS
-// IMPORTANT: KEEP THIS ROUTE LAST
-// GET /api/admin/deposits/:id
-// =====================================================
-
-router.get("/:id", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const deposit = await Deposit.findById(req.params.id).lean();
-
-    if (!deposit) {
-      return res.status(404).json({
-        success: false,
-        message: "Deposit request not found.",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      deposit,
-    });
-
-  } catch (error) {
-    console.error("GET SINGLE DEPOSIT ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message,
+      message: "Unable to delete deposit.",
     });
   }
 });
 
-// =====================================================
-// EXPORT ROUTER
-// =====================================================
+// ======================================================
+// ROUTER EXPORT
+// ======================================================
 
 module.exports = router;

@@ -1,134 +1,55 @@
-// =====================================================
-// GoldTrade V18 Enterprise
-// Admin Wallet Routes
+// ======================================================
+// GoldTrade V18 Enterprise Backend
+// walletRoutes.js
 // PART 1/5
-// =====================================================
+// Production Ready (Render + PM2 + MongoDB)
+// ======================================================
 
 const express = require("express");
 const router = express.Router();
 
-// =====================================================
+// ======================================================
 // MODELS
-// =====================================================
+// ======================================================
 
 const User = require("../models/User");
 const WalletHistory = require("../models/WalletHistory");
 
-// =====================================================
+// ======================================================
 // MIDDLEWARE
-// =====================================================
+// ======================================================
 
 const { verifyToken, isAdmin } = require("../middleware/auth");
 
-// =====================================================
-// GET ALL WALLET USERS
-// GET /api/admin/wallet/all
-// =====================================================
+// ======================================================
+// HEALTH CHECK
+// GET /api/wallet/health
+// ======================================================
 
-router.get("/all", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const users = await User.find({})
-      .select(
-        "username email role status wallet pkrBalance goldBalance usdtBalance createdAt"
-      )
-      .sort({ createdAt: -1 });
-
-    const formattedUsers = users.map((user) => ({
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      role: user.role || "user",
-      status: user.status || "Active",
-
-      wallet: {
-        pkr: Number(user.wallet?.pkr ?? user.pkrBalance ?? 0),
-        gold: Number(user.wallet?.gold ?? user.goldBalance ?? 0),
-        usdt: Number(user.wallet?.usdt ?? user.usdtBalance ?? 0),
-      },
-
-      pkrBalance: Number(user.wallet?.pkr ?? user.pkrBalance ?? 0),
-      goldBalance: Number(user.wallet?.gold ?? user.goldBalance ?? 0),
-      usdtBalance: Number(user.wallet?.usdt ?? user.usdtBalance ?? 0),
-
-      createdAt: user.createdAt,
-    }));
-
-    return res.status(200).json({
-      success: true,
-      users: formattedUsers,
-    });
-
-  } catch (error) {
-    console.error("GET WALLET USERS ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to load wallet users.",
-    });
-  }
-});
-// =====================================================
-// GET WALLET STATISTICS
-// GET /api/admin/wallet/statistics
-// =====================================================
-
-router.get("/statistics", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const users = await User.find({}).select(
-      "wallet pkrBalance goldBalance usdtBalance"
-    );
-
-    const statistics = users.reduce(
-      (totals, user) => {
-        totals.pkrBalance += Number(
-          user.wallet?.pkr ?? user.pkrBalance ?? 0
-        );
-
-        totals.goldBalance += Number(
-          user.wallet?.gold ?? user.goldBalance ?? 0
-        );
-
-        totals.usdtBalance += Number(
-          user.wallet?.usdt ?? user.usdtBalance ?? 0
-        );
-
-        totals.users += 1;
-
-        return totals;
-      },
-      {
-        pkrBalance: 0,
-        goldBalance: 0,
-        usdtBalance: 0,
-        users: 0,
-      }
-    );
-
-    return res.status(200).json({
-      success: true,
-      statistics,
-    });
-
-  } catch (error) {
-    console.error("GET WALLET STATISTICS ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load wallet statistics.",
-    });
-  }
+router.get("/health", (req, res) => {
+  return res.status(200).json({
+    success: true,
+    module: "Wallet API",
+    version: "V18 Enterprise",
+    status: "ONLINE",
+    timestamp: new Date().toISOString(),
+  });
 });
 
-// =====================================================
-// GET USER WALLET HISTORY
-// GET /api/admin/wallet/history/:userId
-// =====================================================
+// ======================================================
+// GET LOGGED-IN USER WALLET BALANCE
+// GET /api/wallet/balance
+// Used By:
+// Dashboard
+// Deposit Page
+// Withdraw Page
+// Wallet Page
+// Gold & USDT Modules
+// ======================================================
 
-router.get("/history/:userId", verifyToken, isAdmin, async (req, res) => {
+router.get("/balance", verifyToken, async (req, res) => {
   try {
-    const { userId } = req.params;
-
-    const user = await User.findById(userId).select("username");
+    const user = await User.findById(req.user.id).lean();
 
     if (!user) {
       return res.status(404).json({
@@ -137,16 +58,157 @@ router.get("/history/:userId", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    const history = await WalletHistory.find({ userId })
+    const wallet = {
+      pkrBalance: Number(user.wallet?.pkr ?? user.pkrBalance ?? 0),
+      goldBalance: Number(user.wallet?.gold ?? user.goldBalance ?? 0),
+      usdtBalance: Number(user.wallet?.usdt ?? user.usdtBalance ?? 0),
+    };
+
+    return res.status(200).json({
+      success: true,
+      username: user.username,
+      wallet,
+      pkrBalance: wallet.pkrBalance,
+      goldBalance: wallet.goldBalance,
+      usdtBalance: wallet.usdtBalance,
+      updatedAt: new Date().toISOString(),
+    });
+
+  } catch (error) {
+    console.error("GET WALLET BALANCE ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load wallet balance.",
+    });
+  }
+});
+
+// ======================================================
+// GET USER WALLET BY USERNAME
+// GET /api/wallet/:username
+// Used by Admin/User Profile
+// ======================================================
+
+router.get("/:username", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({
+      username: req.params.username,
+    }).lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      wallet: {
+        username: user.username,
+        email: user.email,
+        role: user.role || "user",
+
+        pkrBalance: Number(user.wallet?.pkr ?? user.pkrBalance ?? 0),
+        goldBalance: Number(user.wallet?.gold ?? user.goldBalance ?? 0),
+        usdtBalance: Number(user.wallet?.usdt ?? user.usdtBalance ?? 0),
+
+        createdAt: user.createdAt,
+      },
+    });
+
+  } catch (error) {
+    console.error("GET USER WALLET ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load wallet.",
+    });
+  }
+});
+
+// ======================================================
+// GoldTrade V18 Enterprise Backend
+// walletRoutes.js
+// PART 2/5
+// Wallet History + Wallet Summary APIs
+// ======================================================
+
+// ======================================================
+// GET WALLET SUMMARY
+// GET /api/wallet/summary
+// Used By Dashboard
+// ======================================================
+
+router.get("/summary", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    const pkrBalance = Number(user.wallet?.pkr ?? user.pkrBalance ?? 0);
+    const goldBalance = Number(user.wallet?.gold ?? user.goldBalance ?? 0);
+    const usdtBalance = Number(user.wallet?.usdt ?? user.usdtBalance ?? 0);
+
+    const totalTransactions = await WalletHistory.countDocuments({
+      userId: user._id,
+    });
+
+    const lastTransaction = await WalletHistory.findOne({
+      userId: user._id,
+    })
       .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      summary: {
+        username: user.username,
+        pkrBalance,
+        goldBalance,
+        usdtBalance,
+        totalTransactions,
+        lastTransaction,
+      },
+    });
+
+  } catch (error) {
+    console.error("GET WALLET SUMMARY ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load wallet summary.",
+    });
+  }
+});
+
+// ======================================================
+// GET WALLET HISTORY
+// GET /api/wallet/history
+// Used By Wallet Page
+// ======================================================
+
+router.get("/history", verifyToken, async (req, res) => {
+  try {
+    const history = await WalletHistory.find({
+      userId: req.user.id,
+    })
+      .sort({ createdAt: -1 })
+      .limit(100)
       .lean();
 
     const formattedHistory = history.map((item) => ({
       _id: item._id,
-      username: user.username,
       walletType: item.walletType,
       type: item.type,
       amount: Number(item.amount),
+      balanceAfter: Number(item.balanceAfter ?? 0),
       note: item.note || "",
       admin: item.admin || "",
       createdAt: item.createdAt,
@@ -154,6 +216,7 @@ router.get("/history/:userId", verifyToken, isAdmin, async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      total: formattedHistory.length,
       history: formattedHistory,
     });
 
@@ -166,11 +229,56 @@ router.get("/history/:userId", verifyToken, isAdmin, async (req, res) => {
     });
   }
 });
-// =====================================================
-// GoldTrade V18 Enterprise
+
+// ======================================================
+// GET WALLET HISTORY BY USERNAME
+// GET /api/wallet/history/:username
+// Used By Admin/User Profile
+// ======================================================
+
+router.get("/history/:username", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({
+      username: req.params.username,
+    }).select("_id username");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    const history = await WalletHistory.find({
+      userId: user._id,
+    })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      username: user.username,
+      total: history.length,
+      history,
+    });
+
+  } catch (error) {
+    console.error("GET USER WALLET HISTORY ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load user wallet history.",
+    });
+  }
+});
+
+// ======================================================
+// GoldTrade V18 Enterprise Backend
+// walletRoutes.js
 // PART 3/5
-// CREDIT WALLET API
-// =====================================================
+// Admin Credit Wallet API (Production)
+// ======================================================
 
 // POST /api/admin/wallet/credit
 
@@ -212,7 +320,7 @@ router.post("/credit", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    // Make sure wallet object exists
+    // Ensure wallet object exists
     if (!user.wallet) {
       user.wallet = {
         pkr: Number(user.pkrBalance || 0),
@@ -221,57 +329,70 @@ router.post("/credit", verifyToken, isAdmin, async (req, res) => {
       };
     }
 
-    // Credit selected wallet
+    let balanceAfter = 0;
+
     switch (wallet) {
       case "PKR":
         user.wallet.pkr = Number(user.wallet.pkr || 0) + creditAmount;
         user.pkrBalance = user.wallet.pkr;
+        balanceAfter = user.wallet.pkr;
         break;
 
       case "GOLD":
         user.wallet.gold = Number(user.wallet.gold || 0) + creditAmount;
         user.goldBalance = user.wallet.gold;
+        balanceAfter = user.wallet.gold;
         break;
 
       case "USDT":
         user.wallet.usdt = Number(user.wallet.usdt || 0) + creditAmount;
         user.usdtBalance = user.wallet.usdt;
+        balanceAfter = user.wallet.usdt;
         break;
     }
 
     await user.save();
 
-    // Save wallet history
+    // Wallet History Entry
     await WalletHistory.create({
       userId: user._id,
       username: user.username,
       walletType: wallet,
-      type: "Credit",
+      type: "CREDIT",
       amount: creditAmount,
-      note: note || "",
-      admin: req.user?.username || "Admin",
+      balanceAfter,
+      note: note || "Wallet credited by admin",
+      admin: req.user.username || "Admin",
     });
 
     return res.status(200).json({
       success: true,
       message: `${wallet} wallet credited successfully.`,
-      wallet: user.wallet,
+      wallet,
+      balanceAfter,
+      walletBalance: {
+        pkrBalance: Number(user.wallet.pkr || 0),
+        goldBalance: Number(user.wallet.gold || 0),
+        usdtBalance: Number(user.wallet.usdt || 0),
+      },
     });
 
   } catch (error) {
-    console.error("CREDIT WALLET ERROR:", error);
+    console.error("ADMIN CREDIT WALLET ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Wallet credit failed.",
+      message: "Unable to credit wallet.",
     });
   }
 });
-// =====================================================
-// GoldTrade V18 Enterprise
+
+// ======================================================
+// GoldTrade V18 Enterprise Backend
+// walletRoutes.js
 // PART 4/5
-// DEBIT WALLET API
-// =====================================================
+// Admin Debit Wallet API (Production)
+// ======================================================
 
 // POST /api/admin/wallet/debit
 
@@ -279,9 +400,9 @@ router.post("/debit", verifyToken, isAdmin, async (req, res) => {
   try {
     const { userId, walletType, amount, note } = req.body;
 
-    // -------------------------------
-    // Validation
-    // -------------------------------
+    // ==================================================
+    // VALIDATION
+    // ==================================================
 
     if (!userId || !walletType || amount === undefined) {
       return res.status(400).json({
@@ -308,9 +429,9 @@ router.post("/debit", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    // -------------------------------
-    // Find User
-    // -------------------------------
+    // ==================================================
+    // FIND USER
+    // ==================================================
 
     const user = await User.findById(userId);
 
@@ -321,6 +442,7 @@ router.post("/debit", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
+    // Create wallet object if missing
     if (!user.wallet) {
       user.wallet = {
         pkr: Number(user.pkrBalance || 0),
@@ -329,168 +451,216 @@ router.post("/debit", verifyToken, isAdmin, async (req, res) => {
       };
     }
 
-    // -------------------------------
-    // Check Balance
-    // -------------------------------
-
     let currentBalance = 0;
+    let balanceAfter = 0;
+
+    // ==================================================
+    // DEBIT WALLET
+    // ==================================================
 
     switch (wallet) {
       case "PKR":
         currentBalance = Number(user.wallet.pkr || 0);
+
+        if (currentBalance < debitAmount) {
+          return res.status(400).json({
+            success: false,
+            message: "Insufficient PKR wallet balance.",
+          });
+        }
+
+        user.wallet.pkr = currentBalance - debitAmount;
+        user.pkrBalance = user.wallet.pkr;
+        balanceAfter = user.wallet.pkr;
         break;
 
       case "GOLD":
         currentBalance = Number(user.wallet.gold || 0);
+
+        if (currentBalance < debitAmount) {
+          return res.status(400).json({
+            success: false,
+            message: "Insufficient Gold wallet balance.",
+          });
+        }
+
+        user.wallet.gold = currentBalance - debitAmount;
+        user.goldBalance = user.wallet.gold;
+        balanceAfter = user.wallet.gold;
         break;
 
       case "USDT":
         currentBalance = Number(user.wallet.usdt || 0);
-        break;
-    }
 
-    if (currentBalance < debitAmount) {
-      return res.status(400).json({
-        success: false,
-        message: `Insufficient ${wallet} balance.`,
-        currentBalance,
-      });
-    }
+        if (currentBalance < debitAmount) {
+          return res.status(400).json({
+            success: false,
+            message: "Insufficient USDT wallet balance.",
+          });
+        }
 
-    // -------------------------------
-    // Debit Wallet
-    // -------------------------------
-
-    switch (wallet) {
-      case "PKR":
-        user.wallet.pkr = currentBalance - debitAmount;
-        user.pkrBalance = user.wallet.pkr;
-        break;
-
-      case "GOLD":
-        user.wallet.gold = currentBalance - debitAmount;
-        user.goldBalance = user.wallet.gold;
-        break;
-
-      case "USDT":
         user.wallet.usdt = currentBalance - debitAmount;
         user.usdtBalance = user.wallet.usdt;
+        balanceAfter = user.wallet.usdt;
         break;
     }
 
     await user.save();
 
-    // -------------------------------
-    // Save Wallet History
-    // -------------------------------
+    // ==================================================
+    // SAVE WALLET HISTORY
+    // ==================================================
 
     await WalletHistory.create({
       userId: user._id,
       username: user.username,
       walletType: wallet,
-      type: "Debit",
+      type: "DEBIT",
       amount: debitAmount,
-      note: note || "",
-      admin: req.user?.username || "Admin",
+      balanceAfter,
+      note: note || "Wallet debited by admin",
+      admin: req.user.username || "Admin",
     });
+
+    // ==================================================
+    // RESPONSE
+    // ==================================================
 
     return res.status(200).json({
       success: true,
       message: `${wallet} wallet debited successfully.`,
-      wallet: user.wallet,
+      wallet,
+      debitedAmount: debitAmount,
+      balanceAfter,
+      walletBalance: {
+        pkrBalance: Number(user.wallet.pkr || 0),
+        goldBalance: Number(user.wallet.gold || 0),
+        usdtBalance: Number(user.wallet.usdt || 0),
+      },
     });
 
   } catch (error) {
-    console.error("DEBIT WALLET ERROR:", error);
+    console.error("ADMIN DEBIT WALLET ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Wallet debit failed.",
+      message: "Unable to debit wallet.",
     });
   }
 });
-// =====================================================
-// GoldTrade V18 Enterprise
+
+// ======================================================
+// GoldTrade V18 Enterprise Backend
+// walletRoutes.js
 // PART 5/5
-// DELETE HISTORY + GET ALL HISTORY + EXPORT ROUTER
-// =====================================================
+// Wallet Sync + Admin Refresh + Export Router
+// ======================================================
 
-// DELETE /api/admin/wallet/history/:historyId
+// ======================================================
+// REFRESH WALLET FROM DATABASE
+// GET /api/wallet/refresh
+// Used By Dashboard / Deposit / Withdraw
+// ======================================================
 
-router.delete(
-  "/history/:historyId",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      const { historyId } = req.params;
+router.get("/refresh", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).lean();
 
-      const history = await WalletHistory.findById(historyId);
-
-      if (!history) {
-        return res.status(404).json({
-          success: false,
-          message: "Wallet history not found.",
-        });
-      }
-
-      await WalletHistory.findByIdAndDelete(historyId);
-
-      return res.status(200).json({
-        success: true,
-        message: "Wallet history deleted successfully.",
-      });
-    } catch (error) {
-      console.error("DELETE WALLET HISTORY ERROR:", error);
-
-      return res.status(500).json({
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        message: "Unable to delete wallet history.",
+        message: "User not found.",
       });
     }
-  }
-);
 
-// =====================================================
-// GET COMPLETE WALLET HISTORY (ADMIN)
-// GET /api/admin/wallet/history
-// =====================================================
-
-router.get("/history", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const history = await WalletHistory.find({})
-      .sort({ createdAt: -1 })
-      .lean();
+    const wallet = {
+      pkrBalance: Number(user.wallet?.pkr ?? user.pkrBalance ?? 0),
+      goldBalance: Number(user.wallet?.gold ?? user.goldBalance ?? 0),
+      usdtBalance: Number(user.wallet?.usdt ?? user.usdtBalance ?? 0),
+    };
 
     return res.status(200).json({
       success: true,
-      history,
+      username: user.username,
+      wallet,
+      timestamp: new Date().toISOString(),
     });
+
   } catch (error) {
-    console.error("GET ALL WALLET HISTORY ERROR:", error);
+    console.error("REFRESH WALLET ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load wallet history.",
+      message: "Unable to refresh wallet.",
     });
   }
 });
 
-// =====================================================
-// HEALTH CHECK
-// GET /api/admin/wallet
-// =====================================================
+// ======================================================
+// ADMIN WALLET REFRESH
+// GET /api/admin/wallet/refresh/:userId
+// ======================================================
 
-router.get("/", verifyToken, isAdmin, (req, res) => {
-  return res.status(200).json({
-    success: true,
-    message: "GoldTrade V18 Wallet API Working",
-    version: "V18 Enterprise",
-  });
+router.get("/refresh/:userId", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      wallet: {
+        username: user.username,
+        pkrBalance: Number(user.wallet?.pkr ?? user.pkrBalance ?? 0),
+        goldBalance: Number(user.wallet?.gold ?? user.goldBalance ?? 0),
+        usdtBalance: Number(user.wallet?.usdt ?? user.usdtBalance ?? 0),
+      },
+    });
+
+  } catch (error) {
+    console.error("ADMIN REFRESH WALLET ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to refresh admin wallet.",
+    });
+  }
 });
 
-// =====================================================
-// EXPORT ROUTER
-// =====================================================
+// ======================================================
+// WALLET DIAGNOSTICS
+// GET /api/wallet/debug
+// ======================================================
+
+router.get("/debug", verifyToken, async (req, res) => {
+  try {
+    const totalHistory = await WalletHistory.countDocuments({
+      userId: req.user.id,
+    });
+
+    return res.json({
+      success: true,
+      userId: req.user.id,
+      walletHistory: totalHistory,
+      serverTime: new Date().toISOString(),
+      module: "Wallet API V18 Enterprise",
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ======================================================
+// ROUTER EXPORT
+// ======================================================
 
 module.exports = router;
