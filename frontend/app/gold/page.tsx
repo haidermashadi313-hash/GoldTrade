@@ -193,7 +193,7 @@ export default function GoldDashboard() {
             </h2>
 
             <p className="text-gray-400 mt-1">
-              Gold Market Dashboard 鈥?Auto Refresh Rates
+              Gold Market Dashboard ?Auto Refresh Rates
             </p>
           </div>
 
@@ -298,7 +298,7 @@ export default function GoldDashboard() {
             </h3>
           </div>
 
-          <div className="text-green-400 font-bold">馃煝 Auto Refresh Enabled</div>
+          <div className="text-green-400 font-bold"> Auto Refresh Enabled</div>
         </div>
       </div>
 
@@ -399,7 +399,7 @@ export default function GoldDashboard() {
           </div>
 
           <div className="flex justify-between border-b border-zinc-800 pb-3">
-            <span className="text-gray-400">USD 鈫?Pkr</span>
+            <span className="text-gray-400">USD Pkr</span>
 
             <span className="text-cyan-400 font-bold">
               {goldPrice.UsdtoPkr}
@@ -431,7 +431,7 @@ export default function GoldDashboard() {
         </p>
 
         <p>
-          Live Gold Trading 鈥?Portfolio 鈥?buy & sell 鈥?Transaction history
+          Live Gold Trading • Portfolio • buy & sell • Transaction history
         </p>
 
         <p className="mt-2">
@@ -439,10 +439,10 @@ export default function GoldDashboard() {
         </p>
 
         <div className="mt-4 flex justify-center gap-6 flex-wrap text-xs">
-          <span className="text-green-400">馃煝 Market Live</span>
-          <span className="text-yellow-400">馃煛 Auto Refresh 30s</span>
-          <span className="text-blue-400">馃敀 JWT Protected</span>
-          <span className="text-purple-400">馃搳 Real-Time Portfolio</span>
+          <span className="text-green-400"> Market Live</span>
+          <span className="text-yellow-400"> Auto Refresh 30s</span>
+          <span className="text-blue-400"> JWT Protected</span>
+          <span className="text-purple-400"> Real-Time Portfolio</span>
         </div>
       </div>
 

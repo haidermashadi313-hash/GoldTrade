@@ -628,7 +628,7 @@ const GoldbuyPage: React.FC = () => {
           GoldTrade Enterprise V18
         </p>
 
-        <p>buy Gold Module 鈥?Secure JWT 鈥?Live Gold Market</p>
+        <p>buy Gold Module • Secure JWT • Live Gold Market</p>
 
         <p className="mt-2">
           Powered by GoldTrade Enterprise Backend API

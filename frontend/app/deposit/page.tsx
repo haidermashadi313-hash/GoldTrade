@@ -3,8 +3,6 @@
 // =====================================================
 // GoldTrade V18 Enterprise
 // Deposit PKR Page
-// PART 1/8 (Production)
-// Next.js 15 + TypeScript + Tailwind
 // =====================================================
 
 import { useEffect, useState, useCallback, useMemo } from "react";
@@ -317,12 +315,6 @@ export default function DepositPage() {
   }, [depositHistory]);
 
 // =====================================================
-// PART 2/8
-// Wallet API + Payment Settings API + Deposit History API
-// GoldTrade V18 Enterprise (Production)
-// =====================================================
-
-// =====================================================
 // LOAD USER WALLET
 // Backend: GET /api/wallet/balance
 // =====================================================
@@ -616,12 +608,6 @@ const formatDate = useCallback((date: string) => {
     minute: "2-digit",
   });
 }, []);
-
-// =====================================================
-// PART 3/8
-// Receipt Upload + Validation + Submit Deposit API
-// GoldTrade V18 Enterprise
-// =====================================================
 
 // =====================================================
 // RECEIPT IMAGE SELECT
@@ -1161,7 +1147,7 @@ const DepositFormSection = () => (
           </p>
 
           <p>
-            Deposit requests are reviewed by the Admin before approval.
+            Deposit requests are reviewed automatically.
           </p>
         </div>
 
@@ -1435,7 +1421,7 @@ const ReceiptUploadSection = () => (
           </p>
 
           <p>
-            Admin will verify the receipt before approving your deposit.
+            
           </p>
 
         </div>
@@ -1825,9 +1811,7 @@ const DepositActivityInfo = () => (
 
           <li>• Enter the correct transaction/reference ID.</li>
 
-          <li>• Admin reviews and verifies payment manually.</li>
-
-          <li>• Approved deposits are credited to your PKR Wallet.</li>
+          <li>• Automatically approved deposits are credited to your PKR Wallet.</li>
 
         </ul>
 
@@ -2234,13 +2218,13 @@ const DepositFooter = () => (
 
       <div>
         <h2 className="text-yellow-400 font-bold text-xl">
-          GoldTrade V18 Enterprise
+          GoldTrade Enterprise
         </h2>
 
         <p className="text-gray-400 mt-3 text-sm leading-6">
           Deposit PKR securely into your GoldTrade Wallet.
-          Every deposit is verified by our admin team before
-          crediting funds to your wallet.
+        
+          crediting funds to your wallet Automatically.
         </p>
       </div>
 
@@ -2255,12 +2239,12 @@ const DepositFooter = () => (
 
         <div className="flex items-center gap-3 text-cyan-400">
           <Wallet size={18}/>
-          PKR Wallet Credit After Approval
+          PKR Wallet Credit After Approval.
         </div>
 
         <div className="flex items-center gap-3 text-yellow-400">
           <CheckCircle size={18}/>
-          Admin Verification Required
+          Deposit verified Automatically.
         </div>
 
         <div className="flex items-center gap-3 text-purple-400">
@@ -2274,10 +2258,10 @@ const DepositFooter = () => (
 
     <div className="border-t border-gray-800 mt-8 pt-5 text-center text-gray-500 text-sm">
 
-      © {new Date().getFullYear()} GoldTrade V18 Enterprise
+      © {new Date().getFullYear()} GoldTrade Enterprise
 
       <div className="mt-2">
-        Powered by Next.js • Render Backend • MongoDB • JWT Authentication
+        Powered by Flex.inc
       </div>
 
     </div>

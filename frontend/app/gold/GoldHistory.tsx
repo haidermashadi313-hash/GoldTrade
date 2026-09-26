@@ -222,7 +222,7 @@ const GoldhistoryPage = () => {
           onClick={refreshhistory}
           className="bg-yellow-500 hover:bg-yellow-400 text-black px-5 py-3 rounded-xl font-bold transition-all duration-300 hover:scale-105"
         >
-          馃攧 Refresh
+           Refresh
         </button>
 
       </div>
@@ -402,8 +402,8 @@ const GoldhistoryPage = () => {
                         }`}
                       >
                         {trade.tradeType === "buy"
-                          ? "馃煝 buy"
-                          : "馃敶 sell"}
+                          ? " buy"
+                          : "sell"}
                       </span>
 
                     </td>
@@ -676,7 +676,7 @@ const GoldhistoryPage = () => {
         </p>
 
         <p>
-          buy & sell history 鈥?Profit/Loss 鈥?Live Analytics 鈥?JWT Protected
+          buy & sell history • Profit/Loss • Live Analytics • JWT Protected
         </p>
 
         <p className="mt-2">
@@ -686,19 +686,19 @@ const GoldhistoryPage = () => {
         <div className="mt-4 flex justify-center gap-6 flex-wrap text-xs">
 
           <span className="text-green-400">
-            馃煝 buy history
+             buy history
           </span>
 
           <span className="text-red-400">
-            馃敶 sell history
+            sell history
           </span>
 
           <span className="text-blue-400">
-            馃敀 JWT Secure
+            JWT Secure
           </span>
 
           <span className="text-yellow-400">
-            馃搳 Auto Refresh 30 Seconds
+            Auto Refresh 30 Seconds
           </span>
 
         </div>

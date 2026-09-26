@@ -1,9 +1,7 @@
 ﻿"use client";
 
 // =====================================================
-// GoldTrade V18 Enterprise Signup Page
-// Production Version (Vercel + Render + MongoDB)
-// PART 1/6
+// GoldTrade Enterprise Signup Page
 // =====================================================
 
 import { useState } from "react";
@@ -26,7 +24,6 @@ import {
 const API =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://goldtrade-2.onrender.com";
-
 // =====================================================
 // COMPONENT START
 // =====================================================
@@ -39,6 +36,8 @@ export default function SignupPage() {
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState("");
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -118,19 +117,20 @@ export default function SignupPage() {
     try {
       setLoading(true);
 
-      console.log("GoldTrade Register API:", `${API}/api/auth/register`);
-      const response = await fetch(`${API}/api/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: username.trim(),
-          fullName: fullName.trim(),
-          email: email.trim().toLowerCase(),
-          password,
-        }),
-      });
+    const response = await fetch(`${API}/api/auth/signup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+   },
+   body: JSON.stringify({
+    username,
+    email,
+    password,
+    fullName,
+    phone,
+    country,
+  }),
+});
 
       const data = await response.json().catch(() => ({}));
 
@@ -553,7 +553,7 @@ export default function SignupPage() {
         <div className="mt-8 border-t border-zinc-800 pt-5 text-center">
 
           <p className="text-xs text-gray-500">
-            GoldTrade V18 Enterprise
+            GoldTrade wallet Enterprise
           </p>
 
           <p className="mt-1 text-xs text-gray-600">

@@ -252,7 +252,7 @@ const GoldPortfolioPage: React.FC = () => {
           onClick={refreshPortfolio}
           className="bg-yellow-500 hover:bg-yellow-400 text-black px-5 py-3 rounded-xl font-bold transition-all duration-300 hover:scale-105"
         >
-          馃攧 Refresh
+           Refresh
         </button>
 
       </div>
@@ -386,7 +386,7 @@ const GoldPortfolioPage: React.FC = () => {
           </h2>
 
           <p className="text-xs text-gray-500 mt-3">
-            Gold Balance 脳 Live sell Price
+            Gold Balance  Live sell Price
           </p>
         </div>
 
@@ -510,7 +510,7 @@ const GoldPortfolioPage: React.FC = () => {
 
           <div className="bg-black rounded-2xl p-5 border border-zinc-700">
             <p className="text-gray-400 text-sm mb-2">
-              USD 鈫?Pkr Exchange Rate
+              USD ?Pkr Exchange Rate
             </p>
 
             <h3 className="text-2xl font-black text-cyan-400">
@@ -799,7 +799,7 @@ const GoldPortfolioPage: React.FC = () => {
         </p>
 
         <p>
-          Live Portfolio 鈥?buy & sell history 鈥?Profit / Loss 鈥?JWT Protected
+          Live Portfolio • buy & sell history • Profit / Loss • JWT Protected
         </p>
 
         <p className="mt-2">
@@ -808,13 +808,13 @@ const GoldPortfolioPage: React.FC = () => {
 
         <div className="mt-4 flex justify-center gap-6 flex-wrap text-xs">
 
-          <span className="text-green-400">馃煝 Live Portfolio</span>
+          <span className="text-green-400"> Live Portfolio</span>
 
-          <span className="text-yellow-400">馃煛 Auto Refresh 30 Seconds</span>
+          <span className="text-yellow-400"> Auto Refresh 30 Seconds</span>
 
-          <span className="text-blue-400">馃敀 JWT Secure</span>
+          <span className="text-blue-400"> JWT Secure</span>
 
-          <span className="text-purple-400">馃搱 Real-Time Analytics</span>
+          <span className="text-purple-400"> Real-Time Analytics</span>
 
         </div>
 

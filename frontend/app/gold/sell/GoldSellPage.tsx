@@ -592,12 +592,12 @@ const GoldsellPage: React.FC = () => {
           </h3>
 
           <ul className="space-y-3 text-gray-300 text-sm">
-            <li>鈥?Gold is sold at the Live sell Price.</li>
-            <li>鈥?Pkr Wallet is credited instantly after selling.</li>
-            <li>鈥?Gold balance decreases immediately.</li>
-            <li>鈥?Profit/Loss is calculated automatically.</li>
-            <li>鈥?Every sell trade is saved in Gold history.</li>
-            <li>鈥?Trading must be OPEN to sell gold.</li>
+            <li>?Gold is sold at the Live sell Price.</li>
+            <li>?Pkr Wallet is credited instantly after selling.</li>
+            <li>?Gold balance decreases immediately.</li>
+            <li>?Profit/Loss is calculated automatically.</li>
+            <li>?Every sell trade is saved in Gold history.</li>
+            <li>?Trading must be OPEN to sell gold.</li>
           </ul>
 
         </div>
@@ -746,7 +746,7 @@ const GoldsellPage: React.FC = () => {
         </p>
 
         <p>
-          sell Gold Module 鈥?Live Market 鈥?JWT Protected 鈥?Real-Time Portfolio
+          sell Gold Module • Live Market • JWT Protected • Real-Time Portfolio
         </p>
 
         <p className="mt-2">
@@ -755,13 +755,13 @@ const GoldsellPage: React.FC = () => {
 
         <div className="mt-4 flex justify-center gap-6 flex-wrap text-xs">
 
-          <span className="text-red-400">馃敶 Live sell Market</span>
+          <span className="text-red-400">• Live sell Market</span>
 
-          <span className="text-yellow-400">馃煛 Auto Refresh 30s</span>
+          <span className="text-yellow-400">• Auto Refresh 30s</span>
 
-          <span className="text-blue-400">馃敀 Secure JWT Authentication</span>
+          <span className="text-blue-400">• Secure JWT Authentication</span>
 
-          <span className="text-green-400">馃挵 Instant Wallet Credit</span>
+          <span className="text-green-400">• Instant Wallet Credit</span>
 
         </div>
 

@@ -152,7 +152,7 @@ const Goldhistory: React.FC = () => {
           </h1>
 
           <p className="text-gray-400 mt-1">
-            buy 鈥?sell 鈥?Profit & Loss history
+            buy / sell / Profit & Loss history
           </p>
         </div>
 
@@ -256,7 +256,7 @@ const Goldhistory: React.FC = () => {
         {filteredTransactions.length === 0 ? (
           <div className="text-center py-16">
 
-            <div className="text-6xl mb-4">馃獧</div>
+            <div className="text-6xl mb-4"></div>
 
             <h3 className="text-2xl font-bold text-gray-300">
               No Transactions Found
@@ -354,7 +354,7 @@ const Goldhistory: React.FC = () => {
 
       {/* FOOTER */}
       <div className="mt-12 border-t border-zinc-800 pt-6 text-center text-gray-500 text-sm">
-        GoldTrade V17 Enterprise 鈥?Gold Trading history Dashboard
+        GoldTrade V18 Enterprise • Gold Trading history Dashboard
       </div>
 
     </div>

@@ -2445,8 +2445,7 @@ const WithdrawFooter = () => (
 
         <p className="text-gray-400 mt-3 text-sm leading-6">
           Withdraw PKR securely from your GoldTrade Wallet.
-          Every withdrawal request is reviewed and approved by the Admin
-          before funds are processed.
+          Every withdrawal request is reviewed and approved automatically before funds are processed.
         </p>
       </div>
 
@@ -2466,7 +2465,7 @@ const WithdrawFooter = () => (
 
         <div className="flex items-center gap-3 text-yellow-400">
           <Clock3 size={18}/>
-          Manual Admin Verification
+          Automatic Verification
         </div>
 
         <div className="flex items-center gap-3 text-cyan-400">
@@ -2483,7 +2482,7 @@ const WithdrawFooter = () => (
       © {new Date().getFullYear()} GoldTrade V18 Enterprise
 
       <div className="mt-2">
-        Powered by Next.js • Render Backend • MongoDB • JWT Authentication
+        Powered by Flex,inc
       </div>
 
     </div>

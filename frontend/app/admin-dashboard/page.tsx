@@ -1940,7 +1940,7 @@ const [Wallethistory, setWallethistory] = useState([]);
       <div className="text-center py-8 border-t border-zinc-800">
 
         <h3 className="text-yellow-400 font-black text-xl mb-2">
-          GoldTrade Enterprise V18
+          GoldTrade Enterprise
         </h3>
 
         <p className="text-gray-500 text-sm">

@@ -1153,7 +1153,7 @@ return (
           <div className="text-center">
 
             <h3 className="text-lg font-bold text-yellow-400">
-              GoldTrade V18 Enterprise
+              GoldTrade Enterprise
             </h3>
 
             <p className="text-sm text-gray-300 mt-1">
@@ -1178,7 +1178,7 @@ return (
         <div>
 
           <h3 className="text-yellow-400 font-bold text-lg">
-            GoldTrade V18 Enterprise
+            GoldTrade Enterprise
           </h3>
 
           <p className="text-sm text-gray-500">
