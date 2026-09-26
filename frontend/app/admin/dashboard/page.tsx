@@ -172,61 +172,92 @@ export default function AdminDashboardPage() {
   // ========================================================
 
   const loadDashboard = useCallback(async () => {
+    try {
+    setLoading(true);
+    setRefreshing(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+     
+    // Get latest session every time
     const session = getSession();
 
-    if (!session) {
-      router.replace("/login");
+   if (!session || !session.token || !session.user) {
+      router.replace("/dashboard");
+      logout();
       return;
     }
 
-    try {
-      setLoading(true);
-      setErrorMessage("");
-
-      const response = await fetch(`${API}/api/admin/dashboard`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      });
-
-      const data: DashboardResponse = await response.json();
-
-      console.log("ADMIN DASHBOARD:", data);
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Failed to load dashboard.");
-      }
-
-      if (data.stats) {
-        setStats(data.stats);
-      }
-
-      if (Array.isArray(data.transactions)) {
-        setTransactions(data.transactions);
-      } else {
-        setTransactions([]);
-      }
-
-      setSuccessMessage("Dashboard loaded successfully.");
-    } catch (error: any) {
-      console.error("Dashboard Error:", error);
-
-      if (error.message?.includes("401")) {
-        logout();
-        return;
-      }
-
-      setErrorMessage(
-        error.message || "Unable to load admin dashboard."
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    // Only admin can access dashboard
+    if (session.user.role !== "admin") {
+      router.replace("/dashboard");
+      return;
     }
-  }, [router]);
+
+    console.log("ADMIN TOKEN:", session.token);
+    console.log("ADMIN USER:", session.user);
+
+    const response = await fetch(`${API}/api/gold/admin/dashboard`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${session.token}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+
+    });
+
+    const data: DashboardResponse = await response.json();
+
+    console.log("ADMIN DASHBOARD RESPONSE:", data);
+    
+    // Handle unauthorized
+    if (response.status === 401) {
+      logout();
+      return;
+    }
+     if (!response.ok || !data.success) {
+      throw new Error(data.message || "Unable to load admin dashboard.");
+    }
+    // Stats
+    setStats(
+      data.stats || {
+        totalUsers: 0,
+        totalDeposits: 0,
+        totalWithdrawals: 0,
+        pendingDeposits: 0,
+        pendingWithdrawals: 0,
+        goldBuyPrice: 0,
+        goldSellPrice: 0,
+        usdtBuyPrice: 0,
+        usdtSellPrice: 0,
+        marketStatus: "OPEN",
+      }
+    );
+
+    // Transactions
+    setTransactions(
+      Array.isArray(data.transactions) ? data.transactions : []
+    );
+
+    setSuccessMessage("Dashboard loaded successfully.");
+  } catch (error: any) {
+    console.error("Dashboard Error:", error);
+    
+    const message = error.message || "Unable to load admin dashboard.";
+
+    if (
+      message.includes("Access token") ||
+      message.includes("401")
+    ) {
+      logout();
+      return;
+    }
+    setErrorMessage(message);
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+}, [router]);
 
   // ========================================================
   // INITIAL LOAD
