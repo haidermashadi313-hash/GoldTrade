@@ -93,118 +93,141 @@ export default function LoginPage() {
 
   const [rememberMe, setRememberMe] = useState(true);
 
-  // ----------------------------
-  // AUTO LOGIN CHECK
-  // ----------------------------
+ // ==========================================================
+// AUTO LOGIN CHECK (LOOP FIX)
+// ==========================================================
 
-  useEffect(() => {
-    try {
-      const token =
-        localStorage.getItem("goldtrade_token") ||
-        sessionStorage.getItem("goldtrade_token");
+useEffect(() => {
+  // Browser me hi run kare
+  if (typeof window === "undefined") return;
 
-      const role =
-        localStorage.getItem("goldtrade_role") ||
-        sessionStorage.getItem("goldtrade_role");
+  try {
+    const localToken = localStorage.getItem("goldtrade_token");
+    const sessionToken = sessionStorage.getItem("goldtrade_token");
 
-      if (token && role === "admin") {
+    const token = localToken || sessionToken;
+
+    if (!token) return;
+
+    const userData =
+      localStorage.getItem("goldtrade_user") ||
+      sessionStorage.getItem("goldtrade_user");
+
+    if (!userData) return;
+
+    const user = JSON.parse(userData);
+
+    // Sirf login page par hi redirect karo
+    if (window.location.pathname === "/login") {
+      if (user.role === "admin") {
         router.replace("/admin/dashboard");
-        return;
-      }
-
-      if (token && role === "user") {
+      } else {
         router.replace("/dashboard");
       }
-    } catch (error) {
-      console.error("AUTO LOGIN CHECK:", error);
     }
-  }, [router]);
+  } catch (error) {
+    console.error("AUTO LOGIN CHECK ERROR:", error);
 
-  // ==========================================================
-  // SAVE LOGIN SESSION
-  // ==========================================================
+    localStorage.removeItem("goldtrade_token");
+    localStorage.removeItem("goldtrade_user");
+    localStorage.removeItem("goldtrade_role");
 
-  const saveSession = (data: LoginResponse) => {
-    if (!data.token || !data.user) return;
+    sessionStorage.removeItem("goldtrade_token");
+    sessionStorage.removeItem("goldtrade_user");
+    sessionStorage.removeItem("goldtrade_role");
+  }
+}, []);
 
-    const storage = rememberMe ? localStorage : sessionStorage;
+// ==========================================================
+// SAVE LOGIN SESSION
+// ==========================================================
 
-    storage.setItem("goldtrade_token", data.token);
-    storage.setItem("goldtrade_role", data.user.role);
-    storage.setItem("goldtrade_username", data.user.username);
-    storage.setItem("goldtrade_email", data.user.email);
-    storage.setItem("goldtrade_user", JSON.stringify(data.user));
-  };
-    // ==========================================================
-  // LOGIN HANDLER (Production Version)
-  // ==========================================================
+const saveSession = (data: LoginResponse) => {
+  if (!data.token || !data.user) return;
 
-  const handleLogin = async (
-    e: React.FormEvent<HTMLFormElement>
-  ) => {
-    e.preventDefault();
+  // Purani session remove
+  localStorage.removeItem("goldtrade_token");
+  localStorage.removeItem("goldtrade_user");
+  localStorage.removeItem("goldtrade_role");
 
-    setErrorMessage("");
-    setSuccessMessage("");
+  sessionStorage.removeItem("goldtrade_token");
+  sessionStorage.removeItem("goldtrade_user");
+  sessionStorage.removeItem("goldtrade_role");
 
-    if (!username.trim()) {
-      setErrorMessage("Please enter your username or email.");
-      return;
+  const storage = rememberMe ? localStorage : sessionStorage;
+
+  storage.setItem("goldtrade_token", data.token);
+  storage.setItem("goldtrade_user", JSON.stringify(data.user));
+  storage.setItem("goldtrade_role", data.user.role);
+  storage.setItem("goldtrade_username", data.user.username);
+  storage.setItem("goldtrade_email", data.user.email);
+};
+
+// ==========================================================
+// LOGIN HANDLER (PRODUCTION FIX)
+// ==========================================================
+
+const handleLogin = async (
+  e: React.FormEvent<HTMLFormElement>
+) => {
+  e.preventDefault();
+
+  setErrorMessage("");
+  setSuccessMessage("");
+
+  if (!username.trim()) {
+    setErrorMessage("Please enter your username or email.");
+    return;
+  }
+
+  if (!password.trim()) {
+    setErrorMessage("Please enter your password.");
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const response = await fetch(`${API}/api/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username: username.trim().toLowerCase(),
+        password,
+      }),
+    });
+
+    const data: LoginResponse = await response.json();
+
+    console.log("LOGIN RESPONSE:", data);
+
+    if (!response.ok || !data.success || !data.user) {
+      throw new Error(data.message || "Login failed.");
     }
 
-    if (!password.trim()) {
-      setErrorMessage("Please enter your password.");
-      return;
+    // Save JWT + User
+    saveSession(data);
+
+    setSuccessMessage("Login successful. Redirecting...");
+
+    // Loading animation
+    await new Promise((resolve) => setTimeout(resolve, 700));
+
+    if (data.user.role === "admin") {
+      router.replace("/admin/dashboard");
+    } else {
+      router.replace("/dashboard");
     }
+  } catch (error: any) {
+    console.error("LOGIN ERROR:", error);
 
-    try {
-      setLoading(true);
-
-      const response = await fetch(`${API}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: username.trim().toLowerCase(),
-          password,
-        }),
-      });
-
-      const data: LoginResponse = await response.json();
-
-      console.log("LOGIN RESPONSE:", data);
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Unable to login."
-        );
-      }
-
-      // Save JWT + User Session
-      saveSession(data);
-
-      setSuccessMessage("Login successful. Redirecting...");
-
-      // Wait a moment before redirect
-      setTimeout(() => {
-        if (data.user?.role === "admin") {
-          router.replace("/admin/dashboard");
-        } else {
-          router.replace("/dashboard");
-        }
-      }, 800);
-
-    } catch (error: any) {
-      console.error("LOGIN ERROR:", error);
-
-      setErrorMessage(
-        error.message || "Login failed."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    setErrorMessage(error.message || "Login failed.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ==========================================================
   // ENTER KEY LOGIN
