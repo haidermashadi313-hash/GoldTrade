@@ -26,6 +26,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
+import { clearSession, logout } from "@/lib/auth";
 
 /* ==========================================================
    API URL
@@ -402,15 +403,23 @@ useEffect(() => {
 }, [token, verifyLogin, loadUserProfile]);
 
 /* ==========================================================
-   LOGOUT
+   LOGOUT (GoldTrade V18 Production Fix)
 ========================================================== */
 
-const logout = useCallback(() => {
-  localStorage.removeItem("token");
-  localStorage.removeItem("username");
-  localStorage.removeItem("role");
+const handleLogout = useCallback(() => {
+  // Remove complete GoldTrade session
+  clearSession();
 
+  // Prevent browser back cache
+  window.history.replaceState(null, "", "/login");
+
+  // Redirect to login
   router.replace("/login");
+
+  // Force refresh
+  setTimeout(() => {
+    window.location.href = "/login";
+  }, 100);
 }, [router]);
 
 /* ==========================================================
