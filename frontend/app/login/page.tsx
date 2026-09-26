@@ -560,12 +560,20 @@ export default function LoginPage() {
           </p>
 
           <a
-            href="https://t.me/GoldTradeSupport"
+            href="https://t.me/Zoyakhan03"
             target="_blank"
             rel="noopener noreferrer"
             className="mt-3 flex w-full items-center justify-center rounded-xl border border-blue-500 py-2 text-sm font-medium text-blue-400 transition hover:bg-blue-500 hover:text-white"
           >
             Contact Support
+          </a>
+          <a
+            href="https://wa.me/+6282146651034"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 flex w-full items-center justify-center rounded-xl border border-green-500 py-2 text-sm font-medium text-green-400 transition hover:bg-green-500 hover:text-white"
+          >
+            💬 Contact on WhatsApp
           </a>
         </div>
 
