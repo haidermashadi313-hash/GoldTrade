@@ -186,39 +186,39 @@ export default function DashboardPage() {
   const [errorMessage, setErrorMessage] =
     useState<string>("");
 
-  /* ========================================================
-     LOAD SESSION (FIXED)
-     Removes duplicate useEffect from old file.
-  ======================================================== */
+// ==========================================================
+// DASHBOARD AUTH CHECK (PRODUCTION FIX)
+// ==========================================================
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+useEffect(() => {
+  if (typeof window === "undefined") return;
 
-    const savedToken =
-      localStorage.getItem("token") ?? "";
+  const token =
+    localStorage.getItem("goldtrade_token") ||
+    sessionStorage.getItem("goldtrade_token");
 
-    const savedUsername =
-      localStorage.getItem("username") ?? "";
+  const userData =
+    localStorage.getItem("goldtrade_user") ||
+    sessionStorage.getItem("goldtrade_user");
 
-    const savedRole =
-      (localStorage.getItem("role") as
-        | "user"
-        | "admin") ?? "user";
+  if (!token || !userData) {
+    router.replace("/login");
+    return;
+  }
 
-    if (!savedToken || !savedUsername) {
-      router.replace("/login");
-      return;
-    }
+  try {
+    const currentUser = JSON.parse(userData);
 
-    setToken(savedToken);
-    setUsername(savedUsername);
+    loadDashboard(currentUser.username, token);
+  } catch (error) {
+    console.error("Dashboard Auth Error:", error);
 
-    setUser((prev) => ({
-      ...prev,
-      username: savedUsername,
-      role: savedRole,
-    }));
-  }, [router]);
+    localStorage.clear();
+    sessionStorage.clear();
+
+    router.replace("/login");
+  }
+}, []);
 
   /* ========================================================
      AUTH HEADERS

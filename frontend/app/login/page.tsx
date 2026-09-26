@@ -98,43 +98,31 @@ export default function LoginPage() {
 // ==========================================================
 
 useEffect(() => {
-  // Browser me hi run kare
   if (typeof window === "undefined") return;
 
+  const token =
+    localStorage.getItem("goldtrade_token") ||
+    sessionStorage.getItem("goldtrade_token");
+
+  if (!token) return;
+
+  const userString =
+    localStorage.getItem("goldtrade_user") ||
+    sessionStorage.getItem("goldtrade_user");
+
+  if (!userString) return;
+
   try {
-    const localToken = localStorage.getItem("goldtrade_token");
-    const sessionToken = sessionStorage.getItem("goldtrade_token");
+    const user = JSON.parse(userString);
 
-    const token = localToken || sessionToken;
-
-    if (!token) return;
-
-    const userData =
-      localStorage.getItem("goldtrade_user") ||
-      sessionStorage.getItem("goldtrade_user");
-
-    if (!userData) return;
-
-    const user = JSON.parse(userData);
-
-    // Sirf login page par hi redirect karo
-    if (window.location.pathname === "/login") {
-      if (user.role === "admin") {
-        router.replace("/admin/dashboard");
-      } else {
-        router.replace("/dashboard");
-      }
+    if (user.role === "admin") {
+      router.replace("/admin/dashboard");
+    } else {
+      router.replace("/dashboard");
     }
-  } catch (error) {
-    console.error("AUTO LOGIN CHECK ERROR:", error);
-
-    localStorage.removeItem("goldtrade_token");
-    localStorage.removeItem("goldtrade_user");
-    localStorage.removeItem("goldtrade_role");
-
-    sessionStorage.removeItem("goldtrade_token");
-    sessionStorage.removeItem("goldtrade_user");
-    sessionStorage.removeItem("goldtrade_role");
+  } catch {
+    localStorage.clear();
+    sessionStorage.clear();
   }
 }, []);
 
