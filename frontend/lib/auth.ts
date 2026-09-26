@@ -1,7 +1,8 @@
 // ==========================================================
 // GoldTrade V18 Enterprise
 // frontend/lib/auth.ts
-// Production Version (Render + Vercel + JWT Safe)
+// FINAL Production Version
+// Render + Vercel + Linux + JWT Safe
 // ==========================================================
 
 export interface GoldTradeUser {
@@ -27,16 +28,26 @@ export function saveSession(
 ): void {
   if (typeof window === "undefined") return;
 
-  const storage = remember ? localStorage : sessionStorage;
-
-  // Clear old session first
+  // Remove old session first
   clearSession();
 
+  const storage = remember ? localStorage : sessionStorage;
+
+  const normalizedUser: GoldTradeUser = {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    role:
+      String(user.role).trim().toLowerCase() === "admin"
+        ? "admin"
+        : "user",
+  };
+
   storage.setItem("goldtrade_token", token);
-  storage.setItem("goldtrade_user", JSON.stringify(user));
-  storage.setItem("goldtrade_username", user.username);
-  storage.setItem("goldtrade_email", user.email);
-  storage.setItem("goldtrade_role", user.role);
+  storage.setItem("goldtrade_user", JSON.stringify(normalizedUser));
+  storage.setItem("goldtrade_username", normalizedUser.username);
+  storage.setItem("goldtrade_email", normalizedUser.email);
+  storage.setItem("goldtrade_role", normalizedUser.role);
 }
 
 // ==========================================================
@@ -60,7 +71,17 @@ export function getSession(): GoldTradeSession | null {
   }
 
   try {
-    const user: GoldTradeUser = JSON.parse(userString);
+    const parsedUser = JSON.parse(userString);
+
+    const user: GoldTradeUser = {
+      id: parsedUser.id || "",
+      username: parsedUser.username || "",
+      email: parsedUser.email || "",
+      role:
+        String(parsedUser.role || "").trim().toLowerCase() === "admin"
+          ? "admin"
+          : "user",
+    };
 
     if (!user.username || !user.role) {
       clearSession();
@@ -79,31 +100,27 @@ export function getSession(): GoldTradeSession | null {
 }
 
 // ==========================================================
-// IS LOGGED IN
+// HELPERS
 // ==========================================================
 
 export function isLoggedIn(): boolean {
   return getSession() !== null;
 }
 
-// ==========================================================
-// GET TOKEN
-// ==========================================================
-
 export function getToken(): string | null {
   return getSession()?.token || null;
 }
-
-// ==========================================================
-// GET USER
-// ==========================================================
 
 export function getUser(): GoldTradeUser | null {
   return getSession()?.user || null;
 }
 
+export function isAdmin(): boolean {
+  return getSession()?.user.role === "admin";
+}
+
 // ==========================================================
-// CLEAR SESSION (LOGOUT FIX)
+// CLEAR SESSION
 // ==========================================================
 
 export function clearSession(): void {
@@ -124,7 +141,7 @@ export function clearSession(): void {
 }
 
 // ==========================================================
-// LOGOUT (PRODUCTION FIX)
+// LOGOUT
 // ==========================================================
 
 export function logout(): void {
