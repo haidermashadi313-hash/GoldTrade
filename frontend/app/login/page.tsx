@@ -254,13 +254,19 @@ export default function LoginPage() {
       // -------------------------------
       // SAVE SESSION
       // -------------------------------
+       const userRole =
+        String(data.user.role || "")
+        .trim()
+        .toLowerCase() === "admin"
+        ? "admin"
+        : "user";
 
       saveSession(
         {
           id: data.user.id,
           username: data.user.username,
           email: data.user.email,
-          role: data.user.role,
+          role: userRole,
         },
         jwtToken,
         rememberMe
@@ -273,7 +279,7 @@ export default function LoginPage() {
       // -------------------------------
 
       setTimeout(() => {
-        if (data.user?.role === "admin") {
+         if (userRole === "admin") {
           router.replace("/admin/dashboard");
         } else {
           router.replace("/dashboard");
