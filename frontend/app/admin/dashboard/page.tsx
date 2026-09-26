@@ -120,13 +120,11 @@ export default function AdminDashboardPage() {
   const router = useRouter();
 
   // ========================================================
-  // ADMIN SESSION
+  // ADMIN SESSION STATES
   // ========================================================
 
   const [token, setToken] = useState("");
-
   const [admin, setAdmin] = useState<GoldTradeUser | null>(null);
-
   const [checkingSession, setCheckingSession] = useState(true);
 
   // ========================================================
@@ -134,15 +132,18 @@ export default function AdminDashboardPage() {
   // ========================================================
 
   const [loading, setLoading] = useState(true);
-
   const [refreshing, setRefreshing] = useState(false);
-
   const [errorMessage, setErrorMessage] = useState("");
-
   const [successMessage, setSuccessMessage] = useState("");
 
   // ========================================================
-  // DASHBOARD STATS
+  // NETWORK STATUS
+  // ========================================================
+
+  const [isOnline, setIsOnline] = useState(true);
+
+  // ========================================================
+  // DASHBOARD DATA
   // ========================================================
 
   const [stats, setStats] = useState<DashboardStats>({
@@ -151,19 +152,12 @@ export default function AdminDashboardPage() {
     totalWithdrawals: 0,
     pendingDeposits: 0,
     pendingWithdrawals: 0,
-
     goldBuyPrice: 0,
     goldSellPrice: 0,
-
     usdtBuyPrice: 0,
     usdtSellPrice: 0,
-
     marketStatus: "OPEN",
   });
-
-  // ========================================================
-  // TRANSACTIONS
-  // ========================================================
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
@@ -174,34 +168,47 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     document.title = "Admin Dashboard • GoldTrade V18 Enterprise";
   }, []);
-    // ========================================================
-  // AUTH SESSION CHECK (ADMIN ONLY)
+
+  // ========================================================
+  // NETWORK LISTENER
   // ========================================================
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    const updateNetworkStatus = () => {
+      setIsOnline(window.navigator.onLine);
+    };
 
-    try {
-      const session = getSession();
+    updateNetworkStatus();
 
-      if (!session || !session.token || !session.user) {
-        router.replace("/login");
-        return;
-      }
+    window.addEventListener("online", updateNetworkStatus);
+    window.addEventListener("offline", updateNetworkStatus);
 
-      if (session.user.role !== "admin") {
-        router.replace("/dashboard");
-        return;
-      }
+    return () => {
+      window.removeEventListener("online", updateNetworkStatus);
+      window.removeEventListener("offline", updateNetworkStatus);
+    };
+  }, []);
 
-      setToken(session.token);
-      setAdmin(session.user);
-    } catch (error) {
-      console.error("Admin Session Error:", error);
+  // ========================================================
+  // ADMIN SESSION CHECK (PRODUCTION FIX)
+  // ========================================================
+
+  useEffect(() => {
+    const session = getSession();
+
+    if (!session) {
       router.replace("/login");
-    } finally {
-      setCheckingSession(false);
+      return;
     }
+
+    if (session.user.role !== "admin") {
+      router.replace("/dashboard");
+      return;
+    }
+
+    setToken(session.token);
+    setAdmin(session.user);
+    setCheckingSession(false);
   }, [router]);
 
   // ========================================================
@@ -276,27 +283,6 @@ export default function AdminDashboardPage() {
     }, 800);
   }, []);
 
-  // ========================================================
-  // NETWORK STATUS
-  // ========================================================
-
-  const [isOnline, setIsOnline] = useState(true);
-
-  useEffect(() => {
-    const updateNetworkStatus = () => {
-      setIsOnline(navigator.onLine);
-    };
-
-    updateNetworkStatus();
-
-    window.addEventListener("online", updateNetworkStatus);
-    window.addEventListener("offline", updateNetworkStatus);
-
-    return () => {
-      window.removeEventListener("online", updateNetworkStatus);
-      window.removeEventListener("offline", updateNetworkStatus);
-    };
-  }, []);
 
   // ========================================================
   // AUTO CLEAR ERROR MESSAGE
