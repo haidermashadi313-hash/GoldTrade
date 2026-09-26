@@ -1,3 +1,9 @@
+// ==========================================================
+// GoldTrade V18 Enterprise
+// frontend/lib/auth.ts
+// Production Version (Render + Vercel + JWT Safe)
+// ==========================================================
+
 export interface GoldTradeUser {
   id: string;
   username: string;
@@ -5,7 +11,39 @@ export interface GoldTradeUser {
   role: "user" | "admin";
 }
 
-export function getSession() {
+export interface GoldTradeSession {
+  token: string;
+  user: GoldTradeUser;
+}
+
+// ==========================================================
+// SAVE SESSION
+// ==========================================================
+
+export function saveSession(
+  user: GoldTradeUser,
+  token: string,
+  remember: boolean = true
+): void {
+  if (typeof window === "undefined") return;
+
+  const storage = remember ? localStorage : sessionStorage;
+
+  // Clear old session first
+  clearSession();
+
+  storage.setItem("goldtrade_token", token);
+  storage.setItem("goldtrade_user", JSON.stringify(user));
+  storage.setItem("goldtrade_username", user.username);
+  storage.setItem("goldtrade_email", user.email);
+  storage.setItem("goldtrade_role", user.role);
+}
+
+// ==========================================================
+// GET SESSION
+// ==========================================================
+
+export function getSession(): GoldTradeSession | null {
   if (typeof window === "undefined") return null;
 
   const token =
@@ -16,30 +54,83 @@ export function getSession() {
     localStorage.getItem("goldtrade_user") ||
     sessionStorage.getItem("goldtrade_user");
 
-  if (!token || !userString) return null;
+  if (!token || !userString) {
+    clearSession();
+    return null;
+  }
 
   try {
     const user: GoldTradeUser = JSON.parse(userString);
+
+    if (!user.username || !user.role) {
+      clearSession();
+      return null;
+    }
 
     return {
       token,
       user,
     };
-  } catch {
+  } catch (error) {
+    console.error("Session Parse Error:", error);
+    clearSession();
     return null;
   }
 }
 
-export function clearSession() {
-  localStorage.removeItem("goldtrade_token");
-  localStorage.removeItem("goldtrade_user");
-  localStorage.removeItem("goldtrade_role");
-  localStorage.removeItem("goldtrade_username");
-  localStorage.removeItem("goldtrade_email");
+// ==========================================================
+// IS LOGGED IN
+// ==========================================================
 
-  sessionStorage.removeItem("goldtrade_token");
-  sessionStorage.removeItem("goldtrade_user");
-  sessionStorage.removeItem("goldtrade_role");
-  sessionStorage.removeItem("goldtrade_username");
-  sessionStorage.removeItem("goldtrade_email");
+export function isLoggedIn(): boolean {
+  return getSession() !== null;
+}
+
+// ==========================================================
+// GET TOKEN
+// ==========================================================
+
+export function getToken(): string | null {
+  return getSession()?.token || null;
+}
+
+// ==========================================================
+// GET USER
+// ==========================================================
+
+export function getUser(): GoldTradeUser | null {
+  return getSession()?.user || null;
+}
+
+// ==========================================================
+// CLEAR SESSION (LOGOUT FIX)
+// ==========================================================
+
+export function clearSession(): void {
+  if (typeof window === "undefined") return;
+
+  const keys = [
+    "goldtrade_token",
+    "goldtrade_user",
+    "goldtrade_role",
+    "goldtrade_username",
+    "goldtrade_email",
+  ];
+
+  keys.forEach((key) => {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  });
+}
+
+// ==========================================================
+// LOGOUT (PRODUCTION FIX)
+// ==========================================================
+
+export function logout(): void {
+  clearSession();
+
+  if (typeof window !== "undefined") {
+    window.location.replace("/login");
+  }
 }
