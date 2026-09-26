@@ -420,23 +420,23 @@ export default function AdminDashboardPage() {
       },
       {
         title: "Withdrawals",
-        href: "/admin/withdrawals",
-        description: "Approve withdrawal requests",
-      },
-      {
-        title: "Wallet",
-        href: "/admin/wallet",
+        href: "/admin/withdraw",
         description: "Wallet management center",
       },
       {
+        title: "Wallet Manager",
+        href: "/admin/wallet-manager",
+        description: "Manage wallet balances",
+      },
+      {
         title: "Gold Settings",
-        href: "/admin/gold-settings",
+        href: "/admin/goldsettings",
         description: "Update live gold prices",
       },
       {
         title: "USDT Settings",
-        href: "/admin/usdt-settings",
-        description: "Manage USDT market prices",
+        href: "/admin/usdt",
+        description: "Manage USDT buy/sell prices",
       },
       {
         title: "Transactions",
@@ -445,7 +445,7 @@ export default function AdminDashboardPage() {
       },
       {
         title: "Payment Settings",
-        href: "/admin/payment-settings",
+        href: "/admin/paymentsettings",
         description: "Bank & Crypto payment methods",
       },
     ],
