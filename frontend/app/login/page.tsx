@@ -590,54 +590,6 @@ export default function LoginPage() {
 
             </div>
 
-            {/* ================= VERSION INFO ================= */}
-
-            <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-950/40 p-5">
-
-              <h4 className="mb-3 text-center text-sm font-bold text-yellow-400">
-                GoldTrade V18 Enterprise
-              </h4>
-
-              <div className="space-y-2 text-sm text-slate-300">
-
-                <div className="flex justify-between">
-                  <span>Frontend</span>
-                  <span className="text-emerald-400">Next.js 15</span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Backend</span>
-                  <span className="text-emerald-400">Node.js + Express</span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Database</span>
-                  <span className="text-emerald-400">MongoDB Atlas</span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Authentication</span>
-                  <span className="text-emerald-400">JWT + bcrypt</span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Deployment</span>
-                  <span className="text-emerald-400">Render + Vercel</span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Environment</span>
-                  <span className="text-cyan-300">
-                    {process.env.NEXT_PUBLIC_API_URL
-                      ? "Production"
-                      : "Development"}
-                  </span>
-                </div>
-
-              </div>
-
-            </div>
-
             {/* ================= CONTACT FOOTER ================= */}
 
             <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-950/50 p-5">
@@ -823,42 +775,6 @@ export default function LoginPage() {
                 Render Cloud backend and Vercel frontend deployment.
               </p>
 
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* ==========================================================
-            LOGIN SECURITY INFORMATION
-            ========================================================== */}
-
-        <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-950/40 p-5">
-
-          <h4 className="mb-4 text-center text-sm font-bold text-yellow-400">
-            Security Features
-          </h4>
-
-          <div className="grid grid-cols-2 gap-3 text-xs">
-
-            <div className="rounded-xl bg-slate-900 p-3 text-center">
-              <ShieldCheck className="mx-auto mb-2 h-6 w-6 text-green-400" />
-              <p className="text-slate-300">JWT Authentication</p>
-            </div>
-
-            <div className="rounded-xl bg-slate-900 p-3 text-center">
-              <Lock className="mx-auto mb-2 h-6 w-6 text-yellow-400" />
-              <p className="text-slate-300">Encrypted Passwords</p>
-            </div>
-
-            <div className="rounded-xl bg-slate-900 p-3 text-center">
-              <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-cyan-400" />
-              <p className="text-slate-300">HTTPS API Requests</p>
-            </div>
-
-            <div className="rounded-xl bg-slate-900 p-3 text-center">
-              <ShieldCheck className="mx-auto mb-2 h-6 w-6 text-purple-400" />
-              <p className="text-slate-300">MongoDB Atlas Secure</p>
             </div>
 
           </div>
