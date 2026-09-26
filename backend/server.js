@@ -20,8 +20,8 @@ const app = express();
 // BASIC CONFIG
 // ======================================================
 
-const PORT = process.env.PORT || 5000;
-const NODE_ENV = process.env.NODE_ENV || "development";
+const HOST = process.env.HOST || "0.0.0.0";
+const NODE_ENV = process.env.NODE_ENV || "development"
 
 // ======================================================
 // SECURITY MIDDLEWARE
@@ -372,15 +372,18 @@ app.use((err, req, res, next) => {
 });
 
 // ======================================================
-// START SERVER (PM2 SAFE)
+// START SERVER (PM2 + RENDER + LINUX SAFE)
 // ======================================================
 
-const server = app.listen(PORT, "0.0.0.0", () => {
+const HOST = process.env.HOST || "0.0.0.0";
+const PORT = process.env.PORT || 5000;
+const NODE_ENV = process.env.NODE_ENV || "development";
+
+const server = app.listen(PORT, HOST, () => {
   console.log("======================================");
   console.log("GoldTrade V18 Enterprise Backend");
-  console.log(`Server Running : http://0.0.0.0:${PORT}`);
+  console.log(`Server Running : http://${HOST}:${PORT}`);
   console.log(`Environment    : ${NODE_ENV}`);
-  console.log(`PM2 Mode       : ${process.env.pm_id ? "YES" : "NO"}`);
   console.log("======================================");
 });
 
@@ -388,25 +391,27 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 // SERVER EVENTS
 // ======================================================
 
-server.on("error", (error) => {
-  console.error("SERVER START ERROR:", error.message);
-});
-
 server.on("listening", () => {
-  console.log(`Listening on Port ${PORT}`);
+  console.log(`✅ Listening on Port ${PORT}`);
+});
+
+server.on("error", (error) => {
+  console.error("❌ SERVER START ERROR:", error.message);
 });
 
 // ======================================================
-// PM2 GRACEFUL SHUTDOWN
+// GRACEFUL SHUTDOWN (PM2 / RENDER SAFE)
 // ======================================================
 
-const gracefulShutdown = async (signal) => {
+const gracefulShutdown = (signal) => {
   console.log(`\n${signal} received. Closing GoldTrade Backend...`);
 
   server.close(async () => {
     try {
-      await mongoose.connection.close(false);
-      console.log("MongoDB Connection Closed");
+      if (mongoose.connection.readyState !== 0) {
+        await mongoose.connection.close(false);
+        console.log("MongoDB Connection Closed");
+      }
     } catch (error) {
       console.error("MongoDB Close Error:", error.message);
     }
@@ -414,13 +419,22 @@ const gracefulShutdown = async (signal) => {
     console.log("HTTP Server Closed");
     process.exit(0);
   });
-
-  // Force close after 10 seconds
-  setTimeout(() => {
-    console.error("Force Shutdown Timeout");
-    process.exit(1);
-  }, 10000);
 };
+
+// ======================================================
+// PROCESS EVENTS
+// ======================================================
+
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+
+process.on("unhandledRejection", (error) => {
+  console.error("UNHANDLED REJECTION:", error);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("UNCAUGHT EXCEPTION:", error);
+});
 
 // ======================================================
 // PROCESS SIGNALS
