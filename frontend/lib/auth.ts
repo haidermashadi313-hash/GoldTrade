@@ -148,6 +148,6 @@ export function logout(): void {
   clearSession();
 
   if (typeof window !== "undefined") {
-    window.location.replace("/login");
+    window.location.href = "/login";
   }
 }

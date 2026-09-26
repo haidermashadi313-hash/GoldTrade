@@ -3,13 +3,19 @@
 // ==========================================================
 // GoldTrade V18 Enterprise
 // ADMIN DASHBOARD
-// PART 1/12
-// Production Ready (Render + Vercel + Linux + JWT Safe)
+// PART 1/8
+// Production Ready (Render + Vercel + Linux)
 // ==========================================================
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import {
   getSession,
@@ -18,7 +24,7 @@ import {
 } from "@/lib/auth";
 
 // ==========================================================
-// API URL (Render Production)
+// API URL
 // ==========================================================
 
 const API =
@@ -28,21 +34,6 @@ const API =
 // ==========================================================
 // TYPES
 // ==========================================================
-
-interface DashboardResponse {
-  success: boolean;
-  message?: string;
-
-  stats?: DashboardStats;
-
-  user?: GoldTradeUser;
-
-  transactions?: Transaction[];
-
-  deposits?: number;
-  withdrawals?: number;
-  users?: number;
-}
 
 interface DashboardStats {
   totalUsers: number;
@@ -62,55 +53,20 @@ interface DashboardStats {
 
 interface Transaction {
   _id: string;
-
   username: string;
-
-  type:
-    | "deposit"
-    | "withdraw"
-    | "gold-buy"
-    | "gold-sell"
-    | "usdt-buy"
-    | "usdt-sell";
-
+  type: string;
   amount: number;
-
   currency: string;
-
-  status:
-    | "pending"
-    | "approved"
-    | "rejected";
-
+  status: "pending" | "approved" | "rejected";
   createdAt: string;
 }
 
-// ==========================================================
-// WALLET CARD MODEL
-// ==========================================================
-
-interface WalletCard {
-  title: string;
-  amount: number;
-  color: string;
-  border: string;
+interface DashboardResponse {
+  success: boolean;
+  message?: string;
+  stats?: DashboardStats;
+  transactions?: Transaction[];
 }
-
-// ==========================================================
-// QUICK ACTION MODEL
-// ==========================================================
-
-interface QuickAction {
-  title: string;
-  href: string;
-  description: string;
-}
-
-// ==========================================================
-// MARKET STATUS MODEL
-// ==========================================================
-
-type MarketStatus = "OPEN" | "CLOSED";
 
 // ==========================================================
 // COMPONENT START
@@ -120,11 +76,12 @@ export default function AdminDashboardPage() {
   const router = useRouter();
 
   // ========================================================
-  // ADMIN SESSION STATES
+  // SESSION
   // ========================================================
 
-  const [token, setToken] = useState("");
   const [admin, setAdmin] = useState<GoldTradeUser | null>(null);
+  const [token, setToken] = useState("");
+
   const [checkingSession, setCheckingSession] = useState(true);
 
   // ========================================================
@@ -133,12 +90,9 @@ export default function AdminDashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-
-  // ========================================================
-  // NETWORK STATUS
-  // ========================================================
 
   const [isOnline, setIsOnline] = useState(true);
 
@@ -152,10 +106,13 @@ export default function AdminDashboardPage() {
     totalWithdrawals: 0,
     pendingDeposits: 0,
     pendingWithdrawals: 0,
+
     goldBuyPrice: 0,
     goldSellPrice: 0,
+
     usdtBuyPrice: 0,
     usdtSellPrice: 0,
+
     marketStatus: "OPEN",
   });
 
@@ -170,7 +127,7 @@ export default function AdminDashboardPage() {
   }, []);
 
   // ========================================================
-  // NETWORK LISTENER
+  // NETWORK STATUS
   // ========================================================
 
   useEffect(() => {
@@ -190,7 +147,7 @@ export default function AdminDashboardPage() {
   }, []);
 
   // ========================================================
-  // ADMIN SESSION CHECK (PRODUCTION FIX)
+  // SESSION CHECK (ADMIN ONLY)
   // ========================================================
 
   useEffect(() => {
@@ -206,145 +163,12 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    setToken(session.token);
     setAdmin(session.user);
+    setToken(session.token);
     setCheckingSession(false);
   }, [router]);
-
-  // ========================================================
-  // SESSION RECOVERY
-  // ========================================================
-
-  useEffect(() => {
-    if (checkingSession) return;
-
-    const recoverSession = () => {
-      const session = getSession();
-
-      if (!session) {
-        router.replace("/login");
-        return;
-      }
-
-      if (session.user.role !== "admin") {
-        router.replace("/dashboard");
-      }
-    };
-
-    window.addEventListener("focus", recoverSession);
-
-    return () => {
-      window.removeEventListener("focus", recoverSession);
-    };
-  }, [checkingSession, router]);
-
-  // ========================================================
-  // PREVENT BACK BUTTON ACCESS
-  // ========================================================
-
-  useEffect(() => {
-    const handlePopState = () => {
-      const session = getSession();
-
-      if (!session) {
-        router.replace("/login");
-        return;
-      }
-
-      if (session.user.role !== "admin") {
-        router.replace("/dashboard");
-      }
-    };
-
-    window.addEventListener("popstate", handlePopState);
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-    };
-  }, [router]);
-
-  // ========================================================
-  // ADMIN LOGOUT
-  // ========================================================
-
-  const handleLogout = useCallback(() => {
-    logout();
-  }, []);
-
-  // ========================================================
-  // REFRESH DASHBOARD
-  // ========================================================
-
-  const refreshDashboard = useCallback(() => {
-    setRefreshing(true);
-
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 800);
-  }, []);
-
-
-  // ========================================================
-  // AUTO CLEAR ERROR MESSAGE
-  // ========================================================
-
-  useEffect(() => {
-    if (!errorMessage) return;
-
-    const timer = setTimeout(() => {
-      setErrorMessage("");
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [errorMessage]);
-
-  // ========================================================
-  // AUTO CLEAR SUCCESS MESSAGE
-  // ========================================================
-
-  useEffect(() => {
-    if (!successMessage) return;
-
-    const timer = setTimeout(() => {
-      setSuccessMessage("");
-    }, 2500);
-
-    return () => clearTimeout(timer);
-  }, [successMessage]);
-
-  // ========================================================
-  // CONNECTION WARNING
-  // ========================================================
-
-  const connectionWarning = useMemo(() => {
-    if (isOnline) return "";
-    return "No internet connection. Please check your network.";
-  }, [isOnline]);
-
-  // ========================================================
-  // LOADING SCREEN
-  // ========================================================
-
-  if (checkingSession) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-black">
-        <div className="text-center">
-          <div className="mx-auto mb-5 h-14 w-14 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent" />
-
-          <h2 className="text-2xl font-bold text-yellow-400">
-            Verifying Admin Session...
-          </h2>
-
-          <p className="mt-2 text-gray-500">
-            GoldTrade Enterprise Security
-          </p>
-        </div>
-      </main>
-    );
-  }
     // ========================================================
   // LOAD ADMIN DASHBOARD
-  // Production Safe (Render + JWT)
   // ========================================================
 
   const loadDashboard = useCallback(async () => {
@@ -373,42 +197,12 @@ export default function AdminDashboardPage() {
       console.log("ADMIN DASHBOARD:", data);
 
       if (!response.ok || !data.success) {
-        throw new Error(data.message || "Unable to load admin dashboard.");
+        throw new Error(data.message || "Failed to load dashboard.");
       }
-
-      // --------------------------------------------------
-      // ADMIN INFO
-      // --------------------------------------------------
-
-      if (data.user) {
-        setAdmin(data.user);
-      }
-
-      // --------------------------------------------------
-      // DASHBOARD STATS
-      // --------------------------------------------------
 
       if (data.stats) {
-        setStats({
-          totalUsers: data.stats.totalUsers || 0,
-          totalDeposits: data.stats.totalDeposits || 0,
-          totalWithdrawals: data.stats.totalWithdrawals || 0,
-          pendingDeposits: data.stats.pendingDeposits || 0,
-          pendingWithdrawals: data.stats.pendingWithdrawals || 0,
-
-          goldBuyPrice: data.stats.goldBuyPrice || 0,
-          goldSellPrice: data.stats.goldSellPrice || 0,
-
-          usdtBuyPrice: data.stats.usdtBuyPrice || 0,
-          usdtSellPrice: data.stats.usdtSellPrice || 0,
-
-          marketStatus: data.stats.marketStatus || "OPEN",
-        });
+        setStats(data.stats);
       }
-
-      // --------------------------------------------------
-      // TRANSACTIONS
-      // --------------------------------------------------
 
       if (Array.isArray(data.transactions)) {
         setTransactions(data.transactions);
@@ -416,19 +210,17 @@ export default function AdminDashboardPage() {
         setTransactions([]);
       }
 
+      setSuccessMessage("Dashboard loaded successfully.");
     } catch (error: any) {
-      console.error("ADMIN DASHBOARD ERROR:", error);
+      console.error("Dashboard Error:", error);
 
-      if (
-        error.message?.includes("401") ||
-        error.message?.includes("403")
-      ) {
+      if (error.message?.includes("401")) {
         logout();
         return;
       }
 
       setErrorMessage(
-        error.message || "Failed to load dashboard."
+        error.message || "Unable to load admin dashboard."
       );
     } finally {
       setLoading(false);
@@ -437,11 +229,12 @@ export default function AdminDashboardPage() {
   }, [router]);
 
   // ========================================================
-  // INITIAL DASHBOARD LOAD
+  // INITIAL LOAD
   // ========================================================
 
   useEffect(() => {
     if (checkingSession) return;
+
     loadDashboard();
   }, [checkingSession, loadDashboard]);
 
@@ -449,13 +242,21 @@ export default function AdminDashboardPage() {
   // REFRESH DASHBOARD
   // ========================================================
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadDashboard();
-  };
+  }, [loadDashboard]);
 
   // ========================================================
-  // NUMBER FORMATTER
+  // LOGOUT
+  // ========================================================
+
+  const handleLogout = useCallback(() => {
+    logout();
+  }, []);
+
+  // ========================================================
+  // FORMAT HELPERS
   // ========================================================
 
   const formatCurrency = (value: number) => {
@@ -471,223 +272,19 @@ export default function AdminDashboardPage() {
     );
   };
 
-  // ========================================================
-  // DATE FORMATTER
-  // ========================================================
-
   const formatDate = (date: string) => {
     return new Date(date).toLocaleString("en-US", {
       dateStyle: "medium",
       timeStyle: "short",
     });
   };
-    // ========================================================
-  // LOAD WALLET SUMMARY
-  // ========================================================
-
-  const loadWalletSummary = useCallback(async () => {
-    const session = getSession();
-    if (!session) return;
-
-    try {
-      const response = await fetch(`${API}/api/admin/wallet/summary`, {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setStats((prev) => ({
-          ...prev,
-          totalUsers: data.totalUsers ?? prev.totalUsers,
-          totalDeposits: data.totalDeposits ?? prev.totalDeposits,
-          totalWithdrawals: data.totalWithdrawals ?? prev.totalWithdrawals,
-        }));
-      }
-    } catch (error) {
-      console.error("Wallet Summary Error:", error);
-    }
-  }, []);
 
   // ========================================================
-  // LOAD DEPOSIT SUMMARY
-  // ========================================================
-
-  const loadDepositSummary = useCallback(async () => {
-    const session = getSession();
-    if (!session) return;
-
-    try {
-      const response = await fetch(`${API}/api/admin/deposits/summary`, {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setStats((prev) => ({
-          ...prev,
-          pendingDeposits:
-            data.pendingDeposits ?? prev.pendingDeposits,
-          totalDeposits:
-            data.totalDeposits ?? prev.totalDeposits,
-        }));
-      }
-    } catch (error) {
-      console.error("Deposit Summary Error:", error);
-    }
-  }, []);
-
-  // ========================================================
-  // LOAD WITHDRAW SUMMARY
-  // ========================================================
-
-  const loadWithdrawSummary = useCallback(async () => {
-    const session = getSession();
-    if (!session) return;
-
-    try {
-      const response = await fetch(`${API}/api/admin/withdrawals/summary`, {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setStats((prev) => ({
-          ...prev,
-          pendingWithdrawals:
-            data.pendingWithdrawals ?? prev.pendingWithdrawals,
-          totalWithdrawals:
-            data.totalWithdrawals ?? prev.totalWithdrawals,
-        }));
-      }
-    } catch (error) {
-      console.error("Withdraw Summary Error:", error);
-    }
-  }, []);
-
-  // ========================================================
-  // LOAD GOLD MARKET
-  // ========================================================
-
-  const loadGoldMarket = useCallback(async () => {
-    const session = getSession();
-    if (!session) return;
-
-    try {
-      const response = await fetch(`${API}/api/gold/settings`, {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setStats((prev) => ({
-          ...prev,
-          goldBuyPrice: Number(data.buyPrice || 0),
-          goldSellPrice: Number(data.sellPrice || 0),
-          marketStatus: data.marketStatus || "OPEN",
-        }));
-      }
-    } catch (error) {
-      console.error("Gold Market Error:", error);
-    }
-  }, []);
-
-  // ========================================================
-  // LOAD USDT MARKET
-  // ========================================================
-
-  const loadUsdtMarket = useCallback(async () => {
-    const session = getSession();
-    if (!session) return;
-
-    try {
-      const response = await fetch(`${API}/api/usdt/settings`, {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setStats((prev) => ({
-          ...prev,
-          usdtBuyPrice: Number(data.buyPrice || 0),
-          usdtSellPrice: Number(data.sellPrice || 0),
-        }));
-      }
-    } catch (error) {
-      console.error("USDT Market Error:", error);
-    }
-  }, []);
-
-  // ========================================================
-  // LOAD ALL ADMIN DATA
-  // ========================================================
-
-  const loadAllAdminData = useCallback(async () => {
-    try {
-      setRefreshing(true);
-
-      await Promise.all([
-        loadDashboard(),
-        loadWalletSummary(),
-        loadDepositSummary(),
-        loadWithdrawSummary(),
-        loadGoldMarket(),
-        loadUsdtMarket(),
-      ]);
-    } catch (error) {
-      console.error("Load All Admin Data Error:", error);
-      setErrorMessage("Failed to refresh dashboard.");
-    } finally {
-      setRefreshing(false);
-    }
-  }, [
-    loadDashboard,
-    loadWalletSummary,
-    loadDepositSummary,
-    loadWithdrawSummary,
-    loadGoldMarket,
-    loadUsdtMarket,
-  ]);
-
-  // ========================================================
-  // AUTO REFRESH AFTER LOGIN
-  // ========================================================
-
-  useEffect(() => {
-    if (!checkingSession && token) {
-      loadAllAdminData();
-    }
-  }, [checkingSession, token, loadAllAdminData]);
-    // ========================================================
-  // DASHBOARD METRICS
+  // DERIVED VALUES
   // ========================================================
 
   const totalPortfolio = useMemo(() => {
-    return Number(stats.totalDeposits) - Number(stats.totalWithdrawals);
+    return stats.totalDeposits - stats.totalWithdrawals;
   }, [stats]);
 
   const walletHealth = useMemo(() => {
@@ -697,121 +294,60 @@ export default function AdminDashboardPage() {
     return "Low";
   }, [totalPortfolio]);
 
-  // ========================================================
-  // STATISTICS CARDS
+  const marketStatusColor =
+    stats.marketStatus === "OPEN"
+      ? "text-green-400"
+      : "text-red-400";
+
+  const marketStatusBg =
+    stats.marketStatus === "OPEN"
+      ? "bg-green-500/10 border-green-500/30"
+      : "bg-red-500/10 border-red-500/30";
+        // ========================================================
+  // DASHBOARD MODELS
   // ========================================================
 
-  const walletCards: WalletCard[] = useMemo(
+  const walletCards = useMemo(
     () => [
       {
+        title: "Total Users",
+        value: stats.totalUsers,
+        color: "text-purple-400",
+        border: "border-purple-500/20",
+      },
+      {
         title: "Total Deposits",
-        amount: stats.totalDeposits,
+        value: stats.totalDeposits,
         color: "text-green-400",
-        border: "border-green-500/30",
+        border: "border-green-500/20",
       },
       {
         title: "Total Withdrawals",
-        amount: stats.totalWithdrawals,
+        value: stats.totalWithdrawals,
         color: "text-red-400",
-        border: "border-red-500/30",
-      },
-      {
-        title: "Portfolio Value",
-        amount: totalPortfolio,
-        color: "text-yellow-400",
-        border: "border-yellow-500/30",
+        border: "border-red-500/20",
       },
       {
         title: "Pending Deposits",
-        amount: stats.pendingDeposits,
+        value: stats.pendingDeposits,
         color: "text-blue-400",
-        border: "border-blue-500/30",
+        border: "border-blue-500/20",
       },
       {
         title: "Pending Withdrawals",
-        amount: stats.pendingWithdrawals,
+        value: stats.pendingWithdrawals,
         color: "text-orange-400",
-        border: "border-orange-500/30",
+        border: "border-orange-500/20",
       },
       {
-        title: "Registered Users",
-        amount: stats.totalUsers,
-        color: "text-purple-400",
-        border: "border-purple-500/30",
+        title: "Portfolio Value",
+        value: totalPortfolio,
+        color: "text-yellow-400",
+        border: "border-yellow-500/20",
       },
     ],
     [stats, totalPortfolio]
   );
-
-  // ========================================================
-  // QUICK ACTIONS
-  // ========================================================
-
-  const quickActions: QuickAction[] = useMemo(
-    () => [
-      {
-        title: "Users",
-        href: "/admin/users",
-        description: "Manage all registered users",
-      },
-      {
-        title: "Deposits",
-        href: "/admin/deposits",
-        description: "Approve or reject deposits",
-      },
-      {
-        title: "Withdrawals",
-        href: "/admin/withdrawals",
-        description: "Approve withdrawal requests",
-      },
-      {
-        title: "Wallet",
-        href: "/admin/wallet",
-        description: "Manage wallet balances",
-      },
-      {
-        title: "Gold Settings",
-        href: "/admin/gold-settings",
-        description: "Update live gold prices",
-      },
-      {
-        title: "USDT Settings",
-        href: "/admin/usdt-settings",
-        description: "Manage USDT buy & sell rates",
-      },
-      {
-        title: "Payment Settings",
-        href: "/admin/payment-settings",
-        description: "Bank & Crypto payment methods",
-      },
-      {
-        title: "Transactions",
-        href: "/admin/transactions",
-        description: "View complete transaction history",
-      },
-    ],
-    []
-  );
-
-  // ========================================================
-  // MARKET STATUS
-  // ========================================================
-
-  const marketStatusColor = useMemo(() => {
-    return stats.marketStatus === "OPEN"
-      ? "text-green-400"
-      : "text-red-400";
-  }, [stats.marketStatus]);
-
-  const marketStatusBg = useMemo(() => {
-    return stats.marketStatus === "OPEN"
-      ? "bg-green-500/10 border-green-500/20"
-      : "bg-red-500/10 border-red-500/20";
-  }, [stats.marketStatus]);
-
-  // ========================================================
-  // MARKET SUMMARY CARDS
-  // ========================================================
 
   const marketCards = useMemo(
     () => [
@@ -839,82 +375,138 @@ export default function AdminDashboardPage() {
     [stats]
   );
 
+  const quickActions = useMemo(
+    () => [
+      {
+        title: "Users",
+        href: "/admin/users",
+        description: "Manage all registered users",
+      },
+      {
+        title: "Deposits",
+        href: "/admin/deposits",
+        description: "Approve or reject deposits",
+      },
+      {
+        title: "Withdrawals",
+        href: "/admin/withdrawals",
+        description: "Approve withdrawal requests",
+      },
+      {
+        title: "Wallet",
+        href: "/admin/wallet",
+        description: "Wallet management center",
+      },
+      {
+        title: "Gold Settings",
+        href: "/admin/gold-settings",
+        description: "Update live gold prices",
+      },
+      {
+        title: "USDT Settings",
+        href: "/admin/usdt-settings",
+        description: "Manage USDT market prices",
+      },
+      {
+        title: "Transactions",
+        href: "/admin/transactions",
+        description: "Complete transaction history",
+      },
+      {
+        title: "Payment Settings",
+        href: "/admin/payment-settings",
+        description: "Bank & Crypto payment methods",
+      },
+    ],
+    []
+  );
+
   // ========================================================
-  // REFRESH BUTTON LABEL
+  // LOADING SCREEN
   // ========================================================
 
-  const refreshButtonText = refreshing
-    ? "Refreshing..."
-    : "Refresh Dashboard";
-      // ========================================================
-  // ADMIN DASHBOARD UI START
-  // PART 6/12
+  if (checkingSession) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-black text-white">
+        <div className="text-center">
+          <div className="mx-auto mb-5 h-16 w-16 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent"></div>
+
+          <h2 className="text-2xl font-bold text-yellow-400">
+            Loading Admin Dashboard...
+          </h2>
+
+          <p className="mt-2 text-gray-500">
+            Verifying secure administrator session...
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  // ========================================================
+  // DASHBOARD UI START
   // ========================================================
 
   return (
     <main className="min-h-screen bg-black text-white">
+
       <div className="mx-auto max-w-7xl px-4 py-6">
 
-        {/* ==================================================== */}
-        {/* HEADER */}
-        {/* ==================================================== */}
+        {/* ================= HEADER ================= */}
 
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6 md:flex-row md:items-center md:justify-between">
+        <div className="mb-8 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
 
-          <div>
-            <h1 className="text-3xl font-bold text-yellow-400">
-              GoldTrade V18 Admin Dashboard
-            </h1>
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
 
-            <p className="mt-2 text-gray-400">
-              Welcome back,{" "}
-              <span className="font-semibold text-white">
-                {admin?.username || "Administrator"}
-              </span>
-            </p>
+            <div>
+              <h1 className="text-3xl font-bold text-yellow-400">
+                GoldTrade V18 Enterprise
+              </h1>
 
-            <p className="text-sm text-gray-500">
-              Enterprise Control Panel • Render Backend • Vercel Frontend
-            </p>
-          </div>
+              <p className="mt-2 text-gray-400">
+                Welcome back,
+                <span className="ml-2 font-semibold text-white">
+                  {admin?.username || "Administrator"}
+                </span>
+              </p>
 
-          <div className="flex flex-wrap gap-3">
+              <p className="text-xs text-gray-500">
+                Secure JWT Authentication • Render Backend • Vercel Frontend
+              </p>
+            </div>
 
-            {/* Refresh Button */}
+            <div className="flex gap-3">
 
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-black transition hover:bg-yellow-400 disabled:opacity-50"
-            >
-              {refreshButtonText}
-            </button>
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-black transition hover:bg-yellow-400 disabled:opacity-50"
+              >
+                {refreshing ? "Refreshing..." : "Refresh"}
+              </button>
 
-            {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="rounded-xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-500"
+              >
+                Logout
+              </button>
 
-            <button
-              onClick={handleLogout}
-              className="rounded-xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-500"
-            >
-              Logout
-            </button>
+            </div>
 
           </div>
+
         </div>
 
-        {/* ==================================================== */}
-        {/* CONNECTION WARNING */}
-        {/* ==================================================== */}
+        {/* ================= CONNECTION WARNING ================= */}
 
-        {connectionWarning && (
+        {!isOnline && (
           <div className="mb-5 rounded-2xl border border-orange-500/30 bg-orange-500/10 p-4 text-orange-400">
-            {connectionWarning}
+            Internet connection lost. Dashboard data may not update.
           </div>
         )}
 
-        {/* ==================================================== */}
-        {/* ERROR MESSAGE */}
-        {/* ==================================================== */}
+        {/* ================= ERROR MESSAGE ================= */}
 
         {errorMessage && (
           <div className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-400">
@@ -922,9 +514,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* ==================================================== */}
-        {/* SUCCESS MESSAGE */}
-        {/* ==================================================== */}
+        {/* ================= SUCCESS MESSAGE ================= */}
 
         {successMessage && (
           <div className="mb-5 rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-green-400">
@@ -932,34 +522,30 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* ==================================================== */}
-        {/* LOADING STATE */}
-        {/* ==================================================== */}
+        {/* ================= DASHBOARD CONTENT START ================= */}
 
         {loading ? (
           <div className="flex items-center justify-center rounded-3xl border border-zinc-800 bg-zinc-950 py-24">
+
             <div className="text-center">
 
-              <div className="mx-auto mb-5 h-16 w-16 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent"></div>
+              <div className="mx-auto mb-5 h-14 w-14 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent"></div>
 
               <h2 className="text-xl font-bold text-yellow-400">
                 Loading Dashboard...
               </h2>
 
-              <p className="mt-2 text-gray-500">
-                Please wait while GoldTrade loads admin data.
-              </p>
-
             </div>
+
           </div>
         ) : (
           <>            {/* ==================================================== */}
-            {/* DASHBOARD STATISTICS */}
-            {/* PART 7/12 */}
+            {/* DASHBOARD OVERVIEW */}
+            {/* PART 4/8 */}
             {/* ==================================================== */}
 
             <section className="mb-8">
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-5 flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-white">
                   Dashboard Overview
                 </h2>
@@ -971,59 +557,65 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {walletCards.map((card) => (
                   <div
                     key={card.title}
-                    className={`rounded-3xl border bg-zinc-950 p-5 ${card.border}`}
+                    className={`rounded-3xl border bg-zinc-950 p-6 ${card.border}`}
                   >
                     <p className="text-sm text-gray-400">{card.title}</p>
 
-                    <h3 className={`mt-2 text-2xl font-bold ${card.color}`}>
-                      PKR {formatCurrency(card.amount)}
+                    <h3 className={`mt-3 text-3xl font-bold ${card.color}`}>
+                      {card.title === "Total Users"
+                        ? formatNumber(card.value)
+                        : `PKR ${formatCurrency(card.value)}`}
                     </h3>
                   </div>
                 ))}
 
                 {/* Wallet Health */}
 
-                <div className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-5">
+                <div className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-6">
                   <p className="text-sm text-gray-400">Wallet Health</p>
 
-                  <h3 className="mt-2 text-2xl font-bold text-blue-400">
+                  <h3 className="mt-3 text-3xl font-bold text-blue-400">
                     {walletHealth}
                   </h3>
 
                   <p className="mt-2 text-xs text-gray-500">
-                    Portfolio health based on deposits and withdrawals.
+                    Based on deposits and withdrawals.
                   </p>
                 </div>
 
                 {/* Market Status */}
 
-                <div className="rounded-3xl border border-green-500/20 bg-zinc-950 p-5">
-                  <p className="text-sm text-gray-400">Live Market Status</p>
+                <div className="rounded-3xl border border-green-500/20 bg-zinc-950 p-6">
+                  <p className="text-sm text-gray-400">Trading Status</p>
 
-                  <h3 className={`mt-2 text-2xl font-bold ${marketStatusColor}`}>
+                  <h3 className={`mt-3 text-3xl font-bold ${marketStatusColor}`}>
                     {stats.marketStatus}
                   </h3>
 
                   <p className="mt-2 text-xs text-gray-500">
-                    Gold & USDT trading status from backend settings.
+                    Live market status from backend.
                   </p>
                 </div>
 
-                {/* Total Portfolio */}
+                {/* Network Status */}
 
-                <div className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-5">
-                  <p className="text-sm text-gray-400">Total Portfolio Value</p>
+                <div className="rounded-3xl border border-cyan-500/20 bg-zinc-950 p-6">
+                  <p className="text-sm text-gray-400">Network</p>
 
-                  <h3 className="mt-2 text-2xl font-bold text-yellow-400">
-                    PKR {formatCurrency(totalPortfolio)}
+                  <h3
+                    className={`mt-3 text-3xl font-bold ${
+                      isOnline ? "text-green-400" : "text-red-400"
+                    }`}
+                  >
+                    {isOnline ? "ONLINE" : "OFFLINE"}
                   </h3>
 
                   <p className="mt-2 text-xs text-gray-500">
-                    Deposits − Withdrawals
+                    Internet connectivity status.
                   </p>
                 </div>
               </div>
@@ -1034,82 +626,42 @@ export default function AdminDashboardPage() {
             {/* ==================================================== */}
 
             <section className="mb-8">
-              <h2 className="mb-4 text-2xl font-bold text-white">
+              <h2 className="mb-5 text-2xl font-bold text-white">
                 Live Market Prices
               </h2>
 
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 {marketCards.map((market) => (
                   <div
                     key={market.title}
-                    className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5"
+                    className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6"
                   >
                     <p className="text-sm text-gray-400">{market.title}</p>
 
-                    <h3 className={`mt-2 text-2xl font-bold ${market.color}`}>
+                    <h3 className={`mt-3 text-2xl font-bold ${market.color}`}>
                       PKR {formatCurrency(market.value)}
                     </h3>
                   </div>
                 ))}
               </div>
-            </section>            {/* ==================================================== */}
-            {/* QUICK ACTIONS */}
-            {/* PART 8/12 */}
-            {/* ==================================================== */}
-
-            <section className="mb-8">
-              <div className="mb-5 flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white">
-                  Admin Quick Actions
-                </h2>
-
-                <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-400">
-                  Enterprise Controls
-                </span>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {quickActions.map((action) => (
-                  <Link
-                    key={action.href}
-                    href={action.href}
-                    className="group rounded-3xl border border-zinc-800 bg-zinc-950 p-5 transition-all duration-200 hover:border-yellow-500 hover:bg-zinc-900"
-                  >
-                    <h3 className="text-lg font-bold text-yellow-400 transition group-hover:text-yellow-300">
-                      {action.title}
-                    </h3>
-
-                    <p className="mt-2 text-sm text-gray-400">
-                      {action.description}
-                    </p>
-
-                    <div className="mt-5 text-xs font-medium text-gray-500 group-hover:text-yellow-400">
-                      Open Module →
-                    </div>
-                  </Link>
-                ))}
-              </div>
             </section>
 
             {/* ==================================================== */}
-            {/* MARKET CONTROL PANEL */}
+            {/* GOLD & USDT MARKET SUMMARY */}
             {/* ==================================================== */}
 
             <section className="mb-8">
-              <h2 className="mb-5 text-2xl font-bold text-white">
-                Market Control Panel
-              </h2>
-
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-5 lg:grid-cols-2">
 
                 {/* Gold Market */}
 
                 <div className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
-                  <h3 className="text-lg font-bold text-yellow-400">
+                  <h3 className="text-xl font-bold text-yellow-400">
                     Gold Market
                   </h3>
 
                   <div className="mt-5 space-y-3">
+
                     <div className="flex justify-between">
                       <span className="text-gray-400">Buy Price</span>
 
@@ -1133,11 +685,12 @@ export default function AdminDashboardPage() {
                         {stats.marketStatus}
                       </span>
                     </div>
+
                   </div>
 
                   <Link
                     href="/admin/gold-settings"
-                    className="mt-6 inline-flex rounded-xl border border-yellow-500 px-4 py-2 text-sm font-semibold text-yellow-400 transition hover:bg-yellow-500 hover:text-black"
+                    className="mt-6 inline-flex rounded-xl border border-yellow-500 px-4 py-2 text-sm font-semibold text-yellow-400 hover:bg-yellow-500 hover:text-black"
                   >
                     Update Gold Settings
                   </Link>
@@ -1146,11 +699,12 @@ export default function AdminDashboardPage() {
                 {/* USDT Market */}
 
                 <div className="rounded-3xl border border-green-500/20 bg-zinc-950 p-6">
-                  <h3 className="text-lg font-bold text-green-400">
+                  <h3 className="text-xl font-bold text-green-400">
                     USDT Market
                   </h3>
 
                   <div className="mt-5 space-y-3">
+
                     <div className="flex justify-between">
                       <span className="text-gray-400">Buy Price</span>
 
@@ -1174,19 +728,252 @@ export default function AdminDashboardPage() {
                         {stats.marketStatus}
                       </span>
                     </div>
+
                   </div>
 
                   <Link
                     href="/admin/usdt-settings"
-                    className="mt-6 inline-flex rounded-xl border border-green-500 px-4 py-2 text-sm font-semibold text-green-400 transition hover:bg-green-500 hover:text-black"
+                    className="mt-6 inline-flex rounded-xl border border-green-500 px-4 py-2 text-sm font-semibold text-green-400 hover:bg-green-500 hover:text-black"
                   >
                     Update USDT Settings
                   </Link>
                 </div>
+
               </div>
-            </section>            {/* ==================================================== */}
+            </section>
+                        {/* ==================================================== */}
+            {/* QUICK ACTIONS */}
+            {/* PART 5/8 */}
+            {/* ==================================================== */}
+
+            <section className="mb-8">
+              <div className="mb-5 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-white">
+                  Admin Quick Actions
+                </h2>
+
+                <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-400">
+                  Enterprise Controls
+                </span>
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                {quickActions.map((action) => (
+                  <Link
+                    key={action.href}
+                    href={action.href}
+                    className="group rounded-3xl border border-zinc-800 bg-zinc-950 p-5 transition-all duration-200 hover:border-yellow-500 hover:bg-zinc-900"
+                  >
+                    <h3 className="text-lg font-bold text-yellow-400 transition group-hover:text-yellow-300">
+                      {action.title}
+                    </h3>
+
+                    <p className="mt-2 text-sm text-gray-400">
+                      {action.description}
+                    </p>
+
+                    <div className="mt-5 text-xs font-medium text-gray-500 group-hover:text-yellow-400">
+                      Open Module →
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+
+            {/* ==================================================== */}
+            {/* PENDING REQUESTS */}
+            {/* ==================================================== */}
+
+            <section className="mb-8">
+              <h2 className="mb-5 text-2xl font-bold text-white">
+                Pending Requests
+              </h2>
+
+              <div className="grid gap-5 lg:grid-cols-2">
+
+                {/* Pending Deposits */}
+
+                <div className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-400">
+                        Pending Deposits
+                      </p>
+
+                      <h3 className="mt-3 text-4xl font-bold text-blue-400">
+                        {formatNumber(stats.pendingDeposits)}
+                      </h3>
+                    </div>
+
+                    <div className="rounded-full bg-blue-500/10 p-4">
+                      <span className="text-2xl text-blue-400">💳</span>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-xs text-gray-500">
+                    Waiting for administrator approval.
+                  </p>
+
+                  <Link
+                    href="/admin/deposits"
+                    className="mt-6 inline-flex rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-400"
+                  >
+                    Review Deposits
+                  </Link>
+                </div>
+
+                {/* Pending Withdrawals */}
+
+                <div className="rounded-3xl border border-orange-500/20 bg-zinc-950 p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-400">
+                        Pending Withdrawals
+                      </p>
+
+                      <h3 className="mt-3 text-4xl font-bold text-orange-400">
+                        {formatNumber(stats.pendingWithdrawals)}
+                      </h3>
+                    </div>
+
+                    <div className="rounded-full bg-orange-500/10 p-4">
+                      <span className="text-2xl text-orange-400">💸</span>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-xs text-gray-500">
+                    Waiting for administrator approval.
+                  </p>
+
+                  <Link
+                    href="/admin/withdrawals"
+                    className="mt-6 inline-flex rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-400"
+                  >
+                    Review Withdrawals
+                  </Link>
+                </div>
+
+              </div>
+            </section>
+
+            {/* ==================================================== */}
+            {/* ENTERPRISE MANAGEMENT */}
+            {/* ==================================================== */}
+
+            <section className="mb-8">
+              <h2 className="mb-5 text-2xl font-bold text-white">
+                Enterprise Management
+              </h2>
+
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+
+                <Link
+                  href="/admin/users"
+                  className="rounded-3xl border border-purple-500/20 bg-zinc-950 p-6 transition hover:border-purple-400"
+                >
+                  <p className="text-sm text-gray-400">
+                    User Management
+                  </p>
+
+                  <h3 className="mt-3 text-xl font-bold text-purple-400">
+                    Manage Users
+                  </h3>
+
+                  <p className="mt-2 text-sm text-gray-500">
+                    View, search and manage registered GoldTrade users.
+                  </p>
+                </Link>
+
+                <Link
+                  href="/admin/wallet"
+                  className="rounded-3xl border border-cyan-500/20 bg-zinc-950 p-6 transition hover:border-cyan-400"
+                >
+                  <p className="text-sm text-gray-400">
+                    Wallet Management
+                  </p>
+
+                  <h3 className="mt-3 text-xl font-bold text-cyan-400">
+                    User Wallets
+                  </h3>
+
+                  <p className="mt-2 text-sm text-gray-500">
+                    Manage balances, credits and wallet history.
+                  </p>
+                </Link>
+
+                <Link
+                  href="/admin/transactions"
+                  className="rounded-3xl border border-green-500/20 bg-zinc-950 p-6 transition hover:border-green-400"
+                >
+                  <p className="text-sm text-gray-400">
+                    Transactions
+                  </p>
+
+                  <h3 className="mt-3 text-xl font-bold text-green-400">
+                    Transaction History
+                  </h3>
+
+                  <p className="mt-2 text-sm text-gray-500">
+                    View all deposits, withdrawals and transfers.
+                  </p>
+                </Link>
+
+                <Link
+                  href="/admin/payment-settings"
+                  className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-6 transition hover:border-blue-400"
+                >
+                  <p className="text-sm text-gray-400">
+                    Payment Settings
+                  </p>
+
+                  <h3 className="mt-3 text-xl font-bold text-blue-400">
+                    Bank & Crypto Accounts
+                  </h3>
+
+                  <p className="mt-2 text-sm text-gray-500">
+                    Configure payment accounts for deposits.
+                  </p>
+                </Link>
+
+                <Link
+                  href="/admin/gold-settings"
+                  className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6 transition hover:border-yellow-400"
+                >
+                  <p className="text-sm text-gray-400">
+                    Gold Trading
+                  </p>
+
+                  <h3 className="mt-3 text-xl font-bold text-yellow-400">
+                    Gold Market Settings
+                  </h3>
+
+                  <p className="mt-2 text-sm text-gray-500">
+                    Update live gold buy/sell prices.
+                  </p>
+                </Link>
+
+                <Link
+                  href="/admin/usdt-settings"
+                  className="rounded-3xl border border-green-500/20 bg-zinc-950 p-6 transition hover:border-green-400"
+                >
+                  <p className="text-sm text-gray-400">
+                    USDT Trading
+                  </p>
+
+                  <h3 className="mt-3 text-xl font-bold text-green-400">
+                    USDT Market Settings
+                  </h3>
+
+                  <p className="mt-2 text-sm text-gray-500">
+                    Update USDT buy/sell prices and trading status.
+                  </p>
+                </Link>
+
+              </div>
+            </section>
+                        {/* ==================================================== */}
             {/* RECENT TRANSACTIONS */}
-            {/* PART 9/12 */}
+            {/* PART 6/8 */}
             {/* ==================================================== */}
 
             <section className="mb-8">
@@ -1222,7 +1009,7 @@ export default function AdminDashboardPage() {
                           colSpan={5}
                           className="px-5 py-10 text-center text-gray-500"
                         >
-                          No transactions available.
+                          No transactions found.
                         </td>
                       </tr>
                     ) : (
@@ -1269,220 +1056,55 @@ export default function AdminDashboardPage() {
             </section>
 
             {/* ==================================================== */}
-            {/* PENDING REQUESTS */}
+            {/* LIVE SYSTEM ACTIVITY */}
             {/* ==================================================== */}
 
             <section className="mb-8">
               <h2 className="mb-5 text-2xl font-bold text-white">
-                Pending Requests
+                Live System Activity
               </h2>
 
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
 
-                {/* Pending Deposits */}
-
-                <div className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-6">
+                <div className="rounded-3xl border border-purple-500/20 bg-zinc-950 p-6">
                   <p className="text-sm text-gray-400">
-                    Pending Deposits
+                    Registered Users
                   </p>
 
-                  <h3 className="mt-3 text-4xl font-bold text-blue-400">
-                    {formatNumber(stats.pendingDeposits)}
+                  <h3 className="mt-3 text-3xl font-bold text-purple-400">
+                    {formatNumber(stats.totalUsers)}
                   </h3>
-
-                  <p className="mt-2 text-xs text-gray-500">
-                    Waiting for admin approval.
-                  </p>
-
-                  <Link
-                    href="/admin/deposits"
-                    className="mt-5 inline-flex rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-400"
-                  >
-                    Review Deposits
-                  </Link>
                 </div>
 
-                {/* Pending Withdrawals */}
-
-                <div className="rounded-3xl border border-orange-500/20 bg-zinc-950 p-6">
+                <div className="rounded-3xl border border-green-500/20 bg-zinc-950 p-6">
                   <p className="text-sm text-gray-400">
-                    Pending Withdrawals
+                    Total Deposits
                   </p>
 
-                  <h3 className="mt-3 text-4xl font-bold text-orange-400">
-                    {formatNumber(stats.pendingWithdrawals)}
+                  <h3 className="mt-3 text-3xl font-bold text-green-400">
+                    PKR {formatCurrency(stats.totalDeposits)}
                   </h3>
-
-                  <p className="mt-2 text-xs text-gray-500">
-                    Waiting for admin approval.
-                  </p>
-
-                  <Link
-                    href="/admin/withdrawals"
-                    className="mt-5 inline-flex rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-400"
-                  >
-                    Review Withdrawals
-                  </Link>
                 </div>
 
-              </div>
-            </section>
+                <div className="rounded-3xl border border-red-500/20 bg-zinc-950 p-6">
+                  <p className="text-sm text-gray-400">
+                    Total Withdrawals
+                  </p>
 
-            {/* ==================================================== */}
-            {/* LIVE ADMIN ACTIVITY */}
-            {/* ==================================================== */}
-
-            <section className="mb-8">
-              <h2 className="mb-5 text-2xl font-bold text-white">
-                Live Activity
-              </h2>
-
-              <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
-                <div className="space-y-4">
-
-                  <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-                    <span className="text-gray-400">
-                      Total Registered Users
-                    </span>
-
-                    <span className="font-bold text-purple-400">
-                      {formatNumber(stats.totalUsers)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-                    <span className="text-gray-400">
-                      Total Deposits
-                    </span>
-
-                    <span className="font-bold text-green-400">
-                      PKR {formatCurrency(stats.totalDeposits)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-                    <span className="text-gray-400">
-                      Total Withdrawals
-                    </span>
-
-                    <span className="font-bold text-red-400">
-                      PKR {formatCurrency(stats.totalWithdrawals)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400">
-                      Market Status
-                    </span>
-
-                    <span className={`font-bold ${marketStatusColor}`}>
-                      {stats.marketStatus}
-                    </span>
-                  </div>
-
+                  <h3 className="mt-3 text-3xl font-bold text-red-400">
+                    PKR {formatCurrency(stats.totalWithdrawals)}
+                  </h3>
                 </div>
-              </div>
-            </section>            {/* ==================================================== */}
-            {/* ADMIN MANAGEMENT MODULES */}
-            {/* PART 10/12 */}
-            {/* ==================================================== */}
 
-            <section className="mb-8">
-              <h2 className="mb-5 text-2xl font-bold text-white">
-                Enterprise Management
-              </h2>
-
-              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-
-                <Link
-                  href="/admin/users"
-                  className="rounded-3xl border border-purple-500/20 bg-zinc-950 p-6 transition hover:border-purple-400"
-                >
-                  <p className="text-sm text-gray-400">User Management</p>
-
-                  <h3 className="mt-2 text-xl font-bold text-purple-400">
-                    Manage Users
-                  </h3>
-
-                  <p className="mt-2 text-sm text-gray-500">
-                    View, search and manage all GoldTrade users.
+                <div className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
+                  <p className="text-sm text-gray-400">
+                    Portfolio Value
                   </p>
-                </Link>
 
-                <Link
-                  href="/admin/deposits"
-                  className="rounded-3xl border border-green-500/20 bg-zinc-950 p-6 transition hover:border-green-400"
-                >
-                  <p className="text-sm text-gray-400">Deposit Center</p>
-
-                  <h3 className="mt-2 text-xl font-bold text-green-400">
-                    Deposit Requests
+                  <h3 className="mt-3 text-3xl font-bold text-yellow-400">
+                    PKR {formatCurrency(totalPortfolio)}
                   </h3>
-
-                  <p className="mt-2 text-sm text-gray-500">
-                    Approve or reject pending deposits.
-                  </p>
-                </Link>
-
-                <Link
-                  href="/admin/withdrawals"
-                  className="rounded-3xl border border-red-500/20 bg-zinc-950 p-6 transition hover:border-red-400"
-                >
-                  <p className="text-sm text-gray-400">Withdrawal Center</p>
-
-                  <h3 className="mt-2 text-xl font-bold text-red-400">
-                    Withdrawal Requests
-                  </h3>
-
-                  <p className="mt-2 text-sm text-gray-500">
-                    Review and approve withdrawal requests.
-                  </p>
-                </Link>
-
-                <Link
-                  href="/admin/wallet"
-                  className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-6 transition hover:border-blue-400"
-                >
-                  <p className="text-sm text-gray-400">Wallet Management</p>
-
-                  <h3 className="mt-2 text-xl font-bold text-blue-400">
-                    User Wallets
-                  </h3>
-
-                  <p className="mt-2 text-sm text-gray-500">
-                    Manage balances, credits and wallet history.
-                  </p>
-                </Link>
-
-                <Link
-                  href="/admin/payment-settings"
-                  className="rounded-3xl border border-cyan-500/20 bg-zinc-950 p-6 transition hover:border-cyan-400"
-                >
-                  <p className="text-sm text-gray-400">Payment Settings</p>
-
-                  <h3 className="mt-2 text-xl font-bold text-cyan-400">
-                    Bank & Crypto Accounts
-                  </h3>
-
-                  <p className="mt-2 text-sm text-gray-500">
-                    Configure payment methods for deposits.
-                  </p>
-                </Link>
-
-                <Link
-                  href="/admin/settings"
-                  className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6 transition hover:border-yellow-400"
-                >
-                  <p className="text-sm text-gray-400">System Settings</p>
-
-                  <h3 className="mt-2 text-xl font-bold text-yellow-400">
-                    GoldTrade Configuration
-                  </h3>
-
-                  <p className="mt-2 text-sm text-gray-500">
-                    Configure enterprise settings and trading options.
-                  </p>
-                </Link>
+                </div>
 
               </div>
             </section>
@@ -1499,19 +1121,23 @@ export default function AdminDashboardPage() {
               <div className="grid gap-5 lg:grid-cols-3">
 
                 <div className="rounded-3xl border border-green-500/20 bg-zinc-950 p-6">
-                  <p className="text-sm text-gray-400">Backend Status</p>
+                  <p className="text-sm text-gray-400">
+                    Backend API
+                  </p>
 
                   <h3 className="mt-2 text-xl font-bold text-green-400">
                     ONLINE
                   </h3>
 
                   <p className="mt-2 text-xs text-gray-500">
-                    Render Production API Connected
+                    Render Production Connected
                   </p>
                 </div>
 
                 <div className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-6">
-                  <p className="text-sm text-gray-400">Frontend Status</p>
+                  <p className="text-sm text-gray-400">
+                    Frontend
+                  </p>
 
                   <h3 className="mt-2 text-xl font-bold text-blue-400">
                     ACTIVE
@@ -1523,14 +1149,16 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
-                  <p className="text-sm text-gray-400">Authentication</p>
+                  <p className="text-sm text-gray-400">
+                    Authentication
+                  </p>
 
                   <h3 className="mt-2 text-xl font-bold text-yellow-400">
                     JWT SECURED
                   </h3>
 
                   <p className="mt-2 text-xs text-gray-500">
-                    Admin session verified successfully.
+                    Administrator Session Verified
                   </p>
                 </div>
 
@@ -1538,7 +1166,7 @@ export default function AdminDashboardPage() {
             </section>
 
             {/* ==================================================== */}
-            {/* LIVE SERVER INFORMATION */}
+            {/* SERVER INFORMATION */}
             {/* ==================================================== */}
 
             <section className="mb-8">
@@ -1582,15 +1210,19 @@ export default function AdminDashboardPage() {
                   </div>
 
                   <div className="flex justify-between border-b border-zinc-800 pb-3">
-                    <span className="text-gray-400">Authentication</span>
+                    <span className="text-gray-400">Network Status</span>
 
-                    <span className="font-semibold text-yellow-400">
-                      JWT Token
+                    <span
+                      className={`font-semibold ${
+                        isOnline ? "text-green-400" : "text-red-400"
+                      }`}
+                    >
+                      {isOnline ? "Online" : "Offline"}
                     </span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Market</span>
+                    <span className="text-gray-400">Market Status</span>
 
                     <span className={`font-semibold ${marketStatusColor}`}>
                       {stats.marketStatus}
@@ -1599,115 +1231,10 @@ export default function AdminDashboardPage() {
 
                 </div>
               </div>
-            </section>            {/* ==================================================== */}
-            {/* SYSTEM HEALTH & SECURITY */}
-            {/* PART 11/12 */}
-            {/* ==================================================== */}
-
-            <section className="mb-8">
-              <h2 className="mb-5 text-2xl font-bold text-white">
-                System Health & Security
-              </h2>
-
-              <div className="grid gap-5 lg:grid-cols-2">
-
-                {/* Security Center */}
-
-                <div className="rounded-3xl border border-green-500/20 bg-zinc-950 p-6">
-                  <h3 className="text-lg font-bold text-green-400">
-                    Security Center
-                  </h3>
-
-                  <div className="mt-5 space-y-4">
-
-                    <div className="flex justify-between border-b border-zinc-800 pb-3">
-                      <span className="text-gray-400">JWT Authentication</span>
-
-                      <span className="font-semibold text-green-400">
-                        Active
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between border-b border-zinc-800 pb-3">
-                      <span className="text-gray-400">Admin Session</span>
-
-                      <span className="font-semibold text-green-400">
-                        Verified
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between border-b border-zinc-800 pb-3">
-                      <span className="text-gray-400">Render API</span>
-
-                      <span className="font-semibold text-green-400">
-                        Connected
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">MongoDB Atlas</span>
-
-                      <span className="font-semibold text-green-400">
-                        Connected
-                      </span>
-                    </div>
-
-                  </div>
-                </div>
-
-                {/* System Health */}
-
-                <div className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-6">
-                  <h3 className="text-lg font-bold text-blue-400">
-                    System Health
-                  </h3>
-
-                  <div className="mt-5 space-y-4">
-
-                    <div className="flex justify-between border-b border-zinc-800 pb-3">
-                      <span className="text-gray-400">Frontend</span>
-
-                      <span className="font-semibold text-blue-400">
-                        Healthy
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between border-b border-zinc-800 pb-3">
-                      <span className="text-gray-400">Backend</span>
-
-                      <span className="font-semibold text-blue-400">
-                        Healthy
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between border-b border-zinc-800 pb-3">
-                      <span className="text-gray-400">API Requests</span>
-
-                      <span className="font-semibold text-blue-400">
-                        Operational
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Network</span>
-
-                      <span
-                        className={`font-semibold ${
-                          isOnline ? "text-green-400" : "text-red-400"
-                        }`}
-                      >
-                        {isOnline ? "Online" : "Offline"}
-                      </span>
-                    </div>
-
-                  </div>
-                </div>
-
-              </div>
             </section>
-
-            {/* ==================================================== */}
-            {/* ADMIN INFORMATION */}
+                        {/* ==================================================== */}
+            {/* ADMINISTRATOR INFORMATION */}
+            {/* PART 7/8 */}
             {/* ==================================================== */}
 
             <section className="mb-8">
@@ -1716,7 +1243,6 @@ export default function AdminDashboardPage() {
               </h2>
 
               <div className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
-
                 <div className="grid gap-4 md:grid-cols-2">
 
                   <div className="border-b border-zinc-800 pb-3">
@@ -1760,12 +1286,101 @@ export default function AdminDashboardPage() {
                   </div>
 
                 </div>
+              </div>
+            </section>
+
+            {/* ==================================================== */}
+            {/* SECURITY CENTER */}
+            {/* ==================================================== */}
+
+            <section className="mb-8">
+              <h2 className="mb-5 text-2xl font-bold text-white">
+                Security Center
+              </h2>
+
+              <div className="grid gap-5 lg:grid-cols-2">
+
+                {/* JWT Status */}
+
+                <div className="rounded-3xl border border-green-500/20 bg-zinc-950 p-6">
+                  <h3 className="text-lg font-bold text-green-400">
+                    JWT Authentication
+                  </h3>
+
+                  <div className="mt-5 space-y-4">
+
+                    <div className="flex justify-between border-b border-zinc-800 pb-3">
+                      <span className="text-gray-400">Session Status</span>
+
+                      <span className="font-semibold text-green-400">
+                        VERIFIED
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between border-b border-zinc-800 pb-3">
+                      <span className="text-gray-400">Access Level</span>
+
+                      <span className="font-semibold text-yellow-400">
+                        ADMIN
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">JWT Token</span>
+
+                      <span className="font-semibold text-green-400">
+                        ACTIVE
+                      </span>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* Network Security */}
+
+                <div className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-6">
+                  <h3 className="text-lg font-bold text-blue-400">
+                    Network Security
+                  </h3>
+
+                  <div className="mt-5 space-y-4">
+
+                    <div className="flex justify-between border-b border-zinc-800 pb-3">
+                      <span className="text-gray-400">Backend API</span>
+
+                      <span className="font-semibold text-green-400">
+                        SECURE
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between border-b border-zinc-800 pb-3">
+                      <span className="text-gray-400">Database</span>
+
+                      <span className="font-semibold text-purple-400">
+                        MongoDB Atlas
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Internet Status</span>
+
+                      <span
+                        className={`font-semibold ${
+                          isOnline ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        {isOnline ? "ONLINE" : "OFFLINE"}
+                      </span>
+                    </div>
+
+                  </div>
+                </div>
 
               </div>
             </section>
 
             {/* ==================================================== */}
-            {/* REFRESH STATUS */}
+            {/* DASHBOARD REFRESH STATUS */}
             {/* ==================================================== */}
 
             <section className="mb-8">
@@ -1774,13 +1389,13 @@ export default function AdminDashboardPage() {
                 <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
 
                   <div>
-                    <h3 className="text-lg font-bold text-white">
-                      Dashboard Refresh Status
+                    <h3 className="text-xl font-bold text-white">
+                      Dashboard Refresh Center
                     </h3>
 
                     <p className="mt-2 text-sm text-gray-400">
-                      Refresh dashboard anytime to sync the latest users,
-                      deposits, withdrawals and market prices.
+                      Synchronize users, wallet balances, deposits,
+                      withdrawals and live market prices from backend.
                     </p>
                   </div>
 
@@ -1789,7 +1404,7 @@ export default function AdminDashboardPage() {
                     disabled={refreshing}
                     className="rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-black transition hover:bg-yellow-400 disabled:opacity-50"
                   >
-                    {refreshButtonText}
+                    {refreshing ? "Refreshing..." : "Refresh Dashboard"}
                   </button>
 
                 </div>
@@ -1798,15 +1413,19 @@ export default function AdminDashboardPage() {
             </section>
 
             {/* ==================================================== */}
-            {/* FOOTER STATISTICS */}
+            {/* FOOTER STATS */}
             {/* ==================================================== */}
 
             <section className="mb-8">
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <h2 className="mb-5 text-2xl font-bold text-white">
+                Enterprise Statistics
+              </h2>
+
+              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
 
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
                   <p className="text-xs uppercase text-gray-500">
-                    Users
+                    Total Users
                   </p>
 
                   <h3 className="mt-2 text-2xl font-bold text-purple-400">
@@ -1816,7 +1435,7 @@ export default function AdminDashboardPage() {
 
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
                   <p className="text-xs uppercase text-gray-500">
-                    Deposits
+                    Total Deposits
                   </p>
 
                   <h3 className="mt-2 text-2xl font-bold text-green-400">
@@ -1826,7 +1445,7 @@ export default function AdminDashboardPage() {
 
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
                   <p className="text-xs uppercase text-gray-500">
-                    Withdrawals
+                    Total Withdrawals
                   </p>
 
                   <h3 className="mt-2 text-2xl font-bold text-red-400">
@@ -1836,7 +1455,7 @@ export default function AdminDashboardPage() {
 
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
                   <p className="text-xs uppercase text-gray-500">
-                    Portfolio
+                    Portfolio Value
                   </p>
 
                   <h3 className="mt-2 text-2xl font-bold text-yellow-400">
@@ -1845,9 +1464,10 @@ export default function AdminDashboardPage() {
                 </div>
 
               </div>
-            </section>            {/* ==================================================== */}
+            </section>
+                        {/* ==================================================== */}
             {/* ENTERPRISE FOOTER */}
-            {/* PART 12/12 (FINAL) */}
+            {/* PART 8/8 FINAL */}
             {/* ==================================================== */}
 
             <footer className="mt-10 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
@@ -1865,7 +1485,7 @@ export default function AdminDashboardPage() {
                     Production Build • Render Backend • Vercel Frontend • MongoDB Atlas
                   </p>
 
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-600">
                     Secure JWT Authentication • Linux Compatible • Enterprise Edition
                   </p>
                 </div>
@@ -1889,7 +1509,7 @@ export default function AdminDashboardPage() {
                   </p>
 
                   <p className="mt-1">
-                    Status:{" "}
+                    Market Status:{" "}
                     <span className={marketStatusColor}>
                       {stats.marketStatus}
                     </span>
@@ -1903,7 +1523,7 @@ export default function AdminDashboardPage() {
 
               <div className="my-6 border-t border-zinc-800"></div>
 
-              {/* Bottom Stats */}
+              {/* Footer Stats */}
 
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
@@ -1919,7 +1539,7 @@ export default function AdminDashboardPage() {
 
                 <div className="rounded-xl bg-black/40 p-4">
                   <p className="text-xs uppercase text-gray-500">
-                    Portfolio
+                    Portfolio Value
                   </p>
 
                   <p className="mt-2 text-lg font-bold text-yellow-400">
@@ -1929,7 +1549,7 @@ export default function AdminDashboardPage() {
 
                 <div className="rounded-xl bg-black/40 p-4">
                   <p className="text-xs uppercase text-gray-500">
-                    Gold Buy
+                    Gold Buy Price
                   </p>
 
                   <p className="mt-2 text-lg font-bold text-yellow-300">
@@ -1939,7 +1559,7 @@ export default function AdminDashboardPage() {
 
                 <div className="rounded-xl bg-black/40 p-4">
                   <p className="text-xs uppercase text-gray-500">
-                    USDT Buy
+                    USDT Buy Price
                   </p>
 
                   <p className="mt-2 text-lg font-bold text-green-400">

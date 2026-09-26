@@ -101,16 +101,18 @@ export default function LoginPage() {
   useEffect(() => {
     const session = getSession();
 
-    if (session?.token && session?.user) {
-      if (session.user.role === "admin") {
-        router.replace("/admin/dashboard");
-      } else {
-        router.replace("/dashboard");
-      }
+    if (!session) {
+      setCheckingSession(false);
       return;
     }
 
-    setCheckingSession(false);
+    if (session.user.role === "admin") {
+      router.replace("/admin/dashboard");
+     } else {
+      router.replace("/dashboard");
+      
+    }
+    
   }, [router]);
 
   // ========================================================

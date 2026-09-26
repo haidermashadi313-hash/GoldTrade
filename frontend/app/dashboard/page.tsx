@@ -2524,32 +2524,6 @@ const LoadingOverlay = () => {
 };
 
 /* ==========================================================
-   ERROR TOAST
-========================================================== */
-
-const ErrorToast = () => {
-  if (!errorMessage) return null;
-
-  return (
-    <div className="fixed bottom-6 right-6 z-[998] max-w-sm rounded-xl border border-red-500 bg-red-600/20 backdrop-blur-md px-5 py-4 shadow-xl">
-      <div className="flex gap-3 items-start">
-        <XCircle className="text-red-400 mt-1" size={20}/>
-
-        <div>
-          <h3 className="font-semibold text-red-300">
-            Dashboard Error
-          </h3>
-
-          <p className="text-red-200 text-sm mt-1">
-            {errorMessage}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/* ==========================================================
    FOOTER
 ========================================================== */
 
@@ -2625,8 +2599,6 @@ return (
   <div className="min-h-screen bg-[#0B1120] text-white p-5 lg:p-8">
 
     <LoadingOverlay/>
-
-    <ErrorToast/>
 
     <HeaderSection/>
 
