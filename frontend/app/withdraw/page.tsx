@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-
+import { getToken, getUser } from "@/lib/auth";
 import {
   ArrowLeft,
   Wallet,
@@ -199,23 +199,22 @@ export default function WithdrawPage() {
     });
   }, []);
 
-  // =====================================================
-  // LOAD TOKEN
-  // =====================================================
+// ==========================================================
+// WITHDRAW AUTH CHECK
+// ==========================================================
 
-  useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    const savedUsername = localStorage.getItem("username");
+useEffect(() => {
+  if (typeof window === "undefined") return;
 
-    if (!savedToken || !savedUsername) {
-      router.replace("/login");
-      return;
-    }
+  const token = getToken();
+  const user = getUser();
 
-    setToken(savedToken);
-    setUsername(savedUsername);
-  }, [router]);
+  if (!token || !user) {
+    router.replace("/login");
+    return;
+  }
 
+}, []);
   // =====================================================
   // VERIFY SESSION
   // Backend: GET /api/auth/check
