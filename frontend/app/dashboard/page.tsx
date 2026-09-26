@@ -8,7 +8,6 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getToken, getUser, logout } from "@/lib/auth";
 import {
   Wallet,
   Coins,

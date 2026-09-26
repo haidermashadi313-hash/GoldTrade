@@ -1,2726 +1,2289 @@
 ﻿"use client";
 
-/*
-=========================================================
- GoldTrade V18 Enterprise
- Wallet Dashboard
- PART 1/12
- Linux Safe • TypeScript Safe • Render Ready • Vercel Ready
-=========================================================
-*/
+// ==========================================================
+// GoldTrade V18 Enterprise Wallet
+// PART 1/12
+// Production Build (Next.js 15 + TypeScript + Linux Safe)
+// ==========================================================
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+} from "react";
+
+import { useRouter } from "next/navigation";
 
 import {
   Wallet,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  RefreshCw,
+  TrendingUp,
   DollarSign,
   Coins,
-  TrendingUp,
-  TrendingDown,
-  RefreshCw,
-  ArrowUpRight,
-  ArrowDownRight,
+  CreditCard,
+  History,
+  Receipt,
   ShieldCheck,
+  Landmark,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
   Search,
   Filter,
-  History,
-  CreditCard,
+  Clock,
+  ChevronRight,
 } from "lucide-react";
 
-// =====================================================
+// ==========================================================
 // API URL
-// =====================================================
+// ==========================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
+  "https://goldtrade-2.onrender.com";
 
-// =====================================================
-// INTERFACES
-// =====================================================
+// ==========================================================
+// TYPES
+// ==========================================================
+
+interface UserSession {
+  id: string;
+  username: string;
+  email: string;
+  role: "user" | "admin";
+}
 
 interface WalletData {
+  wallet: number;
   pkrBalance: number;
-  goldBalance: number;
   usdtBalance: number;
+  goldBalance: number;
 }
 
-interface GoldMarket {
-  buyPrice: number;
-  sellPrice: number;
-  marketStatus: "OPEN" | "CLOSED";
-  tradingEnabled: boolean;
-}
-
-interface UsdtMarket {
-  buyPrice: number;
-  sellPrice: number;
-  marketStatus: "OPEN" | "CLOSED";
-  tradingEnabled: boolean;
-}
-
-interface WalletTransaction {
+interface Deposit {
   _id: string;
-  type: string;
-  walletType: "PKR" | "GOLD" | "USDT";
+  username: string;
   amount: number;
-  status: "Pending" | "Completed" | "Rejected";
+  method: string;
+  status: string;
+  receipt?: string;
   createdAt: string;
-  note?: string;
 }
 
-// =====================================================
-// COMPONENT
-// =====================================================
+interface Withdraw {
+  _id: string;
+  username: string;
+  amount: number;
+  method: string;
+  walletAddress: string;
+  status: string;
+  createdAt: string;
+}
+
+interface WalletResponse {
+  success: boolean;
+  wallet?: WalletData;
+  deposits?: Deposit[];
+  withdrawals?: Withdraw[];
+  message?: string;
+}
+
+// ==========================================================
+// SESSION HELPERS
+// ==========================================================
+
+const getSession = () => {
+  if (typeof window === "undefined") return null;
+
+  const token =
+    localStorage.getItem("goldtrade_token") ||
+    sessionStorage.getItem("goldtrade_token");
+
+  const user =
+    localStorage.getItem("goldtrade_user") ||
+    sessionStorage.getItem("goldtrade_user");
+
+  if (!token || !user) return null;
+
+  try {
+    return {
+      token,
+      user: JSON.parse(user) as UserSession,
+    };
+  } catch {
+    return null;
+  }
+};
+
+const clearSession = () => {
+  if (typeof window === "undefined") return;
+
+  const keys = [
+    "goldtrade_token",
+    "goldtrade_user",
+    "goldtrade_role",
+    "goldtrade_username",
+    "goldtrade_email",
+  ];
+
+  keys.forEach((key) => {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  });
+};
+
+// ==========================================================
+// COMPONENT START
+// ==========================================================
 
 export default function WalletPage() {
-  // ===================================================
-  // USER
-  // ===================================================
+  const router = useRouter();
+  // ==========================================================
+// CURRENCY FORMATTER
+// ==========================================================
 
-  const [username, setUsername] = useState("");
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(value) ? value : 0);
+}
+    // ==========================================================
+  // AUTH / SESSION STATES
+  // ==========================================================
 
-  // ===================================================
-  // LOADING
-  // ===================================================
+  const [token, setToken] = useState<string>("");
+  const [username, setUsername] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [userRole, setUserRole] = useState<"user" | "admin">("user");
+
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // ==========================================================
+  // WALLET STATES
+  // ==========================================================
+
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [pkrBalance, setPkrBalance] = useState<number>(0);
+  const [usdtBalance, setUsdtBalance] = useState<number>(0);
+  const [goldBalance, setGoldBalance] = useState<number>(0);
+
+  // ==========================================================
+  // MARKET STATES
+  // ==========================================================
+
+  const [goldBuyPrice, setGoldBuyPrice] = useState<number>(0);
+  const [goldSellPrice, setGoldSellPrice] = useState<number>(0);
+  const [usdtRate, setUsdtRate] = useState<number>(0);
+  const [marketStatus, setMarketStatus] = useState("ACTIVE");
+
+  // ==========================================================
+  // HISTORY STATES
+  // ==========================================================
+
+  const [deposits, setDeposits] = useState<Deposit[]>([]);
+  const [withdrawals, setWithdrawals] = useState<Withdraw[]>([]);
+
+  // ==========================================================
+  // FORM STATES
+  // ==========================================================
+
+  const [depositAmount, setDepositAmount] = useState("");
+  const [depositMethod, setDepositMethod] = useState("ABA Bank");
+  const [receiptImage, setReceiptImage] = useState<File | null>(null);
+
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawMethod, setWithdrawMethod] = useState("PKR Bank");
+  const [withdrawAddress, setWithdrawAddress] = useState("");
+
+  // ==========================================================
+  // SEARCH / FILTER STATES
+  // ==========================================================
+
+  const [searchHistory, setSearchHistory] = useState("");
+  const [historyFilter, setHistoryFilter] = useState<
+    "all" | "deposit" | "withdraw"
+  >("all");
+
+  // ==========================================================
+  // UI STATES
+  // ==========================================================
 
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [depositLoading, setDepositLoading] = useState(false);
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [refreshLoading, setRefreshLoading] = useState(false);
+
+  const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  // ===================================================
-  // WALLET STATE
-  // ===================================================
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
-  const [wallet, setWallet] = useState<WalletData>({
-    pkrBalance: 0,
-    goldBalance: 0,
-    usdtBalance: 0,
-  });
+  const [isOnline, setIsOnline] = useState(true);
 
-  // ===================================================
-  // GOLD MARKET
-  // ===================================================
+  // ==========================================================
+  // LOADING TEXT (NO INFINITE SPINNER)
+  // ==========================================================
 
-  const [goldMarket, setGoldMarket] = useState<GoldMarket>({
-    buyPrice: 0,
-    sellPrice: 0,
-    marketStatus: "OPEN",
-    tradingEnabled: true,
-  });
+  const loadingText = useMemo(() => {
+    if (walletLoading) return "Loading wallet...";
+    if (depositLoading) return "Loading deposits...";
+    if (withdrawLoading) return "Loading withdrawals...";
+    if (refreshLoading) return "Refreshing wallet...";
+    return "Loading GoldTrade Wallet...";
+  }, [
+    walletLoading,
+    depositLoading,
+    withdrawLoading,
+    refreshLoading,
+  ]);
 
-  // ===================================================
-  // USDT MARKET
-  // ===================================================
+  // ==========================================================
+  // SESSION INITIALIZER
+  // ==========================================================
 
-  const [usdtMarket, setUsdtMarket] = useState<UsdtMarket>({
-    buyPrice: 0,
-    sellPrice: 0,
-    marketStatus: "OPEN",
-    tradingEnabled: true,
-  });
+  const initializeSession = useCallback(() => {
+    const session = getSession();
 
-  // ===================================================
-  // TRANSACTIONS
-  // ===================================================
-
-  const [transactions, setTransactions] = useState<
-    WalletTransaction[]
-  >([]);
-
-  // ===================================================
-  // SEARCH + FILTER
-  // ===================================================
-
-  const [search, setSearch] = useState("");
-  const [filterWallet, setFilterWallet] = useState("ALL");
-  const [filterStatus, setFilterStatus] = useState("ALL");
-
-  // ===================================================
-  // PAGINATION
-  // ===================================================
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 10;
-
-  // ===================================================
-  // AUTH HEADER
-  // ===================================================
-
-  const getHeaders = () => {
-    const token = localStorage.getItem("token");
-
-    return {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
-  };
-    // =====================================================
-  // LOAD WALLET
-  // =====================================================
-
-  const loadWallet = async (currentUsername: string) => {
-    try {
-      const response = await fetch(
-        `${API}/api/wallet/${currentUsername}`,
-        {
-          headers: getHeaders(),
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setWallet({
-          pkrBalance: Number(data.wallet.pkrBalance || 0),
-          goldBalance: Number(data.wallet.goldBalance || 0),
-          usdtBalance: Number(data.wallet.usdtBalance || 0),
-        });
-      }
-    } catch (error) {
-      console.error("Wallet Load Error:", error);
+    if (!session) {
+      clearSession();
+      router.replace("/login");
+      return null;
     }
-  };
 
-  // =====================================================
-  // LOAD GOLD MARKET
-  // =====================================================
+    setToken(session.token);
+    setUsername(session.user.username);
+    setUserEmail(session.user.email);
+    setUserRole(session.user.role);
+    setAuthChecked(true);
 
-  const loadGoldMarket = async () => {
-    try {
-      const response = await fetch(`${API}/api/gold/price`);
-      const data = await response.json();
+    return session;
+  }, [router]);
 
-      if (response.ok && data.success) {
-        setGoldMarket({
-          buyPrice: Number(data.buyPrice || 0),
-          sellPrice: Number(data.sellPrice || 0),
-          marketStatus: data.marketStatus || "OPEN",
-          tradingEnabled: Boolean(data.tradingEnabled),
-        });
-      }
-    } catch (error) {
-      console.error("Gold Market Load Error:", error);
-    }
-  };
-
-  // =====================================================
-  // LOAD USDT MARKET
-  // =====================================================
-
-  const loadUsdtMarket = async () => {
-    try {
-      const response = await fetch(`${API}/api/usdt/price`);
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setUsdtMarket({
-          buyPrice: Number(data.buyPrice || 0),
-          sellPrice: Number(data.sellPrice || 0),
-          marketStatus: data.marketStatus || "OPEN",
-          tradingEnabled: Boolean(data.tradingEnabled),
-        });
-      }
-    } catch (error) {
-      console.error("USDT Market Load Error:", error);
-    }
-  };
-
-  // =====================================================
-  // LOAD WALLET TRANSACTIONS
-  // =====================================================
-
-  const loadTransactions = async (currentUsername: string) => {
-    try {
-      const response = await fetch(
-        `${API}/api/transaction/history/${currentUsername}`,
-        {
-          headers: getHeaders(),
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setTransactions(data.transactions || []);
-      }
-    } catch (error) {
-      console.error("Transaction Load Error:", error);
-    }
-  };
-
-  // =====================================================
-  // LOAD COMPLETE WALLET DASHBOARD
-  // =====================================================
-
-  const loadCompleteWallet = async (currentUsername: string) => {
-    try {
-      setLoading(true);
-      setErrorMessage("");
-
-      await Promise.all([
-        loadWallet(currentUsername),
-        loadGoldMarket(),
-        loadUsdtMarket(),
-        loadTransactions(currentUsername),
-      ]);
-    } catch (error: any) {
-      console.error(error);
-
-      setErrorMessage(
-        error.message || "Unable to load wallet dashboard."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // =====================================================
-  // REFRESH WALLET
-  // =====================================================
-
-  const refreshWallet = async () => {
-    if (!username) return;
-
-    try {
-      setRefreshing(true);
-      await loadCompleteWallet(username);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  // =====================================================
-  // INITIAL PAGE LOAD
-  // =====================================================
+  // ==========================================================
+  // NETWORK STATUS LISTENER
+  // ==========================================================
 
   useEffect(() => {
-    const currentUsername =
-      localStorage.getItem("username") || "";
+    const online = () => setIsOnline(true);
+    const offline = () => setIsOnline(false);
 
-    setUsername(currentUsername);
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
 
-    if (currentUsername) {
-      loadCompleteWallet(currentUsername);
-    }
+    return () => {
+      window.removeEventListener("online", online);
+      window.removeEventListener("offline", offline);
+    };
   }, []);
-    // =====================================================
-  // ENTERPRISE WALLET CALCULATIONS
-  // Paste AFTER useEffect()
-  // =====================================================
+    // ==========================================================
+  // AUTH CHECK (FINAL PRODUCTION FIX)
+  // Prevent Login Loading Loop + Dashboard Redirect Loop
+  // ==========================================================
 
-  const walletSummary = useMemo(() => {
-    const pkrBalance = Number(wallet.pkrBalance || 0);
-    const goldBalance = Number(wallet.goldBalance || 0);
-    const usdtBalance = Number(wallet.usdtBalance || 0);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
 
-    const goldValuePKR =
-      goldBalance * Number(goldMarket.sellPrice || 0);
+    const session = initializeSession();
 
-    const usdtValuePKR =
-      usdtBalance * Number(usdtMarket.sellPrice || 0);
+    if (!session) return;
 
-    const totalWalletValue =
-      pkrBalance + goldValuePKR + usdtValuePKR;
+    console.log("WALLET SESSION:", session.user.username);
 
-    return {
-      pkrBalance,
-      goldBalance,
-      usdtBalance,
-      goldValuePKR,
-      usdtValuePKR,
-      totalWalletValue,
+    setLoading(false);
+  }, [initializeSession]);
+
+  // ==========================================================
+  // LOAD COMPLETE WALLET AFTER AUTH
+  // Runs ONLY once after JWT session is verified
+  // ==========================================================
+
+  useEffect(() => {
+    if (!authChecked) return;
+    if (!username || !token) return;
+
+    let cancelled = false;
+
+    const loadEverything = async () => {
+      try {
+        setLoading(true);
+        setErrorMessage("");
+
+        await Promise.all([
+          loadWallet(username, token),
+          loadDepositHistory(username, token),
+          loadWithdrawHistory(username, token),
+          loadMarketRates(),
+        ]);
+
+        if (!cancelled) {
+          setLastRefresh(new Date());
+        }
+
+      } catch (error: any) {
+        console.error("INITIAL LOAD ERROR:", error);
+
+        if (!cancelled) {
+          setErrorMessage("Unable to load wallet.");
+        }
+
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     };
-  }, [wallet, goldMarket, usdtMarket]);
 
-  // =====================================================
-  // TRANSACTION STATISTICS
-  // =====================================================
+    loadEverything();
 
-  const transactionStats = useMemo(() => {
-    let completed = 0;
-    let pending = 0;
-    let rejected = 0;
-
-    let totalPKR = 0;
-    let totalGold = 0;
-    let totalUsdt = 0;
-
-    transactions.forEach((item) => {
-      if (item.status === "Completed") completed++;
-      if (item.status === "Pending") pending++;
-      if (item.status === "Rejected") rejected++;
-
-      if (item.walletType === "PKR") {
-        totalPKR += Number(item.amount);
-      }
-
-      if (item.walletType === "GOLD") {
-        totalGold += Number(item.amount);
-      }
-
-      if (item.walletType === "USDT") {
-        totalUsdt += Number(item.amount);
-      }
-    });
-
-    return {
-      completed,
-      pending,
-      rejected,
-      totalPKR,
-      totalGold,
-      totalUsdt,
-      totalTransactions: transactions.length,
+    return () => {
+      cancelled = true;
     };
-  }, [transactions]);
+  }, [authChecked, username, token]);
 
-  // =====================================================
-  // SEARCH + FILTER ENGINE
-  // =====================================================
+  // ==========================================================
+  // PAGE VISIBILITY REFRESH
+  // Refresh wallet when returning to browser tab
+  // ==========================================================
 
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter((item) => {
+  useEffect(() => {
+    if (!authChecked) return;
 
-      const keyword = search.trim().toLowerCase();
+    const handleVisibility = async () => {
+      if (document.visibilityState !== "visible") return;
+      if (!username || !token) return;
 
-      const matchesSearch =
-        keyword === "" ||
-        item.type.toLowerCase().includes(keyword) ||
-        item.walletType.toLowerCase().includes(keyword) ||
-        item.status.toLowerCase().includes(keyword) ||
-        item.amount.toString().includes(keyword);
+      try {
+        await loadWallet(username, token);
+        setLastRefresh(new Date());
+      } catch (error) {
+        console.error("VISIBILITY REFRESH ERROR:", error);
+      }
+    };
 
-      const matchesWallet =
-        filterWallet === "ALL" ||
-        item.walletType === filterWallet;
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibility
+    );
 
-      const matchesStatus =
-        filterStatus === "ALL" ||
-        item.status === filterStatus;
-
-      return (
-        matchesSearch &&
-        matchesWallet &&
-        matchesStatus
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibility
       );
-    });
-  }, [transactions, search, filterWallet, filterStatus]);
-
-  // =====================================================
-  // PAGINATION ENGINE
-  // =====================================================
-
-  const totalPages = Math.ceil(
-    filteredTransactions.length / rowsPerPage
-  );
-
-  const paginatedTransactions = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage;
-    const end = start + rowsPerPage;
-
-    return filteredTransactions.slice(start, end);
-  }, [filteredTransactions, currentPage]);
-
-  // =====================================================
-  // WALLET DISTRIBUTION (%)
-  // =====================================================
-
-  const walletDistribution = useMemo(() => {
-    const total = walletSummary.totalWalletValue || 1;
-
-    return {
-      pkr:
-        (walletSummary.pkrBalance / total) * 100,
-      gold:
-        (walletSummary.goldValuePKR / total) * 100,
-      usdt:
-        (walletSummary.usdtValuePKR / total) * 100,
     };
-  }, [walletSummary]);
+  }, [authChecked, username, token]);
 
-  // =====================================================
-  // REFRESH BUTTON HANDLER
-  // =====================================================
+  // ==========================================================
+  // AUTO REFRESH WALLET EVERY 60 SECONDS
+  // ==========================================================
 
-  const handleRefresh = async () => {
-    await refreshWallet();
-  };
-    // =====================================================
-  // LOADING SCREEN
-  // =====================================================
+  useEffect(() => {
+    if (!authChecked) return;
+    if (!username || !token) return;
+
+    const interval = setInterval(async () => {
+      try {
+        await loadWallet(username, token);
+        setLastRefresh(new Date());
+      } catch (error) {
+        console.error("AUTO REFRESH ERROR:", error);
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [authChecked, username, token]);
+
+  // ==========================================================
+  // PREVENT DASHBOARD REDIRECT LOOP
+  // ==========================================================
+
+  useEffect(() => {
+    if (!authChecked) return;
+
+    const session = getSession();
+
+    if (!session) {
+      clearSession();
+      router.replace("/login");
+      return;
+    }
+
+    // Wrong role protection
+    if (
+      userRole === "admin" &&
+      !window.location.pathname.startsWith("/admin")
+    ) {
+      router.replace("/admin/dashboard");
+      return;
+    }
+
+    if (
+      userRole === "user" &&
+      window.location.pathname.startsWith("/admin")
+    ) {
+      router.replace("/dashboard");
+    }
+  }, [authChecked, userRole, router]);
+
+  // ==========================================================
+  // LOADING SCREEN (NO INFINITE SPINNER)
+  // ==========================================================
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black flex items-center justify-center">
-        <div className="flex items-center gap-4 text-cyan-400 text-xl font-bold">
-          <RefreshCw className="animate-spin" size={30} />
-          Loading Wallet Dashboard...
-        </div>
-      </main>
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white">
+
+        <Loader2 className="w-12 h-12 animate-spin text-yellow-400 mb-5" />
+
+        <h2 className="text-xl font-semibold text-yellow-400">
+          GoldTrade Enterprise Wallet
+        </h2>
+
+        <p className="text-gray-400 mt-2">
+          {loadingText}
+        </p>
+
+      </div>
     );
   }
+  // ==========================================================
+// LOAD WALLET (PRODUCTION PATCH V18)
+// REPLACE OLD loadWallet() FUNCTION
+// ==========================================================
 
-  // =====================================================
-  // PAGE START
-  // =====================================================
+const loadWallet = useCallback(
+  async (currentUsername: string, currentToken: string) => {
+    if (!currentUsername || !currentToken) return;
 
-  return (
-    <main className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+    try {
+      setWalletLoading(true);
+      setErrorMessage("");
 
-        {/* ============================================= */}
-        {/* ENTERPRISE HEADER */}
-        {/* ============================================= */}
+      const response = await fetch(
+        `${API}/api/wallet/${encodeURIComponent(currentUsername)}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        }
+      );
 
-        <header className="flex flex-wrap items-center justify-between gap-5">
+      // JWT expired
+      if (response.status === 401 || response.status === 403) {
+        clearSession();
+        router.replace("/login");
+        return;
+      }
+
+      const data = await response.json();
+
+      console.log("WALLET RESPONSE:", data);
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Wallet API failed.");
+      }
+
+      const wallet = data.wallet || {};
+
+      setWalletBalance(Number(wallet.wallet ?? 0));
+      setPkrBalance(Number(wallet.pkrBalance ?? 0));
+      setUsdtBalance(Number(wallet.usdtBalance ?? 0));
+      setGoldBalance(Number(wallet.goldBalance ?? 0));
+
+      if (Array.isArray(data.deposits)) {
+        setDeposits(data.deposits);
+      }
+
+      if (Array.isArray(data.withdrawals)) {
+        setWithdrawals(data.withdrawals);
+      }
+
+      setLastRefresh(new Date());
+
+    } catch (error: any) {
+      console.error("LOAD WALLET ERROR:", error);
+
+      setErrorMessage(
+        error?.message || "Unable to load wallet."
+      );
+
+    } finally {
+      setWalletLoading(false);
+      setLoading(false);
+    }
+  },
+  [router]
+);
+// ==========================================================
+// INITIAL WALLET LOAD (PATCH)
+// ==========================================================
+
+useEffect(() => {
+  if (!authChecked) return;
+  if (!username || !token) return;
+
+  loadWallet(username, token);
+}, [authChecked, username, token, loadWallet]);
+// ==========================================================
+// LOAD DEPOSIT HISTORY (PATCH V18)
+// REPLACE OLD loadDepositHistory()
+// ==========================================================
+
+const loadDepositHistory = useCallback(
+  async (currentUsername: string, currentToken: string) => {
+    if (!currentUsername || !currentToken) return;
+
+    try {
+      setDepositLoading(true);
+
+      const response = await fetch(
+        `${API}/api/deposit/history/${encodeURIComponent(currentUsername)}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        }
+      );
+
+      if (response.status === 401 || response.status === 403) {
+        clearSession();
+        router.replace("/login");
+        return;
+      }
+
+      const data = await response.json();
+
+      console.log("DEPOSIT HISTORY:", data);
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to load deposit history.");
+      }
+
+      setDeposits(Array.isArray(data.deposits) ? data.deposits : []);
+
+    } catch (error: any) {
+      console.error("DEPOSIT HISTORY ERROR:", error);
+
+      setErrorMessage(error.message || "Deposit history failed.");
+
+      setDeposits([]);
+    } finally {
+      setDepositLoading(false);
+    }
+  },
+  [router]
+);
+
+const submitDeposit = async () => {
+  if (!token || !username) return;
+
+  const amount = Number(depositAmount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    setErrorMessage("Please enter a valid deposit amount.");
+    return;
+  }
+  if (!receiptImage) {
+    setErrorMessage("Please upload a payment receipt.");
+    return;
+  }
+
+  try {
+    setDepositLoading(true);
+    setErrorMessage("");
+    const formData = new FormData();
+    formData.append("username", username);
+    formData.append("amount", String(amount));
+    formData.append("method", depositMethod);
+    formData.append("receipt", receiptImage);
+
+    const response = await fetch(`${API}/api/deposit/create`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    if (response.status === 401 || response.status === 403) {
+      clearSession();
+      router.replace("/login");
+      return;
+    }
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || "Deposit request failed.");
+    }
+    setSuccessMessage("Deposit request submitted successfully.");
+    setDepositAmount("");
+    setReceiptImage(null);
+    await Promise.all([
+      loadWallet(username, token),
+      loadDepositHistory(username, token),
+    ]);
+  } catch (error: any) {
+    setErrorMessage(error?.message || "Deposit request failed.");
+  } finally {
+    setDepositLoading(false);
+  }
+};
+// ==========================================================
+// RECEIPT FILE SELECT
+// ==========================================================
+
+const handleReceiptSelect = (
+  event: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = event.target.files?.[0];
+
+  if (!file) return;
+
+  const maxSize = 10 * 1024 * 1024;
+
+  if (file.size > maxSize) {
+    setErrorMessage("Receipt image must be less than 10 MB.");
+    return;
+  }
+
+  setReceiptImage(file);
+  setErrorMessage("");
+};
+// ==========================================================
+// RECEIPT PREVIEW
+// ==========================================================
+
+const receiptPreview = useMemo(() => {
+  if (!receiptImage) return "";
+
+  return URL.createObjectURL(receiptImage);
+}, [receiptImage]);
+
+useEffect(() => {
+  return () => {
+    if (receiptPreview) {
+      URL.revokeObjectURL(receiptPreview);
+    }
+  };
+}, [receiptPreview]);
+// ==========================================================
+// REFRESH DEPOSIT HISTORY
+// ==========================================================
+
+const refreshDeposits = async () => {
+  if (!username || !token) return;
+
+  try {
+    setRefreshLoading(true);
+
+    await loadDepositHistory(username, token);
+
+    setSuccessMessage("Deposit history refreshed.");
+
+    setTimeout(() => setSuccessMessage(""), 2000);
+
+  } catch (error) {
+    console.error(error);
+  } finally {
+    setRefreshLoading(false);
+  }
+};
+// ==========================================================
+// DEPOSIT SUMMARY
+// ==========================================================
+
+const totalDeposited = useMemo(() => {
+  return deposits
+    .filter((item) => item.status?.toLowerCase() === "approved")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+}, [deposits]);
+
+const pendingDeposits = useMemo(() => {
+  return deposits
+    .filter((item) => item.status?.toLowerCase() === "pending")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+}, [deposits]);
+
+const recentDeposits = useMemo(() => {
+  return [...deposits]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() -
+        new Date(a.createdAt).getTime()
+    )
+    .slice(0, 10);
+}, [deposits]);
+// ==========================================================
+// DEPOSIT STATUS BADGE
+// ==========================================================
+
+const getDepositStatusBadge = (status: string) => {
+  switch ((status || "").toLowerCase()) {
+    case "approved":
+      return "bg-green-500/20 text-green-400 border border-green-500/30";
+
+    case "pending":
+      return "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
+
+    case "rejected":
+      return "bg-red-500/20 text-red-400 border border-red-500/30";
+
+    default:
+      return "bg-gray-500/20 text-gray-300 border border-gray-500/30";
+  }
+};
+// ==========================================================
+// LOAD WITHDRAW HISTORY (PATCH V18)
+// REPLACE OLD loadWithdrawHistory()
+// ==========================================================
+
+const loadWithdrawHistory = useCallback(
+  async (currentUsername: string, currentToken: string) => {
+    if (!currentUsername || !currentToken) return;
+
+    try {
+      setWithdrawLoading(true);
+
+      const response = await fetch(
+        `${API}/api/withdraw/history/${encodeURIComponent(currentUsername)}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        }
+      );
+
+      if (response.status === 401 || response.status === 403) {
+        clearSession();
+        router.replace("/login");
+        return;
+      }
+
+      const data = await response.json();
+
+      console.log("WITHDRAW HISTORY:", data);
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Unable to load withdraw history."
+        );
+      }
+
+      setWithdrawals(
+        Array.isArray(data.withdrawals) ? data.withdrawals : []
+      );
+
+    } catch (error: any) {
+      console.error("WITHDRAW HISTORY ERROR:", error);
+
+      setErrorMessage(
+        error.message || "Withdraw history failed."
+      );
+
+      setWithdrawals([]);
+
+    } finally {
+      setWithdrawLoading(false);
+    }
+  },
+  [router]
+);
+// ==========================================================
+// SUBMIT WITHDRAW REQUEST (PATCH V18)
+// ==========================================================
+
+const submitWithdraw = async () => {
+  if (!token || !username) return;
+
+  if (!withdrawAmount || Number(withdrawAmount) <= 0) {
+    setErrorMessage("Please enter a valid withdraw amount.");
+    return;
+  }
+
+  if (!withdrawAddress.trim()) {
+    setErrorMessage(
+      "Please enter bank account or wallet address."
+    );
+    return;
+  }
+
+  if (Number(withdrawAmount) > Number(pkrBalance)) {
+    setErrorMessage("Insufficient PKR balance.");
+    return;
+  }
+
+  try {
+    setWithdrawLoading(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    const response = await fetch(`${API}/api/withdraw/create`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username,
+        amount: Number(withdrawAmount),
+        method: withdrawMethod,
+        walletAddress: withdrawAddress.trim(),
+      }),
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      clearSession();
+      router.replace("/login");
+      return;
+    }
+
+    const data = await response.json();
+
+    console.log("WITHDRAW RESPONSE:", data);
+
+    if (!response.ok || !data.success) {
+      throw new Error(
+        data.message || "Withdraw request failed."
+      );
+    }
+
+    setSuccessMessage(
+      "Withdraw request submitted successfully. Waiting for admin approval."
+    );
+
+    // Reset Form
+    setWithdrawAmount("");
+    setWithdrawAddress("");
+
+    // Refresh wallet & withdraw history
+    await Promise.all([
+      loadWallet(username, token),
+      loadWithdrawHistory(username, token),
+    ]);
+
+  } catch (error: any) {
+    console.error("WITHDRAW ERROR:", error);
+
+    setErrorMessage(
+      error.message || "Withdraw request failed."
+    );
+
+  } finally {
+    setWithdrawLoading(false);
+  }
+};
+// ==========================================================
+// REFRESH WITHDRAW HISTORY
+// ==========================================================
+
+const refreshWithdrawHistory = async () => {
+  if (!username || !token) return;
+
+  try {
+    setRefreshLoading(true);
+
+    await loadWithdrawHistory(username, token);
+
+    setSuccessMessage("Withdraw history refreshed.");
+
+    setTimeout(() => {
+      setSuccessMessage("");
+    }, 2000);
+
+  } finally {
+    setRefreshLoading(false);
+  }
+};
+// ==========================================================
+// WITHDRAW SUMMARY
+// ==========================================================
+
+const totalWithdrawn = useMemo(() => {
+  return withdrawals
+    .filter((item) => item.status?.toLowerCase() === "approved")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+}, [withdrawals]);
+
+const pendingWithdrawals = useMemo(() => {
+  return withdrawals
+    .filter((item) => item.status?.toLowerCase() === "pending")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+}, [withdrawals]);
+
+const recentWithdrawals = useMemo(() => {
+  return [...withdrawals]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() -
+        new Date(a.createdAt).getTime()
+    )
+    .slice(0, 10);
+}, [withdrawals]);
+// ==========================================================
+// WITHDRAW STATUS BADGE
+// ==========================================================
+
+const getWithdrawStatusBadge = (status: string) => {
+  switch ((status || "").toLowerCase()) {
+    case "approved":
+      return "bg-green-500/20 text-green-400 border border-green-500/30";
+
+    case "pending":
+      return "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
+
+    case "rejected":
+      return "bg-red-500/20 text-red-400 border border-red-500/30";
+
+    default:
+      return "bg-gray-500/20 text-gray-300 border border-gray-500/30";
+  }
+};
+// ==========================================================
+// LOAD WITHDRAW HISTORY AFTER LOGIN
+// ==========================================================
+
+useEffect(() => {
+  if (!authChecked) return;
+  if (!username || !token) return;
+
+  loadWithdrawHistory(username, token);
+}, [authChecked, username, token, loadWithdrawHistory]);
+// ==========================================================
+// LOAD LIVE MARKET RATES (PATCH V18)
+// REPLACE OLD loadMarketRates()
+// ==========================================================
+
+const loadMarketRates = useCallback(async () => {
+  try {
+    const response = await fetch(`${API}/api/gold/price`, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    const data = await response.json();
+
+    console.log("MARKET RESPONSE:", data);
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || "Market unavailable.");
+    }
+
+    setGoldBuyPrice(Number(data.buyPrice ?? 0));
+    setGoldSellPrice(Number(data.sellPrice ?? 0));
+
+    setUsdtRate(Number(data.usdtRate ?? data.usdtPrice ?? 0));
+
+    setMarketStatus(data.marketStatus || "ACTIVE");
+
+    setLastRefresh(new Date());
+
+  } catch (error) {
+    console.error("MARKET ERROR:", error);
+
+    setGoldBuyPrice(0);
+    setGoldSellPrice(0);
+    setUsdtRate(0);
+    setMarketStatus("OFFLINE");
+  }
+}, []);
+
+const refreshDashboard = useCallback(async () => {
+  if (!username || !token) return;
+  try {
+    setRefreshLoading(true);
+    await Promise.all([
+      loadWallet(username, token),
+      loadDepositHistory(username, token),
+      loadWithdrawHistory(username, token),
+      loadMarketRates(),
+    ]);
+    setLastRefresh(new Date());
+  } finally {
+    setRefreshLoading(false);
+  }
+}, [
+  username,
+  token,
+  loadWallet,
+  loadDepositHistory,
+  loadWithdrawHistory,
+  loadMarketRates,
+]);
+// ==========================================================
+// PORTFOLIO VALUE
+// ==========================================================
+
+const portfolioValue = useMemo(() => {
+  const wallet = Number(walletBalance || 0);
+  const pkr = Number(pkrBalance || 0);
+
+  const gold =
+    Number(goldBalance || 0) * Number(goldSellPrice || 0);
+
+  const usdt =
+    Number(usdtBalance || 0) * Number(usdtRate || 0);
+
+  return wallet + pkr + gold + usdt;
+}, [
+  walletBalance,
+  pkrBalance,
+  goldBalance,
+  usdtBalance,
+  goldSellPrice,
+  usdtRate,
+]);
+
+// ==========================================================
+// WALLET HEALTH
+// ==========================================================
+
+const walletHealth = useMemo(() => {
+  if (portfolioValue >= 1000000) return "PLATINUM";
+  if (portfolioValue >= 500000) return "GOLD";
+  if (portfolioValue >= 100000) return "SILVER";
+  return "STANDARD";
+}, [portfolioValue]);
+// ==========================================================
+// AUTO REFRESH MARKET (30 Seconds)
+// ==========================================================
+
+useEffect(() => {
+  if (!authChecked) return;
+
+  const interval = setInterval(() => {
+    loadMarketRates();
+  }, 30000);
+
+  return () => clearInterval(interval);
+}, [authChecked, loadMarketRates]);
+
+// ==========================================================
+// AUTO REFRESH WALLET (60 Seconds)
+// ==========================================================
+
+useEffect(() => {
+  if (!authChecked) return;
+  if (!username || !token) return;
+
+  const interval = setInterval(() => {
+    refreshDashboard();
+  }, 60000);
+
+  return () => clearInterval(interval);
+}, [authChecked, username, token]);
+// ==========================================================
+// REFRESH WHEN USER RETURNS TO TAB
+// ==========================================================
+
+useEffect(() => {
+  const handleVisibility = async () => {
+    if (document.visibilityState !== "visible") return;
+
+    if (!authChecked || !username || !token) return;
+
+    try {
+      await refreshDashboard();
+    } catch (error) {
+      console.error("VISIBILITY REFRESH:", error);
+    }
+  };
+
+  document.addEventListener(
+    "visibilitychange",
+    handleVisibility
+  );
+
+  return () => {
+    document.removeEventListener(
+      "visibilitychange",
+      handleVisibility
+    );
+  };
+}, [authChecked, username, token]);
+// ==========================================================
+// MARKET BADGE STYLE
+// ==========================================================
+
+const marketBadgeClass = useMemo(() => {
+  return marketStatus === "ACTIVE"
+    ? "bg-green-500/20 text-green-400 border border-green-500/30"
+    : "bg-red-500/20 text-red-400 border border-red-500/30";
+}, [marketStatus]);
+
+// ==========================================================
+// LAST REFRESH LABEL
+// ==========================================================
+
+const lastRefreshLabel = useMemo(() => {
+  if (!lastRefresh) return "Never";
+
+  return lastRefresh.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}, [lastRefresh]);
+// ==========================================================
+// LOGOUT (PATCH V18)
+// REPLACE OLD handleLogout()
+// ==========================================================
+
+const handleLogout = useCallback(async () => {
+  try {
+    if (token) {
+      await fetch(`${API}/api/auth/logout`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    }
+  } catch (error) {
+    console.error("LOGOUT API ERROR:", error);
+  } finally {
+    clearSession();
+
+    setToken("");
+    setUsername("");
+    setUserEmail("");
+    setUserRole("user");
+    setAuthChecked(false);
+
+    setWalletBalance(0);
+    setPkrBalance(0);
+    setUsdtBalance(0);
+    setGoldBalance(0);
+
+    setDeposits([]);
+    setWithdrawals([]);
+
+    setLoading(false);
+
+    router.replace("/login");
+  }
+}, [router, token]);
+// ==========================================================
+// SESSION VALIDATION
+// ==========================================================
+
+const validateSession = useCallback(() => {
+  const session = getSession();
+
+  if (!session) {
+    clearSession();
+    router.replace("/login");
+    return false;
+  }
+
+  return true;
+}, [router]);
+// ==========================================================
+// SAFE NAVIGATION
+// ==========================================================
+
+const navigateProtected = useCallback(
+  (path: string) => {
+    if (!validateSession()) return;
+
+    router.push(path);
+  },
+  [router, validateSession]
+);
+
+const goDashboard = () => navigateProtected("/dashboard");
+const goWallet = () => navigateProtected("/wallet");
+const goDeposit = () => navigateProtected("/deposit");
+const goWithdraw = () => navigateProtected("/withdraw");
+const goUSDT = () => navigateProtected("/usdt");
+const goGold = () => navigateProtected("/gold");
+const goProfile = () => navigateProtected("/profile");
+// ==========================================================
+// SESSION WATCHER
+// ==========================================================
+
+useEffect(() => {
+  if (!authChecked) return;
+
+  const interval = setInterval(() => {
+    validateSession();
+  }, 20000);
+
+  return () => clearInterval(interval);
+}, [authChecked, validateSession]);
+// ==========================================================
+// PREVENT BACK AFTER LOGOUT
+// ==========================================================
+
+useEffect(() => {
+  const handlePopState = () => {
+    if (!getSession()) {
+      router.replace("/login");
+    }
+  };
+
+  window.addEventListener("popstate", handlePopState);
+
+  return () => {
+    window.removeEventListener("popstate", handlePopState);
+  };
+}, [router]);
+// ==========================================================
+// ONLINE REFRESH
+// ==========================================================
+
+useEffect(() => {
+  if (!isOnline) return;
+  if (!authChecked) return;
+  if (!username || !token) return;
+
+  refreshDashboard();
+}, [isOnline, authChecked, username, token]);
+
+return (
+  <main className="min-h-screen bg-black px-4 py-8 text-white md:px-8">
+{/* ========================================================== */}
+{/* GOLDTRADE WALLET HEADER */}
+{/* ========================================================== */}
+
+<section className="mb-8 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
+
+  <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+
+    <div>
+      <h1 className="text-3xl font-bold text-yellow-400">
+        GoldTrade Wallet
+      </h1>
+
+      <p className="mt-2 text-gray-400">
+        Welcome back,{" "}
+        <span className="font-semibold text-white">
+          {username}
+        </span>
+      </p>
+
+      <p className="mt-1 text-xs text-gray-500">
+        Last Refresh : {lastRefreshLabel}
+      </p>
+    </div>
+
+    <div className="flex flex-wrap gap-3">
+
+      <button
+        onClick={refreshDashboard}
+        disabled={refreshLoading}
+        className="flex items-center gap-2 rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-black transition hover:bg-yellow-400 disabled:opacity-60"
+      >
+        {refreshLoading ? (
+          <Loader2 className="h-5 w-5 animate-spin"/>
+        ) : (
+          <RefreshCw className="h-5 w-5"/>
+        )}
+
+        Refresh Wallet
+      </button>
+
+      <button
+        onClick={handleLogout}
+        className="flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
+      >
+        Logout
+      </button>
+
+    </div>
+
+  </div>
+
+</section>
+
+{/* ========================================================== */}
+{/* SUCCESS / ERROR ALERTS */}
+{/* ========================================================== */}
+
+{successMessage && (
+  <div className="mb-5 flex items-center gap-3 rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-green-400">
+    <CheckCircle2 className="h-5 w-5"/>
+    {successMessage}
+  </div>
+)}
+
+{errorMessage && (
+  <div className="mb-5 flex items-center gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-400">
+    <AlertCircle className="h-5 w-5"/>
+    {errorMessage}
+  </div>
+)}
+
+{/* ========================================================== */}
+{/* WALLET BALANCE CARDS */}
+{/* ========================================================== */}
+
+<section className="mb-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+  <div className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-5">
+
+    <Wallet className="mb-4 h-8 w-8 text-yellow-400"/>
+
+    <p className="text-sm text-gray-400">Wallet Balance</p>
+
+    <h2 className="mt-2 text-3xl font-bold text-yellow-400">
+      PKR {formatCurrency(walletBalance)}
+    </h2>
+
+  </div>
+
+  <div className="rounded-3xl border border-green-500/20 bg-zinc-950 p-5">
+
+    <DollarSign className="mb-4 h-8 w-8 text-green-400"/>
+
+    <p className="text-sm text-gray-400">PKR Balance</p>
+
+    <h2 className="mt-2 text-3xl font-bold text-green-400">
+      PKR {formatCurrency(pkrBalance)}
+    </h2>
+
+  </div>
+
+  <div className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-5">
+
+    <Coins className="mb-4 h-8 w-8 text-blue-400"/>
+
+    <p className="text-sm text-gray-400">USDT Balance</p>
+
+    <h2 className="mt-2 text-3xl font-bold text-blue-400">
+      {formatCurrency(usdtBalance)} USDT
+    </h2>
+
+  </div>
+
+  <div className="rounded-3xl border border-orange-500/20 bg-zinc-950 p-5">
+
+    <ShieldCheck className="mb-4 h-8 w-8 text-orange-400"/>
+
+    <p className="text-sm text-gray-400">Gold Balance</p>
+
+    <h2 className="mt-2 text-3xl font-bold text-orange-400">
+      {formatCurrency(goldBalance)} Gram
+    </h2>
+
+  </div>
+
+</section>
+
+{/* ========================================================== */}
+{/* PORTFOLIO CARD */}
+{/* ========================================================== */}
+
+<section className="mb-10 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
+
+  <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+
+    <div>
+
+      <p className="text-gray-400">
+        Total Portfolio Value
+      </p>
+
+      <h2 className="mt-3 text-4xl font-bold text-yellow-400">
+        PKR {formatCurrency(portfolioValue)}
+      </h2>
+
+      <p className="mt-2 text-sm text-gray-500">
+        Wallet Status :{" "}
+        <span className="font-semibold text-yellow-400">
+          {walletHealth}
+        </span>
+      </p>
+
+    </div>
+
+    <span
+      className={`rounded-full px-5 py-3 text-sm font-semibold ${marketBadgeClass}`}
+    >
+      Market : {marketStatus}
+    </span>
+
+  </div>
+
+  <div className="mt-8 grid gap-4 md:grid-cols-3">
+
+    <div className="rounded-2xl border border-zinc-800 bg-black p-4">
+
+      <p className="text-sm text-gray-400">
+        Gold Buy Price
+      </p>
+
+      <p className="mt-2 text-2xl font-bold text-yellow-400">
+        PKR {formatCurrency(goldBuyPrice)}
+      </p>
+
+    </div>
+
+    <div className="rounded-2xl border border-zinc-800 bg-black p-4">
+
+      <p className="text-sm text-gray-400">
+        Gold Sell Price
+      </p>
+
+      <p className="mt-2 text-2xl font-bold text-green-400">
+        PKR {formatCurrency(goldSellPrice)}
+      </p>
+
+    </div>
+
+    <div className="rounded-2xl border border-zinc-800 bg-black p-4">
+
+      <p className="text-sm text-gray-400">
+        USDT Live Rate
+      </p>
+
+      <p className="mt-2 text-2xl font-bold text-blue-400">
+        PKR {formatCurrency(usdtRate)}
+      </p>
+
+    </div>
+
+  </div>
+
+</section>
+
+{/* ========================================================== */}
+{/* QUICK ACTION BUTTONS */}
+{/* ========================================================== */}
+
+<section className="mb-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+
+  <button
+    onClick={goDeposit}
+    className="rounded-2xl bg-green-600 p-5 text-white transition hover:bg-green-700"
+  >
+    <ArrowDownCircle className="mx-auto mb-3 h-10 w-10"/>
+
+    <p className="font-semibold">
+      Deposit PKR
+    </p>
+  </button>
+
+  <button
+    onClick={goWithdraw}
+    className="rounded-2xl bg-red-600 p-5 text-white transition hover:bg-red-700"
+  >
+    <ArrowUpCircle className="mx-auto mb-3 h-10 w-10"/>
+
+    <p className="font-semibold">
+      Withdraw PKR
+    </p>
+  </button>
+
+  <button
+    onClick={goUSDT}
+    className="rounded-2xl bg-blue-600 p-5 text-white transition hover:bg-blue-700"
+  >
+    <Coins className="mx-auto mb-3 h-10 w-10"/>
+
+    <p className="font-semibold">
+      USDT Trading
+    </p>
+  </button>
+
+  <button
+    onClick={goGold}
+    className="rounded-2xl bg-yellow-500 p-5 font-semibold text-black transition hover:bg-yellow-400"
+  >
+    <TrendingUp className="mx-auto mb-3 h-10 w-10"/>
+
+    Gold Trading
+  </button>
+
+</section>
+{/* ========================================================== */}
+{/* MANUAL PKR DEPOSIT */}
+{/* ========================================================== */}
+
+<section className="mb-10 rounded-3xl border border-green-500/20 bg-zinc-950 p-6">
+
+  <div className="mb-6 flex items-center justify-between">
+    <div>
+      <h2 className="text-2xl font-bold text-green-400">
+        Manual PKR Deposit
+      </h2>
+
+      <p className="mt-1 text-sm text-gray-400">
+        Upload your payment receipt after sending funds.
+      </p>
+    </div>
+
+    <Receipt className="h-8 w-8 text-green-400" />
+  </div>
+
+  {/* Deposit Form */}
+
+  <div className="grid gap-5 md:grid-cols-2">
+
+    <div>
+      <label className="mb-2 block text-sm text-gray-300">
+        Deposit Amount (PKR)
+      </label>
+
+      <input
+        type="number"
+        value={depositAmount}
+        onChange={(e) => setDepositAmount(e.target.value)}
+        placeholder="Enter PKR Amount"
+        className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-green-500"
+      />
+    </div>
+
+    <div>
+      <label className="mb-2 block text-sm text-gray-300">
+        Payment Method
+      </label>
+
+      <select
+        value={depositMethod}
+        onChange={(e) => setDepositMethod(e.target.value)}
+        className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-green-500"
+      >
+        <option value="ABA Bank">ABA Bank</option>
+        <option value="Binance">Binance</option>
+        <option value="Cash App">Cash App</option>
+        <option value="Bank Transfer">Bank Transfer</option>
+      </select>
+    </div>
+
+  </div>
+
+  {/* Payment Details */}
+
+  <div className="mt-6 rounded-2xl border border-yellow-500/20 bg-black p-5">
+
+    <h3 className="mb-3 font-semibold text-yellow-400">
+      Payment Details
+    </h3>
+
+    <div className="space-y-2 text-sm text-gray-300">
+
+      <p>**ABA Bank:** GoldTrade Enterprise</p>
+      <p>**Account Number:** 000-000-000000</p>
+
+      <p>**Binance UID:** 123456789</p>
+
+      <p>**Cash App:** $GoldTradePKR</p>
+
+    </div>
+
+  </div>
+
+  {/* Upload Receipt */}
+
+  <div className="mt-6">
+
+    <label className="mb-3 block text-sm text-gray-300">
+      Upload Receipt
+    </label>
+
+    <input
+      type="file"
+      accept="image/*"
+      onChange={handleReceiptSelect}
+      className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white"
+    />
+
+    {receiptImage && (
+      <div className="mt-3 rounded-xl border border-green-500/20 bg-black p-3">
+
+        <p className="text-sm text-green-400">
+          Receipt Selected
+        </p>
+
+        <p className="mt-1 text-sm text-gray-300">
+          {receiptImage.name}
+        </p>
+
+      </div>
+    )}
+
+    {receiptPreview && (
+      <div className="mt-5">
+
+        <p className="mb-2 text-sm text-gray-400">
+          Receipt Preview
+        </p>
+
+        <img
+          src={receiptPreview}
+          alt="Receipt Preview"
+          className="max-h-80 rounded-2xl border border-green-500/20 object-contain"
+        />
+
+      </div>
+    )}
+
+  </div>
+
+  {/* Submit Deposit */}
+
+  <button
+    onClick={submitDeposit}
+    disabled={depositLoading}
+    className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-3 font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
+  >
+    {depositLoading ? (
+      <>
+        <Loader2 className="h-5 w-5 animate-spin"/>
+        Uploading Deposit...
+      </>
+    ) : (
+      <>
+        <ArrowDownCircle className="h-5 w-5"/>
+        Submit Deposit
+      </>
+    )}
+  </button>
+
+</section>
+
+{/* ========================================================== */}
+{/* DEPOSIT SUMMARY */}
+{/* ========================================================== */}
+
+<section className="mb-10 grid gap-5 md:grid-cols-2">
+
+  <div className="rounded-2xl border border-green-500/20 bg-zinc-950 p-5">
+
+    <p className="text-sm text-gray-400">
+      Approved Deposits
+    </p>
+
+    <h3 className="mt-2 text-3xl font-bold text-green-400">
+      PKR {formatCurrency(totalDeposited)}
+    </h3>
+
+  </div>
+
+  <div className="rounded-2xl border border-yellow-500/20 bg-zinc-950 p-5">
+
+    <p className="text-sm text-gray-400">
+      Pending Deposits
+    </p>
+
+    <h3 className="mt-2 text-3xl font-bold text-yellow-400">
+      PKR {formatCurrency(pendingDeposits)}
+    </h3>
+
+  </div>
+
+</section>
+
+{/* ========================================================== */}
+{/* DEPOSIT HISTORY */}
+{/* ========================================================== */}
+
+<section className="mb-10 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
+
+  <div className="mb-6 flex items-center justify-between">
+
+    <div>
+      <h2 className="text-2xl font-bold text-yellow-400">
+        Deposit History
+      </h2>
+
+      <p className="mt-1 text-sm text-gray-400">
+        Latest Deposit Requests
+      </p>
+    </div>
+
+    <button
+      onClick={refreshDeposits}
+      className="rounded-lg bg-yellow-500 px-4 py-2 font-semibold text-black transition hover:bg-yellow-400"
+    >
+      Refresh
+    </button>
+
+  </div>
+
+  {depositLoading ? (
+    <div className="flex justify-center py-10">
+      <Loader2 className="h-8 w-8 animate-spin text-yellow-400"/>
+    </div>
+  ) : recentDeposits.length === 0 ? (
+    <div className="rounded-xl border border-zinc-800 bg-black p-6 text-center text-gray-500">
+      No Deposit History Found.
+    </div>
+  ) : (
+    <div className="space-y-4">
+
+      {recentDeposits.map((deposit) => (
+        <div
+          key={deposit._id}
+          className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-black p-5 md:flex-row md:items-center md:justify-between"
+        >
 
           <div>
 
-            <h1 className="flex items-center gap-3 text-4xl font-black text-cyan-400">
-              <Wallet size={38} />
-              Wallet Dashboard
-            </h1>
+            <h3 className="text-lg font-semibold text-white">
+              PKR {formatCurrency(deposit.amount)}
+            </h3>
 
-            <p className="text-gray-400 mt-2">
-              Manage PKR, Gold and USDT balances from one enterprise wallet.
+            <p className="mt-1 text-sm text-gray-400">
+              {deposit.method}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-500">
+              {new Date(deposit.createdAt).toLocaleString()}
             </p>
 
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <span
+            className={`rounded-full px-4 py-2 text-xs font-semibold ${getDepositStatusBadge(
+              deposit.status
+            )}`}
+          >
+            {deposit.status}
+          </span>
 
-            <Link
-              href="/dashboard"
-              className="bg-zinc-800 hover:bg-zinc-700 transition px-5 py-3 rounded-xl flex items-center gap-2 font-bold"
-            >
-              Dashboard
-            </Link>
+        </div>
+      ))}
 
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 disabled:cursor-not-allowed text-black px-5 py-3 rounded-xl flex items-center gap-2 font-bold transition"
-            >
-              <RefreshCw
-                size={18}
-                className={refreshing ? "animate-spin" : ""}
-              />
+    </div>
+  )}
 
-              {refreshing ? "Refreshing..." : "Refresh Wallet"}
-            </button>
+</section>
+{/* ========================================================== */}
+{/* WITHDRAW PKR */}
+{/* ========================================================== */}
 
-          </div>
+<section className="mb-10 rounded-3xl border border-red-500/20 bg-zinc-950 p-6">
 
-        </header>
+  <div className="mb-6 flex items-center justify-between">
 
-        {/* ============================================= */}
-        {/* ERROR MESSAGE */}
-        {/* ============================================= */}
+    <div>
+      <h2 className="text-2xl font-bold text-red-400">
+        Withdraw PKR
+      </h2>
 
-        {errorMessage && (
-          <div className="bg-red-500/10 border border-red-500 rounded-xl p-4 text-red-400 font-semibold">
-            {errorMessage}
-          </div>
-        )}
+      <p className="mt-1 text-sm text-gray-400">
+        Submit a withdrawal request. Admin approval is required.
+      </p>
+    </div>
 
-        {/* ============================================= */}
-        {/* LIVE MARKET STATUS */}
-        {/* ============================================= */}
+    <CreditCard className="h-8 w-8 text-red-400"/>
 
-        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6">
+  </div>
 
-          <div className="flex flex-wrap justify-between items-center gap-5">
+  {/* Withdraw Form */}
 
-            <div>
+  <div className="grid gap-5 md:grid-cols-2">
 
-              <h2 className="flex items-center gap-3 text-2xl font-black text-cyan-400">
-                <ShieldCheck size={28} />
-                Live Market Status
-              </h2>
+    <div>
+      <label className="mb-2 block text-sm text-gray-300">
+        Withdraw Amount (PKR)
+      </label>
 
-              <p className="text-gray-400 mt-2">
-                Gold and USDT live prices synchronized with wallet valuation.
-              </p>
+      <input
+        type="number"
+        value={withdrawAmount}
+        onChange={(e) => setWithdrawAmount(e.target.value)}
+        placeholder="Enter PKR Amount"
+        className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-red-500"
+      />
+    </div>
 
-            </div>
+    <div>
+      <label className="mb-2 block text-sm text-gray-300">
+        Withdraw Method
+      </label>
 
-            <div className="flex flex-wrap gap-3">
+      <select
+        value={withdrawMethod}
+        onChange={(e) => setWithdrawMethod(e.target.value)}
+        className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-red-500"
+      >
+        <option value="PKR Bank">PKR Bank</option>
+        <option value="ABA Bank">ABA Bank</option>
+        <option value="Binance USDT">Binance USDT</option>
+        <option value="Cash App">Cash App</option>
+      </select>
+    </div>
 
-              <span
-                className={`px-4 py-2 rounded-full font-bold ${
-                  goldMarket.marketStatus === "OPEN"
-                    ? "bg-green-500/20 border border-green-500 text-green-400"
-                    : "bg-red-500/20 border border-red-500 text-red-400"
-                }`}
-              >
-                Gold {goldMarket.marketStatus}
-              </span>
+  </div>
 
-              <span
-                className={`px-4 py-2 rounded-full font-bold ${
-                  usdtMarket.marketStatus === "OPEN"
-                    ? "bg-cyan-500/20 border border-cyan-500 text-cyan-400"
-                    : "bg-red-500/20 border border-red-500 text-red-400"
-                }`}
-              >
-                USDT {usdtMarket.marketStatus}
-              </span>
+  {/* Bank / Wallet Address */}
 
-            </div>
+  <div className="mt-6">
 
-          </div>
+    <label className="mb-2 block text-sm text-gray-300">
+      Bank Account / Wallet Address
+    </label>
 
-          {/* ============================================= */}
-          {/* LIVE RATE CARDS */}
-          {/* ============================================= */}
+    <textarea
+      rows={3}
+      value={withdrawAddress}
+      onChange={(e) => setWithdrawAddress(e.target.value)}
+      placeholder="Enter your Bank Account / ABA / Binance Wallet Address"
+      className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-red-500"
+    />
 
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mt-6">
+  </div>
 
-            {/* GOLD BUY */}
+  {/* Balance Card */}
 
-            <div className="bg-black border border-yellow-500 rounded-xl p-4">
+  <div className="mt-6 rounded-2xl border border-green-500/20 bg-black p-5">
 
-              <p className="text-gray-500 text-sm">
-                Gold Buy Price
-              </p>
+    <div className="flex items-center justify-between">
 
-              <h3 className="text-2xl font-black text-yellow-400 mt-2">
-                PKR {goldMarket.buyPrice.toLocaleString()}
-              </h3>
+      <div>
 
-            </div>
-
-            {/* GOLD SELL */}
-
-            <div className="bg-black border border-orange-500 rounded-xl p-4">
-
-              <p className="text-gray-500 text-sm">
-                Gold Sell Price
-              </p>
-
-              <h3 className="text-2xl font-black text-orange-400 mt-2">
-                PKR {goldMarket.sellPrice.toLocaleString()}
-              </h3>
-
-            </div>
-
-            {/* USDT BUY */}
-
-            <div className="bg-black border border-cyan-500 rounded-xl p-4">
-
-              <p className="text-gray-500 text-sm">
-                USDT Buy Price
-              </p>
-
-              <h3 className="text-2xl font-black text-cyan-400 mt-2">
-                PKR {usdtMarket.buyPrice.toLocaleString()}
-              </h3>
-
-            </div>
-
-            {/* USDT SELL */}
-
-            <div className="bg-black border border-green-500 rounded-xl p-4">
-
-              <p className="text-gray-500 text-sm">
-                USDT Sell Price
-              </p>
-
-              <h3 className="text-2xl font-black text-green-400 mt-2">
-                PKR {usdtMarket.sellPrice.toLocaleString()}
-              </h3>
-
-            </div>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* MARKET INFO BAR */}
-          {/* ============================================= */}
-
-          <div className="grid md:grid-cols-2 gap-5 mt-6">
-
-            <div className="bg-black border border-zinc-700 rounded-xl p-4">
-
-              <div className="flex items-center justify-between">
-
-                <span className="text-gray-400 text-sm">
-                  Gold Trading
-                </span>
-
-                <span
-                  className={
-                    goldMarket.tradingEnabled
-                      ? "text-green-400 font-bold"
-                      : "text-red-400 font-bold"
-                  }
-                >
-                  {goldMarket.tradingEnabled ? "Enabled" : "Disabled"}
-                </span>
-
-              </div>
-
-            </div>
-
-            <div className="bg-black border border-zinc-700 rounded-xl p-4">
-
-              <div className="flex items-center justify-between">
-
-                <span className="text-gray-400 text-sm">
-                  USDT Trading
-                </span>
-
-                <span
-                  className={
-                    usdtMarket.tradingEnabled
-                      ? "text-cyan-400 font-bold"
-                      : "text-red-400 font-bold"
-                  }
-                >
-                  {usdtMarket.tradingEnabled ? "Enabled" : "Disabled"}
-                </span>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </section>
-                {/* ================================================= */}
-        {/* ENTERPRISE WALLET SUMMARY */}
-        {/* PART 5/12 */}
-        {/* Paste AFTER Live Market Banner */}
-        {/* ================================================= */}
-
-        <section className="space-y-6">
-
-          <div className="flex items-center justify-between">
-
-            <h2 className="text-3xl font-black text-cyan-400">
-              Wallet Overview
-            </h2>
-
-            <span className="bg-cyan-500/20 text-cyan-400 border border-cyan-500 px-4 py-2 rounded-full text-sm font-bold">
-              LIVE WALLET
-            </span>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* ROW 1 */}
-          {/* ============================================= */}
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-
-            {/* PKR WALLET */}
-
-            <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5">
-
-              <div className="flex justify-between items-center">
-
-                <Wallet className="text-green-400" size={26} />
-
-                <span className="text-xs text-green-400 font-bold">
-                  PKR WALLET
-                </span>
-
-              </div>
-
-              <p className="text-gray-500 text-sm mt-4">
-                Cash Balance
-              </p>
-
-              <h2 className="text-3xl font-black text-green-400 mt-2">
-                PKR {walletSummary.pkrBalance.toLocaleString()}
-              </h2>
-
-              <p className="text-xs text-gray-500 mt-2">
-                Available for Deposit & Withdraw
-              </p>
-
-            </div>
-
-            {/* GOLD WALLET */}
-
-            <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-5">
-
-              <div className="flex justify-between items-center">
-
-                <Coins className="text-yellow-400" size={26} />
-
-                <span className="text-xs text-yellow-400 font-bold">
-                  GOLD WALLET
-                </span>
-
-              </div>
-
-              <p className="text-gray-500 text-sm mt-4">
-                Gold Holdings
-              </p>
-
-              <h2 className="text-3xl font-black text-yellow-400 mt-2">
-                {walletSummary.goldBalance.toFixed(4)} g
-              </h2>
-
-              <p className="text-xs text-gray-500 mt-2">
-                Physical Gold Balance
-              </p>
-
-            </div>
-
-            {/* USDT WALLET */}
-
-            <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-5">
-
-              <div className="flex justify-between items-center">
-
-                <DollarSign className="text-cyan-400" size={26} />
-
-                <span className="text-xs text-cyan-400 font-bold">
-                  USDT WALLET
-                </span>
-
-              </div>
-
-              <p className="text-gray-500 text-sm mt-4">
-                USDT Holdings
-              </p>
-
-              <h2 className="text-3xl font-black text-cyan-400 mt-2">
-                {walletSummary.usdtBalance.toFixed(2)} USDT
-              </h2>
-
-              <p className="text-xs text-gray-500 mt-2">
-                Digital Dollar Holdings
-              </p>
-
-            </div>
-
-            {/* TOTAL WALLET VALUE */}
-
-            <div className="bg-zinc-900 border border-purple-500 rounded-2xl p-5">
-
-              <div className="flex justify-between items-center">
-
-                <TrendingUp className="text-purple-400" size={26} />
-
-                <span className="text-xs text-purple-400 font-bold">
-                  NET WORTH
-                </span>
-
-              </div>
-
-              <p className="text-gray-500 text-sm mt-4">
-                Total Wallet Value
-              </p>
-
-              <h2 className="text-3xl font-black text-purple-400 mt-2">
-                PKR {Math.round(walletSummary.totalWalletValue).toLocaleString()}
-              </h2>
-
-              <p className="text-xs text-gray-500 mt-2">
-                PKR + Gold + USDT Combined
-              </p>
-
-            </div>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* ROW 2 */}
-          {/* ============================================= */}
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-
-            {/* GOLD VALUE */}
-
-            <div className="bg-zinc-900 border border-orange-500 rounded-2xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                Gold Market Value
-              </p>
-
-              <h2 className="text-3xl font-black text-orange-400 mt-2">
-                PKR {Math.round(walletSummary.goldValuePKR).toLocaleString()}
-              </h2>
-
-              <p className="text-xs text-gray-500 mt-2">
-                Based on Live Gold Sell Price
-              </p>
-
-            </div>
-
-            {/* USDT VALUE */}
-
-            <div className="bg-zinc-900 border border-blue-500 rounded-2xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                USDT Market Value
-              </p>
-
-              <h2 className="text-3xl font-black text-blue-400 mt-2">
-                PKR {Math.round(walletSummary.usdtValuePKR).toLocaleString()}
-              </h2>
-
-              <p className="text-xs text-gray-500 mt-2">
-                Based on Live USDT Sell Price
-              </p>
-
-            </div>
-
-            {/* GOLD RATE */}
-
-            <div className="bg-zinc-900 border border-yellow-600 rounded-2xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                Live Gold Sell Rate
-              </p>
-
-              <h2 className="text-3xl font-black text-yellow-400 mt-2">
-                PKR {goldMarket.sellPrice.toLocaleString()}
-              </h2>
-
-            </div>
-
-            {/* USDT RATE */}
-
-            <div className="bg-zinc-900 border border-cyan-600 rounded-2xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                Live USDT Sell Rate
-              </p>
-
-              <h2 className="text-3xl font-black text-cyan-400 mt-2">
-                PKR {usdtMarket.sellPrice.toLocaleString()}
-              </h2>
-
-            </div>
-
-          </div>
-
-        </section>
-                {/* ================================================= */}
-        {/* WALLET ANALYTICS */}
-        {/* PART 6/12 */}
-        {/* Paste AFTER Wallet Summary Cards */}
-        {/* ================================================= */}
-
-        <section className="space-y-6">
-
-          <div className="flex items-center justify-between">
-
-            <h2 className="text-3xl font-black text-green-400">
-              Wallet Analytics
-            </h2>
-
-            <span className="bg-green-500/20 border border-green-500 text-green-400 px-4 py-2 rounded-full text-sm font-bold">
-              LIVE ANALYTICS
-            </span>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* ANALYTICS CARDS */}
-          {/* ============================================= */}
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-
-            {/* TOTAL TRANSACTIONS */}
-
-            <div className="bg-zinc-900 border border-blue-500 rounded-2xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                Total Transactions
-              </p>
-
-              <h2 className="text-3xl font-black text-blue-400 mt-2">
-                {transactionStats.totalTransactions}
-              </h2>
-
-            </div>
-
-            {/* COMPLETED */}
-
-            <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                Completed
-              </p>
-
-              <h2 className="text-3xl font-black text-green-400 mt-2">
-                {transactionStats.completed}
-              </h2>
-
-            </div>
-
-            {/* PENDING */}
-
-            <div className="bg-zinc-900 border border-yellow-500 rounded-2xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                Pending
-              </p>
-
-              <h2 className="text-3xl font-black text-yellow-400 mt-2">
-                {transactionStats.pending}
-              </h2>
-
-            </div>
-
-            {/* REJECTED */}
-
-            <div className="bg-zinc-900 border border-red-500 rounded-2xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                Rejected
-              </p>
-
-              <h2 className="text-3xl font-black text-red-400 mt-2">
-                {transactionStats.rejected}
-              </h2>
-
-            </div>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* ASSET DISTRIBUTION */}
-          {/* ============================================= */}
-
-          <div className="grid lg:grid-cols-2 gap-6">
-
-            {/* DISTRIBUTION PANEL */}
-
-            <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6">
-
-              <h3 className="text-xl font-black text-cyan-400 mb-6">
-                Wallet Asset Distribution
-              </h3>
-
-              <div className="space-y-5">
-
-                {/* PKR */}
-
-                <div>
-
-                  <div className="flex justify-between text-sm mb-2">
-
-                    <span className="text-green-400 font-semibold">
-                      PKR Wallet
-                    </span>
-
-                    <span>
-                      {walletDistribution.pkr.toFixed(1)}%
-                    </span>
-
-                  </div>
-
-                  <div className="w-full h-3 bg-zinc-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-green-400 rounded-full"
-                      style={{
-                        width: `${walletDistribution.pkr}%`,
-                      }}
-                    />
-                  </div>
-
-                </div>
-
-                {/* GOLD */}
-
-                <div>
-
-                  <div className="flex justify-between text-sm mb-2">
-
-                    <span className="text-yellow-400 font-semibold">
-                      Gold Wallet
-                    </span>
-
-                    <span>
-                      {walletDistribution.gold.toFixed(1)}%
-                    </span>
-
-                  </div>
-
-                  <div className="w-full h-3 bg-zinc-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-yellow-400 rounded-full"
-                      style={{
-                        width: `${walletDistribution.gold}%`,
-                      }}
-                    />
-                  </div>
-
-                </div>
-
-                {/* USDT */}
-
-                <div>
-
-                  <div className="flex justify-between text-sm mb-2">
-
-                    <span className="text-cyan-400 font-semibold">
-                      USDT Wallet
-                    </span>
-
-                    <span>
-                      {walletDistribution.usdt.toFixed(1)}%
-                    </span>
-
-                  </div>
-
-                  <div className="w-full h-3 bg-zinc-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-cyan-400 rounded-full"
-                      style={{
-                        width: `${walletDistribution.usdt}%`,
-                      }}
-                    />
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-
-            {/* PERFORMANCE PANEL */}
-
-            <div className="bg-zinc-900 border border-purple-500 rounded-2xl p-6">
-
-              <h3 className="text-xl font-black text-purple-400 mb-6">
-                Wallet Performance
-              </h3>
-
-              <div className="space-y-5">
-
-                <div className="flex justify-between">
-
-                  <span className="text-gray-400">
-                    PKR Assets
-                  </span>
-
-                  <span className="font-bold text-green-400">
-                    PKR {walletSummary.pkrBalance.toLocaleString()}
-                  </span>
-
-                </div>
-
-                <div className="flex justify-between">
-
-                  <span className="text-gray-400">
-                    Gold Market Value
-                  </span>
-
-                  <span className="font-bold text-yellow-400">
-                    PKR {Math.round(walletSummary.goldValuePKR).toLocaleString()}
-                  </span>
-
-                </div>
-
-                <div className="flex justify-between">
-
-                  <span className="text-gray-400">
-                    USDT Market Value
-                  </span>
-
-                  <span className="font-bold text-cyan-400">
-                    PKR {Math.round(walletSummary.usdtValuePKR).toLocaleString()}
-                  </span>
-
-                </div>
-
-                <div className="border-t border-zinc-700 pt-4 flex justify-between">
-
-                  <span className="text-white font-semibold">
-                    Total Net Worth
-                  </span>
-
-                  <span className="text-purple-400 text-xl font-black">
-                    PKR {Math.round(walletSummary.totalWalletValue).toLocaleString()}
-                  </span>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* WALLET VOLUME SUMMARY */}
-          {/* ============================================= */}
-
-          <div className="grid md:grid-cols-3 gap-5">
-
-            {/* PKR */}
-
-            <div className="bg-zinc-900 border border-green-500 rounded-xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                PKR Volume
-              </p>
-
-              <h2 className="text-2xl font-black text-green-400 mt-2">
-                PKR {Math.round(transactionStats.totalPKR).toLocaleString()}
-              </h2>
-
-            </div>
-
-            {/* GOLD */}
-
-            <div className="bg-zinc-900 border border-yellow-500 rounded-xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                Gold Volume
-              </p>
-
-              <h2 className="text-2xl font-black text-yellow-400 mt-2">
-                {transactionStats.totalGold.toFixed(4)} g
-              </h2>
-
-            </div>
-
-            {/* USDT */}
-
-            <div className="bg-zinc-900 border border-cyan-500 rounded-xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                USDT Volume
-              </p>
-
-              <h2 className="text-2xl font-black text-cyan-400 mt-2">
-                {transactionStats.totalUsdt.toFixed(2)} USDT
-              </h2>
-
-            </div>
-
-          </div>
-
-        </section>
-                {/* ================================================= */}
-        {/* ENTERPRISE QUICK ACTIONS */}
-        {/* PART 7/12 */}
-        {/* Paste AFTER Wallet Analytics */}
-        {/* ================================================= */}
-
-        <section className="space-y-6">
-
-          <div className="flex items-center justify-between">
-
-            <h2 className="text-3xl font-black text-cyan-400">
-              Wallet Quick Actions
-            </h2>
-
-            <span className="bg-cyan-500/20 border border-cyan-500 text-cyan-400 px-4 py-2 rounded-full text-sm font-bold">
-              ACTION CENTER
-            </span>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* FIRST ROW */}
-          {/* ============================================= */}
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-
-            {/* Deposit */}
-
-            <Link
-              href="/wallet/deposit"
-              className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-6 hover:scale-[1.02] transition"
-            >
-              <div className="flex justify-between items-center">
-
-                <div>
-
-                  <p className="text-black font-bold text-sm">
-                    Deposit Funds
-                  </p>
-
-                  <h3 className="text-3xl font-black text-black mt-2">
-                    PKR Deposit
-                  </h3>
-
-                </div>
-
-                <ArrowDownRight className="text-black" size={42} />
-
-              </div>
-
-              <p className="text-black mt-5 font-medium">
-                Deposit PKR into your wallet instantly.
-              </p>
-
-            </Link>
-
-            {/* Withdraw */}
-
-            <Link
-              href="/wallet/withdraw"
-              className="bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl p-6 hover:scale-[1.02] transition"
-            >
-              <div className="flex justify-between items-center">
-
-                <div>
-
-                  <p className="text-black font-bold text-sm">
-                    Withdraw Funds
-                  </p>
-
-                  <h3 className="text-3xl font-black text-black mt-2">
-                    PKR Withdraw
-                  </h3>
-
-                </div>
-
-                <ArrowUpRight className="text-black" size={42} />
-
-              </div>
-
-              <p className="text-black mt-5 font-medium">
-                Transfer PKR from wallet to bank account.
-              </p>
-
-            </Link>
-
-            {/* Wallet History */}
-
-            <Link
-              href="/wallet/history"
-              className="bg-gradient-to-r from-blue-500 to-cyan-600 rounded-2xl p-6 hover:scale-[1.02] transition"
-            >
-              <div className="flex justify-between items-center">
-
-                <div>
-
-                  <p className="text-black font-bold text-sm">
-                    Wallet Ledger
-                  </p>
-
-                  <h3 className="text-3xl font-black text-black mt-2">
-                    History
-                  </h3>
-
-                </div>
-
-                <History className="text-black" size={42} />
-
-              </div>
-
-              <p className="text-black mt-5 font-medium">
-                View complete wallet transaction history.
-              </p>
-
-            </Link>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* SECOND ROW */}
-          {/* ============================================= */}
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-2 gap-6">
-
-            {/* Buy Gold */}
-
-            <Link
-              href="/gold/buy"
-              className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl p-6 hover:scale-[1.02] transition"
-            >
-              <div className="flex justify-between items-center">
-
-                <div>
-
-                  <p className="text-black font-bold text-sm">
-                    Gold Trading
-                  </p>
-
-                  <h3 className="text-3xl font-black text-black mt-2">
-                    Buy Gold
-                  </h3>
-
-                  <p className="text-black mt-4">
-                    Live Buy Rate: PKR {goldMarket.buyPrice.toLocaleString()}
-                  </p>
-
-                </div>
-
-                <Coins className="text-black" size={44} />
-
-              </div>
-
-            </Link>
-
-            {/* Sell Gold */}
-
-            <Link
-              href="/gold/sell"
-              className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-6 hover:scale-[1.02] transition"
-            >
-              <div className="flex justify-between items-center">
-
-                <div>
-
-                  <p className="text-black font-bold text-sm">
-                    Gold Trading
-                  </p>
-
-                  <h3 className="text-3xl font-black text-black mt-2">
-                    Sell Gold
-                  </h3>
-
-                  <p className="text-black mt-4">
-                    Live Sell Rate: PKR {goldMarket.sellPrice.toLocaleString()}
-                  </p>
-
-                </div>
-
-                <TrendingDown className="text-black" size={44} />
-
-              </div>
-
-            </Link>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* THIRD ROW */}
-          {/* ============================================= */}
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-2 gap-6">
-
-            {/* Buy USDT */}
-
-            <Link
-              href="/usdt/buy"
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl p-6 hover:scale-[1.02] transition"
-            >
-              <div className="flex justify-between items-center">
-
-                <div>
-
-                  <p className="text-black font-bold text-sm">
-                    USDT Trading
-                  </p>
-
-                  <h3 className="text-3xl font-black text-black mt-2">
-                    Buy USDT
-                  </h3>
-
-                  <p className="text-black mt-4">
-                    Live Buy Rate: PKR {usdtMarket.buyPrice.toLocaleString()}
-                  </p>
-
-                </div>
-
-                <DollarSign className="text-black" size={44} />
-
-              </div>
-
-            </Link>
-
-            {/* Sell USDT */}
-
-            <Link
-              href="/usdt/sell"
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-6 hover:scale-[1.02] transition"
-            >
-              <div className="flex justify-between items-center">
-
-                <div>
-
-                  <p className="text-black font-bold text-sm">
-                    USDT Trading
-                  </p>
-
-                  <h3 className="text-3xl font-black text-black mt-2">
-                    Sell USDT
-                  </h3>
-
-                  <p className="text-black mt-4">
-                    Live Sell Rate: PKR {usdtMarket.sellPrice.toLocaleString()}
-                  </p>
-
-                </div>
-
-                <TrendingUp className="text-black" size={44} />
-
-              </div>
-
-            </Link>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* SECURITY PANEL */}
-          {/* ============================================= */}
-
-          <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6">
-
-            <div className="flex items-center gap-3 mb-5">
-
-              <ShieldCheck className="text-cyan-400" size={28} />
-
-              <h3 className="text-xl font-black text-cyan-400">
-                Wallet Security Center
-              </h3>
-
-            </div>
-
-            <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-
-              <div className="bg-black border border-green-500 rounded-xl p-4">
-
-                <p className="text-xs text-gray-500 uppercase">
-                  Wallet Status
-                </p>
-
-                <h4 className="text-green-400 font-black text-lg mt-2">
-                  Active
-                </h4>
-
-              </div>
-
-              <div className="bg-black border border-yellow-500 rounded-xl p-4">
-
-                <p className="text-xs text-gray-500 uppercase">
-                  Gold Trading
-                </p>
-
-                <h4 className="text-yellow-400 font-black text-lg mt-2">
-                  {goldMarket.tradingEnabled ? "Enabled" : "Disabled"}
-                </h4>
-
-              </div>
-
-              <div className="bg-black border border-cyan-500 rounded-xl p-4">
-
-                <p className="text-xs text-gray-500 uppercase">
-                  USDT Trading
-                </p>
-
-                <h4 className="text-cyan-400 font-black text-lg mt-2">
-                  {usdtMarket.tradingEnabled ? "Enabled" : "Disabled"}
-                </h4>
-
-              </div>
-
-              <div className="bg-black border border-purple-500 rounded-xl p-4">
-
-                <p className="text-xs text-gray-500 uppercase">
-                  Refresh Status
-                </p>
-
-                <button
-                  onClick={handleRefresh}
-                  className="mt-2 flex items-center gap-2 text-purple-400 font-bold hover:text-purple-300 transition"
-                >
-                  <RefreshCw size={16} />
-                  Refresh Wallet
-                </button>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </section>
-                {/* ================================================= */}
-        {/* WALLET TRANSACTION TOOLBAR */}
-        {/* PART 8/12 */}
-        {/* Paste AFTER Quick Actions */}
-        {/* ================================================= */}
-
-        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 space-y-6">
-
-          <div className="flex flex-wrap items-center justify-between gap-4">
-
-            <div>
-
-              <h2 className="text-3xl font-black text-cyan-400">
-                Wallet Transaction Center
-              </h2>
-
-              <p className="text-gray-400 mt-2">
-                Search and filter PKR, Gold and USDT wallet transactions.
-              </p>
-
-            </div>
-
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 disabled:cursor-not-allowed text-black px-5 py-3 rounded-xl flex items-center gap-2 font-bold transition"
-            >
-              <RefreshCw
-                size={18}
-                className={refreshing ? "animate-spin" : ""}
-              />
-
-              {refreshing ? "Refreshing..." : "Refresh"}
-            </button>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* SEARCH + FILTER ROW */}
-          {/* ============================================= */}
-
-          <div className="grid lg:grid-cols-4 gap-5">
-
-            {/* SEARCH */}
-
-            <div className="relative lg:col-span-2">
-
-              <Search
-                size={18}
-                className="absolute left-4 top-4 text-gray-500"
-              />
-
-              <input
-                type="text"
-                placeholder="Search transaction, amount, wallet type..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full bg-black border border-zinc-700 rounded-xl pl-11 pr-4 py-3 focus:border-cyan-500 outline-none text-white"
-              />
-
-            </div>
-
-            {/* WALLET FILTER */}
-
-            <div className="relative">
-
-              <Filter
-                size={18}
-                className="absolute left-4 top-4 text-gray-500"
-              />
-
-              <select
-                value={filterWallet}
-                onChange={(e) => {
-                  setFilterWallet(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full bg-black border border-zinc-700 rounded-xl pl-11 pr-4 py-3 focus:border-cyan-500 outline-none appearance-none text-white"
-              >
-                <option value="ALL">All Wallets</option>
-                <option value="PKR">PKR Wallet</option>
-                <option value="GOLD">Gold Wallet</option>
-                <option value="USDT">USDT Wallet</option>
-              </select>
-
-            </div>
-
-            {/* STATUS FILTER */}
-
-            <div>
-
-              <select
-                value={filterStatus}
-                onChange={(e) => {
-                  setFilterStatus(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:border-cyan-500 outline-none text-white"
-              >
-                <option value="ALL">All Status</option>
-                <option value="Completed">Completed</option>
-                <option value="Pending">Pending</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-
-            </div>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* TRANSACTION SUMMARY */}
-          {/* ============================================= */}
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-
-            <div className="bg-black border border-blue-500 rounded-xl p-4">
-
-              <p className="text-gray-500 text-xs uppercase">
-                Total Transactions
-              </p>
-
-              <h3 className="text-2xl font-black text-blue-400 mt-2">
-                {transactionStats.totalTransactions}
-              </h3>
-
-            </div>
-
-            <div className="bg-black border border-green-500 rounded-xl p-4">
-
-              <p className="text-gray-500 text-xs uppercase">
-                Completed
-              </p>
-
-              <h3 className="text-2xl font-black text-green-400 mt-2">
-                {transactionStats.completed}
-              </h3>
-
-            </div>
-
-            <div className="bg-black border border-yellow-500 rounded-xl p-4">
-
-              <p className="text-gray-500 text-xs uppercase">
-                Pending
-              </p>
-
-              <h3 className="text-2xl font-black text-yellow-400 mt-2">
-                {transactionStats.pending}
-              </h3>
-
-            </div>
-
-            <div className="bg-black border border-purple-500 rounded-xl p-4">
-
-              <p className="text-gray-500 text-xs uppercase">
-                Showing Records
-              </p>
-
-              <h3 className="text-2xl font-black text-purple-400 mt-2">
-                {filteredTransactions.length}
-              </h3>
-
-            </div>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* WALLET VOLUME SUMMARY */}
-          {/* ============================================= */}
-
-          <div className="grid md:grid-cols-3 gap-5">
-
-            {/* PKR */}
-
-            <div className="bg-black border border-green-500 rounded-xl p-5">
-
-              <div className="flex justify-between items-center">
-
-                <Wallet size={22} className="text-green-400" />
-
-                <span className="text-green-400 text-xs font-bold">
-                  PKR WALLET
-                </span>
-
-              </div>
-
-              <p className="text-gray-500 text-sm mt-4">
-                Total PKR Volume
-              </p>
-
-              <h3 className="text-2xl font-black text-green-400 mt-2">
-                PKR {Math.round(transactionStats.totalPKR).toLocaleString()}
-              </h3>
-
-            </div>
-
-            {/* GOLD */}
-
-            <div className="bg-black border border-yellow-500 rounded-xl p-5">
-
-              <div className="flex justify-between items-center">
-
-                <Coins size={22} className="text-yellow-400" />
-
-                <span className="text-yellow-400 text-xs font-bold">
-                  GOLD WALLET
-                </span>
-
-              </div>
-
-              <p className="text-gray-500 text-sm mt-4">
-                Gold Volume
-              </p>
-
-              <h3 className="text-2xl font-black text-yellow-400 mt-2">
-                {transactionStats.totalGold.toFixed(4)} g
-              </h3>
-
-            </div>
-
-            {/* USDT */}
-
-            <div className="bg-black border border-cyan-500 rounded-xl p-5">
-
-              <div className="flex justify-between items-center">
-
-                <DollarSign size={22} className="text-cyan-400" />
-
-                <span className="text-cyan-400 text-xs font-bold">
-                  USDT WALLET
-                </span>
-
-              </div>
-
-              <p className="text-gray-500 text-sm mt-4">
-                USDT Volume
-              </p>
-
-              <h3 className="text-2xl font-black text-cyan-400 mt-2">
-                {transactionStats.totalUsdt.toFixed(2)} USDT
-              </h3>
-
-            </div>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* ACTIVE FILTERS BAR */}
-          {/* ============================================= */}
-
-          <div className="flex flex-wrap gap-3 pt-2">
-
-            <span className="bg-zinc-800 border border-zinc-700 px-3 py-2 rounded-full text-sm">
-              Wallet:{" "}
-              <span className="text-cyan-400 font-bold">
-                {filterWallet}
-              </span>
-            </span>
-
-            <span className="bg-zinc-800 border border-zinc-700 px-3 py-2 rounded-full text-sm">
-              Status:{" "}
-              <span className="text-green-400 font-bold">
-                {filterStatus}
-              </span>
-            </span>
-
-            <span className="bg-zinc-800 border border-zinc-700 px-3 py-2 rounded-full text-sm">
-              Search:{" "}
-              <span className="text-yellow-400 font-bold">
-                {search === "" ? "None" : search}
-              </span>
-            </span>
-
-            {(search !== "" ||
-              filterWallet !== "ALL" ||
-              filterStatus !== "ALL") && (
-              <button
-                onClick={() => {
-                  setSearch("");
-                  setFilterWallet("ALL");
-                  setFilterStatus("ALL");
-                  setCurrentPage(1);
-                }}
-                className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-2 rounded-full text-sm font-bold hover:bg-red-500/30 transition"
-              >
-                Clear Filters
-              </button>
-            )}
-
-          </div>
-
-        </section>
-                {/* ================================================= */}
-        {/* DESKTOP WALLET TRANSACTION TABLE */}
-        {/* PART 9/12 */}
-        {/* Paste AFTER Wallet Transaction Toolbar */}
-        {/* ================================================= */}
-
-        <section className="hidden lg:block bg-zinc-900 border border-cyan-500 rounded-2xl overflow-hidden">
-
-          {/* HEADER */}
-
-          <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-800">
-
-            <h2 className="text-2xl font-black text-cyan-400">
-              Wallet Transaction Ledger
-            </h2>
-
-            <span className="text-gray-400 text-sm">
-              {filteredTransactions.length} Records Found
-            </span>
-
-          </div>
-
-          {/* TABLE */}
-
-          <div className="overflow-x-auto">
-
-            <table className="w-full min-w-[1150px]">
-
-              <thead className="bg-black text-gray-400 text-sm">
-
-                <tr>
-
-                  <th className="text-left px-5 py-4">Date & Time</th>
-
-                  <th className="text-left px-5 py-4">Wallet</th>
-
-                  <th className="text-left px-5 py-4">Transaction</th>
-
-                  <th className="text-left px-5 py-4">Amount</th>
-
-                  <th className="text-left px-5 py-4">Status</th>
-
-                  <th className="text-left px-5 py-4">Notes</th>
-
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                {paginatedTransactions.length === 0 ? (
-
-                  <tr>
-
-                    <td
-                      colSpan={6}
-                      className="text-center py-12 text-gray-500"
-                    >
-                      No wallet transactions found.
-                    </td>
-
-                  </tr>
-
-                ) : (
-
-                  paginatedTransactions.map((item) => (
-
-                    <tr
-                      key={item._id}
-                      className="border-t border-zinc-800 hover:bg-zinc-800/40 transition"
-                    >
-
-                      {/* DATE */}
-
-                      <td className="px-5 py-4">
-
-                        <div className="font-semibold">
-                          {new Date(item.createdAt).toLocaleDateString()}
-                        </div>
-
-                        <p className="text-xs text-gray-500 mt-1">
-                          {new Date(item.createdAt).toLocaleTimeString()}
-                        </p>
-
-                      </td>
-
-                      {/* WALLET TYPE */}
-
-                      <td className="px-5 py-4">
-
-                        {item.walletType === "PKR" && (
-                          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/20 border border-green-500 text-green-400 text-sm font-bold">
-                            <Wallet size={15} />
-                            PKR Wallet
-                          </span>
-                        )}
-
-                        {item.walletType === "GOLD" && (
-                          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/20 border border-yellow-500 text-yellow-400 text-sm font-bold">
-                            <Coins size={15} />
-                            Gold Wallet
-                          </span>
-                        )}
-
-                        {item.walletType === "USDT" && (
-                          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-500 text-cyan-400 text-sm font-bold">
-                            <DollarSign size={15} />
-                            USDT Wallet
-                          </span>
-                        )}
-
-                      </td>
-
-                      {/* TRANSACTION TYPE */}
-
-                      <td className="px-5 py-4">
-
-                        {item.type.toUpperCase().includes("DEPOSIT") && (
-                          <span className="inline-flex items-center gap-2 text-green-400 font-bold">
-                            <ArrowDownRight size={16} />
-                            {item.type}
-                          </span>
-                        )}
-
-                        {item.type.toUpperCase().includes("WITHDRAW") && (
-                          <span className="inline-flex items-center gap-2 text-red-400 font-bold">
-                            <ArrowUpRight size={16} />
-                            {item.type}
-                          </span>
-                        )}
-
-                        {item.type.toUpperCase().includes("BUY") && (
-                          <span className="inline-flex items-center gap-2 text-cyan-400 font-bold">
-                            <TrendingUp size={16} />
-                            {item.type}
-                          </span>
-                        )}
-
-                        {item.type.toUpperCase().includes("SELL") && (
-                          <span className="inline-flex items-center gap-2 text-orange-400 font-bold">
-                            <TrendingDown size={16} />
-                            {item.type}
-                          </span>
-                        )}
-
-                      </td>
-
-                      {/* AMOUNT */}
-
-                      <td className="px-5 py-4">
-
-                        <span className="font-black text-white">
-                          {Number(item.amount).toLocaleString()}
-                        </span>
-
-                        <p className="text-xs text-gray-500 mt-1">
-                          {item.walletType}
-                        </p>
-
-                      </td>
-
-                      {/* STATUS */}
-
-                      <td className="px-5 py-4">
-
-                        {item.status === "Completed" && (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-500/20 border border-green-500 text-green-400 text-sm font-bold">
-                            Completed
-                          </span>
-                        )}
-
-                        {item.status === "Pending" && (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full bg-yellow-500/20 border border-yellow-500 text-yellow-400 text-sm font-bold">
-                            Pending
-                          </span>
-                        )}
-
-                        {item.status === "Rejected" && (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full bg-red-500/20 border border-red-500 text-red-400 text-sm font-bold">
-                            Rejected
-                          </span>
-                        )}
-
-                      </td>
-
-                      {/* NOTES */}
-
-                      <td className="px-5 py-4">
-
-                        <span className="text-gray-400 text-sm">
-                          {item.note?.trim()
-                            ? item.note
-                            : "No notes available"}
-                        </span>
-
-                      </td>
-
-                    </tr>
-
-                  ))
-
-                )}
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-        </section>
-                {/* ================================================= */}
-        {/* MOBILE WALLET TRANSACTION CARDS */}
-        {/* PART 10/12 */}
-        {/* Paste AFTER Desktop Transaction Table */}
-        {/* ================================================= */}
-
-        <section className="lg:hidden space-y-4">
-
-          <div className="flex items-center justify-between">
-
-            <h2 className="text-2xl font-black text-cyan-400">
-              Wallet Transactions
-            </h2>
-
-            <span className="text-sm text-gray-400">
-              {filteredTransactions.length} Records
-            </span>
-
-          </div>
-
-          {paginatedTransactions.length === 0 ? (
-
-            <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-10 text-center">
-
-              <Wallet size={46} className="mx-auto text-gray-600 mb-4" />
-
-              <h3 className="text-lg font-bold text-gray-400">
-                No Wallet Transactions Found
-              </h3>
-
-              <p className="text-gray-500 mt-2 text-sm">
-                Deposit, Withdraw, Buy Gold, Sell Gold, Buy USDT and Sell USDT history will appear here.
-              </p>
-
-            </div>
-
-          ) : (
-
-            paginatedTransactions.map((item) => (
-
-              <div
-                key={item._id}
-                className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5 space-y-5"
-              >
-
-                {/* ====================================== */}
-                {/* DATE + STATUS */}
-                {/* ====================================== */}
-
-                <div className="flex justify-between items-start">
-
-                  <div>
-
-                    <p className="text-gray-500 text-xs uppercase">
-                      Transaction Date
-                    </p>
-
-                    <h4 className="font-bold mt-1">
-                      {new Date(item.createdAt).toLocaleDateString()}
-                    </h4>
-
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(item.createdAt).toLocaleTimeString()}
-                    </p>
-
-                  </div>
-
-                  {item.status === "Completed" && (
-                    <span className="bg-green-500/20 border border-green-500 text-green-400 px-3 py-1 rounded-full text-xs font-bold">
-                      Completed
-                    </span>
-                  )}
-
-                  {item.status === "Pending" && (
-                    <span className="bg-yellow-500/20 border border-yellow-500 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold">
-                      Pending
-                    </span>
-                  )}
-
-                  {item.status === "Rejected" && (
-                    <span className="bg-red-500/20 border border-red-500 text-red-400 px-3 py-1 rounded-full text-xs font-bold">
-                      Rejected
-                    </span>
-                  )}
-
-                </div>
-
-                {/* ====================================== */}
-                {/* WALLET TYPE */}
-                {/* ====================================== */}
-
-                <div className="flex items-center justify-between">
-
-                  <span className="text-gray-500 text-sm">
-                    Wallet Type
-                  </span>
-
-                  {item.walletType === "PKR" && (
-                    <span className="bg-green-500/20 border border-green-500 text-green-400 px-3 py-1 rounded-full text-sm font-bold">
-                      PKR Wallet
-                    </span>
-                  )}
-
-                  {item.walletType === "GOLD" && (
-                    <span className="bg-yellow-500/20 border border-yellow-500 text-yellow-400 px-3 py-1 rounded-full text-sm font-bold">
-                      Gold Wallet
-                    </span>
-                  )}
-
-                  {item.walletType === "USDT" && (
-                    <span className="bg-cyan-500/20 border border-cyan-500 text-cyan-400 px-3 py-1 rounded-full text-sm font-bold">
-                      USDT Wallet
-                    </span>
-                  )}
-
-                </div>
-
-                {/* ====================================== */}
-                {/* TRANSACTION TYPE */}
-                {/* ====================================== */}
-
-                <div className="flex items-center justify-between">
-
-                  <span className="text-gray-500 text-sm">
-                    Transaction
-                  </span>
-
-                  {item.type.toUpperCase().includes("DEPOSIT") && (
-                    <span className="flex items-center gap-2 text-green-400 font-bold">
-                      <ArrowDownRight size={15} />
-                      {item.type}
-                    </span>
-                  )}
-
-                  {item.type.toUpperCase().includes("WITHDRAW") && (
-                    <span className="flex items-center gap-2 text-red-400 font-bold">
-                      <ArrowUpRight size={15} />
-                      {item.type}
-                    </span>
-                  )}
-
-                  {item.type.toUpperCase().includes("BUY") && (
-                    <span className="flex items-center gap-2 text-cyan-400 font-bold">
-                      <TrendingUp size={15} />
-                      {item.type}
-                    </span>
-                  )}
-
-                  {item.type.toUpperCase().includes("SELL") && (
-                    <span className="flex items-center gap-2 text-orange-400 font-bold">
-                      <TrendingDown size={15} />
-                      {item.type}
-                    </span>
-                  )}
-
-                </div>
-
-                {/* ====================================== */}
-                {/* AMOUNT CARD */}
-                {/* ====================================== */}
-
-                <div className="bg-black rounded-xl border border-zinc-700 p-4">
-
-                  <p className="text-gray-500 text-xs uppercase">
-                    Transaction Amount
-                  </p>
-
-                  <h3 className="text-2xl font-black text-white mt-2">
-                    {Number(item.amount).toLocaleString()}
-                  </h3>
-
-                  <p className="text-sm text-cyan-400 mt-2">
-                    {item.walletType}
-                  </p>
-
-                </div>
-
-                {/* ====================================== */}
-                {/* NOTE CARD */}
-                {/* ====================================== */}
-
-                <div className="bg-black rounded-xl border border-zinc-700 p-4">
-
-                  <p className="text-gray-500 text-xs uppercase mb-2">
-                    Transaction Note
-                  </p>
-
-                  <p className="text-sm text-gray-300">
-                    {item.note?.trim()
-                      ? item.note
-                      : "No additional notes available for this transaction."}
-                  </p>
-
-                </div>
-
-              </div>
-
-            ))
-
-          )}
-
-        </section>
-                {/* ================================================= */}
-        {/* WALLET PAGINATION + RESULTS SUMMARY */}
-        {/* PART 11/12 */}
-        {/* Paste AFTER Mobile Transaction Cards */}
-        {/* ================================================= */}
-
-        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 space-y-6">
-
-          {/* ============================================= */}
-          {/* RESULTS SUMMARY CARDS */}
-          {/* ============================================= */}
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-
-            <div className="bg-black border border-blue-500 rounded-xl p-4">
-
-              <p className="text-gray-500 text-xs uppercase">
-                Current Page
-              </p>
-
-              <h2 className="text-3xl font-black text-blue-400 mt-2">
-                {currentPage}
-              </h2>
-
-            </div>
-
-            <div className="bg-black border border-cyan-500 rounded-xl p-4">
-
-              <p className="text-gray-500 text-xs uppercase">
-                Total Pages
-              </p>
-
-              <h2 className="text-3xl font-black text-cyan-400 mt-2">
-                {totalPages || 1}
-              </h2>
-
-            </div>
-
-            <div className="bg-black border border-green-500 rounded-xl p-4">
-
-              <p className="text-gray-500 text-xs uppercase">
-                Showing Records
-              </p>
-
-              <h2 className="text-3xl font-black text-green-400 mt-2">
-                {paginatedTransactions.length}
-              </h2>
-
-            </div>
-
-            <div className="bg-black border border-purple-500 rounded-xl p-4">
-
-              <p className="text-gray-500 text-xs uppercase">
-                Filtered Records
-              </p>
-
-              <h2 className="text-3xl font-black text-purple-400 mt-2">
-                {filteredTransactions.length}
-              </h2>
-
-            </div>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* PAGINATION BUTTONS */}
-          {/* ============================================= */}
-
-          <div className="flex flex-wrap items-center justify-center gap-3">
-
-            {/* Previous */}
-
-            <button
-              onClick={() =>
-                setCurrentPage((page) => Math.max(page - 1, 1))
-              }
-              disabled={currentPage === 1}
-              className="px-5 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition"
-            >
-              Previous
-            </button>
-
-            {/* Page Numbers */}
-
-            {Array.from(
-              { length: totalPages || 1 },
-              (_, index) => index + 1
-            ).map((page) => (
-
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`w-11 h-11 rounded-xl font-bold transition ${
-                  currentPage === page
-                    ? "bg-cyan-500 text-black"
-                    : "bg-zinc-800 hover:bg-zinc-700 text-white"
-                }`}
-              >
-                {page}
-              </button>
-
-            ))}
-
-            {/* Next */}
-
-            <button
-              onClick={() =>
-                setCurrentPage((page) =>
-                  Math.min(page + 1, totalPages || 1)
-                )
-              }
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="px-5 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition"
-            >
-              Next
-            </button>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* SHOWING RANGE */}
-          {/* ============================================= */}
-
-          <div className="text-center text-sm text-gray-400 border-t border-zinc-800 pt-5">
-
-            Showing{" "}
-
-            <span className="text-cyan-400 font-bold">
-              {filteredTransactions.length === 0
-                ? 0
-                : (currentPage - 1) * rowsPerPage + 1}
-            </span>
-
-            {" "}to{" "}
-
-            <span className="text-cyan-400 font-bold">
-              {Math.min(
-                currentPage * rowsPerPage,
-                filteredTransactions.length
-              )}
-            </span>
-
-            {" "}of{" "}
-
-            <span className="text-cyan-400 font-bold">
-              {filteredTransactions.length}
-            </span>
-
-            {" "}wallet transactions.
-
-          </div>
-
-          {/* ============================================= */}
-          {/* WALLET SUMMARY FOOTER */}
-          {/* ============================================= */}
-
-          <div className="grid md:grid-cols-3 gap-5">
-
-            <div className="bg-black border border-green-500 rounded-xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                PKR Wallet Balance
-              </p>
-
-              <h3 className="text-2xl font-black text-green-400 mt-2">
-                PKR {walletSummary.pkrBalance.toLocaleString()}
-              </h3>
-
-            </div>
-
-            <div className="bg-black border border-yellow-500 rounded-xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                Gold Wallet Value
-              </p>
-
-              <h3 className="text-2xl font-black text-yellow-400 mt-2">
-                PKR {Math.round(walletSummary.goldValuePKR).toLocaleString()}
-              </h3>
-
-            </div>
-
-            <div className="bg-black border border-cyan-500 rounded-xl p-5">
-
-              <p className="text-gray-500 text-sm">
-                USDT Wallet Value
-              </p>
-
-              <h3 className="text-2xl font-black text-cyan-400 mt-2">
-                PKR {Math.round(walletSummary.usdtValuePKR).toLocaleString()}
-              </h3>
-
-            </div>
-
-          </div>
-
-          {/* ============================================= */}
-          {/* NET WALLET WORTH */}
-          {/* ============================================= */}
-
-          <div className="bg-gradient-to-r from-purple-600 via-cyan-600 to-blue-700 rounded-2xl p-6">
-
-            <div className="flex flex-wrap justify-between items-center gap-5">
-
-              <div>
-
-                <p className="text-white/80 text-sm">
-                  Enterprise Wallet Net Worth
-                </p>
-
-                <h2 className="text-4xl font-black text-white mt-2">
-                  PKR {Math.round(walletSummary.totalWalletValue).toLocaleString()}
-                </h2>
-
-                <p className="text-white/80 mt-2 text-sm">
-                  Combined PKR + Gold + USDT valuation using live market prices.
-                </p>
-
-              </div>
-
-              <div className="text-center">
-
-                <Wallet size={56} className="text-white mx-auto" />
-
-                <p className="text-white font-bold mt-3">
-                  GoldTrade Wallet Enterprise
-                </p>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </section>
-                {/* ================================================= */}
-        {/* EMPTY WALLET STATE */}
-        {/* PART 12/12 FINAL */}
-        {/* Paste AFTER Pagination Section */}
-        {/* ================================================= */}
-
-        {walletSummary.totalWalletValue === 0 && (
-          <section className="bg-zinc-900 border border-yellow-500 rounded-2xl p-8 text-center">
-            <Wallet size={52} className="mx-auto text-yellow-400 mb-4" />
-
-            <h2 className="text-2xl font-black text-yellow-400">
-              Your Wallet is Empty
-            </h2>
-
-            <p className="text-gray-400 mt-3 max-w-xl mx-auto">
-              Your PKR, Gold and USDT balances are currently zero. Deposit funds
-              or purchase Gold/USDT to activate your enterprise wallet.
-            </p>
-
-            <div className="flex flex-wrap justify-center gap-4 mt-8">
-              <Link
-                href="/wallet/deposit"
-                className="bg-green-500 hover:bg-green-400 text-black px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition"
-              >
-                <ArrowDownRight size={18} />
-                Deposit PKR
-              </Link>
-
-              <Link
-                href="/usdt/buy"
-                className="bg-cyan-500 hover:bg-cyan-400 text-black px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition"
-              >
-                <DollarSign size={18} />
-                Buy USDT
-              </Link>
-
-              <Link
-                href="/gold/buy"
-                className="bg-yellow-500 hover:bg-yellow-400 text-black px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition"
-              >
-                <Coins size={18} />
-                Buy Gold
-              </Link>
-            </div>
-          </section>
-        )}
-
-        {/* ================================================= */}
-        {/* LIVE WALLET INFORMATION */}
-        {/* ================================================= */}
-
-        <section className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6">
-          <div className="flex flex-wrap justify-between items-center gap-6">
-            <div>
-              <h2 className="text-xl font-black text-cyan-400">
-                Live Wallet Information
-              </h2>
-
-              <p className="text-gray-400 mt-2">
-                Wallet valuation is calculated using live Gold and USDT market
-                prices from the backend.
-              </p>
-            </div>
-
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 disabled:cursor-not-allowed text-black px-5 py-3 rounded-xl font-bold flex items-center gap-2 transition"
-            >
-              <RefreshCw
-                size={18}
-                className={refreshing ? "animate-spin" : ""}
-              />
-
-              {refreshing ? "Refreshing..." : "Refresh Wallet"}
-            </button>
-          </div>
-
-          {/* LIVE INFO CARDS */}
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mt-6">
-            <div className="bg-black border border-green-500 rounded-xl p-4">
-              <p className="text-gray-500 text-sm">Gold Sell Rate</p>
-
-              <h3 className="text-2xl font-black text-yellow-400 mt-2">
-                PKR {goldMarket.sellPrice.toLocaleString()}
-              </h3>
-            </div>
-
-            <div className="bg-black border border-cyan-500 rounded-xl p-4">
-              <p className="text-gray-500 text-sm">USDT Sell Rate</p>
-
-              <h3 className="text-2xl font-black text-cyan-400 mt-2">
-                PKR {usdtMarket.sellPrice.toLocaleString()}
-              </h3>
-            </div>
-
-            <div className="bg-black border border-purple-500 rounded-xl p-4">
-              <p className="text-gray-500 text-sm">Net Wallet Worth</p>
-
-              <h3 className="text-2xl font-black text-purple-400 mt-2">
-                PKR {Math.round(walletSummary.totalWalletValue).toLocaleString()}
-              </h3>
-            </div>
-
-            <div className="bg-black border border-blue-500 rounded-xl p-4">
-              <p className="text-gray-500 text-sm">Last Refresh</p>
-
-              <h3 className="text-lg font-black text-blue-400 mt-2">
-                {new Date().toLocaleString()}
-              </h3>
-            </div>
-          </div>
-        </section>
-
-        {/* ================================================= */}
-        {/* ENTERPRISE FOOTER */}
-        {/* ================================================= */}
-
-        <footer className="border-t border-zinc-800 pt-8 mt-10">
-          <div className="grid md:grid-cols-3 gap-8">
-
-            {/* ABOUT */}
-
-            <div>
-              <h3 className="text-lg font-black text-cyan-400 mb-3">
-                GoldTrade Wallet Enterprise
-              </h3>
-
-              <p className="text-gray-500 text-sm leading-6">
-                Enterprise Wallet Dashboard provides PKR, Gold and USDT wallet
-                management, live valuation, analytics, transaction history and
-                secure trading tools.
-              </p>
-            </div>
-
-            {/* FEATURES */}
-
-            <div>
-              <h3 className="text-lg font-black text-green-400 mb-3">
-                Wallet Features
-              </h3>
-
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li>• PKR Wallet Management</li>
-                <li>• Gold Wallet</li>
-                <li>• USDT Wallet</li>
-                <li>• Deposit & Withdraw</li>
-                <li>• Live Wallet Analytics</li>
-                <li>• Enterprise Transaction Ledger</li>
-                <li>• Search & Filters</li>
-                <li>• Mobile Responsive Wallet</li>
-              </ul>
-            </div>
-
-            {/* STATUS */}
-
-            <div>
-              <h3 className="text-lg font-black text-purple-400 mb-3">
-                Wallet Status
-              </h3>
-
-              <div className="space-y-3">
-
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Gold Trading</span>
-
-                  <span
-                    className={
-                      goldMarket.tradingEnabled
-                        ? "text-green-400 font-bold"
-                        : "text-red-400 font-bold"
-                    }
-                  >
-                    {goldMarket.tradingEnabled ? "Enabled" : "Disabled"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span className="text-gray-500">USDT Trading</span>
-
-                  <span
-                    className={
-                      usdtMarket.tradingEnabled
-                        ? "text-cyan-400 font-bold"
-                        : "text-red-400 font-bold"
-                    }
-                  >
-                    {usdtMarket.tradingEnabled ? "Enabled" : "Disabled"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Wallet Value</span>
-
-                  <span className="text-purple-400 font-bold">
-                    PKR {Math.round(walletSummary.totalWalletValue).toLocaleString()}
-                  </span>
-                </div>
-
-              </div>
-            </div>
-
-          </div>
-
-          {/* FOOTER BOTTOM */}
-
-          <div className="border-t border-zinc-800 mt-8 pt-6 flex flex-wrap justify-between items-center gap-4">
-
-            <p className="text-gray-500 text-sm">
-              © 2026 GoldTrade V18 Enterprise Wallet. All rights reserved.
-            </p>
-
-            <div className="flex flex-wrap gap-4 text-sm">
-
-              <Link
-                href="/wallet/deposit"
-                className="text-green-400 hover:text-green-300 font-semibold transition"
-              >
-                Deposit
-              </Link>
-
-              <Link
-                href="/wallet/withdraw"
-                className="text-red-400 hover:text-red-300 font-semibold transition"
-              >
-                Withdraw
-              </Link>
-
-              <Link
-                href="/gold/buy"
-                className="text-yellow-400 hover:text-yellow-300 font-semibold transition"
-              >
-                Buy Gold
-              </Link>
-
-              <Link
-                href="/usdt/buy"
-                className="text-cyan-400 hover:text-cyan-300 font-semibold transition"
-              >
-                Buy USDT
-              </Link>
-
-            </div>
-
-          </div>
-
-        </footer>
+        <p className="text-sm text-gray-400">
+          Available PKR Balance
+        </p>
+
+        <h3 className="mt-2 text-3xl font-bold text-green-400">
+          PKR {formatCurrency(pkrBalance)}
+        </h3>
 
       </div>
+
+      <Landmark className="h-10 w-10 text-green-400"/>
+
+    </div>
+
+  </div>
+
+  {/* Submit Button */}
+
+  <button
+    onClick={submitWithdraw}
+    disabled={withdrawLoading}
+    className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+  >
+    {withdrawLoading ? (
+      <>
+        <Loader2 className="h-5 w-5 animate-spin"/>
+        Sending Withdraw Request...
+      </>
+    ) : (
+      <>
+        <ArrowUpCircle className="h-5 w-5"/>
+        Submit Withdraw Request
+      </>
+    )}
+  </button>
+
+</section>
+
+{/* ========================================================== */}
+{/* WITHDRAW SUMMARY */}
+{/* ========================================================== */}
+
+<section className="mb-10 grid gap-5 md:grid-cols-2">
+
+  <div className="rounded-2xl border border-red-500/20 bg-zinc-950 p-5">
+
+    <p className="text-sm text-gray-400">
+      Approved Withdrawals
+    </p>
+
+    <h3 className="mt-2 text-3xl font-bold text-red-400">
+      PKR {formatCurrency(totalWithdrawn)}
+    </h3>
+
+  </div>
+
+  <div className="rounded-2xl border border-yellow-500/20 bg-zinc-950 p-5">
+
+    <p className="text-sm text-gray-400">
+      Pending Withdrawals
+    </p>
+
+    <h3 className="mt-2 text-3xl font-bold text-yellow-400">
+      PKR {formatCurrency(pendingWithdrawals)}
+    </h3>
+
+  </div>
+
+</section>
+
+{/* ========================================================== */}
+{/* WITHDRAW HISTORY */}
+{/* ========================================================== */}
+
+<section className="mb-10 rounded-3xl border border-red-500/20 bg-zinc-950 p-6">
+
+  <div className="mb-6 flex items-center justify-between">
+
+    <div>
+      <h2 className="text-2xl font-bold text-red-400">
+        Withdraw History
+      </h2>
+
+      <p className="mt-1 text-sm text-gray-400">
+        Latest withdrawal requests.
+      </p>
+    </div>
+
+    <button
+      onClick={refreshWithdrawHistory}
+      className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition hover:bg-red-500"
+    >
+      Refresh
+    </button>
+
+  </div>
+
+  {withdrawLoading ? (
+    <div className="flex justify-center py-10">
+      <Loader2 className="h-8 w-8 animate-spin text-red-400"/>
+    </div>
+  ) : recentWithdrawals.length === 0 ? (
+    <div className="rounded-xl border border-zinc-800 bg-black p-6 text-center text-gray-500">
+      No Withdraw History Found.
+    </div>
+  ) : (
+    <div className="space-y-4">
+
+      {recentWithdrawals.map((withdraw) => (
+        <div
+          key={withdraw._id}
+          className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-black p-5 md:flex-row md:items-center md:justify-between"
+        >
+
+          <div>
+
+            <h3 className="text-lg font-semibold text-white">
+              PKR {formatCurrency(withdraw.amount)}
+            </h3>
+
+            <p className="mt-1 text-sm text-gray-400">
+              {withdraw.method}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-500">
+              {new Date(withdraw.createdAt).toLocaleString()}
+            </p>
+
+          </div>
+
+          <span
+            className={`rounded-full px-4 py-2 text-xs font-semibold ${getWithdrawStatusBadge(
+              withdraw.status
+            )}`}
+          >
+            {withdraw.status}
+          </span>
+
+        </div>
+      ))}
+
+    </div>
+  )}
+
+</section>
+
+{/* ========================================================== */}
+{/* WALLET TIMELINE */}
+{/* ========================================================== */}
+
+<section className="mb-10 rounded-3xl border border-blue-500/20 bg-zinc-950 p-6">
+
+  <div className="mb-6 flex items-center justify-between">
+
+    <div>
+      <h2 className="text-2xl font-bold text-blue-400">
+        Wallet Timeline
+      </h2>
+
+      <p className="mt-1 text-sm text-gray-400">
+        Recent deposits and withdrawals.
+      </p>
+    </div>
+
+    <History className="h-8 w-8 text-blue-400"/>
+
+  </div>
+
+  <div className="space-y-4">
+
+    {recentDeposits.slice(0, 5).map((deposit) => (
+      <div
+        key={`deposit-${deposit._id}`}
+        className="flex items-center justify-between rounded-xl border border-green-500/20 bg-black p-4"
+      >
+
+        <div className="flex items-center gap-3">
+
+          <ArrowDownCircle className="h-8 w-8 text-green-400"/>
+
+          <div>
+
+            <p className="font-semibold text-green-400">
+              Deposit Received
+            </p>
+
+            <p className="text-sm text-gray-400">
+              {deposit.method}
+            </p>
+
+            <p className="text-xs text-gray-500">
+              {new Date(deposit.createdAt).toLocaleString()}
+            </p>
+
+          </div>
+
+        </div>
+
+        <span className="font-bold text-green-400">
+          + PKR {formatCurrency(deposit.amount)}
+        </span>
+
+      </div>
+    ))}
+
+    {recentWithdrawals.slice(0, 5).map((withdraw) => (
+      <div
+        key={`withdraw-${withdraw._id}`}
+        className="flex items-center justify-between rounded-xl border border-red-500/20 bg-black p-4"
+      >
+
+        <div className="flex items-center gap-3">
+
+          <ArrowUpCircle className="h-8 w-8 text-red-400"/>
+
+          <div>
+
+            <p className="font-semibold text-red-400">
+              Withdraw Request
+            </p>
+
+            <p className="text-sm text-gray-400">
+              {withdraw.method}
+            </p>
+
+            <p className="text-xs text-gray-500">
+              {new Date(withdraw.createdAt).toLocaleString()}
+            </p>
+
+          </div>
+
+        </div>
+
+        <span className="font-bold text-red-400">
+          - PKR {formatCurrency(withdraw.amount)}
+        </span>
+
+      </div>
+    ))}
+
+  </div>
+
+</section>
+{/* ========================================================== */}
+{/* TRANSACTION SEARCH & FILTER */}
+{/* ========================================================== */}
+
+<section className="mb-10 rounded-3xl border border-blue-500/20 bg-zinc-950 p-6">
+
+  <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+
+    <div>
+      <h2 className="text-2xl font-bold text-blue-400">
+        Search Transactions
+      </h2>
+
+      <p className="mt-1 text-sm text-gray-400">
+        Search deposits or withdrawals by amount, method or status.
+      </p>
+    </div>
+
+    <div className="flex flex-wrap gap-3">
+
+      <div className="relative">
+
+        <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-500" />
+
+        <input
+          type="text"
+          value={searchHistory}
+          onChange={(e) => setSearchHistory(e.target.value)}
+          placeholder="Search..."
+          className="rounded-xl border border-zinc-700 bg-black py-3 pl-10 pr-4 text-white outline-none focus:border-blue-500"
+        />
+
+      </div>
+
+      <select
+        value={historyFilter}
+        onChange={(e) =>
+          setHistoryFilter(
+            e.target.value as "all" | "deposit" | "withdraw"
+          )
+        }
+        className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-blue-500"
+      >
+        <option value="all">All Transactions</option>
+        <option value="deposit">Deposits</option>
+        <option value="withdraw">Withdrawals</option>
+      </select>
+
+    </div>
+
+  </div>
+
+</section>
+{/* ========================================================== */}
+{/* WALLET STATISTICS */}
+{/* ========================================================== */}
+
+<section className="mb-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+  <div className="rounded-2xl border border-green-500/20 bg-zinc-950 p-5">
+    <p className="text-sm text-gray-400">Approved Deposits</p>
+
+    <h3 className="mt-2 text-2xl font-bold text-green-400">
+      PKR {formatCurrency(totalDeposited)}
+    </h3>
+  </div>
+
+  <div className="rounded-2xl border border-red-500/20 bg-zinc-950 p-5">
+    <p className="text-sm text-gray-400">Approved Withdrawals</p>
+
+    <h3 className="mt-2 text-2xl font-bold text-red-400">
+      PKR {formatCurrency(totalWithdrawn)}
+    </h3>
+  </div>
+
+  <div className="rounded-2xl border border-yellow-500/20 bg-zinc-950 p-5">
+    <p className="text-sm text-gray-400">Portfolio Value</p>
+
+    <h3 className="mt-2 text-2xl font-bold text-yellow-400">
+      PKR {formatCurrency(portfolioValue)}
+    </h3>
+  </div>
+
+  <div className="rounded-2xl border border-blue-500/20 bg-zinc-950 p-5">
+    <p className="text-sm text-gray-400">Wallet Status</p>
+
+    <h3 className="mt-2 text-2xl font-bold text-blue-400">
+      {walletHealth}
+    </h3>
+  </div>
+
+</section>
+{/* ========================================================== */}
+{/* CONTACT SUPPORT */}
+{/* ========================================================== */}
+
+<section className="mb-10 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
+
+  <h2 className="mb-6 text-2xl font-bold text-yellow-400">
+    Contact GoldTrade Support
+  </h2>
+
+  <div className="grid gap-5 md:grid-cols-2">
+
+    {/* WhatsApp */}
+
+    <a
+      href="https://wa.me/855000000000"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="rounded-2xl border border-green-500/20 bg-black p-5 transition hover:border-green-500"
+    >
+      <div className="flex items-center gap-4">
+
+        <div className="rounded-full bg-green-600 p-3">
+          <ArrowDownCircle className="h-6 w-6 text-white"/>
+        </div>
+
+        <div>
+          <p className="font-semibold text-green-400">
+            WhatsApp Support
+          </p>
+
+          <p className="text-sm text-gray-400">
+            +855 XX XXX XXX
+          </p>
+        </div>
+
+      </div>
+    </a>
+
+    {/* Telegram */}
+
+    <a
+      href="https://t.me/GoldTradeSupport"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="rounded-2xl border border-blue-500/20 bg-black p-5 transition hover:border-blue-500"
+    >
+      <div className="flex items-center gap-4">
+
+        <div className="rounded-full bg-blue-600 p-3">
+          <TrendingUp className="h-6 w-6 text-white"/>
+        </div>
+
+        <div>
+          <p className="font-semibold text-blue-400">
+            Telegram Support
+          </p>
+
+          <p className="text-sm text-gray-400">
+            @GoldTradeSupport
+          </p>
+        </div>
+
+      </div>
+    </a>
+
+  </div>
+
+</section>
+{/* ========================================================== */}
+{/* SECURITY NOTICE */}
+{/* ========================================================== */}
+
+<section className="mb-10 rounded-3xl border border-orange-500/20 bg-zinc-950 p-6">
+
+  <div className="flex items-start gap-4">
+
+    <ShieldCheck className="mt-1 h-10 w-10 text-orange-400"/>
+
+    <div>
+
+      <h3 className="text-xl font-semibold text-orange-400">
+        Security Notice
+      </h3>
+
+      <ul className="mt-3 space-y-2 text-sm text-gray-300">
+
+        <li>• Never share your GoldTrade password or OTP.</li>
+
+        <li>• Deposit receipts are verified by administrators.</li>
+
+        <li>• Withdrawals require administrator approval.</li>
+
+        <li>• JWT session expires automatically after logout.</li>
+
+        <li>• Use only official GoldTrade support channels.</li>
+
+      </ul>
+
+    </div>
+
+  </div>
+
+</section>
+
     </main>
   );
 }
+

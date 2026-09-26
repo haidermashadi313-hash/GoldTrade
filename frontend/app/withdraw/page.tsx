@@ -9,7 +9,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { getToken, getUser } from "@/lib/auth";
 import {
   ArrowLeft,
   Wallet,
@@ -206,15 +205,38 @@ export default function WithdrawPage() {
 useEffect(() => {
   if (typeof window === "undefined") return;
 
-  const token = getToken();
-  const user = getUser();
+  const storedToken =
+    localStorage.getItem("token") ||
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("jwt") ||
+    "";
+  const storedUser = localStorage.getItem("user");
+  let parsedUser: Partial<UserData> | null = null;
 
-  if (!token || !user) {
+  if (storedUser) {
+    try {
+      parsedUser = JSON.parse(storedUser);
+    } catch {
+      parsedUser = null;
+    }
+  }
+
+  if (!storedToken || !parsedUser) {
     router.replace("/login");
     return;
   }
 
-}, []);
+  setToken(storedToken);
+  setUsername(parsedUser.username || "");
+  setUser((currentUser) => ({
+    ...currentUser,
+    ...parsedUser,
+    username: parsedUser?.username || "",
+    fullName: parsedUser?.fullName || parsedUser?.username || "",
+    email: parsedUser?.email || "",
+    role: parsedUser?.role || "user",
+  }));
+}, [router]);
   // =====================================================
   // VERIFY SESSION
   // Backend: GET /api/auth/check

@@ -1,7 +1,3 @@
-// =====================================================
-// GoldTrade V18 Authentication Helper
-// =====================================================
-
 export interface GoldTradeUser {
   id: string;
   username: string;
@@ -9,47 +5,41 @@ export interface GoldTradeUser {
   role: "user" | "admin";
 }
 
-export const getToken = () => {
+export function getSession() {
   if (typeof window === "undefined") return null;
 
-  return (
+  const token =
     localStorage.getItem("goldtrade_token") ||
-    sessionStorage.getItem("goldtrade_token")
-  );
-};
+    sessionStorage.getItem("goldtrade_token");
 
-export const getUser = (): GoldTradeUser | null => {
-  if (typeof window === "undefined") return null;
-
-  const data =
+  const userString =
     localStorage.getItem("goldtrade_user") ||
     sessionStorage.getItem("goldtrade_user");
 
-  if (!data) return null;
+  if (!token || !userString) return null;
 
   try {
-    return JSON.parse(data);
+    const user: GoldTradeUser = JSON.parse(userString);
+
+    return {
+      token,
+      user,
+    };
   } catch {
     return null;
   }
-};
+}
 
-export const saveSession = (
-  token: string,
-  user: GoldTradeUser,
-  remember = true
-) => {
-  localStorage.clear();
-  sessionStorage.clear();
+export function clearSession() {
+  localStorage.removeItem("goldtrade_token");
+  localStorage.removeItem("goldtrade_user");
+  localStorage.removeItem("goldtrade_role");
+  localStorage.removeItem("goldtrade_username");
+  localStorage.removeItem("goldtrade_email");
 
-  const storage = remember ? localStorage : sessionStorage;
-
-  storage.setItem("goldtrade_token", token);
-  storage.setItem("goldtrade_user", JSON.stringify(user));
-  storage.setItem("goldtrade_role", user.role);
-};
-
-export const logout = () => {
-  localStorage.clear();
-  sessionStorage.clear();
-};
+  sessionStorage.removeItem("goldtrade_token");
+  sessionStorage.removeItem("goldtrade_user");
+  sessionStorage.removeItem("goldtrade_role");
+  sessionStorage.removeItem("goldtrade_username");
+  sessionStorage.removeItem("goldtrade_email");
+}

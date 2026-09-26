@@ -8,7 +8,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getToken, getUser, saveSession } from "@/lib/auth";
 import {
   ShieldCheck,
   User,
@@ -98,8 +97,19 @@ export default function LoginPage() {
 // ==========================================================
 
 useEffect(() => {
-  const token = getToken();
-  const user = getUser();
+  const token =
+    localStorage.getItem("goldtrade_token") ||
+    sessionStorage.getItem("goldtrade_token");
+  const storedUser =
+    localStorage.getItem("goldtrade_user") ||
+    sessionStorage.getItem("goldtrade_user");
+
+  let user: LoginResponse["user"] | null = null;
+  try {
+    user = storedUser ? JSON.parse(storedUser) : null;
+  } catch {
+    user = null;
+  }
 
   if (!token || !user) return;
 
@@ -108,7 +118,7 @@ useEffect(() => {
   } else {
     router.replace("/dashboard");
   }
-}, []);
+}, [router]);
 
 // ==========================================================
 // SAVE LOGIN SESSION

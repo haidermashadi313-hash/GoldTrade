@@ -7,7 +7,6 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { getToken, getUser } from "@/lib/auth";
 import {
   ArrowLeft,
   Wallet,
@@ -195,15 +194,33 @@ export default function DepositPage() {
 useEffect(() => {
   if (typeof window === "undefined") return;
 
-  const token = getToken();
-  const user = getUser();
+  const storedToken = window.localStorage.getItem("token");
+  const storedUsername = window.localStorage.getItem("username") || "";
+  const storedUser = window.localStorage.getItem("user");
 
-  if (!token || !user) {
+  if (!storedToken) {
     router.replace("/login");
     return;
   }
 
-  // Deposit page par hi raho
+  setToken(storedToken);
+  setUsername(storedUsername);
+
+  if (storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser) as Partial<UserData>;
+      setUser((current) => ({
+        ...current,
+        ...parsedUser,
+        username: parsedUser.username || storedUsername,
+      }));
+      if (!storedUsername && parsedUser.username) {
+        setUsername(parsedUser.username);
+      }
+    } catch {
+      // The session endpoint will populate the user profile.
+    }
+  }
 }, []);
 
   // =====================================================
