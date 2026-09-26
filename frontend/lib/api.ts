@@ -1,9 +1,24 @@
+// ==========================================================
+// GoldTrade V18 Enterprise
+// frontend/lib/api.ts
+// Single Production API Config
+// ==========================================================
+
+// Production Render Backend
 export const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://goldtrade-2.onrender.com";
 
-export const apiUrl = (path: string) => `${API}${path}`;
+// API Helper
+export const api = (path: string) => `${API}${path}`;
 
-export const getHeaders = (token?: string) => ({
+// Default Headers
+export const jsonHeaders = {
   "Content-Type": "application/json",
-  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+};
+
+// JWT Headers
+export const authHeaders = (token: string) => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${token}`,
 });

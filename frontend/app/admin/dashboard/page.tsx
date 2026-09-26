@@ -24,12 +24,12 @@ import {
 } from "@/lib/auth";
 
 // ==========================================================
-// API URL
+// API URL (Render Production)
 // ==========================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://goldtrade-api.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL?.trim() ||
+  "https://goldtrade-2.onrender.com";
 
 // ==========================================================
 // TYPES
