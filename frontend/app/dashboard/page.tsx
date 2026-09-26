@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-
+import { getToken, getUser, logout } from "@/lib/auth";
 import {
   Wallet,
   Coins,
@@ -187,39 +187,56 @@ export default function DashboardPage() {
     useState<string>("");
 
 // ==========================================================
-// DASHBOARD AUTH CHECK (PRODUCTION FIX)
+// DASHBOARD AUTH CHECK (GOLDTRADE V18 PRODUCTION FIX)
 // ==========================================================
 
 useEffect(() => {
   if (typeof window === "undefined") return;
 
-  const token =
-    localStorage.getItem("goldtrade_token") ||
-    sessionStorage.getItem("goldtrade_token");
-
-  const userData =
-    localStorage.getItem("goldtrade_user") ||
-    sessionStorage.getItem("goldtrade_user");
-
-  if (!token || !userData) {
-    router.replace("/login");
-    return;
-  }
+  let token: string | null = null;
+  let userData: string | null = null;
 
   try {
+    // Local ya Session storage dono support
+    token =
+      localStorage.getItem("goldtrade_token") ||
+      sessionStorage.getItem("goldtrade_token");
+
+    userData =
+      localStorage.getItem("goldtrade_user") ||
+      sessionStorage.getItem("goldtrade_user");
+
+    // Login nahi hai → Login page
+    if (!token || !userData) {
+      router.replace("/login");
+      return;
+    }
+
     const currentUser = JSON.parse(userData);
 
-    loadDashboard(currentUser.username, token);
-  } catch (error) {
-    console.error("Dashboard Auth Error:", error);
+    // Invalid session
+    if (!currentUser?.username) {
+      throw new Error("Invalid user session.");
+    }
 
-    localStorage.clear();
-    sessionStorage.clear();
+    // Dashboard data load karo
+    loadDashboard(currentUser.username, token);
+
+  } catch (error) {
+    console.error("DASHBOARD AUTH ERROR:", error);
+
+    // Broken session clear
+    localStorage.removeItem("goldtrade_token");
+    localStorage.removeItem("goldtrade_user");
+    localStorage.removeItem("goldtrade_role");
+
+    sessionStorage.removeItem("goldtrade_token");
+    sessionStorage.removeItem("goldtrade_user");
+    sessionStorage.removeItem("goldtrade_role");
 
     router.replace("/login");
   }
 }, []);
-
   /* ========================================================
      AUTH HEADERS
   ======================================================== */

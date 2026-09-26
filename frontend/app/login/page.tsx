@@ -8,7 +8,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-
+import { getToken, getUser, saveSession } from "@/lib/auth";
 import {
   ShieldCheck,
   User,
@@ -98,31 +98,15 @@ export default function LoginPage() {
 // ==========================================================
 
 useEffect(() => {
-  if (typeof window === "undefined") return;
+  const token = getToken();
+  const user = getUser();
 
-  const token =
-    localStorage.getItem("goldtrade_token") ||
-    sessionStorage.getItem("goldtrade_token");
+  if (!token || !user) return;
 
-  if (!token) return;
-
-  const userString =
-    localStorage.getItem("goldtrade_user") ||
-    sessionStorage.getItem("goldtrade_user");
-
-  if (!userString) return;
-
-  try {
-    const user = JSON.parse(userString);
-
-    if (user.role === "admin") {
-      router.replace("/admin/dashboard");
-    } else {
-      router.replace("/dashboard");
-    }
-  } catch {
-    localStorage.clear();
-    sessionStorage.clear();
+  if (user.role === "admin") {
+    router.replace("/admin/dashboard");
+  } else {
+    router.replace("/dashboard");
   }
 }, []);
 
@@ -196,18 +180,15 @@ const handleLogin = async (
     }
 
     // Save JWT + User
-    saveSession(data);
+saveSession(data);
 
-    setSuccessMessage("Login successful. Redirecting...");
+setSuccessMessage("Login successful.");
 
-    // Loading animation
-    await new Promise((resolve) => setTimeout(resolve, 700));
-
-    if (data.user.role === "admin") {
-      router.replace("/admin/dashboard");
-    } else {
-      router.replace("/dashboard");
-    }
+if (data.user.role === "admin") {
+  router.replace("/admin/dashboard");
+} else {
+  router.replace("/dashboard");
+}
   } catch (error: any) {
     console.error("LOGIN ERROR:", error);
 
