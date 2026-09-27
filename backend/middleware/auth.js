@@ -1,33 +1,47 @@
 // ======================================================
 // GoldTrade V18 Enterprise Middleware
-// PART 1/2
+// auth.js — PART 1/2
 // JWT Authentication + Token Validation
-// Render + Vercel + PM2 Compatible
+// Production Ready (Render + Vercel + PM2)
 // ======================================================
 
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 // ======================================================
-// VERIFY USER TOKEN
+// GET TOKEN FROM REQUEST
+// ======================================================
+
+const getTokenFromRequest = (req) => {
+  const authHeader =
+    req.headers.authorization || req.headers.Authorization;
+
+  if (
+    authHeader &&
+    typeof authHeader === "string" &&
+    authHeader.startsWith("Bearer ")
+  ) {
+    return authHeader.substring(7).trim();
+  }
+
+  if (req.headers["x-access-token"]) {
+    return req.headers["x-access-token"];
+  }
+
+  return null;
+};
+
+// ======================================================
+// VERIFY JWT TOKEN
 // ======================================================
 
 const verifyToken = async (req, res, next) => {
   try {
-    let token = null;
-
-    // Authorization Header
-    const authHeader =
-      req.headers.authorization || req.headers.Authorization;
-
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.split(" ")[1];
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET environment variable is missing.");
     }
 
-    // x-access-token fallback
-    if (!token && req.headers["x-access-token"]) {
-      token = req.headers["x-access-token"];
-    }
+    const token = getTokenFromRequest(req);
 
     if (!token) {
       return res.status(401).json({
@@ -36,16 +50,16 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Verify JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Find User
-    const user = await User.findById(decoded.id).select("-password");
+    const user = await User.findById(decoded.id)
+      .select("_id username email role isActive")
+      .lean();
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid token user.",
+        message: "Invalid authentication token.",
       });
     }
 
@@ -56,7 +70,6 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Attach user to request
     req.user = {
       id: user._id.toString(),
       username: user.username,
@@ -65,7 +78,6 @@ const verifyToken = async (req, res, next) => {
     };
 
     next();
-
   } catch (error) {
     console.error("VERIFY TOKEN ERROR:", error.message);
 
@@ -76,23 +88,27 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    return res.status(401).json({
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid authentication token.",
+      });
+    }
+
+    return res.status(500).json({
       success: false,
-      message: "Invalid authentication token.",
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Authentication failed."
+          : error.message,
     });
   }
 };
-
-// ======================================================
-// EXPORT VERIFY TOKEN
-// ======================================================
-
-module.exports.verifyToken = verifyToken;
 // ======================================================
 // GoldTrade V18 Enterprise Middleware
-// PART 2/2
-// Admin Authorization + Optional Auth + Exports
-// Render + PM2 + Ubuntu Compatible
+// auth.js — PART 2/2 FINAL
+// Admin + User + Optional Authentication
+// Production Ready (Render + PM2 + Ubuntu)
 // ======================================================
 
 // ======================================================
@@ -101,14 +117,16 @@ module.exports.verifyToken = verifyToken;
 
 const isAdmin = async (req, res, next) => {
   try {
-    if (!req.user) {
+    if (!req.user?.id) {
       return res.status(401).json({
         success: false,
         message: "Authentication required.",
       });
     }
 
-    const user = await User.findById(req.user.id).select("role isActive");
+    const user = await User.findById(req.user.id)
+      .select("_id role isActive")
+      .lean();
 
     if (!user) {
       return res.status(401).json({
@@ -137,25 +155,30 @@ const isAdmin = async (req, res, next) => {
 
     return res.status(500).json({
       success: false,
-      message: "Authorization failed.",
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Authorization failed."
+          : error.message,
     });
   }
 };
 
 // ======================================================
-// VERIFY USER ROLE
+// VERIFY USER (USER OR ADMIN)
 // ======================================================
 
 const isUser = async (req, res, next) => {
   try {
-    if (!req.user) {
+    if (!req.user?.id) {
       return res.status(401).json({
         success: false,
         message: "Authentication required.",
       });
     }
 
-    const user = await User.findById(req.user.id).select("role isActive");
+    const user = await User.findById(req.user.id)
+      .select("_id role isActive")
+      .lean();
 
     if (!user) {
       return res.status(401).json({
@@ -184,26 +207,22 @@ const isUser = async (req, res, next) => {
 
     return res.status(500).json({
       success: false,
-      message: "Authorization failed.",
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Authorization failed."
+          : error.message,
     });
   }
 };
 
 // ======================================================
 // OPTIONAL AUTH
-// Used for public routes that can also identify logged-in user
+// Public routes can identify logged-in users
 // ======================================================
 
 const optionalAuth = async (req, res, next) => {
   try {
-    let token = null;
-
-    const authHeader =
-      req.headers.authorization || req.headers.Authorization;
-
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.split(" ")[1];
-    }
+    const token = getTokenFromRequest(req);
 
     if (!token) {
       return next();
@@ -211,9 +230,9 @@ const optionalAuth = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded.id).select(
-      "_id username email role isActive"
-    );
+    const user = await User.findById(decoded.id)
+      .select("_id username email role isActive")
+      .lean();
 
     if (user && user.isActive !== false) {
       req.user = {
@@ -226,18 +245,19 @@ const optionalAuth = async (req, res, next) => {
 
     next();
   } catch {
+    // Ignore invalid token on optional auth
     next();
   }
 };
 
 // ======================================================
 // VERIFY ADMIN OR OWNER
-// Allows admin OR same logged-in user
+// Admin OR same logged-in username
 // ======================================================
 
 const verifyAdminOrSelf = async (req, res, next) => {
   try {
-    if (!req.user) {
+    if (!req.user?.id) {
       return res.status(401).json({
         success: false,
         message: "Authentication required.",
@@ -248,6 +268,13 @@ const verifyAdminOrSelf = async (req, res, next) => {
       req.params.username ||
       req.body.username ||
       req.query.username;
+
+    if (!requestedUsername) {
+      return res.status(400).json({
+        success: false,
+        message: "Username is required.",
+      });
+    }
 
     if (
       req.user.role === "admin" ||
@@ -260,13 +287,15 @@ const verifyAdminOrSelf = async (req, res, next) => {
       success: false,
       message: "Access denied.",
     });
-
   } catch (error) {
     console.error("VERIFY ADMIN OR SELF ERROR:", error.message);
 
     return res.status(500).json({
       success: false,
-      message: "Authorization failed.",
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Authorization failed."
+          : error.message,
     });
   }
 };

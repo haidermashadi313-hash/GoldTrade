@@ -1,8 +1,9 @@
 /*
 ========================================================
- GoldTrade V18 Enterprise
- Deposit Model
- Linux + Render + MongoDB Compatible
+ GoldTrade V18 Enterprise Backend
+ Deposit.js — PART 1/2
+ Deposit Request Model
+ Production Ready (Render + PM2 + MongoDB Atlas)
 ========================================================
 */
 
@@ -10,9 +11,16 @@
 
 const mongoose = require("mongoose");
 
-const depositSchema = new mongoose.Schema(
+// ======================================================
+// DEPOSIT SCHEMA
+// ======================================================
+
+const DepositSchema = new mongoose.Schema(
   {
-    // User Information
+    // ==================================================
+    // USER INFORMATION
+    // ==================================================
+
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -28,17 +36,76 @@ const depositSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Deposit Information
-    requestAmount: {
+    fullName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    email: {
+      type: String,
+      default: "",
+      trim: true,
+      lowercase: true,
+    },
+
+    // ==================================================
+    // DEPOSIT INFORMATION
+    // ==================================================
+
+    walletType: {
+      type: String,
+      required: true,
+      uppercase: true,
+      enum: ["PKR", "USDT"],
+      index: true,
+    },
+
+    amount: {
       type: Number,
       required: true,
       min: 1,
     },
 
+    currency: {
+      type: String,
+      default: "PKR",
+      uppercase: true,
+      trim: true,
+    },
+
+    network: {
+      type: String,
+      enum: ["TRC20", "ERC20", "BEP20", "SOL", "POLYGON", ""],
+      default: "",
+    },
+
+    // ==================================================
+    // PAYMENT DETAILS
+    // ==================================================
+
     paymentMethod: {
       type: String,
       required: true,
-      enum: ["JazzCash", "Easypaisa", "Bank", "USDT"],
+      trim: true,
+    },
+
+    senderName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    senderAccount: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    receiverAccount: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
     transactionId: {
@@ -47,45 +114,195 @@ const depositSchema = new mongoose.Schema(
       trim: true,
     },
 
+    referenceId: {
+      type: String,
+      default: "",
+      trim: true,
+      index: true,
+    },
+
+    // ==================================================
+    // RECEIPT / SCREENSHOT
+    // ==================================================
+
     receiptImage: {
       type: String,
       default: "",
       trim: true,
     },
 
-    // Admin Status
+    receiptUploaded: {
+      type: Boolean,
+      default: false,
+    },
+
+    // ==================================================
+    // STATUS
+    // ==================================================
+
     status: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected"],
-      default: "Pending",
+      enum: [
+        "PENDING",
+        "APPROVED",
+        "REJECTED",
+        "CANCELLED",
+      ],
+      default: "PENDING",
+      uppercase: true,
       index: true,
     },
 
-    adminNote: {
+    note: {
       type: String,
       default: "",
       trim: true,
+      maxlength: 500,
     },
 
-    reviewedBy: {
+    rejectReason: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 500,
+    },
+        // ==================================================
+    // WALLET SNAPSHOT
+    // ==================================================
+
+    walletBefore: {
+      pkrBalance: {
+        type: Number,
+        default: 0,
+      },
+      usdtBalance: {
+        type: Number,
+        default: 0,
+      },
+      goldBalance: {
+        type: Number,
+        default: 0,
+      },
+    },
+
+    walletAfter: {
+      pkrBalance: {
+        type: Number,
+        default: 0,
+      },
+      usdtBalance: {
+        type: Number,
+        default: 0,
+      },
+      goldBalance: {
+        type: Number,
+        default: 0,
+      },
+    },
+
+    // ==================================================
+    // ADMIN APPROVAL
+    // ==================================================
+
+    approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
 
-    reviewedAt: {
+    approvedByUsername: {
+      type: String,
+      default: "",
+      trim: true,
+      lowercase: true,
+    },
+
+    approvedAt: {
       type: Date,
       default: null,
+    },
+
+    rejectedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // ==================================================
+    // SECURITY / AUDIT
+    // ==================================================
+
+    ipAddress: {
+      type: String,
+      default: "",
+    },
+
+    device: {
+      type: String,
+      default: "",
+    },
+
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
     },
   },
   {
     timestamps: true,
     collection: "deposits",
+    versionKey: false,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 
-// Useful indexes
-depositSchema.index({ username: 1, createdAt: -1 });
-depositSchema.index({ status: 1, createdAt: -1 });
+// ======================================================
+// COMPOSITE INDEXES (Duplicate Warning Free)
+// ======================================================
 
-module.exports = mongoose.model("Deposit", depositSchema);
+DepositSchema.index({ userId: 1, createdAt: -1 });
+DepositSchema.index({ walletType: 1, status: 1 });
+DepositSchema.index({ status: 1, createdAt: -1 });
+
+// ======================================================
+// PRE SAVE MIDDLEWARE
+// ======================================================
+
+DepositSchema.pre("save", function (next) {
+  this.amount = Number(this.amount || 0);
+
+  if (this.walletType) {
+    this.walletType = this.walletType.toUpperCase();
+  }
+
+  if (this.currency) {
+    this.currency = this.currency.toUpperCase();
+  }
+
+  if (this.status) {
+    this.status = this.status.toUpperCase();
+  }
+
+  this.receiptUploaded = Boolean(this.receiptImage);
+
+  next();
+});
+
+// ======================================================
+// JSON CLEANUP
+// ======================================================
+
+DepositSchema.set("toJSON", {
+  virtuals: true,
+  transform(doc, ret) {
+    delete ret.__v;
+    return ret;
+  },
+});
+
+// ======================================================
+// SAFE EXPORT (Render + PM2 + Nodemon Safe)
+// ======================================================
+
+module.exports =
+  mongoose.models.Deposit ||
+  mongoose.model("Deposit", DepositSchema);

@@ -1,8 +1,8 @@
 /*
 ========================================================
  GoldTrade V18 Enterprise Backend
- GoldTrade.js — PART 1/2
- Gold Trading Ledger Model
+ UsdtTrade.js — PART 1/2
+ USDT Trading Ledger Model
  Production Ready (Render + PM2 + MongoDB Atlas)
 ========================================================
 */
@@ -12,10 +12,10 @@
 const mongoose = require("mongoose");
 
 // ======================================================
-// GOLD TRADE SCHEMA
+// USDT TRADE SCHEMA
 // ======================================================
 
-const GoldTradeSchema = new mongoose.Schema(
+const UsdtTradeSchema = new mongoose.Schema(
   {
     // ==================================================
     // USER INFORMATION
@@ -56,13 +56,13 @@ const GoldTradeSchema = new mongoose.Schema(
     },
 
     // ==================================================
-    // GOLD QUANTITY
+    // USDT QUANTITY
     // ==================================================
 
     quantity: {
       type: Number,
       required: true,
-      min: 0.0001,
+      min: 0.000001,
     },
 
     remainingQuantity: {
@@ -78,7 +78,7 @@ const GoldTradeSchema = new mongoose.Schema(
     },
 
     // ==================================================
-    // GOLD PRICE
+    // PRICE SNAPSHOT
     // ==================================================
 
     buyPrice: {
@@ -93,7 +93,7 @@ const GoldTradeSchema = new mongoose.Schema(
       min: 0,
     },
 
-    marketGoldPrice: {
+    marketPrice: {
       type: Number,
       default: 0,
       min: 0,
@@ -178,6 +178,24 @@ const GoldTradeSchema = new mongoose.Schema(
       index: true,
     },
 
+    paymentMethod: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    blockchainNetwork: {
+      type: String,
+      enum: ["TRC20", "ERC20", "BEP20", "SOL", "POLYGON", ""],
+      default: "TRC20",
+    },
+
+    walletAddress: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     note: {
       type: String,
       default: "",
@@ -222,7 +240,7 @@ const GoldTradeSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    collection: "gold_trades",
+    collection: "usdt_trades",
     versionKey: false,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
@@ -231,40 +249,41 @@ const GoldTradeSchema = new mongoose.Schema(
 
 // ======================================================
 // PERFORMANCE INDEXES
-// NOTE:
-// Do NOT duplicate indexes already defined with index:true
+// (Only composite indexes — no duplicate warnings)
 // ======================================================
 
-GoldTradeSchema.index({ userId: 1, createdAt: -1 });
-GoldTradeSchema.index({ tradeType: 1, createdAt: -1 });
-GoldTradeSchema.index({ status: 1, createdAt: -1 });
+UsdtTradeSchema.index({ userId: 1, createdAt: -1 });
+UsdtTradeSchema.index({ tradeType: 1, createdAt: -1 });
+UsdtTradeSchema.index({ status: 1, createdAt: -1 });
 
 // ======================================================
 // VIRTUALS
 // ======================================================
 
-// Active Gold Quantity
-GoldTradeSchema.virtual("activeQuantity").get(function () {
+// Remaining USDT available for selling
+UsdtTradeSchema.virtual("activeQuantity").get(function () {
   return Math.max(this.quantity - this.soldQuantity, 0);
 });
 
-// Estimated Current Value
-GoldTradeSchema.virtual("currentValue").get(function () {
-  return this.activeQuantity * this.marketGoldPrice;
+// Current market value of remaining USDT
+UsdtTradeSchema.virtual("currentValue").get(function () {
+  return this.activeQuantity * this.marketPrice;
 });
 
 // ======================================================
 // PRE SAVE MIDDLEWARE
 // ======================================================
 
-GoldTradeSchema.pre("save", function (next) {
+UsdtTradeSchema.pre("save", function (next) {
   this.quantity = Number(this.quantity || 0);
-  this.remainingQuantity = Number(this.remainingQuantity || this.quantity);
+  this.remainingQuantity = Number(
+    this.remainingQuantity || this.quantity
+  );
   this.soldQuantity = Number(this.soldQuantity || 0);
 
   this.buyPrice = Number(this.buyPrice || 0);
   this.sellPrice = Number(this.sellPrice || 0);
-  this.marketGoldPrice = Number(this.marketGoldPrice || 0);
+  this.marketPrice = Number(this.marketPrice || 0);
   this.usdToPkrRate = Number(this.usdToPkrRate || 0);
 
   this.totalAmount = Number(this.totalAmount || 0);
@@ -279,6 +298,15 @@ GoldTradeSchema.pre("save", function (next) {
     0
   );
 
+  // Normalize values
+  if (this.tradeType) {
+    this.tradeType = this.tradeType.toUpperCase();
+  }
+
+  if (this.status) {
+    this.status = this.status.toUpperCase();
+  }
+
   next();
 });
 
@@ -286,7 +314,7 @@ GoldTradeSchema.pre("save", function (next) {
 // JSON CLEANUP
 // ======================================================
 
-GoldTradeSchema.set("toJSON", {
+UsdtTradeSchema.set("toJSON", {
   virtuals: true,
   transform(doc, ret) {
     delete ret.__v;
@@ -299,5 +327,5 @@ GoldTradeSchema.set("toJSON", {
 // ======================================================
 
 module.exports =
-  mongoose.models.GoldTrade ||
-  mongoose.model("GoldTrade", GoldTradeSchema);
+  mongoose.models.UsdtTrade ||
+  mongoose.model("UsdtTrade", UsdtTradeSchema);

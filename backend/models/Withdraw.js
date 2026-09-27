@@ -1,8 +1,9 @@
 /*
 ========================================================
- GoldTrade V18 Enterprise
- Withdraw Model
- Linux + Render + MongoDB Compatible
+ GoldTrade V18 Enterprise Backend
+ Withdraw.js — PART 1/2
+ Withdraw Request Model
+ Production Ready (Render + PM2 + MongoDB Atlas)
 ========================================================
 */
 
@@ -14,9 +15,11 @@ const mongoose = require("mongoose");
 // WITHDRAW SCHEMA
 // ======================================================
 
-const withdrawSchema = new mongoose.Schema(
+const WithdrawSchema = new mongoose.Schema(
   {
-    // ================= USER INFO =================
+    // ==================================================
+    // USER INFORMATION
+    // ==================================================
 
     userId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -33,37 +36,81 @@ const withdrawSchema = new mongoose.Schema(
       index: true,
     },
 
-    // ================= WITHDRAW DETAILS =================
+    fullName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
 
-    withdrawAmount: {
+    email: {
+      type: String,
+      default: "",
+      trim: true,
+      lowercase: true,
+    },
+
+    // ==================================================
+    // WITHDRAW INFORMATION
+    // ==================================================
+
+    walletType: {
+      type: String,
+      required: true,
+      uppercase: true,
+      enum: ["PKR", "USDT"],
+      index: true,
+    },
+
+    amount: {
       type: Number,
       required: true,
       min: 1,
     },
 
-    walletType: {
+    currency: {
       type: String,
-      required: true,
-      enum: ["PKR", "GOLD", "USDT"],
+      default: "PKR",
+      uppercase: true,
+      trim: true,
     },
+
+    network: {
+      type: String,
+      enum: ["TRC20", "ERC20", "BEP20", "POLYGON", "SOL", ""],
+      default: "",
+    },
+
+    // ==================================================
+    // RECEIVER PAYMENT DETAILS
+    // ==================================================
 
     paymentMethod: {
-      type: String,
-      required: true,
-      enum: ["JazzCash", "Easypaisa", "Bank", "USDT"],
-    },
-
-    // ================= DESTINATION =================
-
-    accountTitle: {
       type: String,
       required: true,
       trim: true,
     },
 
-    accountNumber: {
+    receiverName: {
       type: String,
-      required: true,
+      default: "",
+      trim: true,
+    },
+
+    receiverAccount: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    receiverWalletAddress: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    bankName: {
+      type: String,
+      default: "",
       trim: true,
     },
 
@@ -73,66 +120,201 @@ const withdrawSchema = new mongoose.Schema(
       trim: true,
     },
 
-    walletAddress: {
+    transactionId: {
       type: String,
       default: "",
       trim: true,
     },
 
-    // ================= ADMIN REVIEW =================
+    referenceId: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // ==================================================
+    // STATUS
+    // ==================================================
 
     status: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected"],
-      default: "Pending",
+      enum: [
+        "PENDING",
+        "APPROVED",
+        "REJECTED",
+        "CANCELLED",
+        "PROCESSING",
+      ],
+      default: "PENDING",
+      uppercase: true,
       index: true,
     },
 
-    adminNote: {
+    note: {
       type: String,
       default: "",
       trim: true,
+      maxlength: 500,
     },
 
-    reviewedBy: {
+    rejectReason: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 500,
+    },
+        // ==================================================
+    // WALLET SNAPSHOT
+    // ==================================================
+
+    walletBefore: {
+      pkrBalance: {
+        type: Number,
+        default: 0,
+      },
+      usdtBalance: {
+        type: Number,
+        default: 0,
+      },
+      goldBalance: {
+        type: Number,
+        default: 0,
+      },
+    },
+
+    walletAfter: {
+      pkrBalance: {
+        type: Number,
+        default: 0,
+      },
+      usdtBalance: {
+        type: Number,
+        default: 0,
+      },
+      goldBalance: {
+        type: Number,
+        default: 0,
+      },
+    },
+
+    // ==================================================
+    // ADMIN AUDIT
+    // ==================================================
+
+    approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
 
-    reviewedAt: {
+    approvedByUsername: {
+      type: String,
+      default: "",
+      trim: true,
+      lowercase: true,
+    },
+
+    approvedAt: {
       type: Date,
       default: null,
     },
 
-    // ================= SECURITY =================
+    rejectedAt: {
+      type: Date,
+      default: null,
+    },
+
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+
+    // ==================================================
+    // SECURITY / AUDIT TRAIL
+    // ==================================================
 
     ipAddress: {
       type: String,
       default: "",
+      trim: true,
     },
 
     device: {
       type: String,
       default: "",
+      trim: true,
+    },
+
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
     },
   },
   {
     timestamps: true,
     collection: "withdraws",
+    versionKey: false,
   }
 );
 
 // ======================================================
-// INDEXES
+// INDEXES (MongoDB Optimized)
 // ======================================================
 
-withdrawSchema.index({ username: 1, createdAt: -1 });
-withdrawSchema.index({ status: 1, createdAt: -1 });
-withdrawSchema.index({ walletType: 1, createdAt: -1 });
+WithdrawSchema.index({ username: 1, createdAt: -1 });
+WithdrawSchema.index({ walletType: 1, createdAt: -1 });
+WithdrawSchema.index({ status: 1, createdAt: -1 });
+WithdrawSchema.index({ referenceId: 1 });
 
 // ======================================================
-// EXPORT MODEL
+// PRE-SAVE MIDDLEWARE
+// Auto uppercase / cleanup
 // ======================================================
 
-module.exports = mongoose.model("Withdraw", withdrawSchema);
+WithdrawSchema.pre("save", function (next) {
+  if (this.walletType) {
+    this.walletType = this.walletType.toUpperCase();
+  }
+
+  if (this.currency) {
+    this.currency = this.currency.toUpperCase();
+  }
+
+  if (this.status) {
+    this.status = this.status.toUpperCase();
+  }
+
+  if (this.username) {
+    this.username = this.username.trim().toLowerCase();
+  }
+
+  if (this.email) {
+    this.email = this.email.trim().toLowerCase();
+  }
+
+  if (this.approvedByUsername) {
+    this.approvedByUsername =
+      this.approvedByUsername.trim().toLowerCase();
+  }
+
+  next();
+});
+
+// ======================================================
+// JSON RESPONSE CLEANUP
+// ======================================================
+
+WithdrawSchema.set("toJSON", {
+  transform(doc, ret) {
+    delete ret.__v;
+    return ret;
+  },
+});
+
+// ======================================================
+// SAFE EXPORT (Render Hot Reload Safe)
+// ======================================================
+
+module.exports =
+  mongoose.models.Withdraw ||
+  mongoose.model("Withdraw", WithdrawSchema);
