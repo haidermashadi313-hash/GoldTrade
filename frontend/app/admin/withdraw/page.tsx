@@ -761,20 +761,23 @@ export default function AdminWithdrawPage() {
     await refreshWithdraws();
   }, [refreshWithdraws]);      
   
-  // =====================================================
-  // PAGE UI STARTS HERE
-  // =====================================================
+// =====================================================
+// PAGE UI STARTS HERE
+// =====================================================
 
-  return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-7xl px-4 py-6">
-  {/* ===================================================== */}
+return (
+  <main className="min-h-screen bg-black text-white">
+    <div className="mx-auto max-w-7xl px-4 py-6">
+
+      {/* ===================================================== */}
+      {/* PAGE HEADER */}
+      {/* ===================================================== */}
+
       <div className="mb-8 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
 
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
           <div>
-
             <div className="flex items-center gap-3">
 
               <Link
@@ -802,7 +805,6 @@ export default function AdminWithdrawPage() {
                 {admin?.username}
               </span>
             </p>
-
           </div>
 
           <button
@@ -814,7 +816,6 @@ export default function AdminWithdrawPage() {
               size={18}
               className={refreshing ? "animate-spin" : ""}
             />
-
             {refreshing ? "Refreshing..." : "Refresh"}
           </button>
 
@@ -865,7 +866,6 @@ export default function AdminWithdrawPage() {
           <div className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
             <div className="flex items-center justify-between">
               <Clock className="text-yellow-400" size={28}/>
-
               <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs text-yellow-400">
                 Pending
               </span>
@@ -889,7 +889,6 @@ export default function AdminWithdrawPage() {
           <div className="rounded-3xl border border-green-500/20 bg-zinc-950 p-6">
             <div className="flex items-center justify-between">
               <CheckCircle className="text-green-400" size={28}/>
-
               <span className="rounded-full bg-green-500/10 px-3 py-1 text-xs text-green-400">
                 Approved
               </span>
@@ -913,7 +912,6 @@ export default function AdminWithdrawPage() {
           <div className="rounded-3xl border border-red-500/20 bg-zinc-950 p-6">
             <div className="flex items-center justify-between">
               <XCircle className="text-red-400" size={28}/>
-
               <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs text-red-400">
                 Rejected
               </span>
@@ -937,7 +935,6 @@ export default function AdminWithdrawPage() {
           <div className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-6">
             <div className="flex items-center justify-between">
               <Wallet className="text-blue-400" size={28}/>
-
               <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs text-blue-400">
                 Total
               </span>
@@ -968,15 +965,12 @@ export default function AdminWithdrawPage() {
 
         <div className="mb-6 flex items-center gap-3">
           <Filter className="text-yellow-400" size={22}/>
-
           <h2 className="text-xl font-bold text-white">
             Search & Filters
           </h2>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-3">
-
-          {/* Search */}
 
           <div>
             <label className="mb-2 block text-sm text-gray-400">
@@ -1001,8 +995,6 @@ export default function AdminWithdrawPage() {
             </div>
           </div>
 
-          {/* Status Filter */}
-
           <div>
             <label className="mb-2 block text-sm text-gray-400">
               Withdraw Status
@@ -1010,9 +1002,7 @@ export default function AdminWithdrawPage() {
 
             <select
               value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(e.target.value as any)
-              }
+              onChange={(e) => setStatusFilter(e.target.value as any)}
               className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-yellow-400"
             >
               <option value="all">All Status</option>
@@ -1022,8 +1012,6 @@ export default function AdminWithdrawPage() {
             </select>
           </div>
 
-          {/* Currency Filter */}
-
           <div>
             <label className="mb-2 block text-sm text-gray-400">
               Currency
@@ -1031,9 +1019,7 @@ export default function AdminWithdrawPage() {
 
             <select
               value={currencyFilter}
-              onChange={(e) =>
-                setCurrencyFilter(e.target.value as any)
-              }
+              onChange={(e) => setCurrencyFilter(e.target.value as any)}
               className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-yellow-400"
             >
               <option value="all">All Currency</option>
@@ -1045,14 +1031,15 @@ export default function AdminWithdrawPage() {
 
         </div>
 
-      </section>
-            {/* ===================================================== */}
+      </section>      {/* ===================================================== */}
       {/* WITHDRAW REQUESTS TABLE */}
-      {/* PART 8/10 */}
+      {/* PART 2/5 */}
       {/* ===================================================== */}
 
       <section className="mb-8">
+
         <div className="mb-5 flex items-center justify-between">
+
           <h2 className="text-2xl font-bold text-white">
             Withdraw Requests
           </h2>
@@ -1060,6 +1047,7 @@ export default function AdminWithdrawPage() {
           <span className="rounded-full bg-zinc-800 px-3 py-1 text-sm text-gray-300">
             {filteredWithdraws.length} Requests
           </span>
+
         </div>
 
         <div className="overflow-x-auto rounded-3xl border border-zinc-800 bg-zinc-950">
@@ -1067,6 +1055,7 @@ export default function AdminWithdrawPage() {
           <table className="min-w-full text-sm">
 
             <thead className="bg-zinc-900 text-gray-400">
+
               <tr>
                 <th className="px-5 py-4 text-left">User</th>
                 <th className="px-5 py-4 text-left">Currency</th>
@@ -1076,31 +1065,41 @@ export default function AdminWithdrawPage() {
                 <th className="px-5 py-4 text-left">Date</th>
                 <th className="px-5 py-4 text-center">Actions</th>
               </tr>
+
             </thead>
 
             <tbody>
 
               {paginatedWithdraws.length === 0 ? (
+
                 <tr>
+
                   <td
                     colSpan={7}
-                    className="px-5 py-10 text-center text-gray-500"
+                    className="px-6 py-10 text-center text-gray-500"
                   >
                     No withdraw requests found.
                   </td>
+
                 </tr>
+
               ) : (
+
                 paginatedWithdraws.map((withdraw) => {
+
                   const StatusIcon = getStatusIcon(withdraw.status);
 
                   return (
+
                     <tr
                       key={withdraw._id}
-                      className="border-t border-zinc-800 hover:bg-zinc-900/40"
+                      className="border-t border-zinc-800 transition hover:bg-zinc-900/40"
                     >
+
                       {/* USER */}
 
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-4 align-top">
+
                         <p className="font-semibold text-white">
                           {withdraw.username}
                         </p>
@@ -1108,31 +1107,33 @@ export default function AdminWithdrawPage() {
                         <p className="mt-1 text-xs text-gray-500">
                           {withdraw.email || "No Email"}
                         </p>
+
                       </td>
 
                       {/* CURRENCY */}
 
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-4 align-top">
+
                         <div className="flex items-center gap-2">
 
                           {withdraw.currency === "PKR" && (
                             <DollarSign
-                              className="text-green-400"
                               size={18}
+                              className="text-green-400"
                             />
                           )}
 
                           {withdraw.currency === "USDT" && (
                             <Coins
-                              className="text-cyan-400"
                               size={18}
+                              className="text-cyan-400"
                             />
                           )}
 
                           {withdraw.currency === "GOLD" && (
                             <Gem
-                              className="text-yellow-400"
                               size={18}
+                              className="text-yellow-400"
                             />
                           )}
 
@@ -1141,22 +1142,28 @@ export default function AdminWithdrawPage() {
                           </span>
 
                         </div>
+
                       </td>
 
                       {/* AMOUNT */}
 
-                      <td className="px-5 py-4 font-semibold text-yellow-400">
-                        {formatAmount(
-                          withdraw.amount,
-                          withdraw.currency
-                        )}
+                      <td className="px-5 py-4 align-top">
+
+                        <span className="font-semibold text-yellow-400">
+                          {formatAmount(
+                            withdraw.amount,
+                            withdraw.currency
+                          )}
+                        </span>
+
                       </td>
 
-                      {/* WALLET / BANK DETAILS */}
+                      {/* WALLET / BANK */}
 
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-4 align-top">
 
                         {withdraw.currency === "PKR" ? (
+
                           <div className="space-y-1">
 
                             <p className="font-medium text-white">
@@ -1164,15 +1171,17 @@ export default function AdminWithdrawPage() {
                             </p>
 
                             <p className="text-xs text-gray-400">
-                              {withdraw.accountTitle}
+                              {withdraw.accountTitle || "Account Title"}
                             </p>
 
                             <p className="text-xs text-gray-500">
-                              {withdraw.accountNumber}
+                              {withdraw.accountNumber || "Account Number"}
                             </p>
 
                           </div>
+
                         ) : (
+
                           <div className="space-y-1">
 
                             <p className="font-medium text-white">
@@ -1184,61 +1193,64 @@ export default function AdminWithdrawPage() {
                             </p>
 
                           </div>
+
                         )}
 
                       </td>
 
                       {/* STATUS */}
 
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-4 align-top">
 
                         <span
                           className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${getStatusColor(
                             withdraw.status
                           )}`}
                         >
+
                           <StatusIcon size={14}/>
-                          {withdraw.status}
+
+                          {withdraw.status.toUpperCase()}
+
                         </span>
 
                       </td>
 
                       {/* DATE */}
 
-                      <td className="px-5 py-4 text-gray-400">
+                      <td className="px-5 py-4 align-top text-gray-400">
+
                         {formatDate(withdraw.createdAt)}
+
                       </td>
 
                       {/* ACTION BUTTONS */}
 
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-4 align-top">
 
                         {withdraw.status === "pending" ? (
-                          <div className="flex items-center justify-center gap-2">
 
-                            <button
-                              onClick={() =>
-                                approveWithdraw(withdraw._id)
-                              }
+                          <div className="flex items-center justify-center gap-2">
+                                                        <button
+                              onClick={() => approveWithdraw(withdraw._id)}
                               disabled={refreshing}
-                              className="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-green-500 disabled:opacity-50"
+                              className="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               Approve
                             </button>
 
                             <button
-                              onClick={() =>
-                                rejectWithdraw(withdraw._id)
-                              }
+                              onClick={() => rejectWithdraw(withdraw._id)}
                               disabled={refreshing}
-                              className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-500 disabled:opacity-50"
+                              className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               Reject
                             </button>
 
                           </div>
+
                         ) : (
-                          <div className="text-center text-xs text-gray-500">
+                          <div className="text-center text-xs font-medium text-gray-500">
                             Completed
                           </div>
                         )}
@@ -1246,8 +1258,10 @@ export default function AdminWithdrawPage() {
                       </td>
 
                     </tr>
+
                   );
                 })
+
               )}
 
             </tbody>
@@ -1257,9 +1271,60 @@ export default function AdminWithdrawPage() {
         </div>
 
       </section>
-            {/* ===================================================== */}
+
+      {/* ===================================================== */}
+      {/* TABLE SUMMARY */}
+      {/* ===================================================== */}
+
+      <section className="mb-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
+
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+          <div className="rounded-2xl bg-yellow-500/10 p-5">
+            <p className="text-xs uppercase tracking-wide text-yellow-300">
+              Pending Requests
+            </p>
+
+            <h3 className="mt-2 text-2xl font-bold text-yellow-400">
+              {pendingWithdraws.length}
+            </h3>
+          </div>
+
+          <div className="rounded-2xl bg-green-500/10 p-5">
+            <p className="text-xs uppercase tracking-wide text-green-300">
+              Approved Requests
+            </p>
+
+            <h3 className="mt-2 text-2xl font-bold text-green-400">
+              {approvedWithdraws.length}
+            </h3>
+          </div>
+
+          <div className="rounded-2xl bg-red-500/10 p-5">
+            <p className="text-xs uppercase tracking-wide text-red-300">
+              Rejected Requests
+            </p>
+
+            <h3 className="mt-2 text-2xl font-bold text-red-400">
+              {rejectedWithdraws.length}
+            </h3>
+          </div>
+
+          <div className="rounded-2xl bg-blue-500/10 p-5">
+            <p className="text-xs uppercase tracking-wide text-blue-300">
+              Total Requests
+            </p>
+
+            <h3 className="mt-2 text-2xl font-bold text-blue-400">
+              {filteredWithdraws.length}
+            </h3>
+          </div>
+
+        </div>
+
+      </section>      {/* ===================================================== */}
       {/* PAGINATION */}
-      {/* PART 9/10 */}
+      {/* PART 4/5 */}
       {/* ===================================================== */}
 
       <section className="mb-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
@@ -1295,19 +1360,19 @@ export default function AdminWithdrawPage() {
             <button
               onClick={previousPage}
               disabled={currentPage === 1}
-              className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-white hover:border-yellow-400 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-white transition hover:border-yellow-400 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Previous
             </button>
 
             <div className="rounded-xl bg-yellow-500 px-4 py-2 text-sm font-bold text-black">
-              {currentPage} / {totalPages}
+              Page {currentPage} / {totalPages}
             </div>
 
             <button
               onClick={nextPage}
-              disabled={currentPage === totalPages}
-              className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-white hover:border-yellow-400 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={currentPage >= totalPages}
+              className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-white transition hover:border-yellow-400 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Next
             </button>
@@ -1319,20 +1384,28 @@ export default function AdminWithdrawPage() {
       </section>
 
       {/* ===================================================== */}
-      {/* WITHDRAW SUMMARY FOOTER */}
+      {/* WITHDRAW SUMMARY */}
       {/* ===================================================== */}
 
       <section className="mb-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
 
-        <h2 className="mb-6 text-2xl font-bold text-white">
-          Withdraw Summary
-        </h2>
+        <div className="mb-6 flex items-center justify-between">
+
+          <h2 className="text-2xl font-bold text-white">
+            Withdraw Summary
+          </h2>
+
+          <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-sm text-yellow-400">
+            Enterprise Overview
+          </span>
+
+        </div>
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
 
           {/* Pending */}
 
-          <div className="rounded-2xl bg-yellow-500/10 p-5">
+          <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/5 p-5">
 
             <p className="text-xs uppercase tracking-wide text-yellow-300">
               Pending Amount
@@ -1350,7 +1423,7 @@ export default function AdminWithdrawPage() {
 
           {/* Approved */}
 
-          <div className="rounded-2xl bg-green-500/10 p-5">
+          <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-5">
 
             <p className="text-xs uppercase tracking-wide text-green-300">
               Approved Amount
@@ -1368,7 +1441,7 @@ export default function AdminWithdrawPage() {
 
           {/* Rejected */}
 
-          <div className="rounded-2xl bg-red-500/10 p-5">
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
 
             <p className="text-xs uppercase tracking-wide text-red-300">
               Rejected Amount
@@ -1386,7 +1459,7 @@ export default function AdminWithdrawPage() {
 
           {/* Total */}
 
-          <div className="rounded-2xl bg-blue-500/10 p-5">
+          <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5">
 
             <p className="text-xs uppercase tracking-wide text-blue-300">
               Total Withdraw Volume
@@ -1407,7 +1480,77 @@ export default function AdminWithdrawPage() {
       </section>
 
       {/* ===================================================== */}
-      {/* QUICK NAVIGATION */}
+      {/* ENTERPRISE ANALYTICS */}
+      {/* ===================================================== */}
+
+      <section className="mb-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
+
+        <div className="mb-6 flex items-center justify-between">
+
+          <h2 className="text-2xl font-bold text-white">
+            Enterprise Analytics
+          </h2>
+
+          <span className="rounded-full bg-zinc-800 px-3 py-1 text-sm text-gray-300">
+            Live Overview
+          </span>
+
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-3">
+
+          <div className="rounded-2xl border border-zinc-800 bg-black/40 p-5">
+
+            <p className="text-xs uppercase tracking-wide text-gray-500">
+              Pending Withdrawals
+            </p>
+
+            <h3 className="mt-3 text-3xl font-bold text-yellow-400">
+              {pendingWithdraws.length}
+            </h3>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Awaiting admin approval.
+            </p>
+
+          </div>
+
+          <div className="rounded-2xl border border-zinc-800 bg-black/40 p-5">
+
+            <p className="text-xs uppercase tracking-wide text-gray-500">
+              Approved Withdrawals
+            </p>
+
+            <h3 className="mt-3 text-3xl font-bold text-green-400">
+              {approvedWithdraws.length}
+            </h3>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Successfully processed withdrawals.
+            </p>
+
+          </div>
+
+          <div className="rounded-2xl border border-zinc-800 bg-black/40 p-5">
+
+            <p className="text-xs uppercase tracking-wide text-gray-500">
+              Total Withdraw Requests
+            </p>
+
+            <h3 className="mt-3 text-3xl font-bold text-blue-400">
+              {filteredWithdraws.length}
+            </h3>
+
+            <p className="mt-2 text-sm text-gray-500">
+              All PKR, USDT and GOLD withdrawal requests.
+            </p>
+
+          </div>
+
+        </div>
+
+      </section>      {/* ===================================================== */}
+      {/* ADMIN NAVIGATION */}
       {/* ===================================================== */}
 
       <section className="mb-8 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
@@ -1429,7 +1572,7 @@ export default function AdminWithdrawPage() {
             },
             {
               title: "Wallet Manager",
-              href: "/admin/wallet-manager",
+              href: "/admin/wallet",
             },
             {
               title: "Transactions",
@@ -1448,18 +1591,17 @@ export default function AdminWithdrawPage() {
         </div>
 
       </section>
-            {/* ===================================================== */}
-      {/* ENTERPRISE FOOTER */}
-      {/* PART 10/10 FINAL */}
+
+      {/* ===================================================== */}
+      {/* FOOTER */}
       {/* ===================================================== */}
 
       <footer className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
 
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 
-          {/* Left */}
-
           <div>
+
             <h2 className="text-xl font-bold text-yellow-400">
               GoldTrade V18 Enterprise
             </h2>
@@ -1471,9 +1613,8 @@ export default function AdminWithdrawPage() {
             <p className="mt-1 text-xs text-gray-600">
               Render Backend • Vercel Frontend • MongoDB Atlas • JWT Secure
             </p>
-          </div>
 
-          {/* Right */}
+          </div>
 
           <div className="text-sm text-gray-400 lg:text-right">
 
@@ -1502,11 +1643,7 @@ export default function AdminWithdrawPage() {
 
         </div>
 
-        {/* Divider */}
-
         <div className="my-6 border-t border-zinc-800"></div>
-
-        {/* Footer Summary */}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
@@ -1551,8 +1688,6 @@ export default function AdminWithdrawPage() {
           </div>
 
         </div>
-
-        {/* Copyright */}
 
         <div className="mt-8 border-t border-zinc-800 pt-5 text-center">
 
