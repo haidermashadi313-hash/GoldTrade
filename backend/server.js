@@ -286,7 +286,6 @@ const usdtRoutes = require("./routes/usdtRoutes");
 // ---------------- ADMIN ----------------
 const adminRoutes = require("./routes/adminRoutes");
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
-
 // ---------------- PAYMENT SETTINGS ----------------
 const paymentSettingsRoutes = require("./routes/paymentSettingsRoutes");
 
@@ -324,7 +323,7 @@ app.use("/api/transactions", transactionRoutes);
 app.use("/api/usdt", usdtRoutes);
 
 // ---------- ADMIN DASHBOARD ----------
-app.use("/api/gold/admin", adminDashboardRoutes);
+app.use("/api/admin/dashboard", adminDashboardRoutes);
 
 // ---------- OTHER ADMIN ----------
 app.use("/api/admin", adminRoutes);
@@ -340,22 +339,27 @@ app.get("/api/routes", (req, res) => {
   return res.status(200).json({
     success: true,
     version: "GoldTrade V18 Enterprise",
-    totalRoutes: 12,
+    totalRoutes: 13,
+
     routes: {
       auth: "/api/auth",
       user: "/api/user",
       wallet: "/api/wallet",
+
       deposit: "/api/deposit",
       withdraw: "/api/withdraw",
-      adminWithdraws: "/api/gold/admin/withdraws",
+
       gold: "/api/gold",
-      market: "/api/market",
-      transactions: "/api/transactions",
       usdt: "/api/usdt",
+      market: "/api/market",
+
+      transactions: "/api/transactions",
+
       admin: "/api/admin",
-      adminDashboard: "/api/gold/admin",
+      adminDashboard: "/api/admin/dashboard", 
       paymentSettings: "/api/payment-settings",
     },
+
     timestamp: new Date().toISOString(),
   });
 });
