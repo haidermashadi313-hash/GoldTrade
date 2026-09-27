@@ -1,2633 +1,2595 @@
 ﻿"use client";
 
-/* ==========================================================
-   GoldTrade V18 Enterprise Dashboard
-   PART 1/10 (FIXED)
-   Next.js 15 + TypeScript + Linux + Vercel Ready
-========================================================== */
+// ======================================================
+// GoldTrade V18 - Dashboard Page
+// PART 1/12
+// Imports + Interfaces + Constants + States
+// ======================================================
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+
 import {
   Wallet,
-  Coins,
   DollarSign,
+  Gem,
   TrendingUp,
   TrendingDown,
   RefreshCw,
-  ArrowDownLeft,
   ArrowUpRight,
-  History,
-  User,
-  Shield,
+  ArrowDownLeft,
+  Clock,
+  ShieldCheck,
   Activity,
-  Eye,
-  EyeOff,
-  CheckCircle,
-  XCircle,
+  CircleDollarSign,
 } from "lucide-react";
-import { clearSession, logout } from "@/lib/auth";
 
-/* ==========================================================
-   API URL
-========================================================== */
+// ======================================================
+// API URL
+// ======================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
-  "http://127.0.0.1:5000";
+  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
 
-/* ==========================================================
-   TYPES
-========================================================== */
+// ======================================================
+// TypeScript Interfaces
+// ======================================================
 
-export interface UserInfo {
+interface DashboardUser {
+  _id: string;
   username: string;
-  fullName: string;
-  email: string;
+  fullName?: string;
+  email?: string;
   role: "user" | "admin";
 }
 
-export interface WalletData {
-  pkrBalance: number;
-  goldBalance: number;
-  usdtBalance: number;
+interface WalletData {
+  pkr: number;
+  usdt: number;
+  gold: number;
 }
 
-export interface GoldMarket {
+interface GoldPriceData {
   buyPrice: number;
   sellPrice: number;
-  marketStatus: "OPEN" | "CLOSED";
-  goldTradingEnabled: boolean;
-}
-
-export interface UsdtMarket {
-  buyPrice: number;
-  sellPrice: number;
-  network: string;
-  marketStatus: "OPEN" | "CLOSED";
+  goldPriceUSD: number;
+  usdToPkr: number;
   tradingEnabled: boolean;
+  marketStatus: "OPEN" | "CLOSED";
 }
 
-export interface TransactionItem {
+interface PortfolioData {
+  goldBalance: number;
+  investment: number;
+  currentValue: number;
+  profit: number;
+  profitPercent: number;
+}
+
+interface TransactionData {
   _id: string;
-  type: string;
+  type: "BUY" | "SELL" | "DEPOSIT" | "WITHDRAW";
   amount: number;
-  status: string;
+  goldGrams?: number;
+  status: "Pending" | "Completed" | "Rejected";
   createdAt: string;
 }
 
-export interface PortfolioSummary {
-  totalPkrValue: number;
-  goldValue: number;
-  usdtValue: number;
+interface DashboardStats {
+  totalBalancePKR: number;
+  totalGoldValue: number;
+  totalUsdtValue: number;
+  liveProfit: number;
+  liveProfitPercent: number;
 }
 
-/* ==========================================================
-   DEFAULT OBJECTS
-========================================================== */
+// ======================================================
+// Default Objects
+// ======================================================
 
-const defaultUser: UserInfo = {
-  username: "",
-  fullName: "",
-  email: "",
-  role: "user",
+const EMPTY_WALLET: WalletData = {
+  pkr: 0,
+  usdt: 0,
+  gold: 0,
 };
 
-const defaultWallet: WalletData = {
-  pkrBalance: 0,
+const EMPTY_GOLD_PRICE: GoldPriceData = {
+  buyPrice: 0,
+  sellPrice: 0,
+  goldPriceUSD: 0,
+  usdToPkr: 0,
+  tradingEnabled: false,
+  marketStatus: "CLOSED",
+};
+
+const EMPTY_PORTFOLIO: PortfolioData = {
   goldBalance: 0,
-  usdtBalance: 0,
+  investment: 0,
+  currentValue: 0,
+  profit: 0,
+  profitPercent: 0,
 };
 
-const defaultGoldMarket: GoldMarket = {
-  buyPrice: 0,
-  sellPrice: 0,
-  marketStatus: "OPEN",
-  goldTradingEnabled: true,
+const EMPTY_STATS: DashboardStats = {
+  totalBalancePKR: 0,
+  totalGoldValue: 0,
+  totalUsdtValue: 0,
+  liveProfit: 0,
+  liveProfitPercent: 0,
 };
 
-const defaultUsdtMarket: UsdtMarket = {
-  buyPrice: 0,
-  sellPrice: 0,
-  network: "TRC20",
-  marketStatus: "OPEN",
-  tradingEnabled: true,
-};
-
-const defaultPortfolio: PortfolioSummary = {
-  totalPkrValue: 0,
-  goldValue: 0,
-  usdtValue: 0,
-};
-
-/* ==========================================================
-   COMPONENT START
-========================================================== */
+// ======================================================
+// Dashboard Component
+// ======================================================
 
 export default function DashboardPage() {
   const router = useRouter();
 
-  /* ========================================================
-     AUTH STATE
-  ======================================================== */
+  // ====================================================
+  // Authentication
+  // ====================================================
 
-  const [token, setToken] = useState<string>("");
-  const [username, setUsername] = useState<string>("");
+  const [token, setToken] = useState("");
+  const [username, setUsername] = useState("");
+  const [user, setUser] = useState<DashboardUser | null>(null);
 
-  const [user, setUser] = useState<UserInfo>(defaultUser);
+  // ====================================================
+  // Main Dashboard States
+  // ====================================================
 
-  /* ========================================================
-     WALLET STATE
-  ======================================================== */
+  const [wallet, setWallet] = useState<WalletData>(EMPTY_WALLET);
 
-  const [wallet, setWallet] =
-    useState<WalletData>(defaultWallet);
-
-  /* ========================================================
-     GOLD MARKET STATE
-  ======================================================== */
-
-  const [goldMarket, setGoldMarket] =
-    useState<GoldMarket>(defaultGoldMarket);
-
-  /* ========================================================
-     USDT MARKET STATE
-  ======================================================== */
-
-  const [usdtMarket, setUsdtMarket] =
-    useState<UsdtMarket>(defaultUsdtMarket);
-
-  /* ========================================================
-     PORTFOLIO STATE
-  ======================================================== */
+  const [goldPrice, setGoldPrice] =
+    useState<GoldPriceData>(EMPTY_GOLD_PRICE);
 
   const [portfolio, setPortfolio] =
-    useState<PortfolioSummary>(defaultPortfolio);
+    useState<PortfolioData>(EMPTY_PORTFOLIO);
 
-  /* ========================================================
-     TRANSACTIONS
-  ======================================================== */
+  const [stats, setStats] =
+    useState<DashboardStats>(EMPTY_STATS);
 
-  const [transactions, setTransactions] = useState<
-    TransactionItem[]
-  >([]);
+  const [transactions, setTransactions] = useState<TransactionData[]>([]);
 
-  /* ========================================================
-     UI STATES
-  ======================================================== */
+  // ====================================================
+  // UI States
+  // ====================================================
 
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] =
-    useState<boolean>(false);
+  const [loading, setLoading] = useState(true);
 
-  const [showBalance, setShowBalance] =
-    useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [errorMessage, setErrorMessage] =
-    useState<string>("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-// ==========================================================
-// DASHBOARD AUTH CHECK (GOLDTRADE V18 PRODUCTION FIX)
-// ==========================================================
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-useEffect(() => {
-  if (typeof window === "undefined") return;
+  // Remaining logic will continue in PART 2/12.
+    // ======================================================
+  // JWT AUTHENTICATION + SECURE HEADERS
+  // PART 2/12
+  // ======================================================
 
-  let token: string | null = null;
-  let userData: string | null = null;
+  /**
+   * Browser localStorage se JWT token read karega.
+   * Multiple keys support ki gayi hain taake login page ke
+   * different versions bhi compatible rahen.
+   */
+  const getStoredToken = useCallback((): string => {
+    if (typeof window === "undefined") return "";
 
-  try {
-    // Local ya Session storage dono support
-    token =
-      localStorage.getItem("goldtrade_token") ||
-      sessionStorage.getItem("goldtrade_token");
+    return (
+      localStorage.getItem("token") ||
+      localStorage.getItem("jwt") ||
+      localStorage.getItem("accessToken") ||
+      ""
+    );
+  }, []);
 
-    userData =
-      localStorage.getItem("goldtrade_user") ||
-      sessionStorage.getItem("goldtrade_user");
+  /**
+   * Username bhi multiple keys se read karega.
+   */
+  const getStoredUsername = useCallback((): string => {
+    if (typeof window === "undefined") return "";
 
-    // Login nahi hai → Login page
-    if (!token || !userData) {
-      router.replace("/login");
-      return;
-    }
+    return (
+      localStorage.getItem("username") ||
+      localStorage.getItem("userName") ||
+      localStorage.getItem("user") ||
+      ""
+    );
+  }, []);
 
-    const currentUser = JSON.parse(userData);
-
-    // Invalid session
-    if (!currentUser?.username) {
-      throw new Error("Invalid user session.");
-    }
-
-    // Dashboard data load karo
-    loadDashboard(currentUser.username, token);
-
-  } catch (error) {
-    console.error("DASHBOARD AUTH ERROR:", error);
-
-    // Broken session clear
-    localStorage.removeItem("goldtrade_token");
-    localStorage.removeItem("goldtrade_user");
-    localStorage.removeItem("goldtrade_role");
-
-    sessionStorage.removeItem("goldtrade_token");
-    sessionStorage.removeItem("goldtrade_user");
-    sessionStorage.removeItem("goldtrade_role");
-
-    router.replace("/login");
-  }
-}, []);
-  /* ========================================================
-     AUTH HEADERS
-  ======================================================== */
-
+  /**
+   * Har authenticated request ke liye headers.
+   */
   const getHeaders = useCallback(
-    () => ({
-      Authorization: `Bearer ${token}`,
+    (jwt?: string): HeadersInit => ({
       "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt || token}`,
     }),
     [token]
   );
 
-  /* ========================================================
-     FORMAT HELPERS
-  ======================================================== */
+  // ======================================================
+  // CHECK LOGIN
+  // ======================================================
 
-  const formatMoney = useCallback(
-    (value: number = 0) =>
-      Number(value).toLocaleString("en-PK", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }),
-    []
-  );
-
-  const formatGold = useCallback(
-    (value: number = 0) =>
-      Number(value).toFixed(3),
-    []
-  );
-
-  const formatUsdt = useCallback(
-    (value: number = 0) =>
-      Number(value).toFixed(2),
-    []
-  );
-
-  const formatDate = useCallback(
-    (date: string) =>
-      new Date(date).toLocaleString("en-GB", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }),
-    []
-  );
-
-  /* ========================================================
-     TOTAL PORTFOLIO VALUE
-  ======================================================== */
-
-  const totalAssets = useMemo(() => {
-    return (
-      Number(wallet.pkrBalance) +
-      Number(wallet.goldBalance) *
-        Number(goldMarket.sellPrice) +
-      Number(wallet.usdtBalance) *
-        Number(usdtMarket.sellPrice)
-    );
-  }, [wallet, goldMarket.sellPrice, usdtMarket.sellPrice]);
-
-/* ==========================================================
-   PART 2/10
-   JWT AUTH + USER PROFILE (100% FIXED)
-   GoldTrade V18 Enterprise
-========================================================== */
-
-/* ==========================================================
-   VERIFY LOGIN TOKEN
-========================================================== */
-
-const verifyLogin = useCallback(
-  async (currentToken: string): Promise<boolean> => {
+  const checkLogin = useCallback(async () => {
     try {
-      const response = await fetch(`${API}/api/auth/check`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${currentToken}`,
-        },
-        cache: "no-store",
-      });
+      const savedToken = getStoredToken();
+      const savedUsername = getStoredUsername();
 
-      const data = await response.json();
-
-      console.log("AUTH CHECK:", data);
-
-      if (!response.ok || !data.success) {
-        localStorage.clear();
+      if (!savedToken || !savedUsername) {
         router.replace("/login");
         return false;
       }
 
+      setToken(savedToken);
+      setUsername(savedUsername);
+
       return true;
     } catch (error) {
-      console.error("VERIFY LOGIN ERROR:", error);
-
-      localStorage.clear();
+      console.error("Login check error:", error);
       router.replace("/login");
       return false;
     }
-  },
-  [router]
-);
+  }, [router, getStoredToken, getStoredUsername]);
 
-/* ==========================================================
-   LOAD USER PROFILE
-========================================================== */
+  // ======================================================
+  // VERIFY TOKEN FROM BACKEND
+  // ======================================================
 
-const loadUserProfile = useCallback(
-  async (currentToken: string) => {
+  const verifyUser = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await fetch(`${API}/api/auth/check`, {
+      const savedToken = getStoredToken();
+
+      if (!savedToken) {
+        router.replace("/login");
+        return false;
+      }
+
+      const response = await fetch(`${API}/api/auth/me`, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${currentToken}`,
-        },
+        headers: getHeaders(savedToken),
         cache: "no-store",
       });
 
-      const data = await response.json();
-
-      console.log("USER PROFILE:", data);
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Unable to verify user.");
+      if (!response.ok) {
+        throw new Error("Unauthorized");
       }
 
-      const profile = data.user ?? {};
+      const data = await response.json();
+
+      const currentUser =
+        data.user ||
+        data.data ||
+        data.profile ||
+        {};
 
       setUser({
-        username: profile.username || "",
-        fullName: profile.fullName || profile.username || "",
-        email: profile.email || "",
-        role: profile.role === "admin" ? "admin" : "user",
+        _id: currentUser._id || "",
+        username: currentUser.username || "",
+        fullName: currentUser.fullName || "",
+        email: currentUser.email || "",
+        role: currentUser.role || "user",
       });
 
-      setUsername(profile.username || "");
-    } catch (error: any) {
-      console.error("PROFILE ERROR:", error);
-
-      setErrorMessage(
-        error.message || "Failed to load user profile."
-      );
-    }
-  },
-  []
-);
-
-/* ==========================================================
-   AUTO VERIFY SESSION AFTER TOKEN LOAD
-========================================================== */
-
-useEffect(() => {
-  if (!token) return;
-
-  const initSession = async () => {
-    const valid = await verifyLogin(token);
-
-    if (!valid) return;
-
-    await loadUserProfile(token);
-  };
-
-  initSession();
-}, [token, verifyLogin, loadUserProfile]);
-
-/* ==========================================================
-   LOGOUT (GoldTrade V18 Production Fix)
-========================================================== */
-
-const handleLogout = useCallback(() => {
-  // Remove complete GoldTrade session
-  clearSession();
-
-  // Prevent browser back cache
-  window.history.replaceState(null, "", "/login");
-
-  // Redirect to login
-  router.replace("/login");
-
-  // Force refresh
-  setTimeout(() => {
-    window.location.href = "/login";
-  }, 100);
-}, [router]);
-
-/* ==========================================================
-   AUTH HELPERS
-========================================================== */
-
-const isLoggedIn = useMemo(() => token.length > 10, [token]);
-
-const isAdmin = useMemo(() => user.role === "admin", [user.role]);
-
-const authHeaders = useMemo(
-  () => ({
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  }),
-  [token]
-);
-
-/* ==========================================================
-   SESSION KEEP-ALIVE
-========================================================== */
-
-useEffect(() => {
-  if (!token) return;
-
-  const interval = setInterval(async () => {
-    await verifyLogin(token);
-  }, 5 * 60 * 1000);
-
-  return () => clearInterval(interval);
-}, [token, verifyLogin]);
-
-/* ==========================================================
-   PART 3/10
-   WALLET + GOLD + USDT PORTFOLIO
-   Production Fixed Version
-========================================================== */
-
-/* ==========================================================
-   LOAD PKR WALLET
-========================================================== */
-
-const loadWallet = useCallback(
-  async (currentUsername: string, currentToken: string) => {
-    try {
-      const response = await fetch(
-        `${API}/api/wallet/${currentUsername}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-          },
-          cache: "no-store",
-        }
-      );
-
-      const data = await response.json();
-
-      console.log("PKR WALLET:", data);
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Wallet not found.");
-      }
-
-      const balance = Number(
-        data.wallet?.balance ??
-          data.wallet?.pkrBalance ??
-          0
-      );
-
-      setWallet((prev) => ({
-        ...prev,
-        pkrBalance: balance,
-      }));
-
-      return balance;
-    } catch (error: any) {
-      console.error("PKR WALLET ERROR:", error);
-
-      setErrorMessage(
-        error.message || "Unable to load PKR wallet."
-      );
-
-      return 0;
-    }
-  },
-  []
-);
-
-/* ==========================================================
-   LOAD GOLD PORTFOLIO
-========================================================== */
-
-const loadGoldPortfolio = useCallback(
-  async (currentUsername: string, currentToken: string) => {
-    try {
-      const response = await fetch(
-        `${API}/api/gold/portfolio/${currentUsername}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-          },
-          cache: "no-store",
-        }
-      );
-
-      const data = await response.json();
-
-      console.log("GOLD PORTFOLIO:", data);
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Gold portfolio not available."
-        );
-      }
-
-      const goldBalance = Number(
-        data.portfolio?.goldBalance ??
-          data.portfolio?.balance ??
-          0
-      );
-
-      setWallet((prev) => ({
-        ...prev,
-        goldBalance,
-      }));
-
-      return goldBalance;
-    } catch (error: any) {
-      console.error("GOLD PORTFOLIO ERROR:", error);
-
-      setWallet((prev) => ({
-        ...prev,
-        goldBalance: 0,
-      }));
-
-      return 0;
-    }
-  },
-  []
-);
-
-/* ==========================================================
-   LOAD USDT PORTFOLIO
-========================================================== */
-
-const loadUsdtPortfolio = useCallback(
-  async (currentUsername: string, currentToken: string) => {
-    try {
-      const response = await fetch(
-        `${API}/api/usdt/portfolio/${currentUsername}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-          },
-          cache: "no-store",
-        }
-      );
-
-      const data = await response.json();
-
-      console.log("USDT PORTFOLIO:", data);
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "USDT portfolio not available."
-        );
-      }
-
-      const usdtBalance = Number(
-        data.portfolio?.usdtBalance ??
-          data.portfolio?.balance ??
-          0
-      );
-
-      setWallet((prev) => ({
-        ...prev,
-        usdtBalance,
-      }));
-
-      return usdtBalance;
-    } catch (error: any) {
-      console.error("USDT PORTFOLIO ERROR:", error);
-
-      setWallet((prev) => ({
-        ...prev,
-        usdtBalance: 0,
-      }));
-
-      return 0;
-    }
-  },
-  []
-);
-
-/* ==========================================================
-   CALCULATE COMPLETE PORTFOLIO VALUE
-========================================================== */
-
-const calculatePortfolio = useCallback(
-  (walletData: WalletData) => {
-    const goldValue =
-      Number(walletData.goldBalance) *
-      Number(goldMarket.sellPrice);
-
-    const usdtValue =
-      Number(walletData.usdtBalance) *
-      Number(usdtMarket.sellPrice);
-
-    const totalPkrValue =
-      Number(walletData.pkrBalance) +
-      goldValue +
-      usdtValue;
-
-    setPortfolio({
-      goldValue,
-      usdtValue,
-      totalPkrValue,
-    });
-  },
-  [goldMarket.sellPrice, usdtMarket.sellPrice]
-);
-
-/* ==========================================================
-   UPDATE PORTFOLIO AUTOMATICALLY
-========================================================== */
-
-useEffect(() => {
-  calculatePortfolio(wallet);
-}, [
-  wallet,
-  goldMarket.sellPrice,
-  usdtMarket.sellPrice,
-  calculatePortfolio,
-]);
-
-/* ==========================================================
-   PORTFOLIO SUMMARY HELPERS
-========================================================== */
-
-const goldCurrentValue = useMemo(
-  () =>
-    Number(wallet.goldBalance) *
-    Number(goldMarket.sellPrice),
-  [wallet.goldBalance, goldMarket.sellPrice]
-);
-
-const usdtCurrentValue = useMemo(
-  () =>
-    Number(wallet.usdtBalance) *
-    Number(usdtMarket.sellPrice),
-  [wallet.usdtBalance, usdtMarket.sellPrice]
-);
-
-const totalWalletValue = useMemo(
-  () =>
-    Number(wallet.pkrBalance) +
-    goldCurrentValue +
-    usdtCurrentValue,
-  [
-    wallet.pkrBalance,
-    goldCurrentValue,
-    usdtCurrentValue,
-  ]
-);
-
-/* ==========================================================
-   PORTFOLIO REFRESH
-========================================================== */
-
-const refreshPortfolio = useCallback(async () => {
-  if (!username || !token) return;
-
-  try {
-    const [
-      pkrBalance,
-      goldBalance,
-      usdtBalance,
-    ] = await Promise.all([
-      loadWallet(username, token),
-      loadGoldPortfolio(username, token),
-      loadUsdtPortfolio(username, token),
-    ]);
-
-    calculatePortfolio({
-      pkrBalance,
-      goldBalance,
-      usdtBalance,
-    });
-  } catch (error) {
-    console.error("PORTFOLIO REFRESH ERROR:", error);
-  }
-}, [
-  username,
-  token,
-  loadWallet,
-  loadGoldPortfolio,
-  loadUsdtPortfolio,
-  calculatePortfolio,
-]);
-
-/* ==========================================================
-   PART 4/10
-   GOLD MARKET + USDT MARKET (PRODUCTION FIXED)
-========================================================== */
-
-/* ==========================================================
-   LOAD GOLD MARKET PRICE
-========================================================== */
-
-const loadGoldMarket = useCallback(async (): Promise<GoldMarket> => {
-  try {
-    const response = await fetch(`${API}/api/gold/price`, {
-      method: "GET",
-      cache: "no-store",
-    });
-
-    const data = await response.json();
-
-    console.log("GOLD MARKET:", data);
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || "Gold market unavailable.");
-    }
-
-    const market: GoldMarket = {
-      buyPrice: Number(data.buyPrice || 0),
-      sellPrice: Number(data.sellPrice || 0),
-      marketStatus:
-        data.marketStatus === "CLOSED" ? "CLOSED" : "OPEN",
-      goldTradingEnabled:
-        data.goldTradingEnabled ?? true,
-    };
-
-    setGoldMarket(market);
-
-    return market;
-  } catch (error: any) {
-    console.error("GOLD MARKET ERROR:", error);
-
-    setGoldMarket(defaultGoldMarket);
-
-    return defaultGoldMarket;
-  }
-}, []);
-
-/* ==========================================================
-   LOAD USDT MARKET PRICE
-========================================================== */
-
-const loadUsdtMarket = useCallback(async (): Promise<UsdtMarket> => {
-  try {
-    const response = await fetch(`${API}/api/usdt/price`, {
-      method: "GET",
-      cache: "no-store",
-    });
-
-    const data = await response.json();
-
-    console.log("USDT MARKET:", data);
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || "USDT market unavailable.");
-    }
-
-    const market: UsdtMarket = {
-      buyPrice: Number(data.buyPrice || 0),
-      sellPrice: Number(data.sellPrice || 0),
-      network: data.network || "TRC20",
-      marketStatus:
-        data.marketStatus === "CLOSED" ? "CLOSED" : "OPEN",
-      tradingEnabled:
-        data.tradingEnabled ?? true,
-    };
-
-    setUsdtMarket(market);
-
-    return market;
-  } catch (error: any) {
-    console.error("USDT MARKET ERROR:", error);
-
-    setUsdtMarket(defaultUsdtMarket);
-
-    return defaultUsdtMarket;
-  }
-}, []);
-
-/* ==========================================================
-   MARKET STATUS HELPERS
-========================================================== */
-
-const goldMarketOpen = useMemo(() => {
-  return (
-    goldMarket.marketStatus === "OPEN" &&
-    goldMarket.goldTradingEnabled
-  );
-}, [goldMarket]);
-
-const usdtMarketOpen = useMemo(() => {
-  return (
-    usdtMarket.marketStatus === "OPEN" &&
-    usdtMarket.tradingEnabled
-  );
-}, [usdtMarket]);
-
-/* ==========================================================
-   MARKET SPREAD HELPERS
-========================================================== */
-
-const goldSpread = useMemo(() => {
-  return Number(goldMarket.sellPrice) -
-    Number(goldMarket.buyPrice);
-}, [goldMarket]);
-
-const usdtSpread = useMemo(() => {
-  return Number(usdtMarket.sellPrice) -
-    Number(usdtMarket.buyPrice);
-}, [usdtMarket]);
-
-/* ==========================================================
-   LIVE MARKET REFRESH
-========================================================== */
-
-const refreshMarketPrices = useCallback(async () => {
-  try {
-    await Promise.all([
-      loadGoldMarket(),
-      loadUsdtMarket(),
-    ]);
-  } catch (error) {
-    console.error("MARKET REFRESH ERROR:", error);
-  }
-}, [loadGoldMarket, loadUsdtMarket]);
-
-/* ==========================================================
-   INITIAL MARKET LOAD
-========================================================== */
-
-useEffect(() => {
-  refreshMarketPrices();
-}, [refreshMarketPrices]);
-
-/* ==========================================================
-   AUTO REFRESH EVERY 30 SECONDS
-========================================================== */
-
-useEffect(() => {
-  const interval = setInterval(() => {
-    refreshMarketPrices();
-  }, 30000);
-
-  return () => clearInterval(interval);
-}, [refreshMarketPrices]);
-
-/* ==========================================================
-   MARKET PRICE LABELS
-========================================================== */
-
-const goldStatusColor = useMemo(() => {
-  return goldMarketOpen
-    ? "text-green-400"
-    : "text-red-400";
-}, [goldMarketOpen]);
-
-const usdtStatusColor = useMemo(() => {
-  return usdtMarketOpen
-    ? "text-green-400"
-    : "text-red-400";
-}, [usdtMarketOpen]);
-
-/* ==========================================================
-   PART 5/10
-   TRANSACTIONS + DASHBOARD LOADER (IQ 800 FIXED)
-========================================================== */
-
-/* ==========================================================
-   LOAD RECENT TRANSACTIONS
-========================================================== */
-
-const loadTransactions = useCallback(
-  async (currentUsername: string, currentToken: string) => {
-    try {
-      const response = await fetch(
-        `${API}/api/transactions/${currentUsername}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-          },
-          cache: "no-store",
-        }
-      );
-
-      const data = await response.json();
-
-      console.log("TRANSACTIONS:", data);
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Transactions not available."
-        );
-      }
-
-      const txs: TransactionItem[] = Array.isArray(
-        data.transactions
-      )
-        ? data.transactions
-        : [];
-
-      txs.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() -
-          new Date(a.createdAt).getTime()
-      );
-
-      setTransactions(txs.slice(0, 10));
-
-      return txs;
-    } catch (error: any) {
-      console.error("TRANSACTION ERROR:", error);
-
-      setTransactions([]);
-
-      return [];
-    }
-  },
-  []
-);
-
-/* ==========================================================
-   LOAD GOLD HISTORY
-========================================================== */
-
-const loadGoldHistory = useCallback(
-  async (currentUsername: string, currentToken: string) => {
-    try {
-      const response = await fetch(
-        `${API}/api/gold/history/${currentUsername}`,
-        {
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-          },
-          cache: "no-store",
-        }
-      );
-
-      const data = await response.json();
-
-      console.log("GOLD HISTORY:", data);
-
-      return response.ok && data.success
-        ? data.history ?? []
-        : [];
+      return true;
     } catch (error) {
-      console.error("GOLD HISTORY ERROR:", error);
-      return [];
+      console.error("Token verification failed:", error);
+
+      localStorage.removeItem("token");
+      localStorage.removeItem("jwt");
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("username");
+
+      router.replace("/login");
+      return false;
     }
-  },
-  []
-);
+  }, [router, getStoredToken, getHeaders]);
 
-/* ==========================================================
-   LOAD USDT HISTORY
-========================================================== */
+  // ======================================================
+  // LOGOUT USER
+  // ======================================================
 
-const loadUsdtHistory = useCallback(
-  async (currentUsername: string, currentToken: string) => {
-    try {
-      const response = await fetch(
-        `${API}/api/usdt/history/${currentUsername}`,
-        {
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-          },
-          cache: "no-store",
+  const logout = useCallback(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("jwt");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("username");
+    localStorage.removeItem("user");
+
+    router.replace("/login");
+  }, [router]);
+
+  // ======================================================
+  // NUMBER FORMATTERS
+  // ======================================================
+
+  const formatCurrency = useCallback((value: number) => {
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(value || 0));
+  }, []);
+
+  const formatGold = useCallback((grams: number) => {
+    return Number(grams || 0).toFixed(4);
+  }, []);
+
+  const formatDate = useCallback((date: string) => {
+    return new Date(date).toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }, []);
+    // ======================================================
+  // PART 3/12
+  // WALLET + GOLD PRICE + DASHBOARD API FUNCTIONS
+  // ======================================================
+
+  // ------------------------------------------------------
+  // Load Wallet Balance
+  // ------------------------------------------------------
+
+  const loadWallet = useCallback(
+    async (currentUsername?: string, currentToken?: string) => {
+      try {
+        const userName = currentUsername || username;
+        const jwt = currentToken || token;
+
+        if (!userName || !jwt) return;
+
+        const response = await fetch(
+          `${API}/api/wallet/${encodeURIComponent(userName)}`,
+          {
+            method: "GET",
+            headers: getHeaders(jwt),
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Wallet API failed");
         }
-      );
+
+        const data = await response.json();
+
+        const walletData =
+          data.wallet ||
+          data.data ||
+          data ||
+          {};
+
+        setWallet({
+          pkr: Number(walletData.pkrBalance ?? walletData.pkr ?? 0),
+          usdt: Number(walletData.usdtBalance ?? walletData.usdt ?? 0),
+          gold: Number(walletData.goldBalance ?? walletData.gold ?? 0),
+        });
+      } catch (error) {
+        console.error("Wallet Error:", error);
+
+        setWallet({
+          pkr: 0,
+          usdt: 0,
+          gold: 0,
+        });
+      }
+    },
+    [username, token, getHeaders]
+  );
+
+  // ------------------------------------------------------
+  // Load Live Gold Prices
+  // ------------------------------------------------------
+
+  const loadGoldPrice = useCallback(async () => {
+    try {
+      const response = await fetch(`${API}/api/gold/price`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("Gold price API failed");
+      }
 
       const data = await response.json();
 
-      console.log("USDT HISTORY:", data);
+      const market =
+        data.data ||
+        data.market ||
+        data;
 
-      return response.ok && data.success
-        ? data.history ?? []
-        : [];
+      setGoldPrice({
+        buyPrice: Number(market.buyPrice ?? 0),
+        sellPrice: Number(market.sellPrice ?? 0),
+        goldPriceUSD: Number(market.goldPriceUSD ?? 0),
+        usdToPkr: Number(market.usdToPkr ?? 0),
+        tradingEnabled: Boolean(market.tradingEnabled),
+        marketStatus:
+          market.marketStatus === "OPEN" ? "OPEN" : "CLOSED",
+      });
     } catch (error) {
-      console.error("USDT HISTORY ERROR:", error);
-      return [];
+      console.error("Gold Price Error:", error);
+
+      setGoldPrice({
+        buyPrice: 0,
+        sellPrice: 0,
+        goldPriceUSD: 0,
+        usdToPkr: 0,
+        tradingEnabled: false,
+        marketStatus: "CLOSED",
+      });
     }
-  },
-  []
-);
+  }, []);
 
-/* ==========================================================
-   LOAD COMPLETE DASHBOARD
-========================================================== */
+  // ------------------------------------------------------
+  // Load Dashboard Statistics
+  // ------------------------------------------------------
 
-const loadDashboard = useCallback(
-  async (
-    currentUsername: string,
-    currentToken: string
-  ) => {
-    if (!currentUsername || !currentToken) return;
+  const loadDashboardStats = useCallback(
+    async (currentUsername?: string, currentToken?: string) => {
+      try {
+        const userName = currentUsername || username;
+        const jwt = currentToken || token;
 
+        if (!userName || !jwt) return;
+
+        const response = await fetch(
+          `${API}/api/dashboard/${encodeURIComponent(userName)}`,
+          {
+            method: "GET",
+            headers: getHeaders(jwt),
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Dashboard stats API failed");
+        }
+
+        const data = await response.json();
+
+        const dashboard =
+          data.stats ||
+          data.dashboard ||
+          data.data ||
+          data;
+
+        setStats({
+          totalBalancePKR: Number(
+            dashboard.totalBalancePKR ?? dashboard.balance ?? 0
+          ),
+          totalGoldValue: Number(
+            dashboard.totalGoldValue ?? dashboard.goldValue ?? 0
+          ),
+          totalUsdtValue: Number(
+            dashboard.totalUsdtValue ?? dashboard.usdtValue ?? 0
+          ),
+          liveProfit: Number(dashboard.liveProfit ?? 0),
+          liveProfitPercent: Number(
+            dashboard.liveProfitPercent ?? 0
+          ),
+        });
+
+        setLastUpdated(new Date());
+      } catch (error) {
+        console.error("Dashboard Stats Error:", error);
+
+        setStats({
+          totalBalancePKR: 0,
+          totalGoldValue: 0,
+          totalUsdtValue: 0,
+          liveProfit: 0,
+          liveProfitPercent: 0,
+        });
+      }
+    },
+    [username, token, getHeaders]
+  );
+
+  // ------------------------------------------------------
+  // Refresh Dashboard
+  // ------------------------------------------------------
+
+  const refreshDashboard = useCallback(async () => {
     try {
-      setLoading(true);
+      setRefreshing(true);
       setErrorMessage("");
 
-      /* ---------- Verify Login ---------- */
-
-      const valid = await verifyLogin(currentToken);
-
-      if (!valid) return;
-
-      /* ---------- Load Everything Parallel ---------- */
-
-      const [
-        _profile,
-        pkrBalance,
-        goldBalance,
-        usdtBalance,
-        goldPrices,
-        usdtPrices,
-        txs,
-      ] = await Promise.all([
-        loadUserProfile(currentToken),
-        loadWallet(currentUsername, currentToken),
-        loadGoldPortfolio(currentUsername, currentToken),
-        loadUsdtPortfolio(currentUsername, currentToken),
-        loadGoldMarket(),
-        loadUsdtMarket(),
-        loadTransactions(currentUsername, currentToken),
+      await Promise.all([
+        loadWallet(),
+        loadGoldPrice(),
+        loadDashboardStats(),
       ]);
 
-      /* ---------- Calculate Portfolio ---------- */
-
-      calculatePortfolio({
-        pkrBalance,
-        goldBalance,
-        usdtBalance,
-      });
-
-      console.log("Dashboard Loaded Successfully");
-
-      return {
-        transactions: txs,
-        goldPrices,
-        usdtPrices,
-      };
-    } catch (error: any) {
-      console.error("LOAD DASHBOARD ERROR:", error);
-
-      setErrorMessage(
-        error.message || "Dashboard failed to load."
-      );
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error("Refresh Error:", error);
+      setErrorMessage("Unable to refresh dashboard.");
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
-  },
-  [
-    verifyLogin,
-    loadUserProfile,
+  }, [
     loadWallet,
-    loadGoldPortfolio,
-    loadUsdtPortfolio,
-    loadGoldMarket,
-    loadUsdtMarket,
-    loadTransactions,
-    calculatePortfolio,
-  ]
-);
+    loadGoldPrice,
+    loadDashboardStats,
+  ]);
+    // ======================================================
+  // PART 4/12
+  // PORTFOLIO + TRANSACTION HISTORY + DASHBOARD LOADER
+  // ======================================================
 
-/* ==========================================================
-   REFRESH DASHBOARD
-========================================================== */
+  // ------------------------------------------------------
+  // Load Gold Portfolio
+  // ------------------------------------------------------
 
-const refreshDashboard = useCallback(async () => {
-  if (!username || !token) return;
+  const loadPortfolio = useCallback(
+    async (currentUsername?: string, currentToken?: string) => {
+      try {
+        const userName = currentUsername || username;
+        const jwt = currentToken || token;
 
-  try {
-    setRefreshing(true);
+        if (!userName || !jwt) return;
 
-    await loadDashboard(username, token);
-
-    console.log("Dashboard Refreshed");
-  } finally {
-    setRefreshing(false);
-  }
-}, [username, token, loadDashboard]);
-
-/* ==========================================================
-   INITIAL LOAD
-========================================================== */
-
-useEffect(() => {
-  if (!username || !token) return;
-
-  loadDashboard(username, token);
-}, [username, token, loadDashboard]);
-
-/* ==========================================================
-   AUTO REFRESH (60 SEC)
-========================================================== */
-
-useEffect(() => {
-  if (!username || !token) return;
-
-  const timer = setInterval(() => {
-    loadDashboard(username, token);
-  }, 60000);
-
-  return () => clearInterval(timer);
-}, [username, token, loadDashboard]);
-
-/* ==========================================================
-   CLEAR ERROR AFTER 5 SECONDS
-========================================================== */
-
-useEffect(() => {
-  if (!errorMessage) return;
-
-  const timer = setTimeout(() => {
-    setErrorMessage("");
-  }, 5000);
-
-  return () => clearTimeout(timer);
-}, [errorMessage]);
-
-/* ==========================================================
-   DASHBOARD STATS
-========================================================== */
-
-const dashboardStats = useMemo(() => {
-  const deposits = transactions.filter((tx) =>
-    tx.type.toUpperCase().includes("DEPOSIT")
-  ).length;
-
-  const withdraws = transactions.filter((tx) =>
-    tx.type.toUpperCase().includes("WITHDRAW")
-  ).length;
-
-  const completed = transactions.filter((tx) => {
-    const status = tx.status.toUpperCase();
-    return (
-      status === "SUCCESS" ||
-      status === "APPROVED" ||
-      status === "COMPLETED"
-    );
-  }).length;
-
-  return {
-    totalTransactions: transactions.length,
-    deposits,
-    withdraws,
-    completed,
-  };
-}, [transactions]);
-
-/* ==========================================================
-   PART 6/10
-   QUICK ACTIONS + DASHBOARD STATS + NAVIGATION
-========================================================== */
-
-/* ==========================================================
-   SAFE NAVIGATION (NEXT.JS APP ROUTER)
-========================================================== */
-
-const navigate = useCallback(
-  (path: string) => {
-    router.push(path);
-  },
-  [router]
-);
-
-/* ==========================================================
-   QUICK ACTIONS
-========================================================== */
-
-const quickActions = useMemo(
-  () => [
-    {
-      title: "Deposit PKR",
-      description: "Add funds to wallet",
-      icon: ArrowDownLeft,
-      color: "bg-green-600 hover:bg-green-700",
-      path: "/deposit",
-    },
-    {
-      title: "Withdraw PKR",
-      description: "Withdraw wallet balance",
-      icon: ArrowUpRight,
-      color: "bg-red-600 hover:bg-red-700",
-      path: "/withdraw",
-    },
-    {
-      title: "Gold Trading",
-      description: "Buy & Sell Gold",
-      icon: Coins,
-      color: "bg-yellow-500 hover:bg-yellow-600 text-black",
-      path: "/gold",
-    },
-    {
-      title: "USDT Trading",
-      description: "Buy & Sell USDT",
-      icon: DollarSign,
-      color: "bg-cyan-500 hover:bg-cyan-600 text-black",
-      path: "/usdt",
-    },
-    {
-      title: "Transactions",
-      description: "View History",
-      icon: History,
-      color: "bg-indigo-600 hover:bg-indigo-700",
-      path: "/transactions",
-    },
-    {
-      title: "Wallet",
-      description: "Wallet Overview",
-      icon: Wallet,
-      color: "bg-purple-600 hover:bg-purple-700",
-      path: "/wallet",
-    },
-  ],
-  []
-);
-
-/* ==========================================================
-   DASHBOARD SUMMARY CARDS
-========================================================== */
-
-const dashboardSummary = useMemo(() => {
-  const approvedTransactions = transactions.filter((tx) => {
-    const status = tx.status.toUpperCase();
-    return (
-      status === "APPROVED" ||
-      status === "COMPLETED" ||
-      status === "SUCCESS"
-    );
-  }).length;
-
-  const pendingTransactions = transactions.filter(
-    (tx) => tx.status.toUpperCase() === "PENDING"
-  ).length;
-
-  const rejectedTransactions = transactions.filter((tx) => {
-    const status = tx.status.toUpperCase();
-    return (
-      status === "REJECTED" || status === "FAILED"
-    );
-  }).length;
-
-  return {
-    totalAssets,
-    approvedTransactions,
-    pendingTransactions,
-    rejectedTransactions,
-    totalTransactions: transactions.length,
-  };
-}, [transactions, totalAssets]);
-
-/* ==========================================================
-   MARKET STATUS
-========================================================== */
-
-const marketCards = useMemo(
-  () => [
-    {
-      title: "Gold Market",
-      status: goldMarketOpen ? "OPEN" : "CLOSED",
-      value: `Buy PKR ${formatMoney(
-        goldMarket.buyPrice
-      )}`,
-      icon: Coins,
-      color: goldMarketOpen
-        ? "text-green-400"
-        : "text-red-400",
-    },
-    {
-      title: "USDT Market",
-      status: usdtMarketOpen ? "OPEN" : "CLOSED",
-      value: `Buy PKR ${formatMoney(
-        usdtMarket.buyPrice
-      )}`,
-      icon: DollarSign,
-      color: usdtMarketOpen
-        ? "text-green-400"
-        : "text-red-400",
-    },
-  ],
-  [
-    goldMarketOpen,
-    usdtMarketOpen,
-    goldMarket.buyPrice,
-    usdtMarket.buyPrice,
-    formatMoney,
-  ]
-);
-
-/* ==========================================================
-   QUICK ACTION UI
-========================================================== */
-
-const QuickActionsSection = () => (
-  <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6">
-    <div className="flex justify-between items-center mb-6">
-      <h2 className="text-2xl font-bold text-yellow-400">
-        Quick Actions
-      </h2>
-
-      <button
-        onClick={refreshDashboard}
-        disabled={refreshing}
-        className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 text-black font-semibold px-4 py-2 rounded-xl transition"
-      >
-        <RefreshCw
-          size={18}
-          className={
-            refreshing ? "animate-spin" : ""
+        const response = await fetch(
+          `${API}/api/gold/portfolio/${encodeURIComponent(userName)}`,
+          {
+            method: "GET",
+            headers: getHeaders(jwt),
+            cache: "no-store",
           }
-        />
-        Refresh
-      </button>
-    </div>
-
-    <div className="grid grid-cols-2 lg:grid-cols-3 gap-5">
-      {quickActions.map((action) => {
-        const Icon = action.icon;
-
-        return (
-          <button
-            key={action.title}
-            onClick={() => navigate(action.path)}
-            className={`${action.color} rounded-2xl p-5 transition text-center shadow-lg`}
-          >
-            <Icon
-              size={34}
-              className="mx-auto mb-3"
-            />
-
-            <p className="font-semibold text-base">
-              {action.title}
-            </p>
-
-            <p className="text-xs opacity-80 mt-2">
-              {action.description}
-            </p>
-          </button>
         );
-      })}
-    </div>
-  </div>
-);
 
-/* ==========================================================
-   DASHBOARD STATS UI
-========================================================== */
-
-const DashboardStatsSection = () => (
-  <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">
-    <div className="bg-[#111827] rounded-2xl border border-green-600/20 p-5">
-      <Activity className="text-green-400 mb-3" />
-      <p className="text-gray-400 text-sm">
-        Total Assets
-      </p>
-
-      <h3 className="text-xl font-bold text-green-400 mt-2">
-        {showBalance
-          ? `PKR ${formatMoney(
-              dashboardSummary.totalAssets
-            )}`
-          : "********"}
-      </h3>
-    </div>
-
-    <div className="bg-[#111827] rounded-2xl border border-blue-600/20 p-5">
-      <CheckCircle className="text-blue-400 mb-3" />
-      <p className="text-gray-400 text-sm">
-        Approved
-      </p>
-
-      <h3 className="text-xl font-bold text-blue-400 mt-2">
-        {
-          dashboardSummary.approvedTransactions
+        if (!response.ok) {
+          throw new Error("Portfolio API failed");
         }
-      </h3>
-    </div>
 
-    <div className="bg-[#111827] rounded-2xl border border-yellow-600/20 p-5">
-      <History className="text-yellow-400 mb-3" />
-      <p className="text-gray-400 text-sm">
-        Pending
-      </p>
+        const data = await response.json();
 
-      <h3 className="text-xl font-bold text-yellow-400 mt-2">
-        {dashboardSummary.pendingTransactions}
-      </h3>
-    </div>
+        const portfolioData =
+          data.portfolio ||
+          data.data ||
+          data;
 
-    <div className="bg-[#111827] rounded-2xl border border-red-600/20 p-5">
-      <XCircle className="text-red-400 mb-3" />
-      <p className="text-gray-400 text-sm">
-        Rejected
-      </p>
+        setPortfolio({
+          goldBalance: Number(portfolioData.goldBalance ?? 0),
+          investment: Number(portfolioData.investment ?? 0),
+          currentValue: Number(portfolioData.currentValue ?? 0),
+          profit: Number(portfolioData.profit ?? 0),
+          profitPercent: Number(portfolioData.profitPercent ?? 0),
+        });
+      } catch (error) {
+        console.error("Portfolio Error:", error);
 
-      <h3 className="text-xl font-bold text-red-400 mt-2">
-        {
-          dashboardSummary.rejectedTransactions
+        setPortfolio({
+          goldBalance: 0,
+          investment: 0,
+          currentValue: 0,
+          profit: 0,
+          profitPercent: 0,
+        });
+      }
+    },
+    [username, token, getHeaders]
+  );
+
+  // ------------------------------------------------------
+  // Load Transaction History
+  // ------------------------------------------------------
+
+  const loadTransactions = useCallback(
+    async (currentUsername?: string, currentToken?: string) => {
+      try {
+        const userName = currentUsername || username;
+        const jwt = currentToken || token;
+
+        if (!userName || !jwt) return;
+
+        const response = await fetch(
+          `${API}/api/transactions/${encodeURIComponent(userName)}`,
+          {
+            method: "GET",
+            headers: getHeaders(jwt),
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Transactions API failed");
         }
-      </h3>
-    </div>
-  </div>
-);
 
-/* ==========================================================
-   MARKET STATUS UI
-========================================================== */
+        const data = await response.json();
 
-const MarketStatusSection = () => (
-  <div className="grid md:grid-cols-2 gap-5">
-    {marketCards.map((market) => {
-      const Icon = market.icon;
+        const list =
+          data.transactions ||
+          data.history ||
+          data.data ||
+          [];
 
-      return (
-        <div
-          key={market.title}
-          className="rounded-2xl bg-[#111827] border border-gray-700 p-5"
-        >
-          <div className="flex justify-between items-center mb-4">
-            <Icon
-              size={28}
-              className={market.color}
-            />
+        const formatted: TransactionData[] = Array.isArray(list)
+          ? list.map((item: any) => ({
+              _id: item._id || crypto.randomUUID(),
+              type: item.type || "BUY",
+              amount: Number(item.amount ?? 0),
+              goldGrams: Number(item.goldGrams ?? 0),
+              status: item.status || "Completed",
+              createdAt: item.createdAt || new Date().toISOString(),
+            }))
+          : [];
 
-            <span
-              className={`text-xs font-bold px-3 py-1 rounded-full ${
-                market.status === "OPEN"
-                  ? "bg-green-600 text-white"
-                  : "bg-red-600 text-white"
-              }`}
-            >
-              {market.status}
-            </span>
-          </div>
+        setTransactions(formatted);
+      } catch (error) {
+        console.error("Transactions Error:", error);
+        setTransactions([]);
+      }
+    },
+    [username, token, getHeaders]
+  );
 
-          <p className="text-gray-400 text-sm">
-            {market.title}
-          </p>
+  // ------------------------------------------------------
+  // Load Complete Dashboard
+  // ------------------------------------------------------
 
-          <h3
-            className={`text-2xl font-bold mt-2 ${market.color}`}
-          >
-            {market.value}
-          </h3>
-        </div>
+  const loadDashboard = useCallback(
+    async (currentUsername?: string, currentToken?: string) => {
+      try {
+        const userName = currentUsername || username;
+        const jwt = currentToken || token;
+
+        if (!userName || !jwt) return;
+
+        setLoading(true);
+        setErrorMessage("");
+
+        await Promise.all([
+          loadWallet(userName, jwt),
+          loadGoldPrice(),
+          loadDashboardStats(userName, jwt),
+          loadPortfolio(userName, jwt),
+          loadTransactions(userName, jwt),
+        ]);
+
+        setLastUpdated(new Date());
+      } catch (error) {
+        console.error("Dashboard Load Error:", error);
+
+        setErrorMessage(
+          "Unable to load dashboard. Please refresh the page."
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      username,
+      token,
+      loadWallet,
+      loadGoldPrice,
+      loadDashboardStats,
+      loadPortfolio,
+      loadTransactions,
+    ]
+  );
+
+  // ------------------------------------------------------
+  // Dashboard Refresh Button
+  // ------------------------------------------------------
+
+  const handleRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      await loadDashboard();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadDashboard]);
+    // ======================================================
+  // PART 5/12
+  // INITIAL AUTH + useEffect + AUTO REFRESH
+  // ======================================================
+
+  // ------------------------------------------------------
+  // Authenticate user and load dashboard on first render
+  // ------------------------------------------------------
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeDashboard = async () => {
+      const loggedIn = await checkLogin();
+
+      if (!loggedIn || !isMounted) return;
+
+      const verified = await verifyUser();
+
+      if (!verified || !isMounted) return;
+
+      const savedToken = getStoredToken();
+      const savedUsername = getStoredUsername();
+
+      if (!savedToken || !savedUsername || !isMounted) return;
+
+      await loadDashboard(savedUsername, savedToken);
+    };
+
+    initializeDashboard();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    checkLogin,
+    verifyUser,
+    loadDashboard,
+    getStoredToken,
+    getStoredUsername,
+  ]);
+
+  // ------------------------------------------------------
+  // Auto Refresh Dashboard Every 30 Seconds
+  // ------------------------------------------------------
+
+  useEffect(() => {
+    if (!token || !username) return;
+
+    const interval = setInterval(() => {
+      loadDashboard(username, token);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [token, username, loadDashboard]);
+
+  // ------------------------------------------------------
+  // Refresh Dashboard When User Returns To Tab
+  // ------------------------------------------------------
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (
+        document.visibilityState === "visible" &&
+        token &&
+        username
+      ) {
+        loadDashboard(username, token);
+      }
+    };
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibility
+    );
+
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibility
       );
-    })}
-  </div>
-);
+    };
+  }, [token, username, loadDashboard]);
 
-/* ==========================================================
-   ACCOUNT STATUS CARD
-========================================================== */
+  // ------------------------------------------------------
+  // Refresh Dashboard When Window Gains Focus
+  // ------------------------------------------------------
 
-const AccountStatusSection = () => (
-  <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6">
-    <div className="flex flex-col lg:flex-row justify-between gap-6">
-      <div>
-        <h2 className="text-xl font-bold text-yellow-400 mb-3">
-          Account Status
-        </h2>
+  useEffect(() => {
+    const handleFocus = () => {
+      if (token && username) {
+        loadDashboard(username, token);
+      }
+    };
 
-        <p className="text-gray-400 text-sm">
-          Logged In User
-        </p>
+    window.addEventListener("focus", handleFocus);
 
-        <p className="text-green-400 font-semibold mt-2">
-          {user.fullName || username}
-        </p>
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [token, username, loadDashboard]);
 
-        <p className="text-gray-500 text-sm">
-          @{user.username}
-        </p>
+  // ------------------------------------------------------
+  // Derived Dashboard Values
+  // ------------------------------------------------------
 
-        <p className="text-gray-500 text-sm">
-          {user.email}
-        </p>
-      </div>
+  const totalAssetsPKR = useMemo(() => {
+    return (
+      Number(wallet.pkr) +
+      Number(stats.totalGoldValue) +
+      Number(stats.totalUsdtValue)
+    );
+  }, [wallet, stats]);
 
-      <div className="flex flex-col items-start lg:items-end gap-3">
-        <span className="bg-green-600/20 border border-green-500/30 text-green-400 px-4 py-2 rounded-full font-semibold">
-          VERIFIED USER
-        </span>
+  const profitColor = useMemo(() => {
+    return stats.liveProfit >= 0
+      ? "text-green-500"
+      : "text-red-500";
+  }, [stats.liveProfit]);
 
-        {isAdmin && (
-          <span className="bg-purple-600/20 border border-purple-500/30 text-purple-400 px-4 py-2 rounded-full font-semibold">
-            ADMIN ACCESS
-          </span>
-        )}
+  const marketOpen = useMemo(() => {
+    return (
+      goldPrice.marketStatus === "OPEN" &&
+      goldPrice.tradingEnabled
+    );
+  }, [goldPrice]);
 
-        <button
-          onClick={logout}
-          className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl font-semibold transition"
-        >
-          Logout
-        </button>
-      </div>
-    </div>
-  </div>
-);
+  const latestTransactions = useMemo(() => {
+    return transactions.slice(0, 8);
+  }, [transactions]);
 
-/* ==========================================================
-   PART 7/10
-   HEADER + WALLET CARDS + PORTFOLIO SUMMARY
-   GoldTrade V18 Enterprise (Production UI)
-========================================================== */
+  const portfolioGrowth = useMemo(() => {
+    if (portfolio.investment <= 0) return 0;
 
-/* ==========================================================
-   HEADER SECTION
-========================================================== */
+    return (
+      ((portfolio.currentValue - portfolio.investment) /
+        portfolio.investment) *
+      100
+    );
+  }, [portfolio]);
 
-const HeaderSection = () => (
-  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 mb-8">
-    <div>
-      <h1 className="text-3xl lg:text-4xl font-bold text-yellow-400">
-        GoldTrade V18 Enterprise Dashboard
-      </h1>
+  // ------------------------------------------------------
+  // Retry Loader (Used by Error Screen)
+  // ------------------------------------------------------
 
-      <p className="text-gray-400 mt-2">
-        Welcome back,{" "}
-        <span className="text-white font-semibold">
-          {user.fullName || username}
-        </span>
-      </p>
+  const retryLoading = useCallback(async () => {
+    setErrorMessage("");
+    await loadDashboard();
+  }, [loadDashboard]);
+    // ======================================================
+  // PART 6/12
+  // HELPER FUNCTIONS + REUSABLE UI RENDERERS
+  // ======================================================
 
-      <p className="text-gray-500 text-sm mt-1">
-        @{user.username}
-      </p>
-    </div>
+  // ------------------------------------------------------
+  // Currency Prefix
+  // ------------------------------------------------------
 
-    <div className="flex flex-wrap gap-3">
-      <button
-        onClick={() => setShowBalance((prev) => !prev)}
-        className="flex items-center gap-2 bg-[#1F2937] hover:bg-[#374151] px-5 py-3 rounded-xl border border-gray-700 transition"
-      >
-        {showBalance ? (
-          <Eye size={18} />
-        ) : (
-          <EyeOff size={18} />
-        )}
+  const currency = "PKR";
 
-        {showBalance ? "Hide Balance" : "Show Balance"}
-      </button>
+  // ------------------------------------------------------
+  // Transaction Status Badge Color
+  // ------------------------------------------------------
 
-      <button
-        onClick={refreshDashboard}
-        disabled={refreshing}
-        className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 text-black font-semibold px-5 py-3 rounded-xl transition"
-      >
-        <RefreshCw
-          size={18}
-          className={refreshing ? "animate-spin" : ""}
-        />
-        {refreshing ? "Refreshing..." : "Refresh"}
-      </button>
-    </div>
-  </div>
-);
+  const getStatusStyle = useCallback((status: string) => {
+    switch (status) {
+      case "Completed":
+        return "bg-green-100 text-green-700 border border-green-200";
 
-/* ==========================================================
-   TOTAL PORTFOLIO HERO CARD
-========================================================== */
+      case "Pending":
+        return "bg-yellow-100 text-yellow-700 border border-yellow-200";
 
-const PortfolioHeroCard = () => (
-  <div className="rounded-3xl bg-gradient-to-r from-yellow-500 via-orange-500 to-yellow-400 text-black p-7 shadow-xl mb-8">
-    <div className="flex justify-between items-start">
-      <div>
-        <p className="uppercase tracking-widest text-sm font-semibold">
-          Total Portfolio Value
-        </p>
+      case "Rejected":
+        return "bg-red-100 text-red-700 border border-red-200";
 
-        <h2 className="text-4xl lg:text-5xl font-bold mt-3">
-          {showBalance
-            ? `PKR ${formatMoney(totalAssets)}`
-            : "********"}
-        </h2>
+      default:
+        return "bg-gray-100 text-gray-600 border border-gray-200";
+    }
+  }, []);
 
-        <p className="mt-3 text-black/70 text-sm">
-          PKR + Gold + USDT Combined Assets
-        </p>
-      </div>
+  // ------------------------------------------------------
+  // Transaction Type Color
+  // ------------------------------------------------------
 
-      <Shield size={42} />
-    </div>
-  </div>
-);
+  const getTransactionColor = useCallback((type: string) => {
+    switch (type) {
+      case "BUY":
+        return "text-green-600";
 
-/* ==========================================================
-   WALLET CARDS
-========================================================== */
+      case "SELL":
+        return "text-red-600";
 
-const walletCards = [
-  {
-    title: "PKR Wallet",
-    icon: Wallet,
-    color: "text-green-400",
-    border: "border-green-500/20",
-    value: showBalance
-      ? `PKR ${formatMoney(wallet.pkrBalance)}`
-      : "********",
-    subtitle: "Available PKR Balance",
-  },
-  {
-    title: "Gold Wallet",
-    icon: Coins,
-    color: "text-yellow-400",
-    border: "border-yellow-500/20",
-    value: showBalance
-      ? `${formatGold(wallet.goldBalance)} Gold`
-      : "********",
-    subtitle: showBalance
-      ? `≈ PKR ${formatMoney(portfolio.goldValue)}`
-      : "********",
-  },
-  {
-    title: "USDT Wallet",
-    icon: DollarSign,
-    color: "text-cyan-400",
-    border: "border-cyan-500/20",
-    value: showBalance
-      ? `${formatUsdt(wallet.usdtBalance)} USDT`
-      : "********",
-    subtitle: showBalance
-      ? `≈ PKR ${formatMoney(portfolio.usdtValue)}`
-      : "********",
-  },
-];
+      case "DEPOSIT":
+        return "text-blue-600";
 
-const WalletCardsSection = () => (
-  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-8">
-    {walletCards.map((card) => {
-      const Icon = card.icon;
+      case "WITHDRAW":
+        return "text-orange-600";
 
-      return (
-        <div
-          key={card.title}
-          className={`rounded-2xl bg-[#111827] border ${card.border} p-6 hover:border-yellow-500/30 transition`}
-        >
-          <div className="flex justify-between items-center mb-5">
-            <Icon size={30} className={card.color} />
+      default:
+        return "text-gray-600";
+    }
+  }, []);
 
-            <span
-              className={`text-xs font-semibold ${card.color}`}
-            >
-              {card.title.toUpperCase()}
-            </span>
-          </div>
+  // ------------------------------------------------------
+  // Profit Color Helper
+  // ------------------------------------------------------
 
-          <p className="text-gray-400 text-sm">
-            {card.subtitle}
-          </p>
+  const getProfitStyle = useCallback((value: number) => {
+    return value >= 0 ? "text-green-600" : "text-red-600";
+  }, []);
 
-          <h3
-            className={`text-3xl font-bold mt-3 ${card.color}`}
-          >
-            {card.value}
-          </h3>
-        </div>
-      );
-    })}
-  </div>
-);
+  // ------------------------------------------------------
+  // Refresh Button Icon Class
+  // ------------------------------------------------------
 
-/* ==========================================================
-   PORTFOLIO SUMMARY CARDS
-========================================================== */
+  const refreshIconClass = useMemo(() => {
+    return refreshing ? "animate-spin" : "";
+  }, [refreshing]);
 
-const portfolioCards = [
-  {
-    title: "Gold Value",
-    value: portfolio.goldValue,
-    color: "text-yellow-400",
-    border: "border-yellow-500/20",
-    icon: TrendingUp,
-  },
-  {
-    title: "USDT Value",
-    value: portfolio.usdtValue,
-    color: "text-cyan-400",
-    border: "border-cyan-500/20",
-    icon: TrendingUp,
-  },
-  {
-    title: "Total Assets",
-    value: totalAssets,
-    color: "text-green-400",
-    border: "border-green-500/20",
-    icon: Activity,
-  },
-];
+  // ------------------------------------------------------
+  // Dashboard Greeting
+  // ------------------------------------------------------
 
-const PortfolioSummarySection = () => (
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-    {portfolioCards.map((card) => {
-      const Icon = card.icon;
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
 
-      return (
-        <div
-          key={card.title}
-          className={`rounded-2xl bg-[#111827] border ${card.border} p-6`}
-        >
-          <div className="flex justify-between items-center mb-4">
-            <Icon size={26} className={card.color} />
+    if (hour < 12) return "Good Morning";
+    if (hour < 17) return "Good Afternoon";
+    if (hour < 21) return "Good Evening";
 
-            <span
-              className={`text-xs font-semibold ${card.color}`}
-            >
-              {card.title.toUpperCase()}
-            </span>
-          </div>
+    return "Welcome Back";
+  }, []);
 
-          <p className="text-gray-400 text-sm">
-            Current Value
-          </p>
+  // ------------------------------------------------------
+  // Last Updated Text
+  // ------------------------------------------------------
 
-          <h3
-            className={`text-2xl font-bold mt-2 ${card.color}`}
-          >
-            {showBalance
-              ? `PKR ${formatMoney(card.value)}`
-              : "********"}
-          </h3>
-        </div>
-      );
-    })}
-  </div>
-);
+  const lastUpdatedText = useMemo(() => {
+    if (!lastUpdated) return "Never";
 
-/* ==========================================================
-   PART 8/10
-   LIVE GOLD MARKET + LIVE USDT MARKET UI
-   GoldTrade V18 Enterprise (Production Fixed)
-========================================================== */
+    return lastUpdated.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  }, [lastUpdated]);
 
-/* ==========================================================
-   MARKET PRICE CARD COMPONENT
-========================================================== */
+  // ------------------------------------------------------
+  // Market Status Badge
+  // ------------------------------------------------------
 
-const MarketPriceCard = ({
-  title,
-  buyPrice,
-  sellPrice,
-  marketOpen,
-  color,
-  icon: Icon,
-  network,
-}: {
-  title: string;
-  buyPrice: number;
-  sellPrice: number;
-  marketOpen: boolean;
-  color: "yellow" | "cyan";
-  icon: any;
-  network?: string;
-}) => {
-  const theme =
-    color === "yellow"
-      ? {
-          border: "border-yellow-500/20",
-          text: "text-yellow-400",
-          bg: "bg-yellow-500/10",
-        }
-      : {
-          border: "border-cyan-500/20",
-          text: "text-cyan-400",
-          bg: "bg-cyan-500/10",
-        };
+  const marketBadgeClass = useMemo(() => {
+    return marketOpen
+      ? "bg-green-500 text-white"
+      : "bg-red-500 text-white";
+  }, [marketOpen]);
 
-  return (
+  // ------------------------------------------------------
+  // Skeleton Card Renderer
+  // ------------------------------------------------------
+
+  const renderSkeletonCard = (key: number) => (
     <div
-      className={`rounded-2xl bg-[#111827] border ${theme.border} p-6 shadow-lg`}
+      key={key}
+      className="animate-pulse rounded-2xl border bg-white p-5 shadow-sm"
     >
-      {/* HEADER */}
-
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-3">
-          <Icon className={theme.text} size={30} />
-
-          <h2 className={`text-2xl font-bold ${theme.text}`}>
-            {title}
-          </h2>
-        </div>
-
-        <span
-          className={`px-4 py-2 rounded-full text-xs font-bold ${
-            marketOpen
-              ? "bg-green-600 text-white"
-              : "bg-red-600 text-white"
-          }`}
-        >
-          {marketOpen ? "MARKET OPEN" : "MARKET CLOSED"}
-        </span>
-      </div>
-
-      {/* BUY / SELL */}
-
-      <div className="grid md:grid-cols-2 gap-5">
-        <div
-          className={`rounded-xl ${theme.bg} p-5 border border-green-500/20`}
-        >
-          <div className="flex justify-between items-center mb-3">
-            <TrendingUp className="text-green-400" size={24} />
-
-            <span className="text-green-400 text-xs font-semibold">
-              BUY PRICE
-            </span>
-          </div>
-
-          <h3 className="text-3xl font-bold text-green-400">
-            PKR {formatMoney(buyPrice)}
-          </h3>
-        </div>
-
-        <div
-          className={`rounded-xl ${theme.bg} p-5 border border-red-500/20`}
-        >
-          <div className="flex justify-between items-center mb-3">
-            <TrendingDown className="text-red-400" size={24} />
-
-            <span className="text-red-400 text-xs font-semibold">
-              SELL PRICE
-            </span>
-          </div>
-
-          <h3 className="text-3xl font-bold text-red-400">
-            PKR {formatMoney(sellPrice)}
-          </h3>
-        </div>
-      </div>
-
-      {/* SPREAD */}
-
-      <div className="mt-5 bg-[#1F2937] rounded-xl p-4 border border-gray-700">
-        <div className="flex justify-between items-center">
-          <span className="text-gray-400 text-sm">
-            Market Spread
-          </span>
-
-          <span className="font-bold text-white">
-            PKR {formatMoney(sellPrice - buyPrice)}
-          </span>
-        </div>
-      </div>
-
-      {/* NETWORK */}
-
-      {network && (
-        <div className="mt-5 bg-[#1F2937] rounded-xl p-4 border border-gray-700">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400 text-sm">
-              Active Network
-            </span>
-
-            <span className="font-bold text-cyan-400">
-              {network}
-            </span>
-          </div>
-        </div>
-      )}
+      <div className="mb-4 h-4 w-28 rounded bg-gray-200" />
+      <div className="mb-3 h-8 w-40 rounded bg-gray-300" />
+      <div className="h-3 w-24 rounded bg-gray-200" />
     </div>
   );
-};
 
-/* ==========================================================
-   MARKET OVERVIEW SECTION
-========================================================== */
+  // ------------------------------------------------------
+  // Empty Transaction UI
+  // ------------------------------------------------------
 
-const MarketOverviewSection = () => (
-  <div className="space-y-8">
-    {/* GOLD MARKET */}
+  const renderEmptyTransactions = () => (
+    <div className="flex flex-col items-center justify-center py-10 text-center text-gray-500">
+      <Activity size={42} className="mb-3 text-gray-300" />
 
-    <MarketPriceCard
-      title="Live Gold Market"
-      buyPrice={goldMarket.buyPrice}
-      sellPrice={goldMarket.sellPrice}
-      marketOpen={goldMarketOpen}
-      color="yellow"
-      icon={Coins}
-    />
-
-    {/* USDT MARKET */}
-
-    <MarketPriceCard
-      title="Live USDT Market"
-      buyPrice={usdtMarket.buyPrice}
-      sellPrice={usdtMarket.sellPrice}
-      marketOpen={usdtMarketOpen}
-      color="cyan"
-      icon={DollarSign}
-      network={usdtMarket.network}
-    />
-  </div>
-);
-
-/* ==========================================================
-   MARKET STATUS GRID
-========================================================== */
-
-const MarketStatusGrid = () => (
-  <div className="grid md:grid-cols-2 gap-5">
-    {/* GOLD STATUS */}
-
-    <div className="rounded-2xl bg-[#111827] border border-yellow-500/20 p-5">
-      <div className="flex justify-between items-center mb-4">
-        <Coins className="text-yellow-400" size={30} />
-
-        {goldMarketOpen ? (
-          <CheckCircle
-            className="text-green-400"
-            size={22}
-          />
-        ) : (
-          <XCircle
-            className="text-red-400"
-            size={22}
-          />
-        )}
-      </div>
-
-      <p className="text-gray-400 text-sm">
-        Gold Trading Status
+      <p className="text-lg font-semibold">
+        No Transactions Found
       </p>
 
-      <h3
-        className={`text-2xl font-bold mt-2 ${
-          goldMarketOpen
-            ? "text-green-400"
-            : "text-red-400"
-        }`}
-      >
-        {goldMarketOpen ? "ACTIVE" : "CLOSED"}
-      </h3>
-
-      <p className="text-gray-500 text-sm mt-3">
-        Buy: PKR {formatMoney(goldMarket.buyPrice)}
-      </p>
-
-      <p className="text-gray-500 text-sm">
-        Sell: PKR {formatMoney(goldMarket.sellPrice)}
+      <p className="mt-1 text-sm text-gray-400">
+        Your recent deposits, withdrawals and gold trades will appear here.
       </p>
     </div>
+  );
 
-    {/* USDT STATUS */}
+  // ------------------------------------------------------
+  // Loading Grid
+  // ------------------------------------------------------
 
-    <div className="rounded-2xl bg-[#111827] border border-cyan-500/20 p-5">
-      <div className="flex justify-between items-center mb-4">
-        <DollarSign className="text-cyan-400" size={30} />
-
-        {usdtMarketOpen ? (
-          <CheckCircle
-            className="text-green-400"
-            size={22}
-          />
-        ) : (
-          <XCircle
-            className="text-red-400"
-            size={22}
-          />
-        )}
-      </div>
-
-      <p className="text-gray-400 text-sm">
-        USDT Trading Status
-      </p>
-
-      <h3
-        className={`text-2xl font-bold mt-2 ${
-          usdtMarketOpen
-            ? "text-green-400"
-            : "text-red-400"
-        }`}
-      >
-        {usdtMarketOpen ? "ACTIVE" : "CLOSED"}
-      </h3>
-
-      <p className="text-gray-500 text-sm mt-3">
-        Buy: PKR {formatMoney(usdtMarket.buyPrice)}
-      </p>
-
-      <p className="text-gray-500 text-sm">
-        Sell: PKR {formatMoney(usdtMarket.sellPrice)}
-      </p>
-
-      <p className="text-cyan-400 text-sm mt-2 font-semibold">
-        Network: {usdtMarket.network}
-      </p>
+  const renderLoadingGrid = () => (
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      {[1, 2, 3, 4].map((item) => renderSkeletonCard(item))}
     </div>
-  </div>
-);
+  );
 
-/* ==========================================================
-   MARKET REFRESH INFO
-========================================================== */
+  // ------------------------------------------------------
+  // Number Formatting Helpers
+  // ------------------------------------------------------
 
-const MarketRefreshInfo = () => (
-  <div className="rounded-2xl bg-[#111827] border border-gray-700 p-5">
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-      <div>
-        <p className="text-gray-400 text-sm">
-          Live Market Refresh
-        </p>
+  const safeNumber = (value: number | string | undefined | null) => {
+    const numberValue = Number(value);
 
-        <h3 className="text-lg font-semibold text-white mt-1">
-          Prices refresh automatically every 30 seconds.
-        </h3>
-      </div>
-
-      <button
-        onClick={refreshMarketPrices}
-        className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold px-5 py-3 rounded-xl transition flex items-center gap-2"
-      >
-        <RefreshCw size={18} />
-        Refresh Market
-      </button>
-    </div>
-  </div>
-);
-
-/* ==========================================================
-   PART 9/10
-   RECENT TRANSACTIONS + PORTFOLIO ACTIVITY SUMMARY
-   GoldTrade V18 Enterprise (IQ 800 Production)
-========================================================== */
-
-/* ==========================================================
-   TRANSACTION STATUS COLORS
-========================================================== */
-
-const getTransactionStatus = (status: string) => {
-  switch (status.toUpperCase()) {
-    case "SUCCESS":
-    case "APPROVED":
-    case "COMPLETED":
-      return {
-        color: "bg-green-600 text-white",
-        icon: CheckCircle,
-      };
-
-    case "PENDING":
-      return {
-        color: "bg-yellow-500 text-black",
-        icon: Activity,
-      };
-
-    default:
-      return {
-        color: "bg-red-600 text-white",
-        icon: XCircle,
-      };
-  }
-};
-
-/* ==========================================================
-   TRANSACTION TYPE COLORS
-========================================================== */
-
-const getTransactionType = (type: string) => {
-  const value = type.toUpperCase();
-
-  if (value.includes("DEPOSIT"))
-    return {
-      icon: ArrowDownLeft,
-      color: "text-green-400",
-      label: "Deposit",
-    };
-
-  if (value.includes("WITHDRAW"))
-    return {
-      icon: ArrowUpRight,
-      color: "text-red-400",
-      label: "Withdraw",
-    };
-
-  if (value.includes("GOLD"))
-    return {
-      icon: Coins,
-      color: "text-yellow-400",
-      label: "Gold Trade",
-    };
-
-  if (value.includes("USDT"))
-    return {
-      icon: DollarSign,
-      color: "text-cyan-400",
-      label: "USDT Trade",
-    };
-
-  return {
-    icon: Wallet,
-    color: "text-gray-400",
-    label: type,
+    return Number.isFinite(numberValue) ? numberValue : 0;
   };
-};
 
-/* ==========================================================
-   RECENT TRANSACTIONS SECTION
-========================================================== */
+  const safePercentage = (value: number) => {
+    return `${safeNumber(value).toFixed(2)}%`;
+  };
 
-const RecentTransactionsSection = () => (
-  <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6">
-    <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
-      <div>
-        <h2 className="text-2xl font-bold text-yellow-400">
-          Recent Transactions
-        </h2>
+  const safeCurrency = (value: number) => {
+    return `${currency} ${formatCurrency(safeNumber(value))}`;
+  };
+    // ======================================================
+  // PART 7/12
+  // RETURN START + LOADING + ERROR + HEADER
+  // ======================================================
 
-        <p className="text-gray-400 text-sm mt-2">
-          Latest Deposit, Withdraw, Gold & USDT activity.
-        </p>
-      </div>
+  return (
+      <main className="min-h-screen bg-gray-50">
+      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 lg:px-8">
+      {/* LOADING SCREEN */}
+        {loading ? (
+          <div className="space-y-6">
 
-      <button
-        onClick={() => navigate("/transactions")}
-        className="bg-[#1F2937] hover:bg-[#374151] border border-gray-600 px-5 py-3 rounded-xl text-sm font-semibold transition"
-      >
-        View All
-      </button>
-    </div>
+            <div className="animate-pulse rounded-3xl bg-gradient-to-r from-yellow-500 to-orange-500 p-6 text-white shadow-lg">
+              <div className="mb-3 h-6 w-48 rounded bg-white/30" />
+              <div className="h-4 w-72 rounded bg-white/20" />
+            </div>
 
-    {loading ? (
-      <div className="space-y-4">
-        {[1, 2, 3, 4, 5].map((item) => (
-          <div
-            key={item}
-            className="animate-pulse bg-[#1F2937] rounded-xl h-16"
-          />
-        ))}
-      </div>
-    ) : transactions.length === 0 ? (
-      <div className="text-center py-14">
-        <History
-          size={48}
-          className="mx-auto text-gray-500 mb-4"
-        />
+            {renderLoadingGrid()}
 
-        <h3 className="text-xl font-semibold text-gray-300">
-          No Transactions Found
-        </h3>
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <div className="animate-pulse rounded-2xl bg-white p-6 shadow">
+                <div className="mb-5 h-5 w-40 rounded bg-gray-200" />
+                <div className="space-y-3">
+                  {[1,2,3,4].map((i)=>(
+                    <div key={i} className="h-12 rounded bg-gray-100" />
+                  ))}
+                </div>
+              </div>
 
-        <p className="text-gray-500 mt-2">
-          Your latest GoldTrade activity will appear here.
-        </p>
-      </div>
-    ) : (
-      <div className="overflow-x-auto rounded-xl border border-gray-700">
-        <table className="w-full">
-          <thead className="bg-[#1F2937]">
-            <tr className="text-left text-gray-300 text-sm">
-              <th className="px-4 py-3">Transaction</th>
-              <th className="px-4 py-3">Amount</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Date</th>
-            </tr>
-          </thead>
+              <div className="animate-pulse rounded-2xl bg-white p-6 shadow">
+                <div className="mb-5 h-5 w-44 rounded bg-gray-200" />
+                <div className="space-y-3">
+                  {[1,2,3,4].map((i)=>(
+                    <div key={i} className="h-12 rounded bg-gray-100" />
+                  ))}
+                </div>
+              </div>
+            </div>
 
-          <tbody>
-            {transactions.map((tx) => {
-              const statusInfo =
-                getTransactionStatus(tx.status);
+          </div>
+        ) : errorMessage ? (
+          /* ===================================================== */
+          /* ERROR SCREEN */
+          /* ===================================================== */
+          <div className="flex min-h-[70vh] items-center justify-center">
+            <div className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-lg">
 
-              const typeInfo =
-                getTransactionType(tx.type);
+              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-red-100">
+                <ShieldCheck className="h-10 w-10 text-red-500" />
+              </div>
 
-              const StatusIcon = statusInfo.icon;
-              const TypeIcon = typeInfo.icon;
+              <h2 className="mb-2 text-2xl font-bold text-gray-900">
+                Dashboard Error
+              </h2>
 
-              return (
-                <tr
-                  key={tx._id}
-                  className="border-t border-gray-700 hover:bg-[#1B2433] transition"
+              <p className="mb-6 text-sm text-gray-500">
+                {errorMessage}
+              </p>
+
+              <button
+                onClick={retryLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 py-3 font-semibold text-white transition hover:bg-yellow-600"
+              >
+                <RefreshCw size={18} />
+                Retry Dashboard
+              </button>
+
+              <button
+                onClick={logout}
+                className="mt-3 w-full rounded-xl border border-red-300 py-3 font-semibold text-red-600 transition hover:bg-red-50"
+              >
+                Logout
+              </button>
+
+            </div>
+          </div>
+        ) : (
+          <>
+          /* ===================================================== */
+          /* DASHBOARD CONTENT START */
+          /* ===================================================== */
+          
+
+            {/* =================================================== */}
+            {/* HEADER */}
+            {/* =================================================== */}
+
+            <div className="mb-6 rounded-3xl bg-gradient-to-r from-yellow-500 via-orange-500 to-amber-600 p-6 text-white shadow-xl">
+
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+
+                <div>
+
+                  <p className="mb-2 text-sm font-medium text-yellow-100">
+                    {greeting}
+                  </p>
+
+                  <h1 className="text-3xl font-bold">
+                    {user?.fullName || username || "GoldTrade User"}
+                  </h1>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-yellow-50">
+
+                    <div className="flex items-center gap-2">
+                      <Wallet size={16} />
+                      <span>{username}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} />
+                      <span>Updated: {lastUpdatedText}</span>
+                    </div>
+
+                    <div
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${marketBadgeClass}`}
+                    >
+                      Market {marketOpen ? "OPEN" : "CLOSED"}
+                    </div>
+
+                  </div>
+
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="flex items-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold text-orange-600 transition hover:bg-yellow-100 disabled:opacity-60"
+                  >
+                    <RefreshCw
+                      size={18}
+                      className={refreshIconClass}
+                    />
+                    {refreshing ? "Refreshing..." : "Refresh"}
+                  </button>
+
+                  <button
+                    onClick={logout}
+                    className="rounded-xl border border-white/40 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
+                  >
+                    Logout
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* =================================================== */}
+            {/* SUMMARY STRIP */}
+            {/* =================================================== */}
+
+            <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+
+              <div className="rounded-2xl bg-white p-5 shadow-sm">
+                <p className="text-sm text-gray-500">Total Assets</p>
+                <h3 className="mt-2 text-xl font-bold text-gray-900">
+                  {safeCurrency(totalAssetsPKR)}
+                </h3>
+              </div>
+
+              <div className="rounded-2xl bg-white p-5 shadow-sm">
+                <p className="text-sm text-gray-500">Live Profit</p>
+
+                <div className={`mt-2 flex items-center gap-2 ${profitColor}`}>
+                  {stats.liveProfit >= 0 ? (
+                    <TrendingUp size={18} />
+                  ) : (
+                    <TrendingDown size={18} />
+                  )}
+
+                  <h3 className="text-xl font-bold">
+                    {safeCurrency(stats.liveProfit)}
+                  </h3>
+                </div>
+
+                <p className={`mt-1 text-xs ${profitColor}`}>
+                  {safePercentage(stats.liveProfitPercent)}
+                </p>
+
+              </div>
+
+              <div className="rounded-2xl bg-white p-5 shadow-sm">
+                <p className="text-sm text-gray-500">Gold Balance</p>
+                <h3 className="mt-2 text-xl font-bold text-gray-900">
+                  {formatGold(wallet.gold)} g
+                </h3>
+              </div>
+
+              <div className="rounded-2xl bg-white p-5 shadow-sm">
+                <p className="text-sm text-gray-500">USDT Balance</p>
+                <h3 className="mt-2 text-xl font-bold text-gray-900">
+                  {formatCurrency(wallet.usdt)} USDT
+                </h3>
+              </div>
+
+            </div>
+
+            {/* PART 8 starts with Wallet Cards grid */}
+            {/* =================================================== */}
+            {/* WALLET BALANCE CARDS */}
+            {/* =================================================== */}
+
+            <section className="mb-8">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Wallet Overview
+                </h2>
+
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Activity size={16} className="text-green-500" />
+                  Live Wallet
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+                {/* PKR Wallet */}
+                <div className="rounded-3xl bg-white p-6 shadow-sm transition hover:shadow-lg">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="rounded-2xl bg-green-100 p-3">
+                      <Wallet className="h-7 w-7 text-green-600" />
+                    </div>
+
+                    <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                      PKR
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-gray-500">PKR Wallet Balance</p>
+
+                  <h3 className="mt-2 text-3xl font-bold text-gray-900">
+                    {safeCurrency(wallet.pkr)}
+                  </h3>
+
+                  <p className="mt-2 text-xs text-gray-400">
+                    Available for Gold & USDT Trading
+                  </p>
+                </div>
+
+                {/* USDT Wallet */}
+                <div className="rounded-3xl bg-white p-6 shadow-sm transition hover:shadow-lg">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="rounded-2xl bg-blue-100 p-3">
+                      <CircleDollarSign className="h-7 w-7 text-blue-600" />
+                    </div>
+
+                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                      USDT
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-gray-500">USDT Wallet Balance</p>
+
+                  <h3 className="mt-2 text-3xl font-bold text-gray-900">
+                    {formatCurrency(wallet.usdt)}
+                  </h3>
+
+                  <p className="mt-2 text-xs text-gray-400">
+                    Stablecoin Balance Available
+                  </p>
+                </div>
+
+                {/* Gold Wallet */}
+                <div className="rounded-3xl bg-white p-6 shadow-sm transition hover:shadow-lg">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="rounded-2xl bg-yellow-100 p-3">
+                      <Gem className="h-7 w-7 text-yellow-600" />
+                    </div>
+
+                    <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
+                      GOLD
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-gray-500">Gold Holdings</p>
+
+                  <h3 className="mt-2 text-3xl font-bold text-gray-900">
+                    {formatGold(wallet.gold)} g
+                  </h3>
+
+                  <p className="mt-2 text-xs text-gray-400">
+                    Physical Gold Equivalent
+                  </p>
+                </div>
+
+                {/* Total Wallet Value */}
+                <div className="rounded-3xl bg-gradient-to-br from-yellow-500 to-orange-500 p-6 text-white shadow-lg">
+
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="rounded-2xl bg-white/20 p-3">
+                      <DollarSign className="h-7 w-7" />
+                    </div>
+
+                    <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
+                      Total
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-yellow-100">
+                    Total Wallet Value
+                  </p>
+
+                  <h3 className="mt-2 text-3xl font-bold">
+                    {safeCurrency(totalAssetsPKR)}
+                  </h3>
+
+                  <p className="mt-2 text-xs text-yellow-100">
+                    PKR + Gold + USDT Combined
+                  </p>
+                </div>
+
+              </div>
+            </section>
+
+            {/* =================================================== */}
+            {/* LIVE GOLD MARKET */}
+            {/* =================================================== */}
+
+            <section className="mb-8">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Live Gold Market
+                </h2>
+
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    marketOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                  }`}
                 >
-                  {/* TYPE */}
+                  {marketOpen ? "Market Open" : "Market Closed"}
+                </span>
+              </div>
 
-                  <td className="px-4 py-4">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+                {/* Buy Price */}
+                <div className="rounded-3xl border border-green-100 bg-white p-6 shadow-sm">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="rounded-xl bg-green-100 p-2">
+                      <TrendingUp className="text-green-600" size={22} />
+                    </div>
+
+                    <p className="font-semibold text-green-700">
+                      Buy Gold
+                    </p>
+                  </div>
+
+                  <h3 className="text-3xl font-bold text-gray-900">
+                    {safeCurrency(goldPrice.buyPrice)}
+                  </h3>
+
+                  <p className="mt-2 text-xs text-gray-500">
+                    Price Per Gram
+                  </p>
+                </div>
+
+                {/* Sell Price */}
+                <div className="rounded-3xl border border-red-100 bg-white p-6 shadow-sm">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="rounded-xl bg-red-100 p-2">
+                      <TrendingDown className="text-red-600" size={22} />
+                    </div>
+
+                    <p className="font-semibold text-red-700">
+                      Sell Gold
+                    </p>
+                  </div>
+
+                  <h3 className="text-3xl font-bold text-gray-900">
+                    {safeCurrency(goldPrice.sellPrice)}
+                  </h3>
+
+                  <p className="mt-2 text-xs text-gray-500">
+                    Price Per Gram
+                  </p>
+                </div>
+
+                {/* Gold USD */}
+                <div className="rounded-3xl bg-white p-6 shadow-sm">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="rounded-xl bg-yellow-100 p-2">
+                      <Gem className="text-yellow-600" size={22} />
+                    </div>
+
+                    <p className="font-semibold text-yellow-700">
+                      Gold (USD)
+                    </p>
+                  </div>
+
+                  <h3 className="text-3xl font-bold text-gray-900">
+                    ${formatCurrency(goldPrice.goldPriceUSD)}
+                  </h3>
+
+                  <p className="mt-2 text-xs text-gray-500">
+                    International Spot Price
+                  </p>
+                </div>
+
+                {/* USD to PKR */}
+                <div className="rounded-3xl bg-white p-6 shadow-sm">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="rounded-xl bg-blue-100 p-2">
+                      <DollarSign className="text-blue-600" size={22} />
+                    </div>
+
+                    <p className="font-semibold text-blue-700">
+                      USD → PKR
+                    </p>
+                  </div>
+
+                  <h3 className="text-3xl font-bold text-gray-900">
+                    Rs {formatCurrency(goldPrice.usdToPkr)}
+                  </h3>
+
+                  <p className="mt-2 text-xs text-gray-500">
+                    Exchange Rate
+                  </p>
+                </div>
+
+              </div>
+
+              {/* Market Banner */}
+              <div
+                className={`mt-5 rounded-2xl border p-4 ${
+                  marketOpen
+                    ? "border-green-200 bg-green-50"
+                    : "border-red-200 bg-red-50"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Activity
+                    className={
+                      marketOpen ? "text-green-600" : "text-red-600"
+                    }
+                    size={22}
+                  />
+
+                  <div>
+                    <p
+                      className={`font-semibold ${
+                        marketOpen
+                          ? "text-green-700"
+                          : "text-red-700"
+                      }`}
+                    >
+                      {marketOpen
+                        ? "Live Trading Enabled"
+                        : "Trading Temporarily Disabled"}
+                    </p>
+
+                    <p className="text-sm text-gray-600">
+                      Gold buying and selling follows the live market status configured by the administrator.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* =================================================== */}
+            {/* PORTFOLIO SUMMARY + LIVE PROFIT */}
+            {/* =================================================== */}
+
+            <section className="mb-8">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Gold Portfolio Summary
+                </h2>
+
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Gem size={18} className="text-yellow-500" />
+                  Live Portfolio Value
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-4">
+
+                {/* Gold Holdings */}
+                <div className="rounded-3xl bg-white p-6 shadow-sm transition hover:shadow-lg">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="rounded-xl bg-yellow-100 p-3">
+                      <Gem className="text-yellow-600" size={28} />
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-gray-500">Gold Holdings</p>
+
+                  <h3 className="mt-2 text-3xl font-bold text-gray-900">
+                    {formatGold(portfolio.goldBalance)} g
+                  </h3>
+
+                  <p className="mt-2 text-xs text-gray-400">
+                    Total Gold Owned
+                  </p>
+                </div>
+
+                {/* Investment */}
+                <div className="rounded-3xl bg-white p-6 shadow-sm transition hover:shadow-lg">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="rounded-xl bg-blue-100 p-3">
+                      <Wallet className="text-blue-600" size={28} />
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-gray-500">Total Investment</p>
+
+                  <h3 className="mt-2 text-3xl font-bold text-gray-900">
+                    {safeCurrency(portfolio.investment)}
+                  </h3>
+
+                  <p className="mt-2 text-xs text-gray-400">
+                    Amount Invested in Gold
+                  </p>
+                </div>
+
+                {/* Current Value */}
+                <div className="rounded-3xl bg-white p-6 shadow-sm transition hover:shadow-lg">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="rounded-xl bg-green-100 p-3">
+                      <DollarSign className="text-green-600" size={28} />
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-gray-500">Current Value</p>
+
+                  <h3 className="mt-2 text-3xl font-bold text-gray-900">
+                    {safeCurrency(portfolio.currentValue)}
+                  </h3>
+
+                  <p className="mt-2 text-xs text-gray-400">
+                    Based on Live Gold Price
+                  </p>
+                </div>
+
+                {/* Live Profit */}
+                <div className="rounded-3xl bg-white p-6 shadow-sm transition hover:shadow-lg">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div
+                      className={`rounded-xl p-3 ${
+                        portfolio.profit >= 0
+                          ? "bg-green-100"
+                          : "bg-red-100"
+                      }`}
+                    >
+                      {portfolio.profit >= 0 ? (
+                        <TrendingUp className="text-green-600" size={28} />
+                      ) : (
+                        <TrendingDown className="text-red-600" size={28} />
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-gray-500">Live Profit / Loss</p>
+
+                  <h3
+                    className={`mt-2 text-3xl font-bold ${getProfitStyle(
+                      portfolio.profit
+                    )}`}
+                  >
+                    {safeCurrency(portfolio.profit)}
+                  </h3>
+
+                  <p
+                    className={`mt-2 text-xs font-semibold ${getProfitStyle(
+                      portfolio.profit
+                    )}`}
+                  >
+                    {safePercentage(portfolio.profitPercent)}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* =================================================== */}
+            {/* INVESTMENT PERFORMANCE */}
+            {/* =================================================== */}
+
+            <section className="mb-8">
+              <div className="rounded-3xl bg-white p-6 shadow-sm">
+
+                <div className="mb-6 flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Investment Performance
+                  </h2>
+
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      portfolioGrowth >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {safePercentage(portfolioGrowth)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+                  {/* ROI */}
+                  <div className="rounded-2xl bg-gray-50 p-5">
+                    <p className="text-sm text-gray-500">ROI</p>
+
+                    <h3
+                      className={`mt-2 text-2xl font-bold ${getProfitStyle(
+                        portfolioGrowth
+                      )}`}
+                    >
+                      {safePercentage(portfolioGrowth)}
+                    </h3>
+                  </div>
+
+                  {/* Live Profit % */}
+                  <div className="rounded-2xl bg-gray-50 p-5">
+                    <p className="text-sm text-gray-500">Live Profit %</p>
+
+                    <h3
+                      className={`mt-2 text-2xl font-bold ${getProfitStyle(
+                        stats.liveProfitPercent
+                      )}`}
+                    >
+                      {safePercentage(stats.liveProfitPercent)}
+                    </h3>
+                  </div>
+
+                  {/* Gold Value */}
+                  <div className="rounded-2xl bg-gray-50 p-5">
+                    <p className="text-sm text-gray-500">Gold Wallet Value</p>
+
+                    <h3 className="mt-2 text-2xl font-bold text-gray-900">
+                      {safeCurrency(stats.totalGoldValue)}
+                    </h3>
+                  </div>
+
+                  {/* USDT Value */}
+                  <div className="rounded-2xl bg-gray-50 p-5">
+                    <p className="text-sm text-gray-500">USDT Wallet Value</p>
+
+                    <h3 className="mt-2 text-2xl font-bold text-gray-900">
+                      {safeCurrency(stats.totalUsdtValue)}
+                    </h3>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mt-8">
+                  <div className="mb-2 flex justify-between text-sm text-gray-500">
+                    <span>Portfolio Growth</span>
+                    <span>{safePercentage(portfolioGrowth)}</span>
+                  </div>
+
+                  <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${
+                        portfolioGrowth >= 0
+                          ? "bg-green-500"
+                          : "bg-red-500"
+                      }`}
+                      style={{
+                        width: `${Math.min(
+                          Math.abs(portfolioGrowth),
+                          100
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* =================================================== */}
+            {/* LIVE ACCOUNT STATISTICS */}
+            {/* =================================================== */}
+
+            <section className="mb-8">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Live Account Statistics
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+                <div className="rounded-3xl bg-gradient-to-r from-green-500 to-emerald-500 p-6 text-white shadow-lg">
+                  <p className="text-sm text-green-100">Live Profit</p>
+
+                  <h3 className="mt-2 text-3xl font-bold">
+                    {safeCurrency(stats.liveProfit)}
+                  </h3>
+
+                  <div className="mt-3 flex items-center gap-2 text-sm">
+                    <TrendingUp size={16} />
+                    {safePercentage(stats.liveProfitPercent)}
+                  </div>
+                </div>
+
+                <div className="rounded-3xl bg-gradient-to-r from-yellow-500 to-orange-500 p-6 text-white shadow-lg">
+                  <p className="text-sm text-yellow-100">Gold Wallet Value</p>
+
+                  <h3 className="mt-2 text-3xl font-bold">
+                    {safeCurrency(stats.totalGoldValue)}
+                  </h3>
+                </div>
+
+                <div className="rounded-3xl bg-gradient-to-r from-blue-500 to-cyan-500 p-6 text-white shadow-lg">
+                  <p className="text-sm text-blue-100">USDT Wallet Value</p>
+
+                  <h3 className="mt-2 text-3xl font-bold">
+                    {safeCurrency(stats.totalUsdtValue)}
+                  </h3>
+                </div>
+
+                <div className="rounded-3xl bg-gradient-to-r from-purple-500 to-indigo-500 p-6 text-white shadow-lg">
+                  <p className="text-sm text-purple-100">Total Assets</p>
+
+                  <h3 className="mt-2 text-3xl font-bold">
+                    {safeCurrency(totalAssetsPKR)}
+                  </h3>
+                </div>
+              </div>
+            </section>
+
+                        {/* =================================================== */}
+            {/* QUICK ACTIONS */}
+            {/* =================================================== */}
+
+            <section className="mb-8">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Quick Actions
+                </h2>
+
+                <p className="text-sm text-gray-500">
+                  GoldTrade Wallet & Gold Market
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+
+                {/* BUY GOLD */}
+                <Link
+                  href="/gold/buy"
+                  className="group rounded-3xl bg-gradient-to-br from-green-500 to-emerald-600 p-5 text-white shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
+                    <ArrowDownLeft size={24} />
+                  </div>
+
+                  <p className="font-semibold">Buy Gold</p>
+
+                  <p className="mt-2 text-xs text-green-100">
+                    Purchase gold instantly.
+                  </p>
+                </Link>
+
+                {/* SELL GOLD */}
+                <Link
+                  href="/gold/sell"
+                  className="group rounded-3xl bg-gradient-to-br from-red-500 to-rose-600 p-5 text-white shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
+                    <ArrowUpRight size={24} />
+                  </div>
+
+                  <p className="font-semibold">Sell Gold</p>
+
+                  <p className="mt-2 text-xs text-red-100">
+                    Sell gold at live price.
+                  </p>
+                </Link>
+
+                {/* DEPOSIT */}
+                <Link
+                  href="/wallet/deposit"
+                  className="group rounded-3xl bg-gradient-to-br from-blue-500 to-cyan-600 p-5 text-white shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
+                    <Wallet size={24} />
+                  </div>
+
+                  <p className="font-semibold">Deposit</p>
+
+                  <p className="mt-2 text-xs text-blue-100">
+                    Add PKR or USDT balance.
+                  </p>
+                </Link>
+
+                {/* WITHDRAW */}
+                <Link
+                  href="/wallet/withdraw"
+                  className="group rounded-3xl bg-gradient-to-br from-orange-500 to-amber-600 p-5 text-white shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
+                    <ArrowUpRight size={24} />
+                  </div>
+
+                  <p className="font-semibold">Withdraw</p>
+
+                  <p className="mt-2 text-xs text-orange-100">
+                    Withdraw PKR or USDT.
+                  </p>
+                </Link>
+
+                {/* GOLD PORTFOLIO */}
+                <Link
+                  href="/gold/portfolio"
+                  className="group rounded-3xl bg-gradient-to-br from-yellow-500 to-orange-500 p-5 text-white shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
+                    <Gem size={24} />
+                  </div>
+
+                  <p className="font-semibold">Portfolio</p>
+
+                  <p className="mt-2 text-xs text-yellow-100">
+                    View gold holdings.
+                  </p>
+                </Link>
+
+                {/* TRANSACTION HISTORY */}
+                <Link
+                  href="/gold/history"
+                  className="group rounded-3xl bg-gradient-to-br from-purple-500 to-indigo-600 p-5 text-white shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
+                    <Clock size={24} />
+                  </div>
+
+                  <p className="font-semibold">History</p>
+
+                  <p className="mt-2 text-xs text-purple-100">
+                    View all transactions.
+                  </p>
+                </Link>
+
+              </div>
+            </section>
+
+            {/* =================================================== */}
+            {/* WALLET MANAGEMENT */}
+            {/* =================================================== */}
+
+            <section className="mb-8">
+              <div className="rounded-3xl bg-white p-6 shadow-sm">
+
+                <div className="mb-6 flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Wallet Management
+                  </h2>
+
+                  <Activity size={18} className="text-green-500" />
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+                  {/* Deposit Card */}
+                  <div className="rounded-2xl border border-green-100 bg-green-50 p-5">
+
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="rounded-xl bg-green-100 p-3">
+                        <ArrowDownLeft className="text-green-600" />
+                      </div>
+
+                      <div>
+                        <h3 className="font-bold text-green-700">
+                          Deposit Funds
+                        </h3>
+
+                        <p className="text-sm text-green-600">
+                          Add PKR or USDT into your wallet.
+                        </p>
+                      </div>
+                    </div>
+
+                    <Link
+                      href="/wallet/deposit"
+                      className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
+                    >
+                      Deposit Now
+                      <ArrowUpRight size={16} />
+                    </Link>
+
+                  </div>
+
+                  {/* Withdraw Card */}
+                  <div className="rounded-2xl border border-orange-100 bg-orange-50 p-5">
+
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="rounded-xl bg-orange-100 p-3">
+                        <ArrowUpRight className="text-orange-600" />
+                      </div>
+
+                      <div>
+                        <h3 className="font-bold text-orange-700">
+                          Withdraw Funds
+                        </h3>
+
+                        <p className="text-sm text-orange-600">
+                          Withdraw PKR or USDT securely.
+                        </p>
+                      </div>
+                    </div>
+
+                    <Link
+                      href="/wallet/withdraw"
+                      className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
+                    >
+                      Withdraw Now
+                      <ArrowUpRight size={16} />
+                    </Link>
+
+                  </div>
+
+                </div>
+              </div>
+            </section>
+
+            {/* =================================================== */}
+            {/* GOLD MARKET ACTIONS */}
+            {/* =================================================== */}
+
+            <section className="mb-8">
+              <div className="rounded-3xl bg-gradient-to-r from-yellow-500 via-orange-500 to-amber-600 p-6 text-white shadow-lg">
+
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-3xl font-bold">
+                      Gold Trading Center
+                    </h2>
+
+                    <p className="mt-2 text-yellow-100">
+                      Buy and sell gold using live GoldTrade market prices.
+                    </p>
+                  </div>
+
+                  <Gem size={40} className="text-white/90" />
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+                  {/* Buy Gold */}
+                  <div className="rounded-2xl bg-white/10 p-5 backdrop-blur-sm">
+
+                    <p className="text-sm text-yellow-100">
+                      Live Buy Price
+                    </p>
+
+                    <h3 className="mt-2 text-3xl font-bold">
+                      {safeCurrency(goldPrice.buyPrice)}
+                    </h3>
+
+                    <Link
+                      href="/gold/buy"
+                      className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 font-semibold text-orange-600 transition hover:bg-yellow-100"
+                    >
+                      Buy Gold
+                      <ArrowDownLeft size={16} />
+                    </Link>
+
+                  </div>
+
+                  {/* Sell Gold */}
+                  <div className="rounded-2xl bg-white/10 p-5 backdrop-blur-sm">
+
+                    <p className="text-sm text-yellow-100">
+                      Live Sell Price
+                    </p>
+
+                    <h3 className="mt-2 text-3xl font-bold">
+                      {safeCurrency(goldPrice.sellPrice)}
+                    </h3>
+
+                    <Link
+                      href="/gold/sell"
+                      className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 font-semibold text-red-600 transition hover:bg-red-50"
+                    >
+                      Sell Gold
+                      <ArrowUpRight size={16} />
+                    </Link>
+
+                  </div>
+
+                </div>
+
+                {/* Market Status */}
+                <div className="mt-6 rounded-2xl bg-black/10 p-4">
+
+                  <div className="flex items-center justify-between">
+
                     <div className="flex items-center gap-3">
-                      <TypeIcon
-                        size={20}
-                        className={typeInfo.color}
+                      <Activity
+                        className={
+                          marketOpen
+                            ? "text-green-300"
+                            : "text-red-300"
+                        }
+                        size={22}
                       />
 
                       <div>
                         <p className="font-semibold">
-                          {typeInfo.label}
+                          Market Status
                         </p>
 
-                        <p className="text-xs text-gray-500">
-                          {tx.type}
+                        <p className="text-sm text-yellow-100">
+                          {marketOpen
+                            ? "Gold trading is currently active."
+                            : "Trading is disabled by administrator."}
                         </p>
                       </div>
                     </div>
-                  </td>
 
-                  {/* AMOUNT */}
-
-                  <td className="px-4 py-4 font-semibold text-white">
-                    {showBalance
-                      ? `PKR ${formatMoney(tx.amount)}`
-                      : "********"}
-                  </td>
-
-                  {/* STATUS */}
-
-                  <td className="px-4 py-4">
                     <span
-                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${statusInfo.color}`}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        marketOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                      }`}
                     >
-                      <StatusIcon size={14} />
-                      {tx.status.toUpperCase()}
+                      {marketOpen ? "OPEN" : "CLOSED"}
                     </span>
-                  </td>
 
-                  {/* DATE */}
+                  </div>
 
-                  <td className="px-4 py-4 text-sm text-gray-400">
-                    {formatDate(tx.createdAt)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    )}
-  </div>
-);
+                </div>
 
-/* ==========================================================
-   PORTFOLIO ACTIVITY SUMMARY
-========================================================== */
+              </div>
+            </section>
 
-const PortfolioActivitySummary = () => (
-  <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6">
-    <h2 className="text-2xl font-bold text-green-400 mb-6">
-      Portfolio Activity Summary
-    </h2>
+            {/* =================================================== */}
+            {/* PORTFOLIO BREAKDOWN */}
+            {/* =================================================== */}
 
-    <div className="grid md:grid-cols-3 gap-5">
-      {/* PKR */}
+            <section className="mb-8">
+              <div className="rounded-3xl bg-white p-6 shadow-sm">
+                <div className="mb-6 flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Portfolio Breakdown
+                  </h2>
 
-      <div className="bg-[#1F2937] rounded-xl p-5 border border-green-600/20">
-        <Wallet
-          className="text-green-400 mb-3"
-          size={28}
-        />
+                  <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                    Live Portfolio
+                  </span>
+                </div>
 
-        <p className="text-gray-400 text-sm">
-          PKR Wallet Balance
-        </p>
+                <div className="space-y-5">
 
-        <h3 className="text-2xl font-bold text-green-400 mt-2">
-          {showBalance
-            ? `PKR ${formatMoney(wallet.pkrBalance)}`
-            : "********"}
-        </h3>
-      </div>
+                  {/* Gold Assets */}
+                  <div>
+                    <div className="mb-2 flex justify-between text-sm">
+                      <span className="font-medium text-gray-600">
+                        Gold Holdings
+                      </span>
 
-      {/* GOLD */}
+                      <span className="font-semibold text-gray-900">
+                        {formatGold(wallet.gold)} g
+                      </span>
+                    </div>
 
-      <div className="bg-[#1F2937] rounded-xl p-5 border border-yellow-600/20">
-        <Coins
-          className="text-yellow-400 mb-3"
-          size={28}
-        />
+                    <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-yellow-500 transition-all duration-700"
+                        style={{
+                          width: `${Math.min(wallet.gold * 10, 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
 
-        <p className="text-gray-400 text-sm">
-          Gold Holdings
-        </p>
+                  {/* PKR Assets */}
+                  <div>
+                    <div className="mb-2 flex justify-between text-sm">
+                      <span className="font-medium text-gray-600">
+                        PKR Wallet
+                      </span>
 
-        <h3 className="text-2xl font-bold text-yellow-400 mt-2">
-          {showBalance
-            ? `${formatGold(wallet.goldBalance)} Gold`
-            : "********"}
-        </h3>
+                      <span className="font-semibold text-gray-900">
+                        {safeCurrency(wallet.pkr)}
+                      </span>
+                    </div>
 
-        <p className="text-gray-500 text-sm mt-2">
-          Value:{" "}
-          {showBalance
-            ? `PKR ${formatMoney(portfolio.goldValue)}`
-            : "********"}
-        </p>
-      </div>
+                    <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-green-500 transition-all duration-700"
+                        style={{
+                          width: `${Math.min(wallet.pkr / 10000, 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
 
-      {/* USDT */}
+                  {/* USDT Assets */}
+                  <div>
+                    <div className="mb-2 flex justify-between text-sm">
+                      <span className="font-medium text-gray-600">
+                        USDT Wallet
+                      </span>
 
-      <div className="bg-[#1F2937] rounded-xl p-5 border border-cyan-600/20">
-        <DollarSign
-          className="text-cyan-400 mb-3"
-          size={28}
-        />
+                      <span className="font-semibold text-gray-900">
+                        {formatCurrency(wallet.usdt)} USDT
+                      </span>
+                    </div>
 
-        <p className="text-gray-400 text-sm">
-          USDT Holdings
-        </p>
+                    <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-blue-500 transition-all duration-700"
+                        style={{
+                          width: `${Math.min(wallet.usdt, 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
 
-        <h3 className="text-2xl font-bold text-cyan-400 mt-2">
-          {showBalance
-            ? `${formatUsdt(wallet.usdtBalance)} USDT`
-            : "********"}
-        </h3>
+                </div>
 
-        <p className="text-gray-500 text-sm mt-2">
-          Value:{" "}
-          {showBalance
-            ? `PKR ${formatMoney(portfolio.usdtValue)}`
-            : "********"}
-        </p>
-      </div>
-    </div>
+                {/* Summary */}
+                <div className="mt-8 grid grid-cols-2 gap-5 lg:grid-cols-4">
 
-    {/* TOTAL */}
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs text-gray-500">Gold Value</p>
 
-    <div className="mt-6 bg-gradient-to-r from-green-600/20 to-cyan-600/20 border border-green-500/30 rounded-xl p-5">
-      <div className="flex justify-between items-center">
-        <div>
-          <p className="text-gray-400 text-sm">
-            Total Portfolio Assets
-          </p>
+                    <h4 className="mt-2 text-xl font-bold text-yellow-600">
+                      {safeCurrency(stats.totalGoldValue)}
+                    </h4>
+                  </div>
 
-          <h2 className="text-3xl font-bold text-green-400 mt-2">
-            {showBalance
-              ? `PKR ${formatMoney(totalAssets)}`
-              : "********"}
-          </h2>
-        </div>
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs text-gray-500">USDT Value</p>
 
-        <Shield
-          className="text-green-400"
-          size={40}
-        />
-      </div>
-    </div>
-  </div>
-);
+                    <h4 className="mt-2 text-xl font-bold text-blue-600">
+                      {safeCurrency(stats.totalUsdtValue)}
+                    </h4>
+                  </div>
 
-/* ==========================================================
-   DASHBOARD ANALYTICS STRIP
-========================================================== */
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs text-gray-500">Investment</p>
 
-const DashboardAnalyticsStrip = () => (
-  <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-    <div className="rounded-xl bg-[#111827] border border-green-500/20 p-5">
-      <p className="text-gray-400 text-xs uppercase">
-        Total Transactions
-      </p>
+                    <h4 className="mt-2 text-xl font-bold text-gray-900">
+                      {safeCurrency(portfolio.investment)}
+                    </h4>
+                  </div>
 
-      <h3 className="text-2xl font-bold text-green-400 mt-2">
-        {dashboardSummary.totalTransactions}
-      </h3>
-    </div>
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs text-gray-500">Current Value</p>
 
-    <div className="rounded-xl bg-[#111827] border border-blue-500/20 p-5">
-      <p className="text-gray-400 text-xs uppercase">
-        Approved
-      </p>
+                    <h4 className="mt-2 text-xl font-bold text-green-600">
+                      {safeCurrency(portfolio.currentValue)}
+                    </h4>
+                  </div>
 
-      <h3 className="text-2xl font-bold text-blue-400 mt-2">
-        {dashboardSummary.approvedTransactions}
-      </h3>
-    </div>
+                </div>
+              </div>
+            </section>
 
-    <div className="rounded-xl bg-[#111827] border border-yellow-500/20 p-5">
-      <p className="text-gray-400 text-xs uppercase">
-        Pending
-      </p>
+            {/* =================================================== */}
+            {/* LIVE MARKET OVERVIEW */}
+            {/* =================================================== */}
 
-      <h3 className="text-2xl font-bold text-yellow-400 mt-2">
-        {dashboardSummary.pendingTransactions}
-      </h3>
-    </div>
+            <section className="mb-8">
+              <div className="rounded-3xl bg-white p-6 shadow-sm">
 
-    <div className="rounded-xl bg-[#111827] border border-red-500/20 p-5">
-      <p className="text-gray-400 text-xs uppercase">
-        Rejected
-      </p>
+                <div className="mb-6 flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Live Market Overview
+                  </h2>
 
-      <h3 className="text-2xl font-bold text-red-400 mt-2">
-        {dashboardSummary.rejectedTransactions}
-      </h3>
-    </div>
-  </div>
-);
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Activity size={16} className="text-green-500" />
+                    Updated {lastUpdatedText}
+                  </div>
+                </div>
 
-/* ==========================================================
-   PART 10/10
-   ACCOUNT INFO + LOADING OVERLAY + FOOTER
-   FINAL PRODUCTION VERSION (IQ 800)
-========================================================== */
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
 
-/* ==========================================================
-   ACCOUNT INFORMATION SECTION
-========================================================== */
+                  <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-5">
+                    <p className="text-sm text-yellow-700">
+                      Gold Buy Price
+                    </p>
 
-const AccountInformationSection = () => (
-  <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6">
-    <div className="flex flex-col lg:flex-row justify-between gap-6">
+                    <h3 className="mt-2 text-2xl font-bold text-yellow-900">
+                      {safeCurrency(goldPrice.buyPrice)}
+                    </h3>
 
-      <div>
-        <h2 className="text-xl font-bold text-yellow-400 mb-3">
-          Account Information
-        </h2>
+                    <p className="mt-2 text-xs text-yellow-700">
+                      Per Gram
+                    </p>
+                  </div>
 
-        <div className="space-y-2 text-sm">
-          <p className="text-gray-400">
-            Username:
-            <span className="text-green-400 ml-2 font-semibold">
-              {user.username}
-            </span>
-          </p>
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+                    <p className="text-sm text-red-700">
+                      Gold Sell Price
+                    </p>
 
-          <p className="text-gray-400">
-            Full Name:
-            <span className="text-white ml-2 font-semibold">
-              {user.fullName || username}
-            </span>
-          </p>
+                    <h3 className="mt-2 text-2xl font-bold text-red-900">
+                      {safeCurrency(goldPrice.sellPrice)}
+                    </h3>
 
-          <p className="text-gray-400">
-            Email:
-            <span className="text-white ml-2">
-              {user.email || "Not Available"}
-            </span>
-          </p>
+                    <p className="mt-2 text-xs text-red-700">
+                      Per Gram
+                    </p>
+                  </div>
 
-          <p className="text-gray-400">
-            Account Role:
-            <span className="text-cyan-400 ml-2 font-semibold uppercase">
-              {user.role}
-            </span>
-          </p>
-        </div>
-      </div>
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+                    <p className="text-sm text-blue-700">
+                      Gold USD Price
+                    </p>
 
-      <div className="flex flex-col gap-3 items-start lg:items-end">
+                    <h3 className="mt-2 text-2xl font-bold text-blue-900">
+                      $ {formatCurrency(goldPrice.goldPriceUSD)}
+                    </h3>
 
-        <span className="bg-green-600/20 border border-green-500/30 text-green-400 px-4 py-2 rounded-full font-semibold flex items-center gap-2">
-          <CheckCircle size={16}/>
-          VERIFIED ACCOUNT
-        </span>
+                    <p className="mt-2 text-xs text-blue-700">
+                      International Market
+                    </p>
+                  </div>
 
-        {isAdmin && (
-          <span className="bg-purple-600/20 border border-purple-500/30 text-purple-400 px-4 py-2 rounded-full font-semibold flex items-center gap-2">
-            <Shield size={16}/>
-            ADMIN PANEL ACCESS
-          </span>
+                  <div className="rounded-2xl border border-green-200 bg-green-50 p-5">
+                    <p className="text-sm text-green-700">
+                      USD → PKR Rate
+                    </p>
+
+                    <h3 className="mt-2 text-2xl font-bold text-green-900">
+                      Rs {formatCurrency(goldPrice.usdToPkr)}
+                    </h3>
+
+                    <p className="mt-2 text-xs text-green-700">
+                      Exchange Rate
+                    </p>
+                  </div>
+
+                </div>
+
+                {/* Market Status Banner */}
+                <div
+                  className={`mt-6 rounded-2xl p-4 ${
+                    marketOpen
+                      ? "bg-green-50 border border-green-200"
+                      : "bg-red-50 border border-red-200"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+
+                    <div className="flex items-center gap-3">
+                      <Activity
+                        size={20}
+                        className={
+                          marketOpen
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }
+                      />
+
+                      <div>
+                        <p
+                          className={`font-semibold ${
+                            marketOpen
+                              ? "text-green-700"
+                              : "text-red-700"
+                          }`}
+                        >
+                          {marketOpen
+                            ? "Gold Market is LIVE"
+                            : "Gold Market is CLOSED"}
+                        </p>
+
+                        <p className="text-sm text-gray-600">
+                          {marketOpen
+                            ? "Users can buy and sell gold at live market prices."
+                            : "Gold trading is temporarily disabled by administrator."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        marketOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {goldPrice.marketStatus}
+                    </span>
+
+                  </div>
+                </div>
+
+              </div>
+            </section>
+
+            {/* =================================================== */}
+            {/* RECENT TRANSACTIONS */}
+            {/* =================================================== */}
+
+            <section className="mb-8">
+              <div className="rounded-3xl bg-white p-6 shadow-sm">
+
+                <div className="mb-6 flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Recent Transactions
+                  </h2>
+
+                  <Link
+                    href="/gold/history"
+                    className="text-sm font-semibold text-yellow-600 hover:text-yellow-700"
+                  >
+                    View All
+                  </Link>
+                </div>
+
+                {latestTransactions.length === 0 ? (
+                  renderEmptyTransactions()
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-left">
+                      <thead>
+                        <tr className="border-b text-xs uppercase tracking-wide text-gray-500">
+                          <th className="pb-3 font-semibold">Type</th>
+                          <th className="pb-3 font-semibold">Amount</th>
+                          <th className="pb-3 font-semibold">Gold</th>
+                          <th className="pb-3 font-semibold">Status</th>
+                          <th className="pb-3 font-semibold">Date</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {latestTransactions.map((transaction) => (
+                          <tr
+                            key={transaction._id}
+                            className="border-b last:border-0 hover:bg-gray-50"
+                          >
+                            <td className="py-4">
+                              <div
+                                className={`inline-flex items-center gap-2 font-semibold ${getTransactionColor(
+                                  transaction.type
+                                )}`}
+                              >
+                                {transaction.type === "BUY" && (
+                                  <ArrowDownLeft size={16} />
+                                )}
+
+                                {transaction.type === "SELL" && (
+                                  <ArrowUpRight size={16} />
+                                )}
+
+                                {transaction.type === "DEPOSIT" && (
+                                  <Wallet size={16} />
+                                )}
+
+                                {transaction.type === "WITHDRAW" && (
+                                  <DollarSign size={16} />
+                                )}
+
+                                {transaction.type}
+                              </div>
+                            </td>
+
+                            <td className="py-4 font-semibold text-gray-900">
+                              {safeCurrency(transaction.amount)}
+                            </td>
+
+                            <td className="py-4 text-gray-700">
+                              {transaction.goldGrams
+                                ? `${formatGold(transaction.goldGrams)} g`
+                                : "-"}
+                            </td>
+
+                            <td className="py-4">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(
+                                  transaction.status
+                                )}`}
+                              >
+                                {transaction.status}
+                              </span>
+                            </td>
+
+                            <td className="py-4 text-sm text-gray-500">
+                              {formatDate(transaction.createdAt)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+              </div>
+            </section>
+
+            {/* =================================================== */}
+            {/* ACCOUNT INFORMATION */}
+            {/* =================================================== */}
+
+            <section className="mb-8">
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+
+                {/* User Profile */}
+                <div className="rounded-3xl bg-white p-6 shadow-sm">
+                  <div className="mb-5 flex items-center gap-4">
+
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 text-2xl font-bold text-white">
+                      {(user?.username || username || "U")
+                        .charAt(0)
+                        .toUpperCase()}
+                    </div>
+
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">
+                        {user?.fullName || username}
+                      </h2>
+
+                      <p className="text-sm text-gray-500">
+                        @{user?.username || username}
+                      </p>
+
+                      <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                        {user?.role === "admin"
+                          ? "Administrator"
+                          : "Verified User"}
+                      </span>
+                    </div>
+
+                  </div>
+
+                  <div className="space-y-4">
+
+                    <div className="flex items-center justify-between border-b pb-3">
+                      <span className="text-gray-500">Username</span>
+
+                      <span className="font-semibold text-gray-900">
+                        {user?.username || username}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between border-b pb-3">
+                      <span className="text-gray-500">Email</span>
+
+                      <span className="font-semibold text-gray-900">
+                        {user?.email || "Not Available"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between border-b pb-3">
+                      <span className="text-gray-500">Role</span>
+
+                      <span className="font-semibold capitalize text-gray-900">
+                        {user?.role || "user"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-500">
+                        Last Dashboard Update
+                      </span>
+
+                      <span className="font-semibold text-green-600">
+                        {lastUpdatedText}
+                      </span>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* Security Card */}
+                <div className="rounded-3xl bg-gradient-to-br from-green-500 to-emerald-600 p-6 text-white shadow-lg">
+
+                  <div className="mb-4 flex items-center gap-3">
+                    <ShieldCheck size={34} />
+
+                    <div>
+                      <h2 className="text-xl font-bold">
+                        Account Security
+                      </h2>
+
+                      <p className="text-green-100 text-sm">
+                        GoldTrade Protected Session
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 text-sm">
+
+                    <div className="flex items-center justify-between">
+                      <span>JWT Authentication</span>
+                      <span className="font-semibold text-green-100">
+                        Active
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span>Wallet Encryption</span>
+                      <span className="font-semibold text-green-100">
+                        Enabled
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span>Market Connection</span>
+                      <span className="font-semibold text-green-100">
+                        Live
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span>Session Status</span>
+
+                      <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold">
+                        SECURE
+                      </span>
+                    </div>
+
+                  </div>
+
+                  <button
+                    onClick={logout}
+                    className="mt-6 w-full rounded-xl bg-white py-3 font-semibold text-green-700 transition hover:bg-green-100"
+                  >
+                    Logout Securely
+                  </button>
+
+                </div>
+
+              </div>
+            </section>
+
+            {/* =================================================== */}
+            {/* FOOTER */}
+            {/* =================================================== */}
+
+            <footer className="rounded-3xl border border-yellow-200 bg-gradient-to-r from-yellow-50 via-orange-50 to-yellow-100 p-6">
+
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    GoldTrade V18 Dashboard
+                  </h3>
+
+                  <p className="mt-1 text-sm text-gray-600">
+                    Live Gold Trading • PKR Wallet • USDT Wallet • Portfolio Management
+                  </p>
+
+                  <p className="mt-2 text-xs text-gray-500">
+                    Connected to GoldTrade API Server
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+
+                  <Link
+                    href="/gold/buy"
+                    className="rounded-xl bg-yellow-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-yellow-600"
+                  >
+                    Buy Gold
+                  </Link>
+
+                  <Link
+                    href="/gold/sell"
+                    className="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-600"
+                  >
+                    Sell Gold
+                  </Link>
+
+                  <Link
+                    href="/wallet/deposit"
+                    className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-600"
+                  >
+                    Deposit
+                  </Link>
+
+                  <Link
+                    href="/wallet/withdraw"
+                    className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
+                  >
+                    Withdraw
+                  </Link>
+
+                </div>
+
+              </div>
+
+              <div className="mt-6 border-t border-yellow-200 pt-4 text-center text-xs text-gray-500">
+                © 2026 GoldTrade V18 — Secure Trading Platform.
+              </div>
+
+            </footer>
+
+          </>
         )}
 
-        <button
-          onClick={logout}
-          className="bg-red-600 hover:bg-red-700 px-5 py-3 rounded-xl font-semibold transition"
-        >
-          Logout Account
-        </button>
-
       </div>
-
-    </div>
-  </div>
-);
-
-/* ==========================================================
-   LOADING OVERLAY COMPONENT
-========================================================== */
-
-const LoadingOverlay = () => {
-  if (!loading && !refreshing) return null;
-
-  return (
-    <div className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex items-center justify-center">
-
-      <div className="bg-[#111827] border border-yellow-500/30 rounded-3xl px-8 py-7 shadow-2xl flex flex-col items-center gap-4">
-
-        <RefreshCw
-          size={42}
-          className="animate-spin text-yellow-400"
-        />
-
-        <h2 className="text-2xl font-bold text-yellow-400">
-          GoldTrade V18 Enterprise
-        </h2>
-
-        <p className="text-gray-300 text-center">
-          {refreshing
-            ? "Refreshing dashboard data..."
-            : "Loading your dashboard..."}
-        </p>
-
-      </div>
-
-    </div>
+    </main>
   );
-};
-
-/* ==========================================================
-   FOOTER
-========================================================== */
-
-const DashboardFooter = () => (
-  <footer className="mt-14 border-t border-gray-800 pt-8">
-
-    <div className="flex flex-col lg:flex-row justify-between items-center gap-5">
-
-      <div>
-        <h2 className="text-yellow-400 font-bold text-xl">
-          GoldTrade V18 Enterprise
-        </h2>
-
-        <p className="text-gray-500 text-sm mt-2">
-          PKR • GOLD • USDT Secure Trading Platform
-        </p>
-
-        <p className="text-gray-600 text-xs mt-2">
-          Enterprise Dashboard Version 18
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 text-sm">
-
-        <div className="flex items-center gap-2 text-green-400">
-          <Wallet size={16}/>
-          Secure Wallet
-        </div>
-
-        <div className="flex items-center gap-2 text-yellow-400">
-          <Coins size={16}/>
-          Gold Trading
-        </div>
-
-        <div className="flex items-center gap-2 text-cyan-400">
-          <DollarSign size={16}/>
-          USDT Trading
-        </div>
-
-        <div className="flex items-center gap-2 text-blue-400">
-          <Shield size={16}/>
-          JWT Protected
-        </div>
-
-      </div>
-
-    </div>
-
-    <div className="mt-8 border-t border-gray-800 pt-5 text-center text-gray-600 text-sm">
-
-      <p>
-        © {new Date().getFullYear()} GoldTrade V18 Enterprise
-      </p>
-
-      <p className="mt-2">
-        Developed for PKR Wallet, Gold Wallet & USDT Trading Platform.
-      </p>
-
-      <p className="mt-2 text-gray-500">
-        Powered by Next.js • Render Backend • MongoDB • JWT Authentication
-      </p>
-
-    </div>
-
-  </footer>
-);
-
-/* ==========================================================
-   FINAL RETURN
-========================================================== */
-
-return (
-  <div className="min-h-screen bg-[#0B1120] text-white p-5 lg:p-8">
-
-    <LoadingOverlay/>
-
-    <HeaderSection/>
-
-    <PortfolioHeroCard/>
-
-    <DashboardStatsSection/>
-
-    <WalletCardsSection/>
-
-    <PortfolioSummarySection/>
-
-    <MarketOverviewSection/>
-
-    <MarketStatusGrid/>
-
-    <MarketRefreshInfo/>
-
-    <QuickActionsSection/>
-
-    <RecentTransactionsSection/>
-
-    <DashboardAnalyticsStrip/>
-
-    <PortfolioActivitySummary/>
-
-    <AccountInformationSection/>
-
-    <DashboardFooter/>
-
-  </div>
-);
 }
