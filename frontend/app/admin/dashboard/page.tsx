@@ -421,7 +421,7 @@ export default function AdminDashboardPage() {
       {
         title: "Withdrawals",
         href: "/admin/withdraw",
-        description: "Wallet management center",
+        description: "Approve withdrawal requests",
       },
       {
         title: "Wallet Manager",
@@ -877,7 +877,7 @@ export default function AdminDashboardPage() {
                   </p>
 
                   <Link
-                    href="/admin/withdrawals"
+                    href="/admin/withdraw"
                     className="mt-6 inline-flex rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-400"
                   >
                     Review Withdrawals
