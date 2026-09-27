@@ -199,25 +199,44 @@ const adminRoutes = require("./routes/adminRoutes");
 // Payment Settings
 const paymentSettingsRoutes = require("./routes/paymentSettingsRoutes");
 
+const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
+
 // ======================================================
-// API ROUTES
+// API ROUTES (GoldTrade V18 FINAL)
 // ======================================================
 
+// Authentication
 app.use("/api/auth", authRoutes);
+
+// User
 app.use("/api/user", userRoutes);
 
+// Wallet
 app.use("/api/wallet", walletRoutes);
-app.use("/api/deposit", depositRoutes);
-app.use("/api/withdraw", withdrawRoutes);
 
+// Deposit
+app.use("/api/deposit", depositRoutes);
+
+// Withdraw (Admin)
+app.use("/api/gold/admin/withdraws", withdrawRoutes);
+
+// Admin Dashboard (IMPORTANT FIX)
+app.use("/api/gold/admin", adminDashboardRoutes);
+
+// Gold Trading
 app.use("/api/gold", goldRoutes);
+
+// Market
 app.use("/api/market", marketRoutes);
 
+// Transactions
 app.use("/api/transactions", transactionRoutes);
 
+// Other Admin APIs (users, settings, payments, etc.)
 app.use("/api/admin", adminRoutes);
-app.use("/api/payment-settings", paymentSettingsRoutes);
 
+// Payment Settings
+app.use("/api/payment-settings", paymentSettingsRoutes);
 // ======================================================
 // API STATUS ROUTE
 // ======================================================
