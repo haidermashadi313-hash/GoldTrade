@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:10000";
+  process.env.NEXT_PUBLIC_API_URL ||  "https://goldtrade-2.onrender.com";
 
 /* ==========================================================
    TYPES

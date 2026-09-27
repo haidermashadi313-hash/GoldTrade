@@ -94,92 +94,95 @@ export default function LoginPage() {
     setSuccessMessage("");
     setShowPassword(false);
   };
-    // ========================================================
-  // SESSION CHECK (Production Fix)
-  // ========================================================
+// ========================================================
+// SESSION CHECK (IQ1000 FINAL - Login Loop Fixed)
+// ========================================================
 
-  useEffect(() => {
-    const session = getSession();
+useEffect(() => {
+  let isMounted = true;
 
-    if (!session) {
-      setCheckingSession(false);
-      return;
+  const checkSession = async () => {
+    try {
+      const session = getSession();
+
+      // --------------------------------------------------
+      // No session → Show Login Form
+      // --------------------------------------------------
+      if (!session || !session.token) {
+        if (isMounted) setCheckingSession(false);
+        return;
+      }
+
+      // --------------------------------------------------
+      // Verify JWT with Backend
+      // --------------------------------------------------
+      const response = await fetch(`${API}/api/auth/check`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      // --------------------------------------------------
+      // Valid Session → Redirect Once
+      // --------------------------------------------------
+      if (response.ok && data.success) {
+        if (session.user?.role === "admin") {
+          router.replace("/admin/dashboard");
+        } else {
+          router.replace("/dashboard");
+        }
+
+        return;
+      }
+
+      // --------------------------------------------------
+      // Invalid Session → Clear Storage
+      // --------------------------------------------------
+      localStorage.clear();
+
+      if (isMounted) setCheckingSession(false);
+
+    } catch (error) {
+      console.error("SESSION CHECK ERROR:", error);
+
+      localStorage.clear();
+
+      if (isMounted) setCheckingSession(false);
     }
+  };
 
-    if (session.user.role === "admin") {
-      router.replace("/admin/dashboard");
-     } else {
-      router.replace("/dashboard");
-      
-    }
-    
-  }, [router]);
+  checkSession();
 
-  // ========================================================
-  // NETWORK STATUS
-  // ========================================================
+  return () => {
+    isMounted = false;
+  };
+}, []);
 
-  useEffect(() => {
-    const updateNetworkStatus = () => {
-      setIsOnline(navigator.onLine);
-    };
+// ========================================================
+// LOADING SCREEN
+// ========================================================
+if (checkingSession) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-black text-white">
+      <div className="text-center">
+        <div className="h-12 w-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
 
-    updateNetworkStatus();
+        <h2 className="text-2xl font-bold text-yellow-500">
+          GoldTrade V18
+        </h2>
 
-    window.addEventListener("online", updateNetworkStatus);
-    window.addEventListener("offline", updateNetworkStatus);
-
-    return () => {
-      window.removeEventListener("online", updateNetworkStatus);
-      window.removeEventListener("offline", updateNetworkStatus);
-    };
-  }, []);
-
-  // ========================================================
-  // AUTO CLEAR ALERTS
-  // ========================================================
-
-  useEffect(() => {
-    if (!errorMessage) return;
-
-    const timer = setTimeout(() => {
-      setErrorMessage("");
-    }, 4000);
-
-    return () => clearTimeout(timer);
-  }, [errorMessage]);
-
-  useEffect(() => {
-    if (!successMessage) return;
-
-    const timer = setTimeout(() => {
-      setSuccessMessage("");
-    }, 2500);
-
-    return () => clearTimeout(timer);
-  }, [successMessage]);
-
-  // ========================================================
-  // LOADING SCREEN
-  // ========================================================
-
-  if (checkingSession) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-black">
-        <div className="text-center">
-          <div className="mx-auto mb-5 h-14 w-14 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent"></div>
-
-          <h2 className="text-2xl font-bold text-yellow-400">
-            GoldTrade V18
-          </h2>
-
-          <p className="mt-2 text-gray-400">
-            Checking secure session...
-          </p>
-        </div>
-      </main>
-    );
-  }
+        <p className="text-gray-400 mt-2">
+          Checking secure session...
+        </p>
+      </div>
+    </div>
+  );
+}
     // ========================================================
   // LOGIN HANDLER (JWT + Render Production)
   // ========================================================
