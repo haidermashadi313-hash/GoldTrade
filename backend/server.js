@@ -218,7 +218,7 @@ app.use("/api/wallet", walletRoutes);
 app.use("/api/deposit", depositRoutes);
 
 // Withdraw (Admin)
-app.use("/api/gold/admin/withdraws", withdrawRoutes);
+app.use("/api/gold/admin/withdraws", withdrawRoutes)
 
 // Admin Dashboard (IMPORTANT FIX)
 app.use("/api/gold/admin", adminDashboardRoutes);
