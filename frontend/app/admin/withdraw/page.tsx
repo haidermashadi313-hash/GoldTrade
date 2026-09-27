@@ -1093,10 +1093,6 @@ export default function AdminWithdrawPage() {
                 paginatedWithdraws.map((withdraw) => {
                   const StatusIcon = getStatusIcon(withdraw.status);
 
-                  function approveWithdraw(_id: string): void {
-                    throw new Error("Function not implemented.");
-                  }
-
                   return (
                     <tr
                       key={withdraw._id}
