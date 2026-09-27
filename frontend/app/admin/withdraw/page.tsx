@@ -1,217 +1,328 @@
 ﻿"use client";
 
-// =====================================================
+// ==========================================================
 // GoldTrade V18 Enterprise
-// Admin Withdraw Manager (PART 1/5)
-// Production Version
-// =====================================================
+// ADMIN WITHDRAW MANAGER
+// PART 1/10
+// Production Ready (Render + Vercel + Linux)
+// ==========================================================
 
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import {
-  Wallet,
-  Search,
+  getSession,
+  logout,
+  type GoldTradeUser,
+} from "@/lib/auth";
+
+import { API } from "@/lib/api";
+
+import {
+  ArrowLeft,
   RefreshCw,
   CheckCircle,
   XCircle,
   Clock,
+  Wallet,
+  Search,
+  Filter,
   DollarSign,
+  Gem,
   Coins,
-  User,
-  Calendar,
-  FileText,
-  Trash2,
 } from "lucide-react";
 
-// =====================================================
-// API URL
-// =====================================================
-
-const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-
-// =====================================================
+// ==========================================================
 // TYPES
-// =====================================================
+// ==========================================================
+
+type WithdrawStatus = "pending" | "approved" | "rejected";
+type WithdrawCurrency = "PKR" | "GOLD" | "USDT";
 
 interface WithdrawRequest {
   _id: string;
 
-  userId: string;
-
   username: string;
-
   email?: string;
 
-  walletType: "PKR" | "GOLD" | "USDT";
+  currency: WithdrawCurrency;
 
   amount: number;
 
-  requestAmount?: number;
-
-  adminAmount?: number;
-
   walletAddress?: string;
+  bankName?: string;
+  accountTitle?: string;
+  accountNumber?: string;
 
-  transactionId?: string;
-
-  screenshot?: string;
-
-  status: "Pending" | "Approved" | "Rejected";
-
-  adminNote?: string;
+  status: WithdrawStatus;
 
   createdAt: string;
+  updatedAt?: string;
 
-  approvedAt?: string;
-
-  rejectedAt?: string;
+  note?: string;
 }
 
-interface WithdrawStatistics {
-  pendingRequests: number;
-  approvedRequests: number;
-  rejectedRequests: number;
-  totalRequests: number;
+interface WithdrawStats {
+  pendingCount: number;
+  approvedCount: number;
+  rejectedCount: number;
+  totalCount: number;
 
   pendingAmount: number;
   approvedAmount: number;
   rejectedAmount: number;
-
-  totalPKR: number;
-  totalGold: number;
-  totalUSDT: number;
+  totalAmount: number;
 }
 
-// =====================================================
-// DEFAULT STATISTICS
-// =====================================================
+interface WithdrawResponse {
+  success: boolean;
+  message?: string;
+  withdrawals?: WithdrawRequest[];
+}
 
-const defaultStatistics: WithdrawStatistics = {
-  pendingRequests: 0,
-  approvedRequests: 0,
-  rejectedRequests: 0,
-  totalRequests: 0,
+interface StatsResponse {
+  success: boolean;
+  message?: string;
+  stats?: WithdrawStats;
+}
 
-  pendingAmount: 0,
-  approvedAmount: 0,
-  rejectedAmount: 0,
-
-  totalPKR: 0,
-  totalGold: 0,
-  totalUSDT: 0,
-};
-
-// =====================================================
+// ==========================================================
 // COMPONENT START
-// =====================================================
+// ==========================================================
 
 export default function AdminWithdrawPage() {
+  const router = useRouter();
 
-  // =====================================================
-  // STATES
-  // =====================================================
+  // ========================================================
+  // ADMIN SESSION
+  // ========================================================
+
+  const [admin, setAdmin] = useState<GoldTradeUser | null>(null);
+  const [token, setToken] = useState("");
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // ========================================================
+  // UI STATE
+  // ========================================================
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<
+    "success" | "error" | ""
+  >("");
+
+  // ========================================================
+  // WITHDRAW DATA
+  // ========================================================
 
   const [withdraws, setWithdraws] = useState<WithdrawRequest[]>([]);
 
-  const [statistics, setStatistics] =
-    useState<WithdrawStatistics>(defaultStatistics);
+  const [stats, setStats] = useState<WithdrawStats>({
+    pendingCount: 0,
+    approvedCount: 0,
+    rejectedCount: 0,
+    totalCount: 0,
 
-  const [loading, setLoading] = useState(false);
+    pendingAmount: 0,
+    approvedAmount: 0,
+    rejectedAmount: 0,
+    totalAmount: 0,
+  });
+
+  // ========================================================
+  // SEARCH + FILTER
+  // ========================================================
 
   const [search, setSearch] = useState("");
 
-  const [message, setMessage] = useState("");
+  const [statusFilter, setStatusFilter] =
+    useState<WithdrawStatus | "all">("all");
 
-  const [messageType, setMessageType] = useState<"success" | "error">(
-    "success"
-  );
+  const [currencyFilter, setCurrencyFilter] =
+    useState<WithdrawCurrency | "all">("all");
 
-  const [selectedWithdraw, setSelectedWithdraw] =
-    useState<WithdrawRequest | null>(null);
+  // ========================================================
+  // PAGINATION
+  // ========================================================
 
-  const [adminNote, setAdminNote] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
-  const [adminAmount, setAdminAmount] = useState("");
+  // ========================================================
+  // PAGE TITLE
+  // ========================================================
 
-  // =====================================================
+  useEffect(() => {
+    document.title =
+      "Admin Withdraw Manager • GoldTrade V18 Enterprise";
+  }, []);
+    // ========================================================
+  // NETWORK STATUS
+  // ========================================================
+
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    const updateNetworkStatus = () => {
+      setIsOnline(navigator.onLine);
+    };
+
+    updateNetworkStatus();
+
+    window.addEventListener("online", updateNetworkStatus);
+    window.addEventListener("offline", updateNetworkStatus);
+
+    return () => {
+      window.removeEventListener("online", updateNetworkStatus);
+      window.removeEventListener("offline", updateNetworkStatus);
+    };
+  }, []);
+
+  // ========================================================
+  // ADMIN SESSION CHECK (JWT + ROLE)
+  // ========================================================
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const session = getSession();
+
+      if (!session || !session.token || !session.user) {
+        logout();
+        return;
+      }
+
+      if (session.user.role !== "admin") {
+        router.replace("/dashboard");
+        return;
+      }
+
+      setToken(session.token);
+      setAdmin(session.user);
+    } catch (error) {
+      console.error("ADMIN SESSION ERROR:", error);
+      logout();
+    } finally {
+      setCheckingSession(false);
+    }
+  }, [router]);
+
+  // ========================================================
   // AUTH HEADERS
-  // =====================================================
+  // ========================================================
 
-  const getHeaders = () => {
-    const token = localStorage.getItem("token");
+  const getHeaders = useCallback(() => {
+    const session = getSession();
 
     return {
-      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.token || token}`,
     };
-  };
+  }, [token]);
 
-  // =====================================================
-  // FORMAT HELPERS
-  // =====================================================
+  // ========================================================
+  // FORMAT DATE
+  // ========================================================
 
-  const formatMoney = (value: number) =>
-    Number(value || 0).toLocaleString("en-PK", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+  const formatDate = useCallback((date: string) => {
+    return new Date(date).toLocaleString("en-PK", {
+      dateStyle: "medium",
+      timeStyle: "short",
     });
+  }, []);
 
-  const formatDate = (date: string) =>
-    new Date(date).toLocaleString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
+  // ========================================================
+  // FORMAT AMOUNT
+  // ========================================================
 
-  const getWalletColor = (wallet?: string) => {
-     const walletType = String(wallet || "PKR").toUpperCase();
-     switch (walletType) {
-      case "PKR":
-        return "text-green-400";
+  const formatAmount = useCallback(
+    (amount: number, currency: WithdrawCurrency) => {
+      if (currency === "GOLD") {
+        return `${Number(amount).toFixed(3)} g`;
+      }
 
-      case "GOLD":
-        return "text-yellow-400";
+      if (currency === "USDT") {
+        return `${Number(amount).toFixed(2)} USDT`;
+      }
 
-      case "USDT":
-        return "text-cyan-400";
+      return `PKR ${Number(amount).toLocaleString("en-PK", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    },
+    []
+  );
 
-      default:
-        return "text-white";
-    }
-  };
+  // ========================================================
+  // STATUS COLOR
+  // ========================================================
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: WithdrawStatus) => {
     switch (status) {
-      case "Approved":
-        return "bg-green-600/20 text-green-400 border border-green-500/30";
+      case "approved":
+        return "text-green-400 bg-green-500/10 border-green-500/30";
 
-      case "Rejected":
-        return "bg-red-600/20 text-red-400 border border-red-500/30";
+      case "rejected":
+        return "text-red-400 bg-red-500/10 border-red-500/30";
 
       default:
-        return "bg-yellow-600/20 text-yellow-400 border border-yellow-500/30";
+        return "text-yellow-400 bg-yellow-500/10 border-yellow-500/30";
     }
-  };
+  }, []);
+
+  // ========================================================
+  // STATUS ICON
+  // ========================================================
+
+  const getStatusIcon = useCallback((status: WithdrawStatus) => {
+    switch (status) {
+      case "approved":
+        return CheckCircle;
+
+      case "rejected":
+        return XCircle;
+
+      default:
+        return Clock;
+    }
+  }, []);
     // =====================================================
-  // LOAD WITHDRAW STATISTICS
+  // LOAD WITHDRAW STATISTICS (V18 PRODUCTION FIX)
   // =====================================================
 
-  const loadStatistics = async () => {
+  const loadStatistics = useCallback(async () => {
     try {
+      const session = getSession();
+
+      if (!session?.token) {
+        logout();
+        return;
+      }
+
       const response = await fetch(
-        `${API}/api/admin/withdraws/statistics`,
+        `${API}/api/gold/admin/withdraws/statistics`,
         {
-          headers: getHeaders(),
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+            "Content-Type": "application/json",
+          },
           cache: "no-store",
         }
       );
 
-      const result = await response.json();
+      const result: StatsResponse = await response.json();
 
       console.log("WITHDRAW STATS:", result);
+
+      if (response.status === 401) {
+        logout();
+        return;
+      }
 
       if (!response.ok || !result.success) {
         throw new Error(
@@ -219,35 +330,84 @@ export default function AdminWithdrawPage() {
         );
       }
 
-      setStatistics(result.statistics);
-
+      setStats(
+        result.stats || {
+          pendingCount: 0,
+          approvedCount: 0,
+          rejectedCount: 0,
+          totalCount: 0,
+          pendingAmount: 0,
+          approvedAmount: 0,
+          rejectedAmount: 0,
+          totalAmount: 0,
+        }
+      );
     } catch (error: any) {
-      console.error("LOAD WITHDRAW STATS ERROR:", error);
+      console.error("LOAD STATS ERROR:", error);
 
-      setMessage(error.message);
+      setStats({
+        pendingCount: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        totalCount: 0,
+        pendingAmount: 0,
+        approvedAmount: 0,
+        rejectedAmount: 0,
+        totalAmount: 0,
+      });
+
+      setMessage(error.message || "Unable to load statistics.");
       setMessageType("error");
     }
-  };
+  }, []);
 
   // =====================================================
-  // LOAD ALL WITHDRAW REQUESTS
+  // INITIAL LOAD
   // =====================================================
 
-  const loadWithdraws = async () => {
+  useEffect(() => {
+    if (checkingSession) return;
+
+    loadStatistics();
+  }, [checkingSession, loadStatistics]);
+    // =====================================================
+  // LOAD ALL WITHDRAW REQUESTS (V18 PRODUCTION FIX)
+  // =====================================================
+
+  const loadWithdraws = useCallback(async () => {
     try {
       setLoading(true);
+      setMessage("");
+      setMessageType("");
+
+      const session = getSession();
+
+      if (!session?.token) {
+        logout();
+        return;
+      }
 
       const response = await fetch(
-        `${API}/api/admin/withdraws/all`,
+        `${API}/api/gold/admin/withdraws/all`,
         {
-          headers: getHeaders(),
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+            "Content-Type": "application/json",
+          },
           cache: "no-store",
         }
       );
 
-      const result = await response.json();
+      const result: WithdrawResponse = await response.json();
 
       console.log("WITHDRAW RESPONSE:", result);
+
+      // Unauthorized
+      if (response.status === 401) {
+        logout();
+        return;
+      }
 
       if (!response.ok || !result.success) {
         throw new Error(
@@ -255,1039 +415,1164 @@ export default function AdminWithdrawPage() {
         );
       }
 
-      setWithdraws(result.withdrawals || []);
+      setWithdraws(
+        Array.isArray(result.withdrawals)
+          ? result.withdrawals
+          : []
+      );
 
     } catch (error: any) {
       console.error("LOAD WITHDRAWS ERROR:", error);
 
       setWithdraws([]);
-      setMessage(error.message);
+
+      setMessage(
+        error.message || "Failed to load withdraw requests."
+      );
+
       setMessageType("error");
 
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, []);
+
+  // =====================================================
+  // LOAD DASHBOARD DATA
+  // =====================================================
+
+  useEffect(() => {
+    if (checkingSession) return;
+
+    loadStatistics();
+    loadWithdraws();
+  }, [checkingSession, loadStatistics, loadWithdraws]);
 
   // =====================================================
   // REFRESH PAGE
   // =====================================================
 
-  const refreshPage = async () => {
-    await Promise.all([
-      loadStatistics(),
-      loadWithdraws(),
-    ]);
-  };
-
-  // =====================================================
-  // OPEN / CLOSE DETAILS MODAL
-  // =====================================================
-
-  const openWithdrawDetails = (withdraw: WithdrawRequest) => {
-    setSelectedWithdraw(withdraw);
-
-    setAdminNote(withdraw.adminNote || "");
-
-    setAdminAmount(
-      String(
-        withdraw.adminAmount ??
-          withdraw.requestAmount ??
-          withdraw.amount
-      )
-    );
-  };
-
-  const closeWithdrawDetails = () => {
-    setSelectedWithdraw(null);
-    setAdminNote("");
-    setAdminAmount("");
-  };
-
-  // =====================================================
-  // APPROVE WITHDRAW
-  // =====================================================
-
-  const approveWithdraw = async () => {
-    if (!selectedWithdraw) return;
-
+  const refreshWithdraws = useCallback(async () => {
     try {
-      setLoading(true);
+      setRefreshing(true);
+      setMessage("");
+      setMessageType("");
 
-      const response = await fetch(
-        `${API}/api/admin/withdraws/${selectedWithdraw._id}/approve`,
-        {
-          method: "POST",
-          headers: getHeaders(),
-          body: JSON.stringify({
-            adminAmount: Number(adminAmount),
-            adminNote,
-          }),
-        }
-      );
+      await Promise.all([
+        loadStatistics(),
+        loadWithdraws(),
+      ]);
 
-      const result = await response.json();
-
-      console.log("APPROVE RESPONSE:", result);
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message);
-      }
-
-      setMessage(result.message);
+      setMessage("Withdraw manager refreshed successfully.");
       setMessageType("success");
 
-      closeWithdrawDetails();
-
-      await refreshPage();
-
     } catch (error: any) {
-      console.error("APPROVE WITHDRAW ERROR:", error);
+      console.error("REFRESH ERROR:", error);
 
-      setMessage(error.message);
+      setMessage(error.message || "Refresh failed.");
       setMessageType("error");
 
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [loadStatistics, loadWithdraws]);
 
   // =====================================================
-  // REJECT WITHDRAW
+  // CLEAR SUCCESS / ERROR MESSAGE
   // =====================================================
 
-  const rejectWithdraw = async () => {
-    if (!selectedWithdraw) return;
+  useEffect(() => {
+    if (!message) return;
 
-    try {
-      setLoading(true);
+    const timer = setTimeout(() => {
+      setMessage("");
+      setMessageType("");
+    }, 3000);
 
-      const response = await fetch(
-        `${API}/api/admin/withdraws/${selectedWithdraw._id}/reject`,
-        {
-          method: "POST",
-          headers: getHeaders(),
-          body: JSON.stringify({
-            adminNote,
-          }),
-        }
-      );
-
-      const result = await response.json();
-
-      console.log("REJECT RESPONSE:", result);
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message);
-      }
-
-      setMessage(result.message);
-      setMessageType("success");
-
-      closeWithdrawDetails();
-
-      await refreshPage();
-
-    } catch (error: any) {
-      console.error("REJECT WITHDRAW ERROR:", error);
-
-      setMessage(error.message);
-      setMessageType("error");
-
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // =====================================================
-  // DELETE WITHDRAW REQUEST
-  // =====================================================
-
-  const deleteWithdraw = async (id: string) => {
-    const confirmed = window.confirm(
-      "Delete this withdraw request?"
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setLoading(true);
-
-      const response = await fetch(
-        `${API}/api/admin/withdraws/${id}`,
-        {
-          method: "DELETE",
-          headers: getHeaders(),
-        }
-      );
-
-      const result = await response.json();
-
-      console.log("DELETE RESPONSE:", result);
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message);
-      }
-
-      setMessage(result.message);
-      setMessageType("success");
-
-      await refreshPage();
-
-    } catch (error: any) {
-      console.error("DELETE WITHDRAW ERROR:", error);
-
-      setMessage(error.message);
-      setMessageType("error");
-
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // =====================================================
-  // SEARCH FILTER
+    return () => clearTimeout(timer);
+  }, [message]);
+    // =====================================================
+  // SEARCH + FILTERED WITHDRAW LIST
   // =====================================================
 
   const filteredWithdraws = useMemo(() => {
     return withdraws.filter((withdraw) => {
-      const keyword = search.toLowerCase();
+      const searchMatch =
+        search.trim() === "" ||
+        withdraw.username.toLowerCase().includes(search.toLowerCase()) ||
+        withdraw.email?.toLowerCase().includes(search.toLowerCase()) ||
+        withdraw.walletAddress?.toLowerCase().includes(search.toLowerCase()) ||
+        withdraw.accountNumber?.includes(search);
 
-      return (
-        withdraw.username?.toLowerCase().includes(keyword) ||
-        withdraw.email?.toLowerCase().includes(keyword) ||
-        withdraw.walletType?.toLowerCase().includes(keyword)
-      );
+      const statusMatch =
+        statusFilter === "all" || withdraw.status === statusFilter;
+
+      const currencyMatch =
+        currencyFilter === "all" || withdraw.currency === currencyFilter;
+
+      return searchMatch && statusMatch && currencyMatch;
     });
-  }, [withdraws, search]);
+  }, [withdraws, search, statusFilter, currencyFilter]);
 
   // =====================================================
-  // PAGE LOAD
+  // PAGINATION
+  // =====================================================
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredWithdraws.length / pageSize)
+  );
+
+  const paginatedWithdraws = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredWithdraws.slice(start, start + pageSize);
+  }, [filteredWithdraws, currentPage]);
+
+  // =====================================================
+  // PAGE CHANGE
+  // =====================================================
+
+  const goToPage = useCallback(
+    (page: number) => {
+      if (page < 1 || page > totalPages) return;
+      setCurrentPage(page);
+    },
+    [totalPages]
+  );
+
+  const nextPage = useCallback(() => {
+    goToPage(currentPage + 1);
+  }, [currentPage, goToPage]);
+
+  const previousPage = useCallback(() => {
+    goToPage(currentPage - 1);
+  }, [currentPage, goToPage]);
+
+  // =====================================================
+  // RESET PAGE WHEN FILTER CHANGES
   // =====================================================
 
   useEffect(() => {
-    refreshPage();
-  }, []);
-    // =====================================================
-  // PAGE UI START
+    setCurrentPage(1);
+  }, [search, statusFilter, currencyFilter]);
+
+  // =====================================================
+  // SUMMARY COUNTS
+  // =====================================================
+
+  const pendingWithdraws = useMemo(
+    () => withdraws.filter((w) => w.status === "pending"),
+    [withdraws]
+  );
+
+  const approvedWithdraws = useMemo(
+    () => withdraws.filter((w) => w.status === "approved"),
+    [withdraws]
+  );
+
+  const rejectedWithdraws = useMemo(
+    () => withdraws.filter((w) => w.status === "rejected"),
+    [withdraws]
+  );
+
+  // =====================================================
+  // TOTAL AMOUNTS
+  // =====================================================
+
+  const pendingAmount = useMemo(
+    () =>
+      pendingWithdraws.reduce((sum, item) => sum + Number(item.amount), 0),
+    [pendingWithdraws]
+  );
+
+  const approvedAmount = useMemo(
+    () =>
+      approvedWithdraws.reduce((sum, item) => sum + Number(item.amount), 0),
+    [approvedWithdraws]
+  );
+
+  const rejectedAmount = useMemo(
+    () =>
+      rejectedWithdraws.reduce((sum, item) => sum + Number(item.amount), 0),
+    [rejectedWithdraws]
+  );
+
+  // =====================================================
+  // LOADING SCREEN
+  // =====================================================
+
+  if (checkingSession) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-black text-white">
+        <div className="text-center">
+          <div className="mx-auto mb-5 h-14 w-14 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent" />
+          <h2 className="text-xl font-bold text-yellow-400">
+            Loading Withdraw Manager...
+          </h2>
+          <p className="mt-2 text-gray-500">
+            Verifying administrator session...
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  // =====================================================
+  // APPROVE WITHDRAW REQUEST (V18 PRODUCTION FIX)
+  // =====================================================
+
+  const approveWithdraw = useCallback(
+    async (withdrawId: string) => {
+      try {
+        setRefreshing(true);
+        setMessage("");
+        setMessageType("");
+
+        const session = getSession();
+
+        if (!session?.token) {
+          logout();
+          return;
+        }
+
+        const response = await fetch(
+          `${API}/api/gold/admin/withdraws/approve/${withdrawId}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${session.token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        const result = await response.json();
+
+        console.log("APPROVE RESPONSE:", result);
+
+        if (response.status === 401) {
+          logout();
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || "Unable to approve withdraw.");
+        }
+
+        setMessage("Withdraw request approved successfully.");
+        setMessageType("success");
+
+        await Promise.all([
+          loadStatistics(),
+          loadWithdraws(),
+        ]);
+      } catch (error: any) {
+        console.error("APPROVE ERROR:", error);
+
+        setMessage(error.message || "Approval failed.");
+        setMessageType("error");
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [loadStatistics, loadWithdraws]
+  );
+
+  // =====================================================
+  // REJECT WITHDRAW REQUEST (V18 PRODUCTION FIX)
+  // =====================================================
+
+  const rejectWithdraw = useCallback(
+    async (withdrawId: string) => {
+      try {
+        setRefreshing(true);
+        setMessage("");
+        setMessageType("");
+
+        const session = getSession();
+
+        if (!session?.token) {
+          logout();
+          return;
+        }
+
+        const reason = window.prompt(
+          "Enter rejection reason:",
+          "Withdraw request rejected by admin."
+        );
+
+        if (reason === null) {
+          setRefreshing(false);
+          return;
+        }
+
+        const response = await fetch(
+          `${API}/api/gold/admin/withdraws/reject/${withdrawId}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${session.token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              reason: reason.trim(),
+            }),
+          }
+        );
+
+        const result = await response.json();
+
+        console.log("REJECT RESPONSE:", result);
+
+        if (response.status === 401) {
+          logout();
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || "Unable to reject withdraw.");
+        }
+
+        setMessage("Withdraw request rejected successfully.");
+        setMessageType("success");
+
+        await Promise.all([
+          loadStatistics(),
+          loadWithdraws(),
+        ]);
+      } catch (error: any) {
+        console.error("REJECT ERROR:", error);
+
+        setMessage(error.message || "Reject failed.");
+        setMessageType("error");
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [loadStatistics, loadWithdraws]
+  );
+
+  // =====================================================
+  // MANUAL REFRESH
+  // =====================================================
+
+  const handleRefresh = useCallback(async () => {
+    await refreshWithdraws();
+  }, [refreshWithdraws]);      
+  
+  // =====================================================
+  // PAGE UI STARTS HERE
   // =====================================================
 
   return (
-    <div className="min-h-screen bg-[#0B1120] text-white p-6">
+    <main className="min-h-screen bg-black text-white">
+      <div className="mx-auto max-w-7xl px-4 py-6">
+  {/* ===================================================== */}
+      <div className="mb-8 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
 
-      {/* ========================================== */}
-      {/* PAGE HEADER */}
-      {/* ========================================== */}
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+          <div>
 
-        <div>
-          <h1 className="text-3xl font-bold text-yellow-400">
-            GoldTrade V18 • Admin Withdraw Manager
-          </h1>
+            <div className="flex items-center gap-3">
 
-          <p className="text-gray-400 mt-2">
-            Manage PKR, GOLD and USDT withdraw requests from users.
-          </p>
+              <Link
+                href="/admin/dashboard"
+                className="rounded-xl bg-zinc-900 p-2 text-yellow-400 hover:bg-zinc-800"
+              >
+                <ArrowLeft size={20}/>
+              </Link>
+
+              <div>
+                <h1 className="text-3xl font-bold text-yellow-400">
+                  Withdraw Manager
+                </h1>
+
+                <p className="mt-1 text-gray-400">
+                  GoldTrade V18 Enterprise Administration Panel
+                </p>
+              </div>
+
+            </div>
+
+            <p className="mt-4 text-sm text-gray-500">
+              Logged in as{" "}
+              <span className="font-semibold text-white">
+                {admin?.username}
+              </span>
+            </p>
+
+          </div>
+
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center justify-center gap-2 rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-black transition hover:bg-yellow-400 disabled:opacity-50"
+          >
+            <RefreshCw
+              size={18}
+              className={refreshing ? "animate-spin" : ""}
+            />
+
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+
         </div>
-
-        <button
-          onClick={refreshPage}
-          className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold px-5 py-3 rounded-xl transition"
-        >
-          <RefreshCw size={18} />
-          Refresh Withdraws
-        </button>
 
       </div>
 
-      {/* ========================================== */}
+      {/* ===================================================== */}
       {/* SUCCESS / ERROR MESSAGE */}
-      {/* ========================================== */}
+      {/* ===================================================== */}
 
       {message && (
         <div
-          className={`mb-6 rounded-xl px-4 py-3 border font-medium ${
+          className={`mb-6 rounded-2xl border p-4 ${
             messageType === "success"
-              ? "bg-green-600/20 border-green-500 text-green-300"
-              : "bg-red-600/20 border-red-500 text-red-300"
+              ? "border-green-500/30 bg-green-500/10 text-green-400"
+              : "border-red-500/30 bg-red-500/10 text-red-400"
           }`}
         >
           {message}
         </div>
       )}
 
-      {/* ========================================== */}
+      {/* ===================================================== */}
+      {/* NETWORK WARNING */}
+      {/* ===================================================== */}
+
+      {!isOnline && (
+        <div className="mb-6 rounded-2xl border border-orange-500/30 bg-orange-500/10 p-4 text-orange-400">
+          No internet connection detected. Dashboard may not update.
+        </div>
+      )}
+
+      {/* ===================================================== */}
       {/* STATISTICS CARDS */}
-      {/* ========================================== */}
+      {/* ===================================================== */}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+      <section className="mb-8">
 
-        {/* Pending */}
+        <h2 className="mb-5 text-2xl font-bold text-white">
+          Withdraw Overview
+        </h2>
 
-        <div className="rounded-2xl bg-[#111827] border border-yellow-600/30 p-5">
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
 
-          <div className="flex justify-between items-center mb-3">
-            <Clock className="text-yellow-400" size={28} />
+          {/* Pending */}
 
-            <span className="text-xs font-semibold text-yellow-400">
-              PENDING
-            </span>
+          <div className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
+            <div className="flex items-center justify-between">
+              <Clock className="text-yellow-400" size={28}/>
+
+              <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs text-yellow-400">
+                Pending
+              </span>
+            </div>
+
+            <p className="mt-4 text-sm text-gray-400">
+              Pending Requests
+            </p>
+
+            <h3 className="mt-2 text-3xl font-bold text-yellow-400">
+              {stats.pendingCount}
+            </h3>
+
+            <p className="mt-2 text-xs text-gray-500">
+              PKR {stats.pendingAmount.toLocaleString()}
+            </p>
           </div>
 
-          <p className="text-gray-400 text-sm">
-            Pending Withdraw Requests
-          </p>
+          {/* Approved */}
 
-          <h2 className="text-3xl font-bold text-yellow-300 mt-2">
-            {statistics.pendingRequests}
+          <div className="rounded-3xl border border-green-500/20 bg-zinc-950 p-6">
+            <div className="flex items-center justify-between">
+              <CheckCircle className="text-green-400" size={28}/>
+
+              <span className="rounded-full bg-green-500/10 px-3 py-1 text-xs text-green-400">
+                Approved
+              </span>
+            </div>
+
+            <p className="mt-4 text-sm text-gray-400">
+              Approved Requests
+            </p>
+
+            <h3 className="mt-2 text-3xl font-bold text-green-400">
+              {stats.approvedCount}
+            </h3>
+
+            <p className="mt-2 text-xs text-gray-500">
+              PKR {stats.approvedAmount.toLocaleString()}
+            </p>
+          </div>
+
+          {/* Rejected */}
+
+          <div className="rounded-3xl border border-red-500/20 bg-zinc-950 p-6">
+            <div className="flex items-center justify-between">
+              <XCircle className="text-red-400" size={28}/>
+
+              <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs text-red-400">
+                Rejected
+              </span>
+            </div>
+
+            <p className="mt-4 text-sm text-gray-400">
+              Rejected Requests
+            </p>
+
+            <h3 className="mt-2 text-3xl font-bold text-red-400">
+              {stats.rejectedCount}
+            </h3>
+
+            <p className="mt-2 text-xs text-gray-500">
+              PKR {stats.rejectedAmount.toLocaleString()}
+            </p>
+          </div>
+
+          {/* Total */}
+
+          <div className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-6">
+            <div className="flex items-center justify-between">
+              <Wallet className="text-blue-400" size={28}/>
+
+              <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs text-blue-400">
+                Total
+              </span>
+            </div>
+
+            <p className="mt-4 text-sm text-gray-400">
+              Total Withdraw Volume
+            </p>
+
+            <h3 className="mt-2 text-3xl font-bold text-blue-400">
+              {stats.totalCount}
+            </h3>
+
+            <p className="mt-2 text-xs text-gray-500">
+              PKR {stats.totalAmount.toLocaleString()}
+            </p>
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* ===================================================== */}
+      {/* SEARCH + FILTERS */}
+      {/* ===================================================== */}
+
+      <section className="mb-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
+
+        <div className="mb-6 flex items-center gap-3">
+          <Filter className="text-yellow-400" size={22}/>
+
+          <h2 className="text-xl font-bold text-white">
+            Search & Filters
+          </h2>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-3">
+
+          {/* Search */}
+
+          <div>
+            <label className="mb-2 block text-sm text-gray-400">
+              Search User / Wallet
+            </label>
+
+            <div className="relative">
+
+              <Search
+                className="absolute left-3 top-3 text-gray-500"
+                size={18}
+              />
+
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Username, Email, Wallet..."
+                className="w-full rounded-xl border border-zinc-700 bg-black py-3 pl-10 pr-4 text-white outline-none focus:border-yellow-400"
+              />
+
+            </div>
+          </div>
+
+          {/* Status Filter */}
+
+          <div>
+            <label className="mb-2 block text-sm text-gray-400">
+              Withdraw Status
+            </label>
+
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as any)
+              }
+              className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-yellow-400"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+
+          {/* Currency Filter */}
+
+          <div>
+            <label className="mb-2 block text-sm text-gray-400">
+              Currency
+            </label>
+
+            <select
+              value={currencyFilter}
+              onChange={(e) =>
+                setCurrencyFilter(e.target.value as any)
+              }
+              className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-yellow-400"
+            >
+              <option value="all">All Currency</option>
+              <option value="PKR">PKR</option>
+              <option value="USDT">USDT</option>
+              <option value="GOLD">GOLD</option>
+            </select>
+          </div>
+
+        </div>
+
+      </section>
+            {/* ===================================================== */}
+      {/* WITHDRAW REQUESTS TABLE */}
+      {/* PART 8/10 */}
+      {/* ===================================================== */}
+
+      <section className="mb-8">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white">
+            Withdraw Requests
           </h2>
 
-          <p className="text-yellow-400 mt-2 text-sm">
-            PKR {formatMoney(statistics.pendingAmount)}
-          </p>
-
+          <span className="rounded-full bg-zinc-800 px-3 py-1 text-sm text-gray-300">
+            {filteredWithdraws.length} Requests
+          </span>
         </div>
 
-        {/* Approved */}
+        <div className="overflow-x-auto rounded-3xl border border-zinc-800 bg-zinc-950">
 
-        <div className="rounded-2xl bg-[#111827] border border-green-600/30 p-5">
+          <table className="min-w-full text-sm">
 
-          <div className="flex justify-between items-center mb-3">
-            <CheckCircle className="text-green-400" size={28} />
-
-            <span className="text-xs font-semibold text-green-400">
-              APPROVED
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Approved Withdraw Requests
-          </p>
-
-          <h2 className="text-3xl font-bold text-green-400 mt-2">
-            {statistics.approvedRequests}
-          </h2>
-
-          <p className="text-green-400 mt-2 text-sm">
-            PKR {formatMoney(statistics.approvedAmount)}
-          </p>
-
-        </div>
-
-        {/* Rejected */}
-
-        <div className="rounded-2xl bg-[#111827] border border-red-600/30 p-5">
-
-          <div className="flex justify-between items-center mb-3">
-            <XCircle className="text-red-400" size={28} />
-
-            <span className="text-xs font-semibold text-red-400">
-              REJECTED
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Rejected Withdraw Requests
-          </p>
-
-          <h2 className="text-3xl font-bold text-red-400 mt-2">
-            {statistics.rejectedRequests}
-          </h2>
-
-          <p className="text-red-400 mt-2 text-sm">
-            PKR {formatMoney(statistics.rejectedAmount)}
-          </p>
-
-        </div>
-
-        {/* Total */}
-
-        <div className="rounded-2xl bg-[#111827] border border-purple-600/30 p-5">
-
-          <div className="flex justify-between items-center mb-3">
-            <Wallet className="text-purple-400" size={28} />
-
-            <span className="text-xs font-semibold text-purple-400">
-              TOTAL
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Total Withdraw Requests
-          </p>
-
-          <h2 className="text-3xl font-bold text-purple-400 mt-2">
-            {statistics.totalRequests}
-          </h2>
-
-          <p className="text-purple-300 mt-2 text-sm">
-            All Wallet Requests
-          </p>
-
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* WALLET SUMMARY CARDS */}
-      {/* ========================================== */}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-
-        {/* PKR */}
-
-        <div className="rounded-2xl bg-[#111827] border border-green-600/20 p-5">
-
-          <div className="flex justify-between items-center mb-2">
-            <DollarSign className="text-green-400" size={24} />
-
-            <span className="text-green-400 text-xs font-semibold">
-              PKR
-            </span>
-          </div>
-
-          <h3 className="text-2xl font-bold text-green-400">
-            PKR {formatMoney(statistics.totalPKR)}
-          </h3>
-
-          <p className="text-gray-400 text-sm mt-2">
-            Total PKR Withdraw Amount
-          </p>
-
-        </div>
-
-        {/* GOLD */}
-
-        <div className="rounded-2xl bg-[#111827] border border-yellow-600/20 p-5">
-
-          <div className="flex justify-between items-center mb-2">
-            <Coins className="text-yellow-400" size={24} />
-
-            <span className="text-yellow-400 text-xs font-semibold">
-              GOLD
-            </span>
-          </div>
-
-          <h3 className="text-2xl font-bold text-yellow-400">
-            {statistics.totalGold.toFixed(3)} Gold
-          </h3>
-
-          <p className="text-gray-400 text-sm mt-2">
-            Total Gold Withdraw Amount
-          </p>
-
-        </div>
-
-        {/* USDT */}
-
-        <div className="rounded-2xl bg-[#111827] border border-cyan-600/20 p-5">
-
-          <div className="flex justify-between items-center mb-2">
-            <Wallet className="text-cyan-400" size={24} />
-
-            <span className="text-cyan-400 text-xs font-semibold">
-              USDT
-            </span>
-          </div>
-
-          <h3 className="text-2xl font-bold text-cyan-400">
-            {statistics.totalUSDT.toFixed(2)} USDT
-          </h3>
-
-          <p className="text-gray-400 text-sm mt-2">
-            Total USDT Withdraw Amount
-          </p>
-
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* SEARCH BAR */}
-      {/* ========================================== */}
-
-      <div className="rounded-2xl bg-[#111827] border border-gray-700 p-5 mb-8">
-
-        <div className="relative">
-
-          <Search
-            size={20}
-            className="absolute left-4 top-3.5 text-gray-500"
-          />
-
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search username..."
-            className="w-full bg-[#1F2937] border border-gray-600 rounded-xl py-3 pl-12 pr-4 outline-none focus:border-yellow-500 transition"
-          />
-
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* WITHDRAW REQUEST TABLE STARTS */}
-      {/* ========================================== */}
-
-      <div className="rounded-2xl border border-gray-700 bg-[#111827] overflow-hidden">
-
-        <div className="px-6 py-5 border-b border-gray-700 flex justify-between items-center">
-
-          <h2 className="text-xl font-bold text-cyan-400">
-            Withdraw Requests ({filteredWithdraws.length})
-          </h2>
-
-          <Wallet className="text-cyan-400" />
-
-        </div>
-
-        <div className="overflow-x-auto">
-
-          <table className="w-full min-w-[1100px]">
-
-            <thead className="bg-[#1F2937] text-gray-300 text-sm">
-
+            <thead className="bg-zinc-900 text-gray-400">
               <tr>
-                <th className="text-left px-5 py-4">User</th>
-                <th className="text-center">Wallet</th>
-                <th className="text-center">Amount</th>
-                <th className="text-center">Wallet Address</th>
-                <th className="text-center">Status</th>
-                <th className="text-center">Date</th>
-                <th className="text-center">Actions</th>
+                <th className="px-5 py-4 text-left">User</th>
+                <th className="px-5 py-4 text-left">Currency</th>
+                <th className="px-5 py-4 text-left">Amount</th>
+                <th className="px-5 py-4 text-left">Wallet / Bank</th>
+                <th className="px-5 py-4 text-left">Status</th>
+                <th className="px-5 py-4 text-left">Date</th>
+                <th className="px-5 py-4 text-center">Actions</th>
               </tr>
-
             </thead>
 
             <tbody>
-                            {loading ? (
+
+              {paginatedWithdraws.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
-                    className="py-12 text-center text-gray-400"
-                  >
-                    Loading withdraw requests...
-                  </td>
-                </tr>
-              ) : filteredWithdraws.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="py-12 text-center text-red-300"
+                    className="px-5 py-10 text-center text-gray-500"
                   >
                     No withdraw requests found.
                   </td>
                 </tr>
               ) : (
-                filteredWithdraws.map((withdraw) => (
-                  <tr
-                    key={withdraw._id}
-                    className="border-b border-gray-800 hover:bg-[#1B2435] transition"
-                  >
-                    {/* USER */}
+                paginatedWithdraws.map((withdraw) => {
+                  const StatusIcon = getStatusIcon(withdraw.status);
 
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2 font-semibold text-white">
-                        <User size={16} className="text-cyan-400" />
-                        {withdraw.username}
-                      </div>
+                  function approveWithdraw(_id: string): void {
+                    throw new Error("Function not implemented.");
+                  }
 
-                      <p className="text-sm text-gray-400 mt-1">
-                        {withdraw.email || "No Email"}
-                      </p>
-                    </td>
+                  return (
+                    <tr
+                      key={withdraw._id}
+                      className="border-t border-zinc-800 hover:bg-zinc-900/40"
+                    >
+                      {/* USER */}
 
-                    {/* WALLET TYPE */}
+                      <td className="px-5 py-4">
+                        <p className="font-semibold text-white">
+                          {withdraw.username}
+                        </p>
 
-                    <td className="text-center">
-                      <span
-                        className={`font-bold ${getWalletColor(
-                          withdraw.walletType
-                        )}`}
-                      >
-                        {withdraw.walletType}
-                      </span>
-                    </td>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {withdraw.email || "No Email"}
+                        </p>
+                      </td>
 
-                    {/* AMOUNT */}
+                      {/* CURRENCY */}
 
-                    <td className="text-center font-semibold">
-                      {withdraw.walletType === "PKR" && (
-                        <span className="text-green-400">
-                          PKR{" "}
-                          {formatMoney(
-                            Number(withdraw.adminAmount ?? withdraw.amount)
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+
+                          {withdraw.currency === "PKR" && (
+                            <DollarSign
+                              className="text-green-400"
+                              size={18}
+                            />
                           )}
-                        </span>
-                      )}
 
-                      {withdraw.walletType === "GOLD" && (
-                        <span className="text-yellow-400">
-                          {Number(
-                            withdraw.adminAmount ?? withdraw.amount
-                          ).toFixed(3)}{" "}
-                          Gold
-                        </span>
-                      )}
+                          {withdraw.currency === "USDT" && (
+                            <Coins
+                              className="text-cyan-400"
+                              size={18}
+                            />
+                          )}
 
-                      {withdraw.walletType === "USDT" && (
-                        <span className="text-cyan-400">
-                          {Number(
-                            withdraw.adminAmount ?? withdraw.amount
-                          ).toFixed(2)}{" "}
-                          USDT
-                        </span>
-                      )}
-                    </td>
+                          {withdraw.currency === "GOLD" && (
+                            <Gem
+                              className="text-yellow-400"
+                              size={18}
+                            />
+                          )}
 
-                    {/* WALLET ADDRESS */}
+                          <span className="font-medium text-white">
+                            {withdraw.currency}
+                          </span>
 
-                    <td className="text-center text-gray-300">
-                      {withdraw.walletAddress ? (
-                        <span className="text-xs bg-gray-700 px-3 py-1 rounded-lg break-all">
-                          {withdraw.walletAddress}
-                        </span>
-                      ) : (
-                        <span className="text-gray-500 text-xs">
-                          Not Provided
-                        </span>
-                      )}
-                    </td>
+                        </div>
+                      </td>
 
-                    {/* STATUS */}
+                      {/* AMOUNT */}
 
-                    <td className="text-center">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
-                          withdraw.status
-                        )}`}
-                      >
-                        {withdraw.status}
-                      </span>
-                    </td>
+                      <td className="px-5 py-4 font-semibold text-yellow-400">
+                        {formatAmount(
+                          withdraw.amount,
+                          withdraw.currency
+                        )}
+                      </td>
 
-                    {/* DATE */}
+                      {/* WALLET / BANK DETAILS */}
 
-                    <td className="text-center text-gray-300 text-sm">
-                      <div className="flex flex-col items-center gap-1">
-                        <Calendar size={14} className="text-gray-500" />
-                        {formatDate(withdraw.createdAt)}
-                      </div>
-                    </td>
+                      <td className="px-5 py-4">
 
-                    {/* ACTIONS */}
+                        {withdraw.currency === "PKR" ? (
+                          <div className="space-y-1">
 
-                    <td className="px-4 py-4">
-                      <div className="flex flex-wrap justify-center gap-2">
-                        <button
-                          onClick={() => openWithdrawDetails(withdraw)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition"
+                            <p className="font-medium text-white">
+                              {withdraw.bankName || "Bank Not Available"}
+                            </p>
+
+                            <p className="text-xs text-gray-400">
+                              {withdraw.accountTitle}
+                            </p>
+
+                            <p className="text-xs text-gray-500">
+                              {withdraw.accountNumber}
+                            </p>
+
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+
+                            <p className="font-medium text-white">
+                              Wallet Address
+                            </p>
+
+                            <p className="max-w-[220px] truncate text-xs text-gray-400">
+                              {withdraw.walletAddress || "Wallet Not Available"}
+                            </p>
+
+                          </div>
+                        )}
+
+                      </td>
+
+                      {/* STATUS */}
+
+                      <td className="px-5 py-4">
+
+                        <span
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${getStatusColor(
+                            withdraw.status
+                          )}`}
                         >
-                          Details
-                        </button>
+                          <StatusIcon size={14}/>
+                          {withdraw.status}
+                        </span>
 
-                        {withdraw.status === "Pending" && (
-                          <button
-                            onClick={() => openWithdrawDetails(withdraw)}
-                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
-                          >
-                            <CheckCircle size={14} />
-                            Approve
-                          </button>
+                      </td>
+
+                      {/* DATE */}
+
+                      <td className="px-5 py-4 text-gray-400">
+                        {formatDate(withdraw.createdAt)}
+                      </td>
+
+                      {/* ACTION BUTTONS */}
+
+                      <td className="px-5 py-4">
+
+                        {withdraw.status === "pending" ? (
+                          <div className="flex items-center justify-center gap-2">
+
+                            <button
+                              onClick={() =>
+                                approveWithdraw(withdraw._id)
+                              }
+                              disabled={refreshing}
+                              className="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-green-500 disabled:opacity-50"
+                            >
+                              Approve
+                            </button>
+
+                            <button
+                              onClick={() =>
+                                rejectWithdraw(withdraw._id)
+                              }
+                              disabled={refreshing}
+                              className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-500 disabled:opacity-50"
+                            >
+                              Reject
+                            </button>
+
+                          </div>
+                        ) : (
+                          <div className="text-center text-xs text-gray-500">
+                            Completed
+                          </div>
                         )}
-                                                {/* REJECT */}
 
-                        {withdraw.status === "Pending" && (
-                          <button
-                            onClick={() => openWithdrawDetails(withdraw)}
-                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
-                          >
-                            <XCircle size={14} />
-                            Reject
-                          </button>
-                        )}
+                      </td>
 
-                        {/* DELETE */}
-
-                        {withdraw.status !== "Approved" && (
-                          <button
-                            onClick={() => deleteWithdraw(withdraw._id)}
-                            className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
-                          >
-                            <Trash2 size={14} />
-                            Delete
-                          </button>
-                        )}
-
-                      </div>
-                    </td>
-
-                  </tr>
-                ))
+                    </tr>
+                  );
+                })
               )}
-                          </tbody>
+
+            </tbody>
 
           </table>
 
         </div>
 
-      </div>
+      </section>
+            {/* ===================================================== */}
+      {/* PAGINATION */}
+      {/* PART 9/10 */}
+      {/* ===================================================== */}
 
-      {/* ========================================== */}
-      {/* WITHDRAW DETAILS MODAL */}
-      {/* ========================================== */}
+      <section className="mb-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
 
-      {selectedWithdraw && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
-          <div className="w-full max-w-2xl rounded-3xl bg-[#111827] border border-cyan-500/30 shadow-2xl overflow-hidden">
-
-            {/* Header */}
-
-            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-700">
-
-              <div>
-                <h2 className="text-2xl font-bold text-cyan-400">
-                  Withdraw Details
-                </h2>
-
-                <p className="text-sm text-gray-400 mt-1">
-                  Review user withdraw request before approval.
-                </p>
-              </div>
-
-              <button
-                onClick={closeWithdrawDetails}
-                className="text-gray-400 hover:text-red-400 transition"
-              >
-                <XCircle size={28} />
-              </button>
-
-            </div>
-
-            {/* Modal Body */}
-
-            <div className="p-6 space-y-5">
-
-              {/* User Information */}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                <div className="bg-[#1F2937] rounded-xl p-4">
-                  <p className="text-xs text-gray-400 mb-2">Username</p>
-
-                  <h3 className="text-white font-semibold">
-                    {selectedWithdraw.username}
-                  </h3>
-
-                  <p className="text-sm text-gray-400 mt-1">
-                    {selectedWithdraw.email || "No Email"}
-                  </p>
-                </div>
-
-                <div className="bg-[#1F2937] rounded-xl p-4">
-                  <p className="text-xs text-gray-400 mb-2">Wallet Type</p>
-
-                  <span
-                    className={`text-lg font-bold ${getWalletColor(
-                      selectedWithdraw.walletType
-                    )}`}
-                  >
-                    {selectedWithdraw.walletType}
-                  </span>
-                </div>
-
-              </div>
-
-              {/* Request Amount */}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                <div className="bg-[#1F2937] rounded-xl p-4">
-
-                  <p className="text-xs text-gray-400 mb-2">
-                    Requested Amount
-                  </p>
-
-                  <h3 className="text-2xl font-bold text-cyan-400">
-
-                    {selectedWithdraw.walletType === "PKR" &&
-                      `PKR ${formatMoney(Number(selectedWithdraw.amount))}`}
-
-                    {selectedWithdraw.walletType === "GOLD" &&
-                      `${Number(selectedWithdraw.amount).toFixed(3)} Gold`}
-
-                    {selectedWithdraw.walletType === "USDT" &&
-                      `${Number(selectedWithdraw.amount).toFixed(2)} USDT`}
-
-                  </h3>
-
-                </div>
-
-                <div className="bg-[#1F2937] rounded-xl p-4">
-
-                  <p className="text-xs text-gray-400 mb-2">
-                    Request Date
-                  </p>
-
-                  <h3 className="text-white font-semibold">
-                    {formatDate(selectedWithdraw.createdAt)}
-                  </h3>
-
-                </div>
-
-              </div>
-
-              {/* Wallet Address */}
-
-              <div className="bg-[#1F2937] rounded-xl p-4">
-
-                <p className="text-xs text-gray-400 mb-2">
-                  Wallet Address
-                </p>
-
-                <div className="flex items-center justify-between gap-3">
-
-                  <span className="text-cyan-300 break-all text-sm">
-                    {selectedWithdraw.walletAddress || "Not Provided"}
-                  </span>
-
-                  {selectedWithdraw.walletAddress && (
-                    <button
-                      onClick={() =>
-                        navigator.clipboard.writeText(
-                          selectedWithdraw.walletAddress ?? ""
-                        )
-                      }
-                      className="bg-cyan-500 hover:bg-cyan-600 text-black px-3 py-2 rounded-lg text-xs font-semibold"
-                    >
-                      Copy
-                    </button>
-                  )}
-
-                </div>
-
-              </div>
-
-              {/* Transaction ID */}
-
-              <div className="bg-[#1F2937] rounded-xl p-4">
-
-                <p className="text-xs text-gray-400 mb-2">
-                  Transaction ID
-                </p>
-
-                <span className="text-yellow-300 break-all text-sm">
-                  {selectedWithdraw.transactionId || "Not Provided"}
-                </span>
-
-              </div>
-
-              {/* Status */}
-
-              <div className="bg-[#1F2937] rounded-xl p-4 flex items-center justify-between">
-
-                <div>
-
-                  <p className="text-xs text-gray-400 mb-2">
-                    Current Status
-                  </p>
-
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
-                      selectedWithdraw.status
-                    )}`}
-                  >
-                    {selectedWithdraw.status}
-                  </span>
-
-                </div>
-
-                <FileText className="text-cyan-400" size={28} />
-
-              </div>
-
-              {/* Screenshot */}
-
-              <div>
-
-                <p className="text-sm text-gray-400 mb-3">
-                  Payment Screenshot
-                </p>
-
-                {selectedWithdraw.screenshot ? (
-                  <img
-                    src={selectedWithdraw.screenshot}
-                    alt="Withdraw Screenshot"
-                    className="w-full rounded-2xl border border-gray-700 object-contain max-h-80"
-                  />
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-gray-600 p-8 text-center text-gray-500">
-                    No screenshot uploaded.
-                  </div>
-                )}
-
-              </div>
-
-              {/* Admin Amount */}
-
-              <div>
-
-                <label className="block text-sm text-gray-400 mb-2">
-                  Admin Approved Amount
-                </label>
-
-                <input
-                  type="number"
-                  value={adminAmount}
-                  onChange={(e) => setAdminAmount(e.target.value)}
-                  className="w-full rounded-xl bg-[#1F2937] border border-gray-600 p-4 outline-none focus:border-cyan-500 transition"
-                />
-
-              </div>
-
-              {/* Admin Note */}
-
-              <div>
-
-                <label className="block text-sm text-gray-400 mb-2">
-                  Admin Note
-                </label>
-
-                <textarea
-                  rows={4}
-                  value={adminNote}
-                  onChange={(e) => setAdminNote(e.target.value)}
-                  placeholder="Write approval or rejection note..."
-                  className="w-full rounded-xl bg-[#1F2937] border border-gray-600 p-4 outline-none resize-none focus:border-cyan-500 transition"
-                />
-
-              </div>            </div>
-
-            {/* ========================================== */}
-            {/* MODAL FOOTER BUTTONS */}
-            {/* ========================================== */}
-
-            <div className="border-t border-gray-700 px-6 py-5 flex flex-wrap justify-end gap-3">
-
-              {/* CLOSE */}
-
-              <button
-                onClick={closeWithdrawDetails}
-                className="bg-gray-700 hover:bg-gray-600 text-white px-5 py-3 rounded-xl font-semibold transition"
-              >
-                Close
-              </button>
-
-              {/* REJECT */}
-
-              {selectedWithdraw.status === "Pending" && (
-                <button
-                  disabled={loading}
-                  onClick={rejectWithdraw}
-                  className="bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-5 py-3 rounded-xl font-semibold flex items-center gap-2 transition"
-                >
-                  <XCircle size={18} />
-                  Reject Withdraw
-                </button>
-              )}
-
-              {/* APPROVE */}
-
-              {selectedWithdraw.status === "Pending" && (
-                <button
-                  disabled={loading}
-                  onClick={approveWithdraw}
-                  className="bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-5 py-3 rounded-xl font-semibold flex items-center gap-2 transition"
-                >
-                  <CheckCircle size={18} />
-                  Approve Withdraw
-                </button>
-              )}
-
-            </div>
-
-          </div>
-
-        </div>
-      )}
-
-      {/* ========================================== */}
-      {/* LOADING OVERLAY */}
-      {/* ========================================== */}
-
-      {loading && (
-        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center">
-
-          <div className="bg-[#111827] border border-cyan-500/30 rounded-2xl px-8 py-6 flex flex-col items-center gap-4 shadow-2xl">
-
-            <RefreshCw
-              size={36}
-              className="text-cyan-400 animate-spin"
-            />
-
-            <div className="text-center">
-
-              <h3 className="text-lg font-bold text-cyan-400">
-                GoldTrade V18 Enterprise
-              </h3>
-
-              <p className="text-sm text-gray-300 mt-1">
-                Processing withdraw request...
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-      )}
-
-      {/* ========================================== */}
-      {/* FOOTER */}
-      {/* ========================================== */}
-
-      <footer className="mt-10 border-t border-gray-800 pt-6">
-
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          {/* Left Side */}
 
           <div>
 
-            <h3 className="text-cyan-400 font-bold text-lg">
-              GoldTrade V18 Enterprise
+            <h3 className="text-lg font-bold text-white">
+              Pagination
             </h3>
 
-            <p className="text-sm text-gray-500">
-              Admin Withdraw Management Panel
+            <p className="mt-1 text-sm text-gray-400">
+              Showing{" "}
+              <span className="font-semibold text-yellow-400">
+                {paginatedWithdraws.length}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-yellow-400">
+                {filteredWithdraws.length}
+              </span>{" "}
+              withdraw requests.
             </p>
 
           </div>
 
-          <div className="flex flex-wrap items-center gap-5 text-sm text-gray-400">
+          {/* Right Side */}
 
-            <div className="flex items-center gap-2">
-              <CheckCircle size={16} className="text-green-400" />
-              Wallet Integration Active
+          <div className="flex items-center gap-3">
+
+            <button
+              onClick={previousPage}
+              disabled={currentPage === 1}
+              className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-white hover:border-yellow-400 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Previous
+            </button>
+
+            <div className="rounded-xl bg-yellow-500 px-4 py-2 text-sm font-bold text-black">
+              {currentPage} / {totalPages}
             </div>
 
-            <div className="flex items-center gap-2">
-              <Wallet size={16} className="text-cyan-400" />
-              PKR • GOLD • USDT
-            </div>
-
-            <div className="flex items-center gap-2">
-              <RefreshCw size={16} className="text-yellow-400" />
-              Live Refresh Enabled
-            </div>
+            <button
+              onClick={nextPage}
+              disabled={currentPage === totalPages}
+              className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-white hover:border-yellow-400 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </button>
 
           </div>
+
+        </div>
+
+      </section>
+
+      {/* ===================================================== */}
+      {/* WITHDRAW SUMMARY FOOTER */}
+      {/* ===================================================== */}
+
+      <section className="mb-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
+
+        <h2 className="mb-6 text-2xl font-bold text-white">
+          Withdraw Summary
+        </h2>
+
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+          {/* Pending */}
+
+          <div className="rounded-2xl bg-yellow-500/10 p-5">
+
+            <p className="text-xs uppercase tracking-wide text-yellow-300">
+              Pending Amount
+            </p>
+
+            <h3 className="mt-2 text-2xl font-bold text-yellow-400">
+              PKR {pendingAmount.toLocaleString()}
+            </h3>
+
+            <p className="mt-1 text-sm text-gray-500">
+              {pendingWithdraws.length} pending requests
+            </p>
+
+          </div>
+
+          {/* Approved */}
+
+          <div className="rounded-2xl bg-green-500/10 p-5">
+
+            <p className="text-xs uppercase tracking-wide text-green-300">
+              Approved Amount
+            </p>
+
+            <h3 className="mt-2 text-2xl font-bold text-green-400">
+              PKR {approvedAmount.toLocaleString()}
+            </h3>
+
+            <p className="mt-1 text-sm text-gray-500">
+              {approvedWithdraws.length} approved requests
+            </p>
+
+          </div>
+
+          {/* Rejected */}
+
+          <div className="rounded-2xl bg-red-500/10 p-5">
+
+            <p className="text-xs uppercase tracking-wide text-red-300">
+              Rejected Amount
+            </p>
+
+            <h3 className="mt-2 text-2xl font-bold text-red-400">
+              PKR {rejectedAmount.toLocaleString()}
+            </h3>
+
+            <p className="mt-1 text-sm text-gray-500">
+              {rejectedWithdraws.length} rejected requests
+            </p>
+
+          </div>
+
+          {/* Total */}
+
+          <div className="rounded-2xl bg-blue-500/10 p-5">
+
+            <p className="text-xs uppercase tracking-wide text-blue-300">
+              Total Withdraw Volume
+            </p>
+
+            <h3 className="mt-2 text-2xl font-bold text-blue-400">
+              PKR {stats.totalAmount.toLocaleString()}
+            </h3>
+
+            <p className="mt-1 text-sm text-gray-500">
+              {stats.totalCount} total requests
+            </p>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* ===================================================== */}
+      {/* QUICK NAVIGATION */}
+      {/* ===================================================== */}
+
+      <section className="mb-8 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
+
+        <h2 className="mb-6 text-2xl font-bold text-yellow-400">
+          Admin Navigation
+        </h2>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+
+          {[
+            {
+              title: "Dashboard",
+              href: "/admin/dashboard",
+            },
+            {
+              title: "Deposits",
+              href: "/admin/deposits",
+            },
+            {
+              title: "Wallet Manager",
+              href: "/admin/wallet-manager",
+            },
+            {
+              title: "Transactions",
+              href: "/admin/transactions",
+            },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="rounded-xl border border-zinc-700 bg-black/40 p-4 text-center font-semibold text-white transition hover:border-yellow-400 hover:text-yellow-400"
+            >
+              {item.title}
+            </Link>
+          ))}
+
+        </div>
+
+      </section>
+            {/* ===================================================== */}
+      {/* ENTERPRISE FOOTER */}
+      {/* PART 10/10 FINAL */}
+      {/* ===================================================== */}
+
+      <footer className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
+
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+
+          {/* Left */}
+
+          <div>
+            <h2 className="text-xl font-bold text-yellow-400">
+              GoldTrade V18 Enterprise
+            </h2>
+
+            <p className="mt-2 text-sm text-gray-400">
+              Withdraw Management Center • Production Edition
+            </p>
+
+            <p className="mt-1 text-xs text-gray-600">
+              Render Backend • Vercel Frontend • MongoDB Atlas • JWT Secure
+            </p>
+          </div>
+
+          {/* Right */}
+
+          <div className="text-sm text-gray-400 lg:text-right">
+
+            <p>
+              Administrator:{" "}
+              <span className="font-semibold text-white">
+                {admin?.username || "Admin"}
+              </span>
+            </p>
+
+            <p className="mt-1">
+              Total Requests:{" "}
+              <span className="font-semibold text-yellow-400">
+                {stats.totalCount}
+              </span>
+            </p>
+
+            <p className="mt-1">
+              Pending Requests:{" "}
+              <span className="font-semibold text-orange-400">
+                {stats.pendingCount}
+              </span>
+            </p>
+
+          </div>
+
+        </div>
+
+        {/* Divider */}
+
+        <div className="my-6 border-t border-zinc-800"></div>
+
+        {/* Footer Summary */}
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+          <div className="rounded-xl bg-black/40 p-4">
+            <p className="text-xs uppercase text-gray-500">
+              Pending
+            </p>
+
+            <p className="mt-2 text-lg font-bold text-yellow-400">
+              {pendingWithdraws.length}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-black/40 p-4">
+            <p className="text-xs uppercase text-gray-500">
+              Approved
+            </p>
+
+            <p className="mt-2 text-lg font-bold text-green-400">
+              {approvedWithdraws.length}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-black/40 p-4">
+            <p className="text-xs uppercase text-gray-500">
+              Rejected
+            </p>
+
+            <p className="mt-2 text-lg font-bold text-red-400">
+              {rejectedWithdraws.length}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-black/40 p-4">
+            <p className="text-xs uppercase text-gray-500">
+              Total Volume
+            </p>
+
+            <p className="mt-2 text-lg font-bold text-blue-400">
+              PKR {stats.totalAmount.toLocaleString()}
+            </p>
+          </div>
+
+        </div>
+
+        {/* Copyright */}
+
+        <div className="mt-8 border-t border-zinc-800 pt-5 text-center">
+
+          <p className="text-sm text-gray-500">
+            © 2026 GoldTrade V18 Enterprise. All Rights Reserved.
+          </p>
+
+          <p className="mt-2 text-xs text-gray-600">
+            Version 18.0.0 • Withdraw Manager • Production Ready
+          </p>
 
         </div>
 
       </footer>
 
     </div>
-  );
+  </main>
+);
 }
