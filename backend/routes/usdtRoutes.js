@@ -100,47 +100,67 @@ router.get("/status", async (req, res) => {
 });
 
 // ======================================================
-// LIVE USDT PRICE
+// GoldTrade V18 Enterprise
+// LIVE USDT PRICE API (IQ1000 FINAL)
 // GET /api/usdt/price
-// Used by Dashboard / Buy USDT / Sell USDT
+// GET /api/usdt/rates
+// Used by Dashboard / Buy USDT / Sell USDT / Admin
 // ======================================================
 
-router.get("/price", async (req, res) => {
+const sendUsdtResponse = async (req, res) => {
   try {
     const settings = await getUsdtSettings();
+
+    const buyPrice = Number(settings.usdtBuyPrice || 0);
+    const sellPrice = Number(settings.usdtSellPrice || 0);
 
     return res.status(200).json({
       success: true,
 
-      buyPrice: Number(settings.usdtBuyPrice),
-      sellPrice: Number(settings.usdtSellPrice),
+      buyPrice,
+      sellPrice,
 
-      usdToPkr: Number(settings.usdToPkr),
+      // Compatibility with dashboard
+      usdtBuyPrice: buyPrice,
+      usdtSellPrice: sellPrice,
+
+      usdToPkr: Number(settings.usdToPkr || 0),
 
       tradingEnabled: Boolean(settings.usdtTradingEnabled),
-      marketStatus: settings.marketStatus,
+      marketStatus: settings.marketStatus || "OPEN",
 
-      spread:
-        Number(settings.usdtBuyPrice) -
-        Number(settings.usdtSellPrice),
+      spread: buyPrice - sellPrice,
 
       updatedAt: settings.updatedAt,
       serverTime: new Date().toISOString(),
     });
 
   } catch (error) {
-    console.error("GET USDT PRICE ERROR:", error);
+    console.error("USDT PRICE API ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to load USDT price.",
+      message: "Unable to load USDT market price.",
       error:
         process.env.NODE_ENV === "production"
           ? undefined
           : error.message,
     });
   }
-});
+};
+
+// ======================================================
+// GET /api/usdt/price
+// ======================================================
+
+router.get("/price", sendUsdtResponse);
+
+// ======================================================
+// GET /api/usdt/rates
+// (Alias for Admin Dashboard & Frontend)
+// ======================================================
+
+router.get("/rates", sendUsdtResponse);
 
 // ======================================================
 // GET CURRENT USER WALLET

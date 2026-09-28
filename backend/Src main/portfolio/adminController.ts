@@ -528,7 +528,7 @@ export const getUserDetails = async (
       );
     }
 
-    const Wallet = await Wallet.findOne({
+    const wallet = await Wallet.findOne({
       user: user._id,
     });
 
@@ -546,7 +546,7 @@ export const getUserDetails = async (
       "User details loaded.",
       {
         user,
-        Wallet,
+        Wallet: wallet,
         deposits,
         withdrawals,
       }
@@ -659,11 +659,11 @@ export const updateWalletBalance = async (
       goldBalance,
     } = req.body;
 
-    const Wallet = await Wallet.findOne({
+    const wallet = await Wallet.findOne({
       user: req.params.id,
     });
 
-    if (!Wallet) {
+    if (!wallet) {
       return errorResponse(
         res,
         "Wallet not found.",
@@ -675,14 +675,14 @@ export const updateWalletBalance = async (
       balance !== undefined &&
       !isNaN(Number(balance))
     ) {
-      Wallet.balance = Number(balance);
+      wallet.balance = Number(balance);
     }
 
     if (
       goldBalance !== undefined &&
       !isNaN(Number(goldBalance))
     ) {
-      Wallet.goldBalance =
+      wallet.goldBalance =
         Number(goldBalance);
     }
 
@@ -1047,17 +1047,17 @@ export const approveDeposit = async (
       return errorResponse(res, "Deposit already approved.", 400);
     }
 
-    const Wallet = await Wallet.findOne({
+    const wallet = await Wallet.findOne({
       user: deposit.user,
     }).session(session);
 
-    if (!Wallet) {
+    if (!wallet) {
       await session.abortTransaction();
       return errorResponse(res, "Wallet not found.", 404);
     }
 
-    Wallet.balance += deposit.amount;
-    await Wallet.save({ session });
+    wallet.balance += deposit.amount;
+    await wallet.save({ session });
 
     deposit.status = "APPROVED";
     deposit.approvedBy = admin.id;
@@ -1331,16 +1331,16 @@ export const approveWithdrawal = async (
       return errorResponse(res, "Withdrawal already approved.", 400);
     }
 
-    const Wallet = await Wallet.findOne({
+    const wallet = await Wallet.findOne({
       user: withdrawal.user,
     }).session(session);
 
-    if (!Wallet) {
+    if (!wallet) {
       await session.abortTransaction();
       return errorResponse(res, "Wallet not found.", 404);
     }
 
-    if (Wallet.balance < withdrawal.amount) {
+    if (wallet.balance < withdrawal.amount) {
       await session.abortTransaction();
       return errorResponse(
         res,
@@ -1349,9 +1349,9 @@ export const approveWithdrawal = async (
       );
     }
 
-    Wallet.balance -= withdrawal.amount;
+    wallet.balance -= withdrawal.amount;
 
-    await Wallet.save({ session });
+    await wallet.save({ session });
 
     withdrawal.status = "APPROVED";
     withdrawal.approvedBy = admin.id;
@@ -1476,16 +1476,16 @@ export const bulkApproveWithdrawals = async (
         continue;
       }
 
-      const Wallet = await Wallet.findOne({
+      const wallet = await Wallet.findOne({
         user: withdrawal.user,
       }).session(session);
 
-      if (!Wallet || Wallet.balance < withdrawal.amount) {
+      if (!wallet || wallet.balance < withdrawal.amount) {
         continue;
       }
 
-      Wallet.balance -= withdrawal.amount;
-      await Wallet.save({ session });
+      wallet.balance -= withdrawal.amount;
+      await wallet.save({ session });
 
       withdrawal.status = "APPROVED";
       withdrawal.paymentStatus = "COMPLETED";

@@ -303,12 +303,10 @@ router.get("/profile", verifyToken, async (req, res) => {
 // GET /api/auth/check
 // ======================================================
 
-router.get("/check", verifyToken, (req, res) => {
-  return res.status(200).json({
+router.get("/check", verifyToken, async (req, res) => {
+  return res.json({
     success: true,
-    authenticated: true,
     user: req.user,
-    timestamp: new Date().toISOString(),
   });
 });
 

@@ -77,58 +77,51 @@ const apiLimiter = rateLimit({
 app.use("/api", apiLimiter);
 // ======================================================
 // CORS CONFIGURATION
-// PART 2/4
-// Render + Vercel + Localhost Safe
+// PART 2/4 (FIXED)
+// Render + Vercel + Localhost + Preview Deployments
 // ======================================================
 
+// Allowed Origins
 const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
 
-  // Production Domain
+  // Production Domains
+  "https://goldtrade-v18.vercel.app",
   "https://infotradewithzoyanet.org",
   "https://www.infotradewithzoyanet.org",
 ];
 
-// Allow *.vercel.app preview deployments
-const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
-
 app.use(
   cors({
-    origin(origin, callback) {
-      // Allow Postman, Mobile Apps, Server-to-Server requests
+    origin: (origin, callback) => {
+      // Allow Postman, mobile apps, server-to-server requests
       if (!origin) return callback(null, true);
 
-      if (
-        allowedOrigins.includes(origin) ||
-        vercelPreviewRegex.test(origin)
-      ) {
+      // Allow localhost + production domains
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      console.warn(`❌ Blocked CORS Origin: ${origin}`);
+      // Allow all Vercel preview deployments
+      if (origin.endsWith(".vercel.app")) {
+        return callback(null, true);
+      }
 
-      return callback(
-        new Error(`CORS blocked for origin: ${origin}`)
-      );
+      return callback(new Error("CORS policy: Origin not allowed."));
     },
 
     credentials: true,
-
-    methods: [
-      "GET",
-      "POST",
-      "PUT",
-      "PATCH",
-      "DELETE",
-      "OPTIONS",
-    ],
-
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
+      "Accept",
+      "Origin",
       "X-Requested-With",
     ],
+    exposedHeaders: ["Authorization"],
+    optionsSuccessStatus: 200,
   })
 );
 
