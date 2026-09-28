@@ -246,7 +246,7 @@ export default function GoldSettingsPage() {
           cache: "no-store",
         }),
 
-        fetch(`${API}/api/gold/admin/dashboard`, {
+        fetch(`${API}/api/admin/dashboard`, {
           headers: adminHeaders,
           cache: "no-store",
         }),

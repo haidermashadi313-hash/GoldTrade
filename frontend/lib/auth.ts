@@ -1,8 +1,7 @@
 // ==========================================================
 // GoldTrade V18 Enterprise
 // frontend/lib/auth.ts
-// FINAL Production Version
-// Render + Vercel + Linux + JWT Safe
+// IQ1000 FINAL - Session + JWT + Vercel + Render
 // ==========================================================
 
 export interface GoldTradeUser {
@@ -28,23 +27,30 @@ export function saveSession(
 ): void {
   if (typeof window === "undefined") return;
 
-  // Remove old session first
   clearSession();
 
   const storage = remember ? localStorage : sessionStorage;
 
   const normalizedUser: GoldTradeUser = {
-    id: user.id,
-    username: user.username,
-    email: user.email,
+    id: user.id || "",
+    username: user.username || "",
+    email: user.email || "",
     role:
       String(user.role).trim().toLowerCase() === "admin"
         ? "admin"
         : "user",
   };
 
+  // Primary keys
   storage.setItem("goldtrade_token", token);
   storage.setItem("goldtrade_user", JSON.stringify(normalizedUser));
+
+  // Compatibility keys (old pages)
+  storage.setItem("token", token);
+  storage.setItem("username", normalizedUser.username);
+  storage.setItem("email", normalizedUser.email);
+  storage.setItem("role", normalizedUser.role);
+
   storage.setItem("goldtrade_username", normalizedUser.username);
   storage.setItem("goldtrade_email", normalizedUser.email);
   storage.setItem("goldtrade_role", normalizedUser.role);
@@ -57,41 +63,67 @@ export function saveSession(
 export function getSession(): GoldTradeSession | null {
   if (typeof window === "undefined") return null;
 
-  const token =
-    localStorage.getItem("goldtrade_token") ||
-    sessionStorage.getItem("goldtrade_token");
-
-  const userString =
-    localStorage.getItem("goldtrade_user") ||
-    sessionStorage.getItem("goldtrade_user");
-
-  if (!token || !userString) {
-    clearSession();
-    return null;
-  }
-
   try {
-    const parsedUser = JSON.parse(userString);
+    const token =
+      localStorage.getItem("goldtrade_token") ||
+      sessionStorage.getItem("goldtrade_token") ||
+      localStorage.getItem("token") ||
+      sessionStorage.getItem("token");
 
-    const user: GoldTradeUser = {
-      id: parsedUser.id || "",
-      username: parsedUser.username || "",
-      email: parsedUser.email || "",
-      role:
-        String(parsedUser.role || "").trim().toLowerCase() === "admin"
-          ? "admin"
-          : "user",
-    };
+    const userString =
+      localStorage.getItem("goldtrade_user") ||
+      sessionStorage.getItem("goldtrade_user");
 
-    if (!user.username || !user.role) {
-      clearSession();
-      return null;
+    // Old compatibility
+    const username =
+      localStorage.getItem("username") ||
+      sessionStorage.getItem("username");
+
+    const email =
+      localStorage.getItem("email") ||
+      sessionStorage.getItem("email");
+
+    const role =
+      localStorage.getItem("role") ||
+      sessionStorage.getItem("role");
+
+    if (!token) return null;
+
+    // New session format
+    if (userString) {
+      const parsedUser = JSON.parse(userString);
+
+      return {
+        token,
+        user: {
+          id: parsedUser.id || "",
+          username: parsedUser.username || "",
+          email: parsedUser.email || "",
+          role:
+            String(parsedUser.role).trim().toLowerCase() === "admin"
+              ? "admin"
+              : "user",
+        },
+      };
     }
 
-    return {
-      token,
-      user,
-    };
+    // Old session format
+    if (username) {
+      return {
+        token,
+        user: {
+          id: "",
+          username,
+          email: email || "",
+          role:
+            String(role).trim().toLowerCase() === "admin"
+              ? "admin"
+              : "user",
+        },
+      };
+    }
+
+    return null;
   } catch (error) {
     console.error("Session Parse Error:", error);
     clearSession();
@@ -103,21 +135,16 @@ export function getSession(): GoldTradeSession | null {
 // HELPERS
 // ==========================================================
 
-export function isLoggedIn(): boolean {
-  return getSession() !== null;
-}
+export const isLoggedIn = (): boolean => getSession() !== null;
 
-export function getToken(): string | null {
-  return getSession()?.token || null;
-}
+export const getToken = (): string | null =>
+  getSession()?.token || null;
 
-export function getUser(): GoldTradeUser | null {
-  return getSession()?.user || null;
-}
+export const getUser = (): GoldTradeUser | null =>
+  getSession()?.user || null;
 
-export function isAdmin(): boolean {
-  return getSession()?.user.role === "admin";
-}
+export const isAdmin = (): boolean =>
+  getSession()?.user.role === "admin";
 
 // ==========================================================
 // CLEAR SESSION
@@ -127,11 +154,18 @@ export function clearSession(): void {
   if (typeof window === "undefined") return;
 
   const keys = [
+    // New keys
     "goldtrade_token",
     "goldtrade_user",
     "goldtrade_role",
     "goldtrade_username",
     "goldtrade_email",
+
+    // Old keys
+    "token",
+    "username",
+    "email",
+    "role",
   ];
 
   keys.forEach((key) => {
@@ -148,6 +182,6 @@ export function logout(): void {
   clearSession();
 
   if (typeof window !== "undefined") {
-    window.location.href = "/login";
+    window.location.replace("/login");
   }
 }

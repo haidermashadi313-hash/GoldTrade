@@ -175,7 +175,7 @@ export default function GoldOrdersPage() {
   const loadDashboardAnalytics = async () => {
     try {
       const response = await fetch(
-        `${API}/api/gold/admin/dashboard`,
+        `${API}/api/admin/dashboard`,
         {
           headers: getHeaders(),
         }

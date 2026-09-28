@@ -3,7 +3,7 @@
 // ==========================================================
 // GoldTrade V18 Enterprise
 // ADMIN DASHBOARD
-// PART 1/8
+// PART 1/2 (IQ1000 FINAL)
 // Production Ready (Render + Vercel + Linux)
 // ==========================================================
 
@@ -24,7 +24,7 @@ import {
 } from "@/lib/auth";
 
 // ==========================================================
-// API URL (Render Production)
+// API URL
 // ==========================================================
 
 const API =
@@ -41,13 +41,10 @@ interface DashboardStats {
   totalWithdrawals: number;
   pendingDeposits: number;
   pendingWithdrawals: number;
-
   goldBuyPrice: number;
   goldSellPrice: number;
-
   usdtBuyPrice: number;
   usdtSellPrice: number;
-
   marketStatus: "OPEN" | "CLOSED";
 }
 
@@ -80,12 +77,10 @@ export default function AdminDashboardPage() {
   // ========================================================
 
   const [admin, setAdmin] = useState<GoldTradeUser | null>(null);
-  const [token, setToken] = useState("");
-
   const [checkingSession, setCheckingSession] = useState(true);
 
   // ========================================================
-  // UI STATES
+  // UI STATE
   // ========================================================
 
   const [loading, setLoading] = useState(true);
@@ -97,7 +92,7 @@ export default function AdminDashboardPage() {
   const [isOnline, setIsOnline] = useState(true);
 
   // ========================================================
-  // DASHBOARD DATA
+  // DASHBOARD STATE
   // ========================================================
 
   const [stats, setStats] = useState<DashboardStats>({
@@ -106,13 +101,10 @@ export default function AdminDashboardPage() {
     totalWithdrawals: 0,
     pendingDeposits: 0,
     pendingWithdrawals: 0,
-
     goldBuyPrice: 0,
     goldSellPrice: 0,
-
     usdtBuyPrice: 0,
     usdtSellPrice: 0,
-
     marketStatus: "OPEN",
   });
 
@@ -146,48 +138,45 @@ export default function AdminDashboardPage() {
     };
   }, []);
 
-  // ========================================================
-  // SESSION CHECK (ADMIN ONLY)
-  // ========================================================
+// ========================================================
+// SESSION CHECK (IQ1000 FINAL)
+// ========================================================
 
-  useEffect(() => {
-    const session = getSession();
+useEffect(() => {
+  const session = getSession();
 
-    if (!session) {
-      router.replace("/login");
-      return;
-    }
+  if (!session?.token) {
+    router.replace("/login");
+    return;
+  }
 
-    if (session.user.role !== "admin") {
-      router.replace("/dashboard");
-      return;
-    }
+  if (session.user.role !== "admin") {
+    router.replace("/dashboard");
+    return;
+  }
 
-    setAdmin(session.user);
-    setToken(session.token);
-    setCheckingSession(false);
-  }, [router]);
-    // ========================================================
-  // LOAD ADMIN DASHBOARD
-  // ========================================================
+  setAdmin(session.user);
+  setCheckingSession(false);
+}, [router]);
 
-  const loadDashboard = useCallback(async () => {
-    try {
+// ========================================================
+// LOAD ADMIN DASHBOARD (IQ1000 FINAL)
+// ========================================================
+
+const loadDashboard = useCallback(async () => {
+  try {
     setLoading(true);
     setRefreshing(true);
     setErrorMessage("");
     setSuccessMessage("");
-     
-    // Get latest session every time
+
     const session = getSession();
 
-   if (!session || !session.token || !session.user) {
-      router.replace("/dashboard");
+    if (!session?.token) {
       logout();
       return;
     }
 
-    // Only admin can access dashboard
     if (session.user.role !== "admin") {
       router.replace("/dashboard");
       return;
@@ -196,63 +185,75 @@ export default function AdminDashboardPage() {
     console.log("ADMIN TOKEN:", session.token);
     console.log("ADMIN USER:", session.user);
 
-    const response = await fetch(`${API}/api/gold/admin/dashboard`, {
+    const response = await fetch(`${API}/api/admin/dashboard`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${session.token}`,
+        Accept: "application/json",
         "Content-Type": "application/json",
       },
       cache: "no-store",
-
+      credentials: "omit",
     });
 
-    const data: DashboardResponse = await response.json();
-
-    console.log("ADMIN DASHBOARD RESPONSE:", data);
-    
-    // Handle unauthorized
     if (response.status === 401) {
       logout();
       return;
     }
-     if (!response.ok || !data.success) {
+
+    if (response.status === 429) {
+      throw new Error("Too many requests. Please wait 5 seconds and try again.");
+    }
+
+    const data: DashboardResponse = await response.json();
+
+    console.log("ADMIN DASHBOARD RESPONSE:", data);
+
+    if (!response.ok || !data.success) {
       throw new Error(data.message || "Unable to load admin dashboard.");
     }
-    // Stats
-    setStats(
-      data.stats || {
-        totalUsers: 0,
-        totalDeposits: 0,
-        totalWithdrawals: 0,
-        pendingDeposits: 0,
-        pendingWithdrawals: 0,
-        goldBuyPrice: 0,
-        goldSellPrice: 0,
-        usdtBuyPrice: 0,
-        usdtSellPrice: 0,
-        marketStatus: "OPEN",
-      }
-    );
 
-    // Transactions
-    setTransactions(
-      Array.isArray(data.transactions) ? data.transactions : []
-    );
+    // =====================================================
+    // UPDATE DASHBOARD STATE
+    // =====================================================
 
+    setStats({
+      totalUsers: data.stats?.totalUsers ?? 0,
+      totalDeposits: data.stats?.totalDeposits ?? 0,
+      totalWithdrawals: data.stats?.totalWithdrawals ?? 0,
+      pendingDeposits: data.stats?.pendingDeposits ?? 0,
+      pendingWithdrawals: data.stats?.pendingWithdrawals ?? 0,
+      goldBuyPrice: data.stats?.goldBuyPrice ?? 0,
+      goldSellPrice: data.stats?.goldSellPrice ?? 0,
+      usdtBuyPrice: data.stats?.usdtBuyPrice ?? 0,
+      usdtSellPrice: data.stats?.usdtSellPrice ?? 0,
+      marketStatus: data.stats?.marketStatus ?? "OPEN",
+    });
+
+    setTransactions(data.transactions || []);
     setSuccessMessage("Dashboard loaded successfully.");
-  } catch (error: any) {
-    console.error("Dashboard Error:", error);
-    
-    const message = error.message || "Unable to load admin dashboard.";
+      } catch (error: any) {
+    console.error("ADMIN DASHBOARD ERROR:", error);
 
-    if (
-      message.includes("Access token") ||
-      message.includes("401")
-    ) {
-      logout();
-      return;
-    }
-    setErrorMessage(message);
+    setErrorMessage(
+      error?.message || "Failed to fetch dashboard data."
+    );
+
+    setStats({
+      totalUsers: 0,
+      totalDeposits: 0,
+      totalWithdrawals: 0,
+      pendingDeposits: 0,
+      pendingWithdrawals: 0,
+      goldBuyPrice: 0,
+      goldSellPrice: 0,
+      usdtBuyPrice: 0,
+      usdtSellPrice: 0,
+      marketStatus: "OPEN",
+    });
+
+    setTransactions([]);
+
   } finally {
     setLoading(false);
     setRefreshing(false);

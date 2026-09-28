@@ -89,14 +89,10 @@ export default function WalletManagerPage() {
     try {
       setLoading(true);
 
-      const response = await fetch(
-        `${API}/api/gold/admin/users`,
-        {
-          method: "GET",
-          headers,
-          cache: "no-store",
-        }
-      );
+      const response = await fetch(`${API}/api/admin/users`, {
+        headers,
+        cache: "no-store",
+     });
 
       const data = await response.json();
 

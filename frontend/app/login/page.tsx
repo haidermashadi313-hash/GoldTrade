@@ -32,6 +32,7 @@ interface LoginResponse {
   accessToken?: string;
   jwt?: string;
   user?: {
+    [x: string]: string;
     id: string;
     username: string;
     email: string;
@@ -256,28 +257,38 @@ if (checkingSession) {
         throw new Error("JWT token not received from server.");
       }
 
-      // -------------------------------
-      // SAVE SESSION
-      // -------------------------------
-       const userRole =
-        String(data.user.role || "")
-        .trim()
-        .toLowerCase() === "admin"
-        ? "admin"
-        : "user";
+// ========================================================
+// SAVE SESSION (IQ1000 FINAL)
+// ========================================================
 
-      saveSession(
-        {
-          id: data.user.id,
-          username: data.user.username,
-          email: data.user.email,
-          role: userRole,
-        },
-        jwtToken,
-        rememberMe
-      );
+const userRole =
+  String(data.user?.role || "")
+    .trim()
+    .toLowerCase() === "admin"
+    ? "admin"
+    : "user";
 
-      setSuccessMessage("Login successful. Redirecting...");
+saveSession(
+  {
+    id:
+      data.user?.id ||
+      data.user?._id ||
+      "",
+
+    username:
+      data.user?.username || "",
+
+    email:
+      data.user?.email || "",
+
+    role: userRole,
+  },
+  jwtToken,
+  rememberMe
+);
+
+// Success message
+setSuccessMessage("Login successful.");
 
       // -------------------------------
       // REDIRECT
