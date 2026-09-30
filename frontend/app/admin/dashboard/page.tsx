@@ -721,7 +721,7 @@ const loadDashboard = useCallback(async () => {
                   </div>
 
                   <Link
-                    href="/admin/gold-settings"
+                    href="/admin/goldsettings"
                     className="mt-6 inline-flex rounded-xl border border-yellow-500 px-4 py-2 text-sm font-semibold text-yellow-400 hover:bg-yellow-500 hover:text-black"
                   >
                     Update Gold Settings
@@ -764,7 +764,7 @@ const loadDashboard = useCallback(async () => {
                   </div>
 
                   <Link
-                    href="/admin/usdt-settings"
+                    href="/admin/usdt"
                     className="mt-6 inline-flex rounded-xl border border-green-500 px-4 py-2 text-sm font-semibold text-green-400 hover:bg-green-500 hover:text-black"
                   >
                     Update USDT Settings
@@ -951,7 +951,7 @@ const loadDashboard = useCallback(async () => {
                 </Link>
 
                 <Link
-                  href="/admin/payment-settings"
+                  href="/admin/paymentsettings"
                   className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-6 transition hover:border-blue-400"
                 >
                   <p className="text-sm text-gray-400">
@@ -968,7 +968,7 @@ const loadDashboard = useCallback(async () => {
                 </Link>
 
                 <Link
-                  href="/admin/gold-settings"
+                  href="/admin/usdt"
                   className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6 transition hover:border-yellow-400"
                 >
                   <p className="text-sm text-gray-400">
@@ -985,7 +985,7 @@ const loadDashboard = useCallback(async () => {
                 </Link>
 
                 <Link
-                  href="/admin/usdt-settings"
+                  href="/admin/usdt"
                   className="rounded-3xl border border-green-500/20 bg-zinc-950 p-6 transition hover:border-green-400"
                 >
                   <p className="text-sm text-gray-400">

@@ -1,13 +1,5 @@
 "use client";
 
-// =====================================================
-// GoldTrade V18 Enterprise
-// PAYMENT SETTINGS MANAGER
-// PART 1/6
-// Production Version
-// Folder: frontend/app/admin/paymentsetting/page.tsx
-// =====================================================
-
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -24,141 +16,289 @@ import {
   XCircle,
   DollarSign,
   Coins,
+  Plus,
+  Trash2,
+  Power,
+  Settings,
 } from "lucide-react";
 
 // =====================================================
 // API URL
+// GOLDTRADE V18
 // =====================================================
 
-const API =
-  process.env.NEXT_PUBLIC_API_URL ||  "https://goldtrade-2.onrender.com";
+const API = (() => {
+  const configuredAPI =
+    process.env.NEXT_PUBLIC_API_URL?.trim();
+
+  if (configuredAPI) {
+    return configuredAPI.replace(/\/+$/, "");
+  }
+
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "0.0.0.0"
+    ) {
+      return "http://localhost:5000";
+    }
+
+    return "https://goldtrade-2.onrender.com";
+  }
+
+  return "https://goldtrade-2.onrender.com";
+})();
 
 // =====================================================
-// TYPES
+// V18 BACKEND PAYMENT METHOD
 // =====================================================
 
-interface PaymentSettings {
+interface BackendPaymentMethod {
   _id?: string;
 
-  // Bank Details
-  bankName: string;
-  accountTitle: string;
+  method: string;
+
+  title: string;
+
+  enabled: boolean;
+
+  accountTitle?: string;
+
+  accountNumber?: string;
+
+  iban?: string;
+
+  walletAddress?: string;
+
+  network?: string;
+
+  qrImage?: string;
+}
+
+// =====================================================
+// FRONTEND PAYMENT METHOD
+// =====================================================
+
+interface DepositPaymentMethod {
+  _id?: string;
+
+  type: string;
+
+  accountName: string;
+
   accountNumber: string;
-  iban: string;
 
-  // Easypaisa
-  easypaisaName: string;
-  easypaisaNumber: string;
+  qrCode: string;
 
-  // JazzCash
-  jazzcashName: string;
-  jazzcashNumber: string;
+  instructions: string;
 
-  // Binance
-  usdtNetwork: string;
-  usdtAddress: string;
+  enabled: boolean;
 
-  // Gold
-  goldWalletAddress: string;
+  // V18 fields
+  method?: string;
 
-  // Status
+  title?: string;
+
+  iban?: string;
+
+  walletAddress?: string;
+
+  network?: string;
+}
+
+// =====================================================
+// DEPOSIT SETTINGS
+// =====================================================
+
+interface DepositSettings {
   depositsEnabled: boolean;
-  withdrawsEnabled: boolean;
+
+  minimumDeposit: number;
+
+  maximumDeposit: number;
+
+  methods: DepositPaymentMethod[];
+
+  paymentMethods?: DepositPaymentMethod[];
+
+  total?: number;
 
   updatedAt?: string;
 }
 
+// =====================================================
+// STATISTICS
+// =====================================================
+
 interface PaymentStatistics {
-  totalBankAccounts: number;
-  totalWalletAddresses: number;
+  totalMethods: number;
+
+  activeMethods: number;
+
+  inactiveMethods: number;
+
   depositsEnabled: boolean;
-  withdrawsEnabled: boolean;
+
+  minimumDeposit: number;
+
+  maximumDeposit: number;
 }
+
+// =====================================================
+// EMPTY METHOD
+// =====================================================
+
+const createEmptyMethod = (): DepositPaymentMethod => ({
+  type: "",
+
+  accountName: "",
+
+  accountNumber: "",
+
+  qrCode: "",
+
+  instructions: "",
+
+  enabled: true,
+
+  method: "",
+
+  title: "",
+
+  iban: "",
+
+  walletAddress: "",
+
+  network: "",
+});
 
 // =====================================================
 // COMPONENT
 // =====================================================
 
 export default function PaymentSettingsPage() {
-
   // ===================================================
   // AUTH
   // ===================================================
 
   const [token, setToken] = useState("");
+
   const [adminName, setAdminName] =
     useState("Administrator");
 
   // ===================================================
-  // SETTINGS DATA
+  // SETTINGS
   // ===================================================
 
   const [settings, setSettings] =
-    useState<PaymentSettings>({
-      bankName: "",
-      accountTitle: "",
-      accountNumber: "",
-      iban: "",
-
-      easypaisaName: "",
-      easypaisaNumber: "",
-
-      jazzcashName: "",
-      jazzcashNumber: "",
-
-      usdtNetwork: "TRC20",
-      usdtAddress: "",
-
-      goldWalletAddress: "",
-
+    useState<DepositSettings>({
       depositsEnabled: true,
-      withdrawsEnabled: true,
+
+      minimumDeposit: 1000,
+
+      maximumDeposit: 10000000,
+
+      methods: [],
+
+      paymentMethods: [],
+
+      total: 0,
     });
+
+  // ===================================================
+  // NEW PAYMENT METHOD
+  // ===================================================
+
+  const [newMethod, setNewMethod] =
+    useState<DepositPaymentMethod>(
+      createEmptyMethod()
+    );
+
+  // ===================================================
+  // STATISTICS
+  // ===================================================
 
   const [statistics, setStatistics] =
     useState<PaymentStatistics>({
-      totalBankAccounts: 1,
-      totalWalletAddresses: 2,
+      totalMethods: 0,
+
+      activeMethods: 0,
+
+      inactiveMethods: 0,
+
       depositsEnabled: true,
-      withdrawsEnabled: true,
+
+      minimumDeposit: 1000,
+
+      maximumDeposit: 10000000,
     });
 
   // ===================================================
   // UI STATES
   // ===================================================
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
+
   const [refreshing, setRefreshing] =
     useState(false);
 
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] =
+    useState(false);
 
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<
-    "success" | "error"
-  >("success");
+  const [message, setMessage] =
+    useState("");
 
-  const [error, setError] = useState("");
+  const [messageType, setMessageType] =
+    useState<"success" | "error">("success");
+
+  const [error, setError] =
+    useState("");
 
   // ===================================================
   // SEARCH
   // ===================================================
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] =
+    useState("");
+
+  // ===================================================
+  // EDITING
+  // ===================================================
+
+  const [editingIndex, setEditingIndex] =
+    useState<number | null>(null);
+
+  // ===================================================
+  // FORM VISIBILITY
+  // ===================================================
+
+  const [showAddForm, setShowAddForm] =
+    useState(false);
 
   // ===================================================
   // TOKEN LOAD
   // ===================================================
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
+    try {
+      const savedToken =
+        localStorage.getItem("token")?.trim() || "";
 
-    if (!savedToken) {
+      if (!savedToken) {
+        window.location.href = "/login";
+        return;
+      }
+
+      setToken(savedToken);
+    } catch (err) {
+      console.error("TOKEN LOAD ERROR:", err);
+
       window.location.href = "/login";
-      return;
     }
-
-    setToken(savedToken);
   }, []);
 
   // ===================================================
@@ -167,7 +307,10 @@ export default function PaymentSettingsPage() {
 
   const adminHeaders = useMemo(
     () => ({
-      Authorization: `Bearer ${token}`,
+      Authorization: token
+        ? `Bearer ${token}`
+        : "",
+
       "Content-Type": "application/json",
     }),
     [token]
@@ -178,969 +321,3316 @@ export default function PaymentSettingsPage() {
   // ===================================================
 
   const formatDate = (date?: string) => {
-    if (!date) return "--";
+    if (!date) {
+      return "--";
+    }
 
-    return new Date(date).toLocaleString("en-GB", {
+    const parsed = new Date(date);
+
+    if (Number.isNaN(parsed.getTime())) {
+      return "--";
+    }
+
+    return parsed.toLocaleString("en-GB", {
       dateStyle: "medium",
+
       timeStyle: "short",
     });
   };
 
   // ===================================================
-  // COPY TO CLIPBOARD
+  // COPY TEXT
   // ===================================================
 
   const copyText = async (value: string) => {
+    const text = String(value || "").trim();
+
+    if (!text) {
+      setMessage("Nothing to copy.");
+
+      setMessageType("error");
+
+      return;
+    }
+
     try {
-      await navigator.clipboard.writeText(value);
+      await navigator.clipboard.writeText(text);
 
       setMessage("Copied successfully.");
+
       setMessageType("success");
-    } catch {
+    } catch (err) {
+      console.error("COPY ERROR:", err);
+
       setMessage("Unable to copy.");
+
       setMessageType("error");
     }
   };
 
   // ===================================================
-  // SEARCH FILTER
+  // NORMALIZE BACKEND METHOD
   // ===================================================
 
-  const searchKeyword = search.trim().toLowerCase();
+  const normalizeBackendMethod = (
+    method: BackendPaymentMethod
+  ): DepositPaymentMethod => {
+    const backendMethod =
+      String(method.method || "")
+        .trim()
+        .toUpperCase();
 
-  const showBankSection =
-    searchKeyword === "" ||
-    "bank account iban accounttitle".includes(searchKeyword);
+    const displayTitle =
+      String(
+        method.title ||
+          method.method ||
+          ""
+      ).trim();
 
-  const showEasyPaisaSection =
-    searchKeyword === "" ||
-    "easypaisa ep wallet mobile".includes(searchKeyword);
+    const accountNumber =
+      backendMethod === "BINANCE"
+        ? String(
+            method.walletAddress ||
+              method.accountNumber ||
+              ""
+          ).trim()
+        : String(
+            method.accountNumber || ""
+          ).trim();
 
-  const showJazzCashSection =
-    searchKeyword === "" ||
-    "jazzcash jc wallet mobile".includes(searchKeyword);
+    return {
+      _id: method._id,
 
-  const showUsdtSection =
-    searchKeyword === "" ||
-    "usdt trc20 bep20 binance crypto".includes(searchKeyword);
+      type:
+        backendMethod === "BANK"
+          ? "Bank Transfer"
+          : backendMethod === "JAZZCASH"
+          ? "JazzCash"
+          : backendMethod === "EASYPAISA"
+          ? "EasyPaisa"
+          : backendMethod === "BINANCE"
+          ? "Binance USDT"
+          : displayTitle,
 
-  const showGoldSection =
-    searchKeyword === "" ||
-    "gold wallet address".includes(searchKeyword);
-      // ===================================================
-  // LOAD PAYMENT SETTINGS
+      accountName: String(
+        method.accountTitle || ""
+      ).trim(),
+
+      accountNumber,
+
+      qrCode: String(
+        method.qrImage || ""
+      ).trim(),
+
+      instructions: "",
+
+      enabled: method.enabled === true,
+
+      method: backendMethod,
+
+      title: displayTitle,
+
+      iban: String(
+        method.iban || ""
+      ).trim(),
+
+      walletAddress: String(
+        method.walletAddress || ""
+      ).trim(),
+
+      network: String(
+        method.network || ""
+      ).trim(),
+    };
+  };
+
+  // ===================================================
+  // NORMALIZE FRONTEND METHOD
   // ===================================================
 
-  const loadPaymentSettings = async () => {
-    if (!token) return;
+  const normalizeMethod = (
+    method: Partial<DepositPaymentMethod> = {}
+  ): DepositPaymentMethod => {
+    return {
+      _id: method._id,
 
-    try {
-      setLoading(true);
-      setRefreshing(false);
-      setError("");
+      type: String(
+        method.type ?? ""
+      ).trim(),
 
-      const [settingsRes, statisticsRes] = await Promise.all([
-        fetch(`${API}/api/admin/payment-settings`, {
-          headers: adminHeaders,
-          cache: "no-store",
-        }),
+      accountName: String(
+        method.accountName ?? ""
+      ).trim(),
 
-        fetch(`${API}/api/admin/payment-settings/statistics`, {
-          headers: adminHeaders,
-          cache: "no-store",
-        }),
-      ]);
+      accountNumber: String(
+        method.accountNumber ?? ""
+      ).trim(),
 
-      const settingsData = await settingsRes.json();
-      const statisticsData = await statisticsRes.json();
+      qrCode: String(
+        method.qrCode ?? ""
+      ).trim(),
 
-      console.log("PAYMENT SETTINGS:", settingsData);
-      console.log("PAYMENT STATISTICS:", statisticsData);
+      instructions: String(
+        method.instructions ?? ""
+      ).trim(),
 
-      // SETTINGS
-      if (settingsRes.ok && settingsData.success) {
-        setSettings({
-          bankName: settingsData.settings.bankName || "",
-          accountTitle: settingsData.settings.accountTitle || "",
-          accountNumber: settingsData.settings.accountNumber || "",
-          iban: settingsData.settings.iban || "",
+      enabled:
+        method.enabled !== false,
 
-          easypaisaName: settingsData.settings.easypaisaName || "",
-          easypaisaNumber: settingsData.settings.easypaisaNumber || "",
+      method: String(
+        method.method ?? ""
+      )
+        .trim()
+        .toUpperCase(),
 
-          jazzcashName: settingsData.settings.jazzcashName || "",
-          jazzcashNumber: settingsData.settings.jazzcashNumber || "",
+      title: String(
+        method.title ?? ""
+      ).trim(),
 
-          usdtNetwork:
-            settingsData.settings.usdtNetwork || "TRC20",
+      iban: String(
+        method.iban ?? ""
+      ).trim(),
 
-          usdtAddress: settingsData.settings.usdtAddress || "",
+      walletAddress: String(
+        method.walletAddress ?? ""
+      ).trim(),
 
-          goldWalletAddress:
-            settingsData.settings.goldWalletAddress || "",
+      network: String(
+        method.network ?? ""
+      ).trim(),
+    };
+  };
 
-          depositsEnabled:
-            settingsData.settings.depositsEnabled ?? true,
+  // ===================================================
+  // NORMALIZE SETTINGS
+  // ===================================================
 
-          withdrawsEnabled:
-            settingsData.settings.withdrawsEnabled ?? true,
+  const normalizeSettings = (
+    data: any
+  ): DepositSettings => {
+    const source =
+      data?.settings &&
+      typeof data.settings === "object"
+        ? data.settings
+        : data || {};
 
-          updatedAt: settingsData.settings.updatedAt,
-        });
-      } else {
-        setError(
-          settingsData.message ||
-            "Unable to load payment settings."
+    // -------------------------------------------------
+    // V18 DEPOSIT METHODS
+    // -------------------------------------------------
+
+    const backendMethods: BackendPaymentMethod[] =
+      Array.isArray(
+        source.depositMethods
+      )
+        ? source.depositMethods
+        : [];
+
+    const methods =
+      backendMethods
+        .filter(
+          (method) =>
+            method &&
+            typeof method === "object"
+        )
+        .map(
+          (
+            method
+          ) =>
+            normalizeBackendMethod(
+              method
+            )
+        )
+        .filter(
+          (method) =>
+            method.type.length > 0
         );
-      }
 
-      // STATISTICS
-      if (statisticsRes.ok && statisticsData.success) {
-        setStatistics(statisticsData.statistics);
-      }
+    // -------------------------------------------------
+    // DEPOSIT LIMITS
+    // -------------------------------------------------
 
-    } catch (err: any) {
-      console.error("LOAD PAYMENT SETTINGS ERROR:", err);
-
-      setError(
-        err.message || "Unable to load payment settings."
+    const minimumDepositValue =
+      Number(
+        source.minimumDeposit
       );
 
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+    const minimumDeposit =
+      Number.isFinite(
+        minimumDepositValue
+      ) &&
+      minimumDepositValue > 0
+        ? minimumDepositValue
+        : 1000;
+
+    const maximumDepositValue =
+      Number(
+        source.maximumDeposit
+      );
+
+    const maximumDeposit =
+      Number.isFinite(
+        maximumDepositValue
+      ) &&
+      maximumDepositValue > 0
+        ? maximumDepositValue
+        : 10000000;
+
+    // -------------------------------------------------
+    // RETURN
+    // -------------------------------------------------
+
+    return {
+      depositsEnabled:
+        source.depositsEnabled !== false,
+
+      minimumDeposit,
+
+      maximumDeposit,
+
+      methods,
+
+      paymentMethods: [
+        ...methods,
+      ],
+
+      total: methods.length,
+
+      updatedAt:
+        typeof source.updatedAt ===
+        "string"
+          ? source.updatedAt
+          : undefined,
+    };
   };
 
   // ===================================================
-  // REFRESH PAYMENT SETTINGS
+  // LOAD V18 PAYMENT SETTINGS
+  // GET /api/payment-settings/admin/all
   // ===================================================
 
-  const refreshPaymentSettings = async () => {
-    setRefreshing(true);
-    await loadPaymentSettings();
-  };
-
-  // ===================================================
-  // ADMIN AUTH CHECK
-  // ===================================================
-
-  const checkAdminAuth = async () => {
-    if (!token) return;
-
-    try {
-      const response = await fetch(
-        `${API}/api/admin/auth/check`,
-        {
-          headers: adminHeaders,
-          cache: "no-store",
-        }
-      );
-
-      const data = await response.json();
-
-      console.log("ADMIN AUTH:", data);
-
-      if (!response.ok || !data.success) {
-        localStorage.removeItem("token");
-        window.location.href = "/login";
+  const loadPaymentSettings =
+    async () => {
+      if (!token) {
         return;
       }
 
-      setAdminName(data.user?.username || "Administrator");
+      try {
+        setError("");
 
-    } catch (error) {
-      console.error("ADMIN AUTH ERROR:", error);
-    }
-  };
+        const response =
+          await fetch(
+            `${API}/api/payment-settings/admin/all`,
+            {
+              method: "GET",
+
+              headers: adminHeaders,
+
+              cache: "no-store",
+            }
+          );
+
+        // ---------------------------------------------
+        // SAFE JSON
+        // ---------------------------------------------
+
+        let data: any = {};
+
+        try {
+          data =
+            await response.json();
+        } catch {
+          data = {};
+        }
+
+        console.log(
+          "V18 ADMIN PAYMENT SETTINGS:",
+          data
+        );
+
+        // ---------------------------------------------
+        // AUTH EXPIRED
+        // ---------------------------------------------
+
+        if (
+          response.status === 401
+        ) {
+          localStorage.removeItem(
+            "token"
+          );
+
+          setToken("");
+
+          window.location.href =
+            "/login";
+
+          return;
+        }
+
+        // ---------------------------------------------
+        // ADMIN ACCESS
+        // ---------------------------------------------
+
+        if (
+          response.status === 403
+        ) {
+          throw new Error(
+            data?.message ||
+              "Admin access required."
+          );
+        }
+
+        // ---------------------------------------------
+        // HTTP ERROR
+        // ---------------------------------------------
+
+        if (!response.ok) {
+          throw new Error(
+            data?.message ||
+              `Request failed with status ${response.status}.`
+          );
+        }
+
+        // ---------------------------------------------
+        // API ERROR
+        // ---------------------------------------------
+
+        if (
+          data &&
+          data.success === false
+        ) {
+          throw new Error(
+            data.message ||
+              "Unable to load payment settings."
+          );
+        }
+
+        // ---------------------------------------------
+        // NORMALIZE
+        // ---------------------------------------------
+
+        const normalized =
+          normalizeSettings(data);
+
+        // ---------------------------------------------
+        // UPDATE SETTINGS
+        // ---------------------------------------------
+
+        setSettings(
+          normalized
+        );
+
+        // ---------------------------------------------
+        // STATISTICS
+        // ---------------------------------------------
+
+        const activeMethods =
+          normalized.methods.filter(
+            (method) =>
+              method.enabled === true
+          ).length;
+
+        const inactiveMethods =
+          Math.max(
+            0,
+            normalized.methods.length -
+              activeMethods
+          );
+
+        setStatistics({
+          totalMethods:
+            normalized.methods.length,
+
+          activeMethods,
+
+          inactiveMethods,
+
+          depositsEnabled:
+            normalized.depositsEnabled,
+
+          minimumDeposit:
+            normalized.minimumDeposit,
+
+          maximumDeposit:
+            normalized.maximumDeposit,
+        });
+
+        setError("");
+      } catch (err: any) {
+        console.error(
+          "LOAD PAYMENT SETTINGS ERROR:",
+          err
+        );
+
+        setError(
+          err?.message ||
+            "Unable to load payment settings."
+        );
+      }
+    };
 
   // ===================================================
   // INITIAL LOAD
   // ===================================================
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      return;
+    }
 
-    checkAdminAuth();
-    loadPaymentSettings();
+    let mounted = true;
+
+    const initialize =
+      async () => {
+        try {
+          if (mounted) {
+            setLoading(true);
+          }
+
+          await loadPaymentSettings();
+        } catch (err) {
+          console.error(
+            "INITIAL PAYMENT SETTINGS ERROR:",
+            err
+          );
+        } finally {
+          if (mounted) {
+            setLoading(false);
+          }
+        }
+      };
+
+    initialize();
+
+    return () => {
+      mounted = false;
+    };
   }, [token]);
+
+  // ===================================================
+  // REFRESH
+  // ===================================================
+
+  const refreshPaymentSettings =
+    async () => {
+      if (!token) {
+        setMessage(
+          "Please login again."
+        );
+
+        setMessageType("error");
+
+        return;
+      }
+
+      try {
+        setRefreshing(true);
+
+        setError("");
+
+        await loadPaymentSettings();
+
+        setMessage(
+          "Payment settings refreshed."
+        );
+
+        setMessageType("success");
+      } catch (err: any) {
+        console.error(
+          "REFRESH PAYMENT SETTINGS ERROR:",
+          err
+        );
+
+        setMessage(
+          err?.message ||
+            "Unable to refresh payment settings."
+        );
+
+        setMessageType("error");
+      } finally {
+        setRefreshing(false);
+      }
+    };
 
   // ===================================================
   // AUTO CLEAR MESSAGE
   // ===================================================
 
   useEffect(() => {
-    if (!message) return;
+    if (!message) {
+      return;
+    }
 
-    const timer = setTimeout(() => {
-      setMessage("");
-    }, 4000);
+    const timer =
+      window.setTimeout(() => {
+        setMessage("");
+      }, 4000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [message]);
-    // ===================================================
-  // UPDATE INPUT VALUE
+
+  // ===================================================
+  // UPDATE NEW METHOD
   // ===================================================
 
-  const updateField = (
-    field: keyof PaymentSettings,
+  const updateNewMethod = (
+    field: keyof DepositPaymentMethod,
     value: string | boolean
   ) => {
-    setSettings((prev) => ({
+    setNewMethod((prev) => ({
       ...prev,
+
       [field]: value,
     }));
   };
+  // =====================================================
+// ADD / UPDATE PAYMENT METHOD
+// =====================================================
 
-  // ===================================================
-  // TOGGLE DEPOSITS
-  // ===================================================
+const addPaymentMethod = () => {
+  const method = normalizeMethod(newMethod);
 
-  const toggleDeposits = () => {
+  // ---------------------------------------------------
+  // VALIDATE METHOD NAME
+  // ---------------------------------------------------
+
+  if (!method.type) {
+    setMessage(
+      "Payment method name is required."
+    );
+
+    setMessageType("error");
+
+    return;
+  }
+
+  // ---------------------------------------------------
+  // VALIDATE ACCOUNT NAME
+  // ---------------------------------------------------
+
+  if (!method.accountName) {
+    setMessage(
+      "Account name is required."
+    );
+
+    setMessageType("error");
+
+    return;
+  }
+
+  // ---------------------------------------------------
+  // VALIDATE ACCOUNT NUMBER
+  // ---------------------------------------------------
+
+  if (!method.accountNumber) {
+    setMessage(
+      "Account number / wallet address is required."
+    );
+
+    setMessageType("error");
+
+    return;
+  }
+
+  // ---------------------------------------------------
+  // NORMALIZE METHOD NAME
+  // ---------------------------------------------------
+
+  const normalizedType =
+    method.type
+      .toLowerCase()
+      .trim();
+
+  // ---------------------------------------------------
+  // DUPLICATE CHECK
+  // ---------------------------------------------------
+
+  const duplicate =
+    settings.methods.some(
+      (item, index) => {
+        if (
+          editingIndex !== null &&
+          index === editingIndex
+        ) {
+          return false;
+        }
+
+        return (
+          String(
+            item.type || ""
+          )
+            .toLowerCase()
+            .trim() ===
+          normalizedType
+        );
+      }
+    );
+
+  if (duplicate) {
+    setMessage(
+      "This payment method already exists."
+    );
+
+    setMessageType("error");
+
+    return;
+  }
+
+  // ---------------------------------------------------
+  // UPDATE EXISTING
+  // ---------------------------------------------------
+
+  if (editingIndex !== null) {
+    setSettings((prev) => {
+      if (
+        editingIndex < 0 ||
+        editingIndex >=
+          prev.methods.length
+      ) {
+        return prev;
+      }
+
+      const methods = [
+        ...prev.methods,
+      ];
+
+      methods[editingIndex] = {
+        ...method,
+
+        _id:
+          method._id ||
+          prev.methods[
+            editingIndex
+          ]?._id,
+      };
+
+      return {
+        ...prev,
+
+        methods,
+
+        paymentMethods: [
+          ...methods,
+        ],
+
+        total: methods.length,
+      };
+    });
+
+    setMessage(
+      "Payment method updated locally. Click Save Payment Methods."
+    );
+
+    setMessageType("success");
+  }
+
+  // ---------------------------------------------------
+  // ADD NEW
+  // ---------------------------------------------------
+
+  else {
+    setSettings((prev) => {
+      const methods = [
+        ...prev.methods,
+        method,
+      ];
+
+      return {
+        ...prev,
+
+        methods,
+
+        paymentMethods: [
+          ...methods,
+        ],
+
+        total: methods.length,
+      };
+    });
+
+    setMessage(
+      "Payment method added. Click Save Payment Methods."
+    );
+
+    setMessageType("success");
+  }
+
+  // ---------------------------------------------------
+  // RESET FORM
+  // ---------------------------------------------------
+
+  setNewMethod(
+    createEmptyMethod()
+  );
+
+  setEditingIndex(null);
+
+  setShowAddForm(false);
+};
+
+// =====================================================
+// EDIT PAYMENT METHOD
+// =====================================================
+
+const editPaymentMethod = (
+  index: number
+) => {
+  if (
+    index < 0 ||
+    index >= settings.methods.length
+  ) {
+    return;
+  }
+
+  const method =
+    settings.methods[index];
+
+  if (!method) {
+    return;
+  }
+
+  setNewMethod({
+    ...method,
+  });
+
+  setEditingIndex(index);
+
+  setShowAddForm(true);
+
+  setMessage("");
+
+  // ---------------------------------------------------
+  // SCROLL TO TOP
+  // ---------------------------------------------------
+
+  window.setTimeout(() => {
+    window.scrollTo({
+      top: 0,
+
+      behavior: "smooth",
+    });
+  }, 50);
+};
+
+// =====================================================
+// CANCEL ADD / EDIT
+// =====================================================
+
+const cancelEdit = () => {
+  setNewMethod(
+    createEmptyMethod()
+  );
+
+  setEditingIndex(null);
+
+  setShowAddForm(false);
+
+  setMessage("");
+};
+
+// =====================================================
+// DELETE PAYMENT METHOD
+// =====================================================
+
+const deletePaymentMethod = (
+  index: number
+) => {
+  if (
+    index < 0 ||
+    index >= settings.methods.length
+  ) {
+    return;
+  }
+
+  const method =
+    settings.methods[index];
+
+  if (!method) {
+    return;
+  }
+
+  const methodName =
+    method.type ||
+    "this payment method";
+
+  const confirmed =
+    window.confirm(
+      `Delete "${methodName}" payment method?`
+    );
+
+  if (!confirmed) {
+    return;
+  }
+
+  setSettings((prev) => {
+    const methods =
+      prev.methods.filter(
+        (_, itemIndex) =>
+          itemIndex !== index
+      );
+
+    return {
+      ...prev,
+
+      methods,
+
+      paymentMethods: [
+        ...methods,
+      ],
+
+      total: methods.length,
+    };
+  });
+
+  // ---------------------------------------------------
+  // EDITING STATE
+  // ---------------------------------------------------
+
+  if (editingIndex === index) {
+    setNewMethod(
+      createEmptyMethod()
+    );
+
+    setEditingIndex(null);
+
+    setShowAddForm(false);
+  } else if (
+    editingIndex !== null &&
+    editingIndex > index
+  ) {
+    setEditingIndex(
+      editingIndex - 1
+    );
+  }
+
+  setMessage(
+    "Payment method removed locally. Click Save Payment Methods."
+  );
+
+  setMessageType("success");
+};
+
+// =====================================================
+// TOGGLE PAYMENT METHOD
+// =====================================================
+
+const togglePaymentMethod = (
+  index: number
+) => {
+  setSettings((prev) => {
+    if (
+      index < 0 ||
+      index >= prev.methods.length
+    ) {
+      return prev;
+    }
+
+    const methods =
+      prev.methods.map(
+        (method, itemIndex) => {
+          if (
+            itemIndex !== index
+          ) {
+            return method;
+          }
+
+          return {
+            ...method,
+
+            enabled:
+              !method.enabled,
+          };
+        }
+      );
+
+    return {
+      ...prev,
+
+      methods,
+
+      paymentMethods: [
+        ...methods,
+      ],
+
+      total: methods.length,
+    };
+  });
+
+  setMessage(
+    "Payment method status changed locally. Click Save Payment Methods."
+  );
+
+  setMessageType("success");
+};
+
+// =====================================================
+// TOGGLE ALL DEPOSITS
+// =====================================================
+
+const toggleDeposits = () => {
+  setSettings((prev) => ({
+    ...prev,
+
+    depositsEnabled:
+      !prev.depositsEnabled,
+  }));
+
+  setMessage(
+    "Deposit status changed locally."
+  );
+
+  setMessageType("success");
+};
+
+// =====================================================
+// UPDATE DEPOSIT LIMIT
+// =====================================================
+
+const updateDepositLimit = (
+  field:
+    | "minimumDeposit"
+    | "maximumDeposit",
+
+  value: string
+) => {
+  if (
+    value.trim() === ""
+  ) {
     setSettings((prev) => ({
       ...prev,
-      depositsEnabled: !prev.depositsEnabled,
+
+      [field]: 0,
     }));
+
+    return;
+  }
+
+  const numericValue =
+    Number(value);
+
+  if (
+    !Number.isFinite(
+      numericValue
+    )
+  ) {
+    return;
+  }
+
+  setSettings((prev) => ({
+    ...prev,
+
+    [field]: Math.max(
+      0,
+      numericValue
+    ),
+  }));
+};
+
+// =====================================================
+// CONVERT FRONTEND METHOD → V18 METHOD
+// =====================================================
+
+const convertToV18Method = (
+  item: DepositPaymentMethod
+): BackendPaymentMethod => {
+  const displayType =
+    String(
+      item.type || ""
+    )
+      .trim()
+      .toUpperCase();
+
+  // ---------------------------------------------------
+  // BANK
+  // ---------------------------------------------------
+
+  if (
+    displayType ===
+      "BANK TRANSFER" ||
+    displayType === "BANK"
+  ) {
+    return {
+      _id: item._id,
+
+      method: "BANK",
+
+      title:
+        item.title ||
+        "Bank Transfer",
+
+      enabled:
+        item.enabled !== false,
+
+      accountTitle:
+        item.accountName || "",
+
+      accountNumber:
+        item.accountNumber || "",
+
+      iban:
+        item.iban || "",
+
+      walletAddress:
+        "",
+
+      network:
+        "",
+
+      qrImage:
+        item.qrCode || "",
+    };
+  }
+
+  // ---------------------------------------------------
+  // JAZZCASH
+  // ---------------------------------------------------
+
+  if (
+    displayType ===
+      "JAZZ CASH" ||
+    displayType ===
+      "JAZZCASH"
+  ) {
+    return {
+      _id: item._id,
+
+      method: "JAZZCASH",
+
+      title:
+        item.title ||
+        "JazzCash",
+
+      enabled:
+        item.enabled !== false,
+
+      accountTitle:
+        item.accountName || "",
+
+      accountNumber:
+        item.accountNumber || "",
+
+      iban:
+        "",
+
+      walletAddress:
+        "",
+
+      network:
+        "",
+
+      qrImage:
+        item.qrCode || "",
+    };
+  }
+
+  // ---------------------------------------------------
+  // EASYPAISA
+  // ---------------------------------------------------
+
+  if (
+    displayType ===
+      "EASY PAISA" ||
+    displayType ===
+      "EASYPAISA"
+  ) {
+    return {
+      _id: item._id,
+
+      method: "EASYPAISA",
+
+      title:
+        item.title ||
+        "EasyPaisa",
+
+      enabled:
+        item.enabled !== false,
+
+      accountTitle:
+        item.accountName || "",
+
+      accountNumber:
+        item.accountNumber || "",
+
+      iban:
+        "",
+
+      walletAddress:
+        "",
+
+      network:
+        "",
+
+      qrImage:
+        item.qrCode || "",
+    };
+  }
+
+  // ---------------------------------------------------
+  // BINANCE / USDT
+  // ---------------------------------------------------
+
+  if (
+    displayType.includes(
+      "BINANCE"
+    ) ||
+    displayType.includes(
+      "USDT"
+    )
+  ) {
+    return {
+      _id: item._id,
+
+      method: "BINANCE",
+
+      title:
+        item.title ||
+        "Binance USDT",
+
+      enabled:
+        item.enabled !== false,
+
+      accountTitle:
+        item.accountName || "",
+
+      accountNumber:
+        "",
+
+      iban:
+        "",
+
+      walletAddress:
+        item.walletAddress ||
+        item.accountNumber ||
+        "",
+
+      network:
+        item.network ||
+        "TRC20",
+
+      qrImage:
+        item.qrCode || "",
+    };
+  }
+
+  // ---------------------------------------------------
+  // GENERIC METHOD
+  // ---------------------------------------------------
+
+  return {
+    _id: item._id,
+
+    method:
+      displayType.replace(
+        /[^A-Z0-9_]/g,
+        "_"
+      ),
+
+    title:
+      item.title ||
+      item.type ||
+      displayType,
+
+    enabled:
+      item.enabled !== false,
+
+    accountTitle:
+      item.accountName || "",
+
+    accountNumber:
+      item.accountNumber || "",
+
+    iban:
+      item.iban || "",
+
+    walletAddress:
+      item.walletAddress || "",
+
+    network:
+      item.network || "",
+
+    qrImage:
+      item.qrCode || "",
   };
+};
 
-  // ===================================================
-  // TOGGLE WITHDRAWS
-  // ===================================================
+// =====================================================
+// VALIDATE PAYMENT METHODS
+// =====================================================
 
-  const toggleWithdraws = () => {
-    setSettings((prev) => ({
-      ...prev,
-      withdrawsEnabled: !prev.withdrawsEnabled,
-    }));
-  };
+const validatePaymentMethods = (
+  methods: DepositPaymentMethod[]
+) => {
+  // ---------------------------------------------------
+  // MAX METHODS
+  // ---------------------------------------------------
 
-  // ===================================================
-  // SAVE PAYMENT SETTINGS
-  // PUT /api/admin/payment-settings
-  // ===================================================
+  if (methods.length > 20) {
+    return "Maximum 20 payment methods are allowed.";
+  }
 
-  const savePaymentSettings = async () => {
-    if (!token) return;
+  // ---------------------------------------------------
+  // REQUIRED FIELDS
+  // ---------------------------------------------------
+
+  for (const method of methods) {
+    if (!method.type.trim()) {
+      return "Every payment method must have a name.";
+    }
+
+    if (!method.accountName.trim()) {
+      return `Account name is required for "${method.type}".`;
+    }
+
+    if (!method.accountNumber.trim()) {
+      return `Account number / wallet address is required for "${method.type}".`;
+    }
+  }
+
+  // ---------------------------------------------------
+  // DUPLICATE CHECK
+  // ---------------------------------------------------
+
+  const methodNames =
+    new Set<string>();
+
+  for (const method of methods) {
+    const normalized =
+      method.type
+        .trim()
+        .toLowerCase();
+
+    if (
+      methodNames.has(
+        normalized
+      )
+    ) {
+      return `Duplicate payment method: "${method.type}".`;
+    }
+
+    methodNames.add(
+      normalized
+    );
+  }
+
+  return null;
+};
+
+// =====================================================
+// SAVE PAYMENT METHODS
+// V18
+// PATCH /api/payment-settings/admin/deposit
+// =====================================================
+
+const savePaymentMethods =
+  async () => {
+    if (!token) {
+      setMessage(
+        "Please login again."
+      );
+
+      setMessageType("error");
+
+      return;
+    }
+
+    // -------------------------------------------------
+    // NORMALIZE
+    // -------------------------------------------------
+
+    const methods =
+      settings.methods
+        .map((method) =>
+          normalizeMethod(
+            method
+          )
+        )
+        .filter(
+          (method) =>
+            method.type.length > 0
+        );
+
+    // -------------------------------------------------
+    // VALIDATE
+    // -------------------------------------------------
+
+    const validationError =
+      validatePaymentMethods(
+        methods
+      );
+
+    if (validationError) {
+      setMessage(
+        validationError
+      );
+
+      setMessageType("error");
+
+      return;
+    }
+
+    // -------------------------------------------------
+    // CONVERT TO V18
+    // -------------------------------------------------
+
+    const depositMethods =
+      methods.map(
+        (method) =>
+          convertToV18Method(
+            method
+          )
+      );
+
+    try {
+      setSaving(true);
+
+      setError("");
+
+      // -----------------------------------------------
+      // V18 ADMIN ENDPOINT
+      // -----------------------------------------------
+
+      const response =
+        await fetch(
+          `${API}/api/payment-settings/admin/deposit`,
+          {
+            method: "PATCH",
+
+            headers:
+              adminHeaders,
+
+            body: JSON.stringify({
+              depositMethods,
+            }),
+
+            cache: "no-store",
+          }
+        );
+
+      // -----------------------------------------------
+      // SAFE JSON
+      // -----------------------------------------------
+
+      let data: any = {};
+
+      try {
+        data =
+          await response.json();
+      } catch {
+        data = {};
+      }
+
+      console.log(
+        "V18 ADMIN PAYMENT SAVE:",
+        data
+      );
+
+      // -----------------------------------------------
+      // AUTH EXPIRED
+      // -----------------------------------------------
+
+      if (
+        response.status === 401
+      ) {
+        localStorage.removeItem(
+          "token"
+        );
+
+        setToken("");
+
+        window.location.href =
+          "/login";
+
+        return;
+      }
+
+      // -----------------------------------------------
+      // ADMIN ACCESS
+      // -----------------------------------------------
+
+      if (
+        response.status === 403
+      ) {
+        throw new Error(
+          data?.message ||
+            "Admin access required."
+        );
+      }
+
+      // -----------------------------------------------
+      // HTTP ERROR
+      // -----------------------------------------------
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            `Failed to save payment methods. HTTP ${response.status}.`
+        );
+      }
+
+      // -----------------------------------------------
+      // API ERROR
+      // -----------------------------------------------
+
+      if (
+        data &&
+        data.success === false
+      ) {
+        throw new Error(
+          data?.message ||
+            "Failed to save payment methods."
+        );
+      }
+
+      // -----------------------------------------------
+      // SUCCESS
+      // -----------------------------------------------
+
+      setMessage(
+        "Payment methods saved successfully."
+      );
+
+      setMessageType(
+        "success"
+      );
+
+      // -----------------------------------------------
+      // RELOAD FROM MONGODB
+      // -----------------------------------------------
+
+      await loadPaymentSettings();
+    } catch (err: any) {
+      console.error(
+        "SAVE PAYMENT METHODS ERROR:",
+        err
+      );
+
+      const errorMessage =
+        err?.message ||
+        "Unable to save payment methods.";
+
+      setError(
+        errorMessage
+      );
+
+      setMessage(
+        errorMessage
+      );
+
+      setMessageType(
+        "error"
+      );
+    } finally {
+      setSaving(false);
+    }
+  };  // =====================================================
+  // SAVE GENERAL DEPOSIT SETTINGS
+  //
+  // NOTE:
+  // Payment methods are NOT saved here.
+  // Payment methods use:
+  // PATCH /api/payment-settings/admin/deposit
+  //
+  // General limits still use:
+  // PATCH /api/deposit/settings
+  // =====================================================
+
+  const saveDepositSettings = async () => {
+    if (!token) {
+      setMessage("Please login again.");
+      setMessageType("error");
+      return;
+    }
+
+    // ---------------------------------------------------
+    // NORMALIZE VALUES
+    // ---------------------------------------------------
+
+    const minimumDeposit = Number(
+      settings.minimumDeposit
+    );
+
+    const maximumDeposit = Number(
+      settings.maximumDeposit
+    );
+
+    // ---------------------------------------------------
+    // VALIDATE NUMBERS
+    // ---------------------------------------------------
+
+    if (
+      !Number.isFinite(
+        minimumDeposit
+      ) ||
+      !Number.isFinite(
+        maximumDeposit
+      )
+    ) {
+      setMessage(
+        "Deposit limits must contain valid numbers."
+      );
+
+      setMessageType("error");
+
+      return;
+    }
+
+    // ---------------------------------------------------
+    // POSITIVE VALIDATION
+    // ---------------------------------------------------
+
+    if (
+      minimumDeposit <= 0 ||
+      maximumDeposit <= 0
+    ) {
+      setMessage(
+        "Deposit limits must be greater than zero."
+      );
+
+      setMessageType("error");
+
+      return;
+    }
+
+    // ---------------------------------------------------
+    // MIN / MAX VALIDATION
+    // ---------------------------------------------------
+
+    if (
+      minimumDeposit >
+      maximumDeposit
+    ) {
+      setMessage(
+        "Minimum deposit cannot be greater than maximum deposit."
+      );
+
+      setMessageType("error");
+
+      return;
+    }
 
     try {
       setSaving(true);
       setError("");
 
-      const response = await fetch(
-        `${API}/api/admin/payment-settings`,
-        {
-          method: "PUT",
-          headers: adminHeaders,
-          body: JSON.stringify(settings),
-        }
+      const response =
+        await fetch(
+          `${API}/api/deposit/settings`,
+          {
+            method: "PATCH",
+
+            headers: adminHeaders,
+
+            body: JSON.stringify({
+              depositsEnabled:
+                Boolean(
+                  settings.depositsEnabled
+                ),
+
+              minimumDeposit,
+
+              maximumDeposit,
+            }),
+
+            cache: "no-store",
+          }
+        );
+
+      // -------------------------------------------------
+      // SAFE JSON
+      // -------------------------------------------------
+
+      let data: any = {};
+
+      try {
+        data =
+          await response.json();
+      } catch {
+        data = {};
+      }
+
+      console.log(
+        "SAVE GENERAL DEPOSIT SETTINGS:",
+        data
       );
 
-      const data = await response.json();
+      // -------------------------------------------------
+      // AUTH
+      // -------------------------------------------------
 
-      console.log("SAVE PAYMENT SETTINGS:", data);
+      if (
+        response.status === 401
+      ) {
+        localStorage.removeItem(
+          "token"
+        );
 
-      if (!response.ok || !data.success) {
+        setToken("");
+
+        window.location.href =
+          "/login";
+
+        return;
+      }
+
+      // -------------------------------------------------
+      // ADMIN
+      // -------------------------------------------------
+
+      if (
+        response.status === 403
+      ) {
         throw new Error(
-          data.message || "Failed to save payment settings."
+          data?.message ||
+            "Admin access required."
         );
       }
 
+      // -------------------------------------------------
+      // HTTP ERROR
+      // -------------------------------------------------
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            `Failed to save deposit settings. HTTP ${response.status}.`
+        );
+      }
+
+      // -------------------------------------------------
+      // API ERROR
+      // -------------------------------------------------
+
+      if (
+        data &&
+        data.success === false
+      ) {
+        throw new Error(
+          data?.message ||
+            "Failed to save deposit settings."
+        );
+      }
+
+      // -------------------------------------------------
+      // UPDATE LOCAL STATE
+      // -------------------------------------------------
+
       setSettings((prev) => ({
         ...prev,
-        updatedAt: data.settings?.updatedAt || new Date().toISOString(),
+
+        depositsEnabled:
+          Boolean(
+            data?.settings
+              ?.depositsEnabled ??
+              prev.depositsEnabled
+          ),
+
+        minimumDeposit:
+          Number(
+            data?.settings
+              ?.minimumDeposit ??
+              minimumDeposit
+          ),
+
+        maximumDeposit:
+          Number(
+            data?.settings
+              ?.maximumDeposit ??
+              maximumDeposit
+          ),
+
+        updatedAt:
+          data?.settings
+            ?.updatedAt ||
+          new Date().toISOString(),
       }));
 
-      setMessage("Payment settings updated successfully.");
-      setMessageType("success");
+      // -------------------------------------------------
+      // UPDATE STATISTICS
+      // -------------------------------------------------
 
-      await loadPaymentSettings();
+      setStatistics((prev) => ({
+        ...prev,
 
-    } catch (err: any) {
-      console.error("SAVE PAYMENT SETTINGS ERROR:", err);
+        depositsEnabled:
+          Boolean(
+            data?.settings
+              ?.depositsEnabled ??
+              settings.depositsEnabled
+          ),
+
+        minimumDeposit:
+          Number(
+            data?.settings
+              ?.minimumDeposit ??
+              minimumDeposit
+          ),
+
+        maximumDeposit:
+          Number(
+            data?.settings
+              ?.maximumDeposit ??
+              maximumDeposit
+          ),
+      }));
 
       setMessage(
-        err.message || "Unable to save payment settings."
+        "Deposit settings saved successfully."
       );
-      setMessageType("error");
 
+      setMessageType(
+        "success"
+      );
+
+      // -------------------------------------------------
+      // REFRESH SERVER STATE
+      // -------------------------------------------------
+
+      await loadPaymentSettings();
+    } catch (err: any) {
+      console.error(
+        "SAVE DEPOSIT SETTINGS ERROR:",
+        err
+      );
+
+      const errorMessage =
+        err?.message ||
+        "Unable to save deposit settings.";
+
+      setError(
+        errorMessage
+      );
+
+      setMessage(
+        errorMessage
+      );
+
+      setMessageType(
+        "error"
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  // ===================================================
-  // RESET SETTINGS
-  // ===================================================
+  // =====================================================
+  // SAVE EVERYTHING
+  //
+  // FINAL V18 FLOW
+  //
+  // 1. Save payment methods
+  // 2. Save general deposit settings
+  // 3. Reload MongoDB state
+  // =====================================================
 
-  const resetPaymentSettings = () => {
-    loadPaymentSettings();
+  const saveAllSettings = async () => {
+    if (!token) {
+      setMessage(
+        "Please login again."
+      );
 
-    setMessage("Payment settings restored.");
-    setMessageType("success");
+      setMessageType(
+        "error"
+      );
+
+      return;
+    }
+
+    // ---------------------------------------------------
+    // VALIDATE DEPOSIT LIMITS
+    // ---------------------------------------------------
+
+    const minimumDeposit =
+      Number(
+        settings.minimumDeposit
+      );
+
+    const maximumDeposit =
+      Number(
+        settings.maximumDeposit
+      );
+
+    if (
+      !Number.isFinite(
+        minimumDeposit
+      ) ||
+      !Number.isFinite(
+        maximumDeposit
+      )
+    ) {
+      setMessage(
+        "Deposit limits must contain valid numbers."
+      );
+
+      setMessageType(
+        "error"
+      );
+
+      return;
+    }
+
+    if (
+      minimumDeposit <= 0 ||
+      maximumDeposit <= 0
+    ) {
+      setMessage(
+        "Deposit limits must be greater than zero."
+      );
+
+      setMessageType(
+        "error"
+      );
+
+      return;
+    }
+
+    if (
+      minimumDeposit >
+      maximumDeposit
+    ) {
+      setMessage(
+        "Minimum deposit cannot be greater than maximum deposit."
+      );
+
+      setMessageType(
+        "error"
+      );
+
+      return;
+    }
+
+    // ---------------------------------------------------
+    // NORMALIZE PAYMENT METHODS
+    // ---------------------------------------------------
+
+    const methods =
+      settings.methods
+        .map((method) =>
+          normalizeMethod(
+            method
+          )
+        )
+        .filter(
+          (method) =>
+            method.type.length > 0
+        );
+
+    // ---------------------------------------------------
+    // VALIDATE METHODS
+    // ---------------------------------------------------
+
+    const validationError =
+      validatePaymentMethods(
+        methods
+      );
+
+    if (validationError) {
+      setMessage(
+        validationError
+      );
+
+      setMessageType(
+        "error"
+      );
+
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      setError("");
+
+      // =================================================
+      // STEP 1
+      // SAVE PAYMENT METHODS
+      // =================================================
+
+      const depositMethods =
+        methods.map(
+          (method) =>
+            convertToV18Method(
+              method
+            )
+        );
+
+      const methodsResponse =
+        await fetch(
+          `${API}/api/payment-settings/admin/deposit`,
+          {
+            method: "PATCH",
+
+            headers:
+              adminHeaders,
+
+            body: JSON.stringify({
+              depositMethods,
+            }),
+
+            cache: "no-store",
+          }
+        );
+
+      // -------------------------------------------------
+      // SAFE JSON
+      // -------------------------------------------------
+
+      let methodsData: any = {};
+
+      try {
+        methodsData =
+          await methodsResponse.json();
+      } catch {
+        methodsData = {};
+      }
+
+      console.log(
+        "SAVE ALL - V18 PAYMENT METHODS:",
+        methodsData
+      );
+
+      // -------------------------------------------------
+      // AUTH
+      // -------------------------------------------------
+
+      if (
+        methodsResponse.status ===
+        401
+      ) {
+        localStorage.removeItem(
+          "token"
+        );
+
+        setToken("");
+
+        window.location.href =
+          "/login";
+
+        return;
+      }
+
+      // -------------------------------------------------
+      // ADMIN
+      // -------------------------------------------------
+
+      if (
+        methodsResponse.status ===
+        403
+      ) {
+        throw new Error(
+          methodsData?.message ||
+            "Admin access required."
+        );
+      }
+
+      // -------------------------------------------------
+      // ERROR
+      // -------------------------------------------------
+
+      if (
+        !methodsResponse.ok
+      ) {
+        throw new Error(
+          methodsData?.message ||
+            `Failed to save payment methods. HTTP ${methodsResponse.status}.`
+        );
+      }
+
+      if (
+        methodsData &&
+        methodsData.success === false
+      ) {
+        throw new Error(
+          methodsData?.message ||
+            "Failed to save payment methods."
+        );
+      }
+
+      // =================================================
+      // STEP 2
+      // SAVE GENERAL SETTINGS
+      // =================================================
+
+      const settingsResponse =
+        await fetch(
+          `${API}/api/deposit/settings`,
+          {
+            method: "PATCH",
+
+            headers:
+              adminHeaders,
+
+            body: JSON.stringify({
+              depositsEnabled:
+                Boolean(
+                  settings.depositsEnabled
+                ),
+
+              minimumDeposit,
+
+              maximumDeposit,
+            }),
+
+            cache: "no-store",
+          }
+        );
+
+      // -------------------------------------------------
+      // SAFE JSON
+      // -------------------------------------------------
+
+      let settingsData: any = {};
+
+      try {
+        settingsData =
+          await settingsResponse.json();
+      } catch {
+        settingsData = {};
+      }
+
+      console.log(
+        "SAVE ALL - GENERAL SETTINGS:",
+        settingsData
+      );
+
+      // -------------------------------------------------
+      // AUTH
+      // -------------------------------------------------
+
+      if (
+        settingsResponse.status ===
+        401
+      ) {
+        localStorage.removeItem(
+          "token"
+        );
+
+        setToken("");
+
+        window.location.href =
+          "/login";
+
+        return;
+      }
+
+      // -------------------------------------------------
+      // ADMIN
+      // -------------------------------------------------
+
+      if (
+        settingsResponse.status ===
+        403
+      ) {
+        throw new Error(
+          settingsData?.message ||
+            "Admin access required."
+        );
+      }
+
+      // -------------------------------------------------
+      // ERROR
+      // -------------------------------------------------
+
+      if (
+        !settingsResponse.ok
+      ) {
+        throw new Error(
+          settingsData?.message ||
+            `Failed to save deposit settings. HTTP ${settingsResponse.status}.`
+        );
+      }
+
+      if (
+        settingsData &&
+        settingsData.success === false
+      ) {
+        throw new Error(
+          settingsData?.message ||
+            "Failed to save deposit settings."
+        );
+      }
+
+      // =================================================
+      // STEP 3
+      // RELOAD FROM MONGODB
+      // =================================================
+
+      await loadPaymentSettings();
+
+      // =================================================
+      // SUCCESS
+      // =================================================
+
+      setMessage(
+        "All payment settings saved successfully."
+      );
+
+      setMessageType(
+        "success"
+      );
+    } catch (err: any) {
+      console.error(
+        "SAVE ALL SETTINGS ERROR:",
+        err
+      );
+
+      const errorMessage =
+        err?.message ||
+        "Unable to save payment settings.";
+
+      setError(
+        errorMessage
+      );
+
+      setMessage(
+        errorMessage
+      );
+
+      setMessageType(
+        "error"
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // ===================================================
-  // LAST UPDATED LABEL
-  // ===================================================
+  // =====================================================
+  // SEARCHED METHODS
+  // =====================================================
 
-  const lastUpdatedLabel = useMemo(() => {
-    return settings.updatedAt
-      ? formatDate(settings.updatedAt)
-      : "Never Updated";
-  }, [settings.updatedAt]);
-    // =====================================================
-  // PAGE UI START
+  const filteredMethods =
+    useMemo(() => {
+      const keyword =
+        search
+          .trim()
+          .toLowerCase();
+
+      if (!keyword) {
+        return settings.methods.map(
+          (method, index) => ({
+            method,
+            originalIndex: index,
+          })
+        );
+      }
+
+      return settings.methods
+        .map(
+          (method, index) => ({
+            method,
+            originalIndex: index,
+          })
+        )
+        .filter(
+          ({
+            method,
+          }) => {
+            const searchable = [
+              method.type,
+
+              method.accountName,
+
+              method.accountNumber,
+
+              method.instructions,
+
+              method.method,
+
+              method.title,
+
+              method.iban,
+
+              method.walletAddress,
+
+              method.network,
+            ]
+              .map(
+                (value) =>
+                  String(
+                    value || ""
+                  )
+              )
+              .join(" ")
+              .toLowerCase();
+
+            return searchable.includes(
+              keyword
+            );
+          }
+        );
+    }, [
+      settings.methods,
+      search,
+    ]);
+
+  // =====================================================
+  // LAST UPDATED
+  // =====================================================
+
+  const lastUpdatedLabel =
+    useMemo(() => {
+      if (!settings.updatedAt) {
+        return "Never Updated";
+      }
+
+      return formatDate(
+        settings.updatedAt
+      );
+    }, [
+      settings.updatedAt,
+    ]);
+
+  // =====================================================
+  // LOADING STATE
+  // =====================================================
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw
+            size={42}
+            className="animate-spin text-yellow-400"
+          />
+
+          <p className="text-gray-400">
+            Loading payment settings...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // =====================================================
+  // PAGE
   // =====================================================
 
   return (
-    <div className="min-h-screen bg-[#0B1120] text-white p-6">
+    <div className="min-h-screen bg-black text-white p-4 md:p-6 lg:p-8">
 
-      {/* ========================================== */}
-      {/* HEADER */}
-      {/* ========================================== */}
+      {/* =================================================
+          HEADER
+      ================================================= */}
 
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 mb-8">
+      <div className="max-w-7xl mx-auto">
 
-        <div>
-          <h1 className="text-3xl font-bold text-yellow-400">
-            GoldTrade V18 • Enterprise Payment Settings
-          </h1>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
 
-          <p className="text-gray-400 mt-2">
-            Manage Bank, Easypaisa, JazzCash, USDT and Gold payment details.
-          </p>
+          <div>
+            <div className="flex items-center gap-3">
 
-          <p className="text-gray-500 text-sm mt-1">
-            Logged in as{" "}
-            <span className="text-green-400 font-semibold">
-              {adminName}
-            </span>
-          </p>
-        </div>
+              <div className="p-3 rounded-2xl bg-yellow-500/10 border border-yellow-500/30">
+                <Settings
+                  size={28}
+                  className="text-yellow-400"
+                />
+              </div>
 
-        <div className="flex gap-3 flex-wrap">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-black">
+                  Payment Settings
+                </h1>
 
-          <button
-            onClick={refreshPaymentSettings}
-            disabled={refreshing}
-            className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 text-black font-semibold px-5 py-3 rounded-xl transition"
-          >
-            <RefreshCw
-              size={18}
-              className={refreshing ? "animate-spin" : ""}
-            />
-            {refreshing ? "Refreshing..." : "Refresh"}
-          </button>
+                <p className="text-gray-400 text-sm mt-1">
+                  Manage deposit payment methods
+                </p>
+              </div>
 
-          <button
-            onClick={savePaymentSettings}
-            disabled={saving}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-semibold px-5 py-3 rounded-xl transition"
-          >
-            <Save size={18} />
-            {saving ? "Saving..." : "Save Settings"}
-          </button>
-
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* SUCCESS / ERROR MESSAGE */}
-      {/* ========================================== */}
-
-      {message && (
-        <div
-          className={`mb-6 rounded-xl px-4 py-3 border ${
-            messageType === "success"
-              ? "bg-green-600/20 border-green-500 text-green-300"
-              : "bg-red-600/20 border-red-500 text-red-300"
-          }`}
-        >
-          {message}
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-6 rounded-xl px-4 py-3 border border-red-600 bg-red-600/10 text-red-300">
-          {error}
-        </div>
-      )}
-
-      {/* ========================================== */}
-      {/* STATISTICS CARDS */}
-      {/* ========================================== */}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
-
-        {/* BANK */}
-
-        <div className="rounded-2xl bg-[#111827] border border-blue-600/30 p-5">
-          <div className="flex justify-between items-center mb-3">
-            <Landmark className="text-blue-400" size={28} />
-            <span className="text-xs font-semibold text-blue-400">
-              BANK
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Bank Accounts
-          </p>
-
-          <h2 className="text-3xl font-bold text-blue-400 mt-2">
-            {statistics.totalBankAccounts}
-          </h2>
-        </div>
-
-        {/* CRYPTO */}
-
-        <div className="rounded-2xl bg-[#111827] border border-cyan-600/30 p-5">
-          <div className="flex justify-between items-center mb-3">
-            <Wallet className="text-cyan-400" size={28} />
-            <span className="text-xs font-semibold text-cyan-400">
-              CRYPTO
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Wallet Addresses
-          </p>
-
-          <h2 className="text-3xl font-bold text-cyan-400 mt-2">
-            {statistics.totalWalletAddresses}
-          </h2>
-        </div>
-
-        {/* DEPOSITS */}
-
-        <div className="rounded-2xl bg-[#111827] border border-green-600/30 p-5">
-          <div className="flex justify-between items-center mb-3">
-            <CheckCircle className="text-green-400" size={28} />
-            <span className="text-xs font-semibold text-green-400">
-              DEPOSITS
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Deposit Module
-          </p>
-
-          <h2 className="text-xl font-bold text-green-400 mt-2">
-            {settings.depositsEnabled ? "Enabled" : "Disabled"}
-          </h2>
-        </div>
-
-        {/* WITHDRAWS */}
-
-        <div className="rounded-2xl bg-[#111827] border border-red-600/30 p-5">
-          <div className="flex justify-between items-center mb-3">
-            <XCircle className="text-red-400" size={28} />
-            <span className="text-xs font-semibold text-red-400">
-              WITHDRAWS
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Withdraw Module
-          </p>
-
-          <h2 className="text-xl font-bold text-red-400 mt-2">
-            {settings.withdrawsEnabled ? "Enabled" : "Disabled"}
-          </h2>
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* SEARCH */}
-      {/* ========================================== */}
-
-      <div className="rounded-2xl bg-[#111827] border border-gray-700 p-5 mb-8">
-
-        <div className="relative">
-
-          <Search
-            size={20}
-            className="absolute left-4 top-3.5 text-gray-500"
-          />
-
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search Bank, Easypaisa, JazzCash, USDT, Gold..."
-            className="w-full bg-[#1F2937] border border-gray-600 rounded-xl py-3 pl-12 pr-4 outline-none focus:border-yellow-500 transition"
-          />
-
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* PAYMENT STATUS TOGGLES */}
-      {/* ========================================== */}
-
-      <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6 mb-8">
-
-        <h2 className="text-xl font-bold text-yellow-400 mb-5">
-          Payment Module Controls
-        </h2>
-
-        <div className="grid md:grid-cols-2 gap-6">
-
-          {/* DEPOSIT TOGGLE */}
-
-          <div className="flex items-center justify-between rounded-xl bg-[#1F2937] p-5 border border-green-500/20">
-
-            <div>
-              <p className="text-white font-semibold">
-                Deposit Requests
-              </p>
-
-              <p className="text-gray-400 text-sm">
-                Enable or disable new deposits.
-              </p>
             </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
 
             <button
-              onClick={toggleDeposits}
-              className={`px-4 py-2 rounded-full font-semibold transition ${
-                settings.depositsEnabled
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-600 text-gray-300"
-              }`}
+              type="button"
+              onClick={
+                refreshPaymentSettings
+              }
+              disabled={
+                refreshing ||
+                saving
+              }
+              className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-700 hover:border-yellow-500 transition disabled:opacity-50"
             >
-              {settings.depositsEnabled ? "ON" : "OFF"}
-            </button>
-
-          </div>
-
-          {/* WITHDRAW TOGGLE */}
-
-          <div className="flex items-center justify-between rounded-xl bg-[#1F2937] p-5 border border-red-500/20">
-
-            <div>
-              <p className="text-white font-semibold">
-                Withdraw Requests
-              </p>
-
-              <p className="text-gray-400 text-sm">
-                Enable or disable new withdrawals.
-              </p>
-            </div>
-
-            <button
-              onClick={toggleWithdraws}
-              className={`px-4 py-2 rounded-full font-semibold transition ${
-                settings.withdrawsEnabled
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-600 text-gray-300"
-              }`}
-            >
-              {settings.withdrawsEnabled ? "ON" : "OFF"}
-            </button>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* PAYMENT SETTINGS FORMS START */}
-      {/* ========================================== */}
-
-      <div className="space-y-8">        {/* ========================================== */}
-        {/* BANK ACCOUNT SETTINGS */}
-        {/* ========================================== */}
-
-        {showBankSection && (
-          <div className="rounded-2xl bg-[#111827] border border-blue-600/20 p-6">
-
-            <div className="flex items-center gap-3 mb-6">
-              <Landmark className="text-blue-400" size={28} />
-              <h2 className="text-2xl font-bold text-blue-400">
-                Bank Account Details
-              </h2>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-5">
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Bank Name
-                </label>
-
-                <input
-                  value={settings.bankName}
-                  onChange={(e) =>
-                    updateField("bankName", e.target.value)
-                  }
-                  placeholder="HBL / UBL / Meezan Bank"
-                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-blue-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Account Title
-                </label>
-
-                <input
-                  value={settings.accountTitle}
-                  onChange={(e) =>
-                    updateField("accountTitle", e.target.value)
-                  }
-                  placeholder="Syed Hussnain Haider"
-                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-blue-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Account Number
-                </label>
-
-                <div className="flex gap-2">
-
-                  <input
-                    value={settings.accountNumber}
-                    onChange={(e) =>
-                      updateField("accountNumber", e.target.value)
-                    }
-                    placeholder="0000-123456789"
-                    className="flex-1 bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-blue-500 outline-none"
-                  />
-
-                  <button
-                    onClick={() =>
-                      copyText(settings.accountNumber)
-                    }
-                    className="bg-blue-600 hover:bg-blue-700 rounded-xl px-4"
-                  >
-                    <Copy size={18} />
-                  </button>
-
-                </div>
-
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  IBAN
-                </label>
-
-                <div className="flex gap-2">
-
-                  <input
-                    value={settings.iban}
-                    onChange={(e) =>
-                      updateField("iban", e.target.value)
-                    }
-                    placeholder="PK36XXXX0000000000000000"
-                    className="flex-1 bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-blue-500 outline-none"
-                  />
-
-                  <button
-                    onClick={() => copyText(settings.iban)}
-                    className="bg-blue-600 hover:bg-blue-700 rounded-xl px-4"
-                  >
-                    <Copy size={18} />
-                  </button>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-        )}
-
-        {/* ========================================== */}
-        {/* EASYPAISA SETTINGS */}
-        {/* ========================================== */}
-
-        {showEasyPaisaSection && (
-          <div className="rounded-2xl bg-[#111827] border border-green-600/20 p-6">
-
-            <div className="flex items-center gap-3 mb-6">
-              <Wallet className="text-green-400" size={28} />
-              <h2 className="text-2xl font-bold text-green-400">
-                Easypaisa Settings
-              </h2>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-5">
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Easypaisa Account Name
-                </label>
-
-                <input
-                  value={settings.easypaisaName}
-                  onChange={(e) =>
-                    updateField("easypaisaName", e.target.value)
-                  }
-                  placeholder="Account Holder Name"
-                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-green-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Easypaisa Number
-                </label>
-
-                <div className="flex gap-2">
-
-                  <input
-                    value={settings.easypaisaNumber}
-                    onChange={(e) =>
-                      updateField("easypaisaNumber", e.target.value)
-                    }
-                    placeholder="03XXXXXXXXX"
-                    className="flex-1 bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-green-500 outline-none"
-                  />
-
-                  <button
-                    onClick={() =>
-                      copyText(settings.easypaisaNumber)
-                    }
-                    className="bg-green-600 hover:bg-green-700 rounded-xl px-4"
-                  >
-                    <Copy size={18} />
-                  </button>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-        )}
-
-        {/* ========================================== */}
-        {/* JAZZCASH SETTINGS */}
-        {/* ========================================== */}
-
-        {showJazzCashSection && (
-          <div className="rounded-2xl bg-[#111827] border border-purple-600/20 p-6">
-
-            <div className="flex items-center gap-3 mb-6">
-              <CreditCard className="text-purple-400" size={28} />
-              <h2 className="text-2xl font-bold text-purple-400">
-                JazzCash Settings
-              </h2>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-5">
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  JazzCash Account Name
-                </label>
-
-                <input
-                  value={settings.jazzcashName}
-                  onChange={(e) =>
-                    updateField("jazzcashName", e.target.value)
-                  }
-                  placeholder="JazzCash Holder Name"
-                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-purple-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  JazzCash Number
-                </label>
-
-                <div className="flex gap-2">
-
-                  <input
-                    value={settings.jazzcashNumber}
-                    onChange={(e) =>
-                      updateField("jazzcashNumber", e.target.value)
-                    }
-                    placeholder="03XXXXXXXXX"
-                    className="flex-1 bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-purple-500 outline-none"
-                  />
-
-                  <button
-                    onClick={() =>
-                      copyText(settings.jazzcashNumber)
-                    }
-                    className="bg-purple-600 hover:bg-purple-700 rounded-xl px-4"
-                  >
-                    <Copy size={18} />
-                  </button>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-        )}
-
-        {/* ========================================== */}
-        {/* USDT SETTINGS */}
-        {/* ========================================== */}
-
-        {showUsdtSection && (
-          <div className="rounded-2xl bg-[#111827] border border-cyan-600/20 p-6">
-
-            <div className="flex items-center gap-3 mb-6">
-              <DollarSign className="text-cyan-400" size={28} />
-              <h2 className="text-2xl font-bold text-cyan-400">
-                USDT Wallet Settings
-              </h2>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-5">
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  USDT Network
-                </label>
-
-                <select
-                  value={settings.usdtNetwork}
-                  onChange={(e) =>
-                    updateField("usdtNetwork", e.target.value)
-                  }
-                  className="w-full bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-cyan-500 outline-none"
-                >
-                  <option value="TRC20">TRC20</option>
-                  <option value="BEP20">BEP20</option>
-                  <option value="ERC20">ERC20</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  USDT Wallet Address
-                </label>
-
-                <div className="flex gap-2">
-
-                  <input
-                    value={settings.usdtAddress}
-                    onChange={(e) =>
-                      updateField("usdtAddress", e.target.value)
-                    }
-                    placeholder="TXXXXXXXXXXXXXXXXXXXXXXXX"
-                    className="flex-1 bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-cyan-500 outline-none"
-                  />
-
-                  <button
-                    onClick={() =>
-                      copyText(settings.usdtAddress)
-                    }
-                    className="bg-cyan-600 hover:bg-cyan-700 rounded-xl px-4"
-                  >
-                    <Copy size={18} />
-                  </button>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-        )}
-
-        {/* ========================================== */}
-        {/* GOLD WALLET SETTINGS */}
-        {/* ========================================== */}
-
-        {showGoldSection && (
-          <div className="rounded-2xl bg-[#111827] border border-yellow-600/20 p-6">
-
-            <div className="flex items-center gap-3 mb-6">
-              <Coins className="text-yellow-400" size={28} />
-              <h2 className="text-2xl font-bold text-yellow-400">
-                Gold Wallet Settings
-              </h2>
-            </div>
-
-            <label className="block text-sm text-gray-300 mb-2">
-              Gold Wallet Address
-            </label>
-
-            <div className="flex gap-2">
-
-              <input
-                value={settings.goldWalletAddress}
-                onChange={(e) =>
-                  updateField(
-                    "goldWalletAddress",
-                    e.target.value
-                  )
+              <RefreshCw
+                size={18}
+                className={
+                  refreshing
+                    ? "animate-spin"
+                    : ""
                 }
-                placeholder="Gold wallet address"
-                className="flex-1 bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 focus:border-yellow-500 outline-none"
               />
 
-              <button
-                onClick={() =>
-                  copyText(settings.goldWalletAddress)
-                }
-                className="bg-yellow-500 hover:bg-yellow-600 text-black rounded-xl px-4"
-              >
-                <Copy size={18} />
-              </button>
+              Refresh
+            </button>
 
-            </div>
+            <button
+              type="button"
+              onClick={
+                saveAllSettings
+              }
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-yellow-500 text-black font-bold hover:bg-yellow-400 transition disabled:opacity-50"
+            >
+              <Save size={18} />
 
-            <p className="text-gray-500 text-sm mt-3">
-              This address will be shown to users for Gold deposits and withdrawals.
-            </p>
+              {saving
+                ? "Saving..."
+                : "Save All Settings"}
+            </button>
 
           </div>
-        )}        {/* ========================================== */}
-        {/* LAST UPDATED CARD */}
-        {/* ========================================== */}
 
-        <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6">
+        </div>
 
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        {/* =================================================
+            MESSAGES
+        ================================================= */}
+
+        {message && (
+          <div
+            className={`mb-6 rounded-xl border p-4 flex items-center gap-3 ${
+              messageType ===
+              "success"
+                ? "bg-green-500/10 border-green-500/30 text-green-400"
+                : "bg-red-500/10 border-red-500/30 text-red-400"
+            }`}
+          >
+            {messageType ===
+            "success" ? (
+              <CheckCircle
+                size={20}
+              />
+            ) : (
+              <XCircle
+                size={20}
+              />
+            )}
+
+            <span className="font-medium">
+              {message}
+            </span>
+          </div>
+        )}
+
+        {/* =================================================
+            ERROR
+        ================================================= */}
+
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-400">
+            {error}
+          </div>
+        )}
+
+        {/* =================================================
+            STATISTICS
+        ================================================= */}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm">
+                  Total Methods
+                </p>
+
+                <p className="text-2xl font-black mt-1">
+                  {
+                    statistics.totalMethods
+                  }
+                </p>
+              </div>
+
+              <CreditCard
+                className="text-yellow-400"
+                size={28}
+              />
+            </div>
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm">
+                  Active
+                </p>
+
+                <p className="text-2xl font-black text-green-400 mt-1">
+                  {
+                    statistics.activeMethods
+                  }
+                </p>
+              </div>
+
+              <CheckCircle
+                className="text-green-400"
+                size={28}
+              />
+            </div>
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm">
+                  Inactive
+                </p>
+
+                <p className="text-2xl font-black text-red-400 mt-1">
+                  {
+                    statistics.inactiveMethods
+                  }
+                </p>
+              </div>
+
+              <XCircle
+                className="text-red-400"
+                size={28}
+              />
+            </div>
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm">
+                  Deposits
+                </p>
+
+                <p
+                  className={`text-2xl font-black mt-1 ${
+                    statistics.depositsEnabled
+                      ? "text-green-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {statistics.depositsEnabled
+                    ? "ON"
+                    : "OFF"}
+                </p>
+              </div>
+
+              <Wallet
+                className="text-yellow-400"
+                size={28}
+              />
+            </div>
+          </div>
+
+        </div>
+
+        {/* =================================================
+            SEARCH
+        ================================================= */}
+
+        <div className="mb-6">
+
+          <div className="relative">
+
+            <Search
+              size={20}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
+            />
+
+            <input
+              type="text"
+              value={search}
+              onChange={(e) =>
+                setSearch(
+                  e.target.value
+                )
+              }
+              placeholder="Search payment methods..."
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-12 pr-4 py-4 text-white outline-none focus:border-yellow-500"
+            />
+
+          </div>
+
+        </div>
+
+        {/* =================================================
+            PAYMENT METHODS
+        ================================================= */}
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+
+          <div className="p-5 border-b border-zinc-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
             <div>
-              <h2 className="text-xl font-bold text-yellow-400 mb-2">
-                Payment Settings Information
+              <h2 className="text-xl font-bold">
+                Payment Methods
               </h2>
 
-              <p className="text-gray-400 text-sm">
-                Last Updated
-              </p>
-
-              <p className="text-green-400 font-semibold mt-1">
+              <p className="text-gray-500 text-sm mt-1">
+                Last updated:{" "}
                 {lastUpdatedLabel}
               </p>
             </div>
 
-            <div className="flex gap-3 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                setNewMethod(
+                  createEmptyMethod()
+                );
+
+                setEditingIndex(
+                  null
+                );
+
+                setShowAddForm(
+                  true
+                );
+
+                window.setTimeout(
+                  () => {
+                    window.scrollTo(
+                      {
+                        top: 0,
+                        behavior:
+                          "smooth",
+                      }
+                    );
+                  },
+                  50
+                );
+              }}
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 hover:bg-green-500 font-bold transition"
+            >
+              <Plus size={18} />
+
+              Add Payment Method
+            </button>
+
+          </div>
+
+          {/* =================================================
+              ADD / EDIT FORM
+          ================================================= */}
+
+          {showAddForm && (
+            <div className="p-5 border-b border-zinc-800 bg-black/30">
+
+              <div className="flex items-center justify-between mb-5">
+
+                <h3 className="text-lg font-bold">
+                  {editingIndex !==
+                  null
+                    ? "Edit Payment Method"
+                    : "Add Payment Method"}
+                </h3>
+
+                <button
+                  type="button"
+                  onClick={
+                    cancelEdit
+                  }
+                  className="text-gray-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                {/* METHOD */}
+
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">
+                    Payment Method
+                  </label>
+
+                  <input
+                    type="text"
+                    value={
+                      newMethod.type
+                    }
+                    onChange={(e) =>
+                      updateNewMethod(
+                        "type",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Bank Transfer / JazzCash / EasyPaisa / Binance USDT"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+                  />
+                </div>
+
+                {/* ACCOUNT NAME */}
+
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">
+                    Account Name
+                  </label>
+
+                  <input
+                    type="text"
+                    value={
+                      newMethod.accountName
+                    }
+                    onChange={(e) =>
+                      updateNewMethod(
+                        "accountName",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Account holder name"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+                  />
+                </div>
+
+                {/* ACCOUNT / WALLET */}
+
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">
+                    Account Number / Wallet Address
+                  </label>
+
+                  <input
+                    type="text"
+                    value={
+                      newMethod.accountNumber
+                    }
+                    onChange={(e) =>
+                      updateNewMethod(
+                        "accountNumber",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Account number or wallet address"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+                  />
+                </div>
+
+                {/* IBAN */}
+
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">
+                    IBAN
+                  </label>
+
+                  <input
+                    type="text"
+                    value={
+                      newMethod.iban ||
+                      ""
+                    }
+                    onChange={(e) =>
+                      updateNewMethod(
+                        "iban",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Optional IBAN"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+                  />
+                </div>
+
+                {/* NETWORK */}
+
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">
+                    Network
+                  </label>
+
+                  <input
+                    type="text"
+                    value={
+                      newMethod.network ||
+                      ""
+                    }
+                    onChange={(e) =>
+                      updateNewMethod(
+                        "network",
+                        e.target.value
+                      )
+                    }
+                    placeholder="TRC20 / ERC20 / BEP20"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+                  />
+                </div>
+
+                {/* QR */}
+
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">
+                    QR Image URL
+                  </label>
+
+                  <input
+                    type="text"
+                    value={
+                      newMethod.qrCode
+                    }
+                    onChange={(e) =>
+                      updateNewMethod(
+                        "qrCode",
+                        e.target.value
+                      )
+                    }
+                    placeholder="https://..."
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+                  />
+                </div>
+
+              </div>
+
+              {/* INSTRUCTIONS */}
+
+              <div className="mt-4">
+
+                <label className="block text-sm text-gray-400 mb-2">
+                  Instructions
+                </label>
+
+                <textarea
+                  value={
+                    newMethod.instructions
+                  }
+                  onChange={(e) =>
+                    updateNewMethod(
+                      "instructions",
+                      e.target.value
+                    )
+                  }
+                  placeholder="Optional payment instructions"
+                  rows={3}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 resize-none"
+                />
+
+              </div>
+
+              {/* ENABLED */}
+
+              <div className="mt-4 flex items-center gap-3">
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateNewMethod(
+                      "enabled",
+                      !newMethod.enabled
+                    )
+                  }
+                  className={`relative w-12 h-6 rounded-full transition ${
+                    newMethod.enabled
+                      ? "bg-green-500"
+                      : "bg-zinc-700"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition ${
+                      newMethod.enabled
+                        ? "left-7"
+                        : "left-1"
+                    }`}
+                  />
+                </button>
+
+                <span className="text-sm text-gray-300">
+                  {newMethod.enabled
+                    ? "Enabled"
+                    : "Disabled"}
+                </span>
+
+              </div>
+
+              {/* FORM ACTIONS */}
+
+              <div className="flex flex-wrap gap-3 mt-6">
+
+                <button
+                  type="button"
+                  onClick={
+                    addPaymentMethod
+                  }
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-yellow-500 text-black font-bold hover:bg-yellow-400 transition"
+                >
+                  <CheckCircle
+                    size={18}
+                  />
+
+                  {editingIndex !==
+                  null
+                    ? "Update Method"
+                    : "Add Method"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    cancelEdit
+                  }
+                  className="px-5 py-3 rounded-xl bg-zinc-800 text-white hover:bg-zinc-700 transition"
+                >
+                  Cancel
+                </button>
+
+              </div>
+
+            </div>
+          )}
+
+          {/* =================================================
+              METHODS LIST
+          ================================================= */}
+
+          <div className="divide-y divide-zinc-800">
+
+            {filteredMethods.length ===
+              0 && (
+              <div className="p-10 text-center">
+
+                <CreditCard
+                  size={42}
+                  className="mx-auto text-gray-600 mb-4"
+                />
+
+                <p className="text-gray-400">
+                  No payment methods found.
+                </p>
+
+              </div>
+            )}
+
+            {filteredMethods.map(
+              ({
+                method,
+                originalIndex,
+              }) => (
+                <div
+                  key={
+                    method._id ||
+                    `${method.type}-${originalIndex}`
+                  }
+                  className="p-5 hover:bg-white/[0.02] transition"
+                >
+
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+
+                    {/* METHOD INFO */}
+
+                    <div className="flex items-start gap-4">
+
+                      <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+
+                        <CreditCard
+                          size={24}
+                          className="text-yellow-400"
+                        />
+
+                      </div>
+
+                      <div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+
+                          <h3 className="font-bold text-lg">
+                            {
+                              method.type
+                            }
+                          </h3>
+
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                              method.enabled
+                                ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                                : "bg-red-500/10 text-red-400 border border-red-500/20"
+                            }`}
+                          >
+                            {method.enabled
+                              ? "ACTIVE"
+                              : "INACTIVE"}
+                          </span>
+
+                        </div>
+
+                        <p className="text-gray-500 text-sm mt-1">
+                          {
+                            method.accountName
+                          }
+                        </p>
+
+                        <p className="text-green-400 font-mono text-sm mt-2 break-all">
+                          {
+                            method.accountNumber
+                          }
+                        </p>
+
+                        {method.iban && (
+                          <p className="text-cyan-400 font-mono text-xs mt-2 break-all">
+                            IBAN:{" "}
+                            {
+                              method.iban
+                            }
+                          </p>
+                        )}
+
+                        {method.network && (
+                          <p className="text-yellow-400 text-xs mt-2">
+                            Network:{" "}
+                            {
+                              method.network
+                            }
+                          </p>
+                        )}
+
+                      </div>
+
+                    </div>
+
+                    {/* ACTIONS */}
+
+                    <div className="flex flex-wrap gap-2">
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          togglePaymentMethod(
+                            originalIndex
+                          )
+                        }
+                        className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition ${
+                          method.enabled
+                            ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                            : "bg-zinc-800 text-gray-300 border border-zinc-700"
+                        }`}
+                      >
+                        <Power
+                          size={17}
+                        />
+
+                        {method.enabled
+                          ? "ON"
+                          : "OFF"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          editPaymentMethod(
+                            originalIndex
+                          )
+                        }
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition"
+                      >
+                        <Settings
+                          size={17}
+                        />
+
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          deletePaymentMethod(
+                            originalIndex
+                          )
+                        }
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition"
+                      >
+                        <Trash2
+                          size={17}
+                        />
+
+                        Delete
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                  {/* QR */}
+
+                  {method.qrCode && (
+                    <div className="mt-5 flex items-center gap-4">
+
+                      <img
+                        src={
+                          method.qrCode
+                        }
+                        alt={`${method.type} QR`}
+                        className="w-24 h-24 object-contain rounded-xl bg-white p-2 border border-zinc-700"
+                      />
+
+                      <div>
+                        <p className="text-sm text-gray-400">
+                          QR Code
+                        </p>
+
+                        <p className="text-xs text-gray-600 mt-1">
+                          Payment QR configured
+                        </p>
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* COPY */}
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        copyText(
+                          method.accountNumber
+                        )
+                      }
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800 text-gray-300 hover:text-white transition text-sm"
+                    >
+                      <Copy
+                        size={15}
+                      />
+
+                      Copy Account
+                    </button>
+
+                    {method.iban && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          copyText(
+                            method.iban ||
+                              ""
+                          )
+                        }
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800 text-gray-300 hover:text-white transition text-sm"
+                      >
+                        <Copy
+                          size={15}
+                        />
+
+                        Copy IBAN
+                      </button>
+                    )}
+
+                  </div>
+
+                </div>
+              )
+            )}
+
+          </div>
+
+          {/* =================================================
+              SAVE BAR
+          ================================================= */}
+
+          <div className="p-5 border-t border-zinc-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+            <div>
+
+              <p className="font-bold">
+                {settings.methods.length}{" "}
+                payment method
+                {settings.methods.length ===
+                1
+                  ? ""
+                  : "s"}
+              </p>
+
+              <p className="text-sm text-gray-500">
+                Changes are local until saved.
+              </p>
+
+            </div>
+
+            <div className="flex flex-wrap gap-3">
 
               <button
-                onClick={resetPaymentSettings}
-                className="bg-gray-700 hover:bg-gray-600 px-5 py-3 rounded-xl font-semibold transition"
-              >
-                Reset Changes
-              </button>
-
-              <button
-                onClick={savePaymentSettings}
+                type="button"
+                onClick={
+                  savePaymentMethods
+                }
                 disabled={saving}
-                className="bg-green-600 hover:bg-green-700 disabled:opacity-60 px-5 py-3 rounded-xl font-semibold flex items-center gap-2 transition"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-green-600 hover:bg-green-500 font-bold transition disabled:opacity-50"
               >
                 <Save size={18} />
-                {saving ? "Saving..." : "Save Payment Settings"}
+
+                {saving
+                  ? "Saving..."
+                  : "Save Payment Methods"}
               </button>
+
+              <button
+                type="button"
+                onClick={
+                  saveDepositSettings
+                }
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold transition disabled:opacity-50"
+              >
+                <DollarSign
+                  size={18}
+                />
+
+                Save Deposit Limits
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* =================================================
+            DEPOSIT CONTROL
+        ================================================= */}
+
+        <div className="mt-8 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+
+            <div className="flex items-center gap-4">
+
+              <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                <Wallet
+                  size={25}
+                  className="text-yellow-400"
+                />
+              </div>
+
+              <div>
+
+                <h2 className="font-bold text-lg">
+                  Deposit System
+                </h2>
+
+                <p className="text-sm text-gray-500">
+                  Enable or disable deposits globally.
+                </p>
+
+              </div>
+
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                toggleDeposits
+              }
+              className={`relative w-16 h-8 rounded-full transition ${
+                settings.depositsEnabled
+                  ? "bg-green-500"
+                  : "bg-red-500"
+              }`}
+            >
+              <span
+                className={`absolute top-1 w-6 h-6 bg-white rounded-full transition ${
+                  settings.depositsEnabled
+                    ? "left-9"
+                    : "left-1"
+                }`}
+              />
+            </button>
+
+          </div>
+
+        </div>
+
+        {/* =================================================
+            DEPOSIT LIMITS
+        ================================================= */}
+
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+
+            <label className="block text-sm text-gray-400 mb-2">
+              Minimum Deposit
+            </label>
+
+            <div className="relative">
+
+              <DollarSign
+                size={18}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
+              />
+
+              <input
+                type="number"
+                min="0"
+                value={
+                  settings.minimumDeposit
+                }
+                onChange={(e) =>
+                  updateDepositLimit(
+                    "minimumDeposit",
+                    e.target.value
+                  )
+                }
+                className="w-full bg-black border border-zinc-700 rounded-xl pl-11 pr-4 py-3 text-white outline-none focus:border-yellow-500"
+              />
+
+            </div>
+
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+
+            <label className="block text-sm text-gray-400 mb-2">
+              Maximum Deposit
+            </label>
+
+            <div className="relative">
+
+              <Coins
+                size={18}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
+              />
+
+              <input
+                type="number"
+                min="0"
+                value={
+                  settings.maximumDeposit
+                }
+                onChange={(e) =>
+                  updateDepositLimit(
+                    "maximumDeposit",
+                    e.target.value
+                  )
+                }
+                className="w-full bg-black border border-zinc-700 rounded-xl pl-11 pr-4 py-3 text-white outline-none focus:border-yellow-500"
+              />
+
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* =================================================
+            SECURITY
+        ================================================= */}
+
+        <div className="mt-8 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+
+          <div className="flex items-start gap-4">
+
+            <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20">
+              <Shield
+                size={24}
+                className="text-green-400"
+              />
+            </div>
+
+            <div>
+
+              <h3 className="font-bold">
+                V18 Payment Settings
+              </h3>
+
+              <p className="text-sm text-gray-500 mt-1">
+                Payment methods are stored through the
+                V18 payment-settings API and loaded
+                directly from MongoDB.
+              </p>
 
             </div>
 
@@ -1149,83 +3639,6 @@ export default function PaymentSettingsPage() {
         </div>
 
       </div>
-
-      {/* ========================================== */}
-      {/* LOADING OVERLAY */}
-      {/* ========================================== */}
-
-      {(loading || saving) && (
-        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center">
-
-          <div className="bg-[#111827] border border-yellow-500/30 rounded-2xl px-8 py-6 flex flex-col items-center gap-4 shadow-2xl">
-
-            <RefreshCw
-              size={36}
-              className="animate-spin text-yellow-400"
-            />
-
-            <h3 className="text-xl font-bold text-yellow-400">
-              GoldTrade V18 Enterprise
-            </h3>
-
-            <p className="text-gray-300">
-              {saving
-                ? "Saving payment settings..."
-                : "Loading payment settings..."}
-            </p>
-
-          </div>
-
-        </div>
-      )}
-
-      {/* ========================================== */}
-      {/* FOOTER */}
-      {/* ========================================== */}
-
-      <footer className="mt-12 border-t border-gray-800 pt-6">
-
-        <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
-
-          <div>
-
-            <h3 className="text-yellow-400 font-bold text-lg">
-              GoldTrade V18 Enterprise
-            </h3>
-
-            <p className="text-gray-500 text-sm">
-              Payment Settings Management Module
-            </p>
-
-          </div>
-
-          <div className="flex flex-wrap gap-5 text-sm text-gray-400">
-
-            <div className="flex items-center gap-2">
-              <Shield size={16} className="text-green-400" />
-              Secure Payment Configuration
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Building2 size={16} className="text-blue-400" />
-              Bank + Easypaisa + JazzCash
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Wallet size={16} className="text-cyan-400" />
-              USDT Wallet Management
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Coins size={16} className="text-yellow-400" />
-              Gold Wallet Management
-            </div>
-
-          </div>
-
-        </div>
-
-      </footer>
 
     </div>
   );

@@ -158,7 +158,7 @@ export default function AdminSidebar() {
 {/* ================================================= */}
 
 <Link
-  href="/admin/usdt-settings"
+  href="/admin/usdt"
   className="group bg-zinc-900 hover:bg-cyan-500/10 border border-cyan-500 rounded-2xl p-5 transition-all duration-300"
 >
   <div className="flex items-center justify-between mb-4">
