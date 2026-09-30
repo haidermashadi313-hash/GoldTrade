@@ -295,7 +295,6 @@ app.use("/api/user", userRoutes);
 
 // ---------- WALLET ----------
 app.use("/api/wallet", walletRoutes);
-
 // ---------- DEPOSIT ----------
 app.use("/api/deposit", depositRoutes);
 

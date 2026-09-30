@@ -1,13 +1,7 @@
-// ======================================================
-// GoldTrade V18 Enterprise Backend
-// withdrawRoutes.js — PART 1/8
-// Health + Create Withdraw Request
-// Production Ready (Render + PM2 + MongoDB Atlas)
-// ======================================================
-
 "use strict";
 
 const express = require("express");
+const mongoose = require("mongoose");
 const router = express.Router();
 
 // ======================================================
@@ -25,7 +19,10 @@ const Settings = require("../models/Settings");
 // MIDDLEWARE
 // ======================================================
 
-const { verifyToken, isAdmin } = require("../middleware/auth");
+const {
+  verifyToken,
+  isAdmin,
+} = require("../middleware/auth");
 
 // ======================================================
 // HEALTH CHECK
@@ -43,7 +40,19 @@ router.get("/health", (req, res) => {
 });
 
 // ======================================================
-// GET SETTINGS
+// HELPERS
+// ======================================================
+
+const toNumber = (value, fallback = 0) => {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
+};
+
+// ======================================================
+// GET WITHDRAW SETTINGS
 // ======================================================
 
 const getWithdrawSettings = async () => {
@@ -61,19 +70,46 @@ const getWithdrawSettings = async () => {
 };
 
 // ======================================================
-// GET USER WALLET
+// GET / CREATE USER WALLET
 // ======================================================
 
 const getWallet = async (userId, username) => {
-  let wallet = await Wallet.findOne({ userId });
+  let wallet = await Wallet.findOne({
+    userId,
+  });
 
   if (!wallet) {
     wallet = await Wallet.create({
       userId,
       username,
+
       pkrBalance: 0,
       usdtBalance: 0,
       goldBalance: 0,
+
+      lockedPkr: 0,
+      lockedGold: 0,
+      lockedUsdt: 0,
+
+      portfolioValue: 0,
+      liveProfit: 0,
+      liveProfitPercent: 0,
+
+      totalDeposit: 0,
+      totalWithdraw: 0,
+
+      totalPkrDeposit: 0,
+      totalPkrWithdraw: 0,
+
+      totalGoldPurchased: 0,
+      totalGoldSold: 0,
+
+      totalUsdtDeposited: 0,
+      totalUsdtWithdrawn: 0,
+
+      status: "Active",
+      isVerified: true,
+      isFrozen: false,
     });
   }
 
@@ -85,200 +121,523 @@ const getWallet = async (userId, username) => {
 // ======================================================
 
 const generateWithdrawReference = () => {
-  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const random = Math.random()
+    .toString(36)
+    .substring(2, 8)
+    .toUpperCase();
+
   return `WTH-${Date.now()}-${random}`;
 };
 
 // ======================================================
 // CREATE WITHDRAW REQUEST
 // POST /api/withdraw/create
-// Used by frontend/app/withdraw/page.tsx
+// Frontend: /withdraw
 // ======================================================
 
-router.post("/create", verifyToken, async (req, res) => {
-  try {
-    const {
-      walletType,
-      amount,
-      paymentMethod,
-      receiverName,
-      receiverAccount,
-      receiverWalletAddress,
-      bankName,
-      iban,
-      network,
-      note,
-    } = req.body;
+router.post(
+  "/create",
+  verifyToken,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // AUTH
+      // ==================================================
 
-    // Validate wallet type
-    if (!["PKR", "USDT"].includes(String(walletType).toUpperCase())) {
-      return res.status(400).json({
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
+
+      // ==================================================
+      // REQUEST DATA
+      // ==================================================
+
+      const {
+        walletType,
+        amount,
+        paymentMethod,
+        receiverName,
+        receiverAccount,
+        receiverWalletAddress,
+        bankName,
+        iban,
+        network,
+        note,
+      } = req.body || {};
+
+      const normalizedWalletType =
+        String(walletType || "")
+          .trim()
+          .toUpperCase();
+
+      // ==================================================
+      // WALLET TYPE VALIDATION
+      // ==================================================
+
+      if (
+        !["PKR", "USDT"].includes(
+          normalizedWalletType
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid wallet type. Use PKR or USDT.",
+        });
+      }
+
+      // ==================================================
+      // AMOUNT VALIDATION
+      // ==================================================
+
+      const withdrawAmount = Number(amount);
+
+      if (
+        !Number.isFinite(withdrawAmount) ||
+        withdrawAmount <= 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid withdraw amount.",
+        });
+      }
+
+      // ==================================================
+      // USER
+      // ==================================================
+
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      // ==================================================
+      // SETTINGS
+      // ==================================================
+
+      const settings =
+        await getWithdrawSettings();
+
+      const withdrawEnabled =
+        settings.withdrawEnabled !== false;
+
+      if (!withdrawEnabled) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Withdrawals are temporarily disabled.",
+        });
+      }
+
+      const minimumWithdraw =
+        toNumber(
+          settings.minimumWithdraw,
+          100
+        );
+
+      const maximumWithdraw =
+        toNumber(
+          settings.maximumWithdraw,
+          10000000
+        );
+
+      if (
+        withdrawAmount < minimumWithdraw
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            `Minimum withdraw is ${minimumWithdraw}.`,
+        });
+      }
+
+      if (
+        withdrawAmount > maximumWithdraw
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            `Maximum withdraw is ${maximumWithdraw}.`,
+        });
+      }
+
+      // ==================================================
+      // WALLET
+      // ==================================================
+
+      const wallet = await getWallet(
+        user._id,
+        user.username
+      );
+
+      // ==================================================
+      // WALLET STATUS
+      // ==================================================
+
+      if (wallet.isFrozen === true) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Your wallet is currently frozen.",
+        });
+      }
+
+      if (
+        wallet.status &&
+        String(wallet.status).toLowerCase() ===
+          "frozen"
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Your wallet is currently frozen.",
+        });
+      }
+
+      // ==================================================
+      // CURRENT BALANCE
+      // ==================================================
+
+      const balance =
+        normalizedWalletType === "PKR"
+          ? toNumber(wallet.pkrBalance)
+          : toNumber(wallet.usdtBalance);
+
+      // ==================================================
+      // LOCKED BALANCE
+      // ==================================================
+
+      const lockedBalance =
+        normalizedWalletType === "PKR"
+          ? toNumber(wallet.lockedPkr)
+          : toNumber(wallet.lockedUsdt);
+
+      // ==================================================
+      // AVAILABLE BALANCE
+      // ==================================================
+
+      const availableBalance =
+        Math.max(
+          balance - lockedBalance,
+          0
+        );
+
+      if (
+        availableBalance <
+        withdrawAmount
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            `Insufficient available ${normalizedWalletType} balance.`,
+          availableBalance,
+          requestedAmount:
+            withdrawAmount,
+        });
+      }
+
+      // ==================================================
+      // PENDING WITHDRAWAL PROTECTION
+      // ==================================================
+
+      const pending =
+        await Withdraw.findOne({
+          userId: user._id,
+          walletType:
+            normalizedWalletType,
+          status: "PENDING",
+        }).lean();
+
+      if (pending) {
+        return res.status(400).json({
+          success: false,
+          message:
+            `You already have a pending ${normalizedWalletType} withdrawal.`,
+          referenceId:
+            pending.referenceId || null,
+        });
+      }
+
+      // ==================================================
+      // BALANCE SNAPSHOT
+      // ==================================================
+
+      const balanceBefore = {
+        pkrBalance:
+          toNumber(wallet.pkrBalance),
+
+        goldBalance:
+          toNumber(wallet.goldBalance),
+
+        usdtBalance:
+          toNumber(wallet.usdtBalance),
+      };
+
+      // ==================================================
+      // GENERATE REFERENCE
+      // ==================================================
+
+      const referenceId =
+        generateWithdrawReference();
+
+      // ==================================================
+      // CREATE WITHDRAW REQUEST
+      // ==================================================
+
+      const withdraw =
+        await Withdraw.create({
+          userId: user._id,
+
+          username:
+            user.username || "",
+
+          fullName:
+            user.fullName || "",
+
+          email:
+            user.email || "",
+
+          walletType:
+            normalizedWalletType,
+
+          currency:
+            normalizedWalletType,
+
+          amount:
+            withdrawAmount,
+
+          paymentMethod:
+            paymentMethod || "",
+
+          receiverName:
+            receiverName || "",
+
+          receiverAccount:
+            receiverAccount || "",
+
+          receiverWalletAddress:
+            receiverWalletAddress || "",
+
+          bankName:
+            bankName || "",
+
+          iban:
+            iban || "",
+
+          network:
+            network || "",
+
+          note:
+            note || "",
+
+          referenceId,
+
+          walletBefore:
+            balanceBefore,
+
+          ipAddress:
+            req.ip || "",
+
+          device:
+            req.headers["user-agent"] || "",
+        });
+
+      // ==================================================
+      // RESERVE / LOCK BALANCE
+      // ==================================================
+
+      if (
+        normalizedWalletType === "PKR"
+      ) {
+        wallet.lockedPkr =
+          toNumber(wallet.lockedPkr) +
+          withdrawAmount;
+      }
+
+      if (
+        normalizedWalletType === "USDT"
+      ) {
+        wallet.lockedUsdt =
+          toNumber(wallet.lockedUsdt) +
+          withdrawAmount;
+      }
+
+      await wallet.save();
+
+      // ==================================================
+      // WALLET HISTORY
+      // ==================================================
+
+      try {
+        await WalletHistory.create({
+          userId: user._id,
+          username: user.username,
+
+          walletType:
+            normalizedWalletType,
+
+          transactionType:
+            "WITHDRAW_REQUEST",
+
+          transactionMode:
+            "LOCK",
+
+          amount:
+            withdrawAmount,
+
+          balanceBefore:
+            balance,
+
+          balanceAfter:
+            balance,
+
+          referenceId,
+
+          status: "Pending",
+
+          note:
+            "Withdrawal amount reserved.",
+        });
+      } catch (historyError) {
+        console.error(
+          "WITHDRAW WALLET HISTORY ERROR:",
+          historyError
+        );
+
+        // Do not fail the withdrawal request
+        // only because history logging failed.
+      }
+
+      // ==================================================
+      // TRANSACTION LEDGER
+      // ==================================================
+
+      try {
+        await Transaction.create({
+          userId: user._id,
+
+          username:
+            user.username,
+
+          walletType:
+            normalizedWalletType,
+
+          transactionType:
+            "WITHDRAW_REQUEST",
+
+          transactionMode:
+            "DEBIT",
+
+          amount:
+            withdrawAmount,
+
+          balanceBefore:
+            balance,
+
+          balanceAfter:
+            balance,
+
+          status:
+            "Pending",
+
+          paymentMethod:
+            paymentMethod || "",
+
+          referenceId,
+
+          note:
+            "Withdraw request created and balance reserved.",
+        });
+      } catch (transactionError) {
+        console.error(
+          "WITHDRAW TRANSACTION LEDGER ERROR:",
+          transactionError
+        );
+
+        // Withdrawal itself remains created.
+        // Admin can still process it from Withdraw module.
+      }
+
+      // ==================================================
+      // SUCCESS RESPONSE
+      // ==================================================
+
+      return res.status(201).json({
+        success: true,
+
+        message:
+          "Withdraw request submitted successfully.",
+
+        withdraw: {
+          id:
+            withdraw._id,
+
+          referenceId:
+            withdraw.referenceId,
+
+          walletType:
+            withdraw.walletType,
+
+          amount:
+            withdraw.amount,
+
+          status:
+            withdraw.status,
+
+          createdAt:
+            withdraw.createdAt,
+        },
+
+        wallet: {
+          walletType:
+            normalizedWalletType,
+
+          balance:
+            balance,
+
+          lockedBalance:
+            lockedBalance +
+            withdrawAmount,
+
+          availableBalance:
+            Math.max(
+              availableBalance -
+                withdrawAmount,
+              0
+            ),
+        },
+      });
+
+    } catch (error) {
+      console.error(
+        "CREATE WITHDRAW ERROR:",
+        error
+      );
+
+      return res.status(500).json({
         success: false,
-        message: "Invalid wallet type.",
+
+        message:
+          "Unable to create withdraw request.",
+
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
       });
     }
-
-    const withdrawAmount = Number(amount);
-
-    if (Number.isNaN(withdrawAmount) || withdrawAmount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid withdraw amount.",
-      });
-    }
-
-    // Settings
-    const settings = await getWithdrawSettings();
-
-    if (!settings.withdrawEnabled) {
-      return res.status(403).json({
-        success: false,
-        message: "Withdrawals are temporarily disabled.",
-      });
-    }
-
-    if (withdrawAmount < Number(settings.minimumWithdraw)) {
-      return res.status(400).json({
-        success: false,
-        message: `Minimum withdraw is ${settings.minimumWithdraw}.`,
-      });
-    }
-
-    if (withdrawAmount > Number(settings.maximumWithdraw)) {
-      return res.status(400).json({
-        success: false,
-        message: `Maximum withdraw is ${settings.maximumWithdraw}.`,
-      });
-    }
-
-    // User
-    const user = await User.findById(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    // Wallet
-    const wallet = await getWallet(user._id, user.username);
-
-    const balance =
-      walletType === "PKR"
-        ? Number(wallet.pkrBalance)
-        : Number(wallet.usdtBalance);
-
-    if (balance < withdrawAmount) {
-      return res.status(400).json({
-        success: false,
-        message: `Insufficient ${walletType} balance.`,
-      });
-    }
-
-    // Pending request protection
-    const pending = await Withdraw.findOne({
-      userId: user._id,
-      walletType: walletType.toUpperCase(),
-      status: "PENDING",
-    });
-
-    if (pending) {
-      return res.status(400).json({
-        success: false,
-        message: `You already have a pending ${walletType} withdrawal.`,
-      });
-    }
-
-    // Create request
-    const withdraw = await Withdraw.create({
-      userId: user._id,
-      username: user.username,
-      fullName: user.fullName,
-      email: user.email,
-
-      walletType: walletType.toUpperCase(),
-      currency: walletType.toUpperCase(),
-
-      amount: withdrawAmount,
-
-      paymentMethod,
-      receiverName,
-      receiverAccount,
-      receiverWalletAddress,
-      bankName,
-      iban,
-      network,
-
-      note,
-      referenceId: generateWithdrawReference(),
-
-      walletBefore: {
-        pkrBalance: Number(wallet.pkrBalance),
-        usdtBalance: Number(wallet.usdtBalance),
-        goldBalance: Number(wallet.goldBalance),
-      },
-
-      ipAddress: req.ip,
-      device: req.headers["user-agent"] || "",
-    });
-
-    // Transaction Ledger
-    await Transaction.create({
-      userId: user._id,
-      username: user.username,
-
-      walletType: walletType.toUpperCase(),
-
-      transactionType: "WITHDRAW_REQUEST",
-      transactionMode: "DEBIT",
-
-      amount: withdrawAmount,
-
-      balanceBefore: balance,
-      balanceAfter: balance,
-
-      status: "Pending",
-
-      paymentMethod,
-      referenceId: withdraw.referenceId,
-
-      note: "Withdraw request created.",
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Withdraw request submitted successfully.",
-
-      withdraw: {
-        id: withdraw._id,
-        referenceId: withdraw.referenceId,
-        walletType: withdraw.walletType,
-        amount: withdraw.amount,
-        status: withdraw.status,
-        createdAt: withdraw.createdAt,
-      },
-    });
-
-  } catch (error) {
-    console.error("CREATE WITHDRAW ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to create withdraw request.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
-// ======================================================
-// GoldTrade V18 Enterprise Backend
-// withdrawRoutes.js — PART 2/8
-// Withdraw History + Pending + Summary APIs
-// Production Ready (Render + PM2 + MongoDB Atlas)
-// ======================================================
+);
 
 // ======================================================
 // GET MY WITHDRAW HISTORY
@@ -286,50 +645,112 @@ router.post("/create", verifyToken, async (req, res) => {
 // Used by frontend/app/withdraw/history/page.tsx
 // ======================================================
 
-router.get("/history", verifyToken, async (req, res) => {
-  try {
-    const page = Math.max(Number(req.query.page) || 1, 1);
-    const limit = Math.min(Number(req.query.limit) || 20, 100);
-    const skip = (page - 1) * limit;
+router.get(
+  "/history",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const userId = req.user?.id;
 
-    const total = await Withdraw.countDocuments({
-      userId: req.user.id,
-    });
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
 
-    const history = await Withdraw.find({
-      userId: req.user.id,
-    })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+      // --------------------------------------------------
+      // PAGINATION
+      // --------------------------------------------------
 
-    return res.status(200).json({
-      success: true,
+      const requestedPage = Number.parseInt(
+        req.query.page,
+        10
+      );
 
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      const requestedLimit = Number.parseInt(
+        req.query.limit,
+        10
+      );
 
-      history,
-    });
+      const page =
+        Number.isFinite(requestedPage) &&
+        requestedPage > 0
+          ? requestedPage
+          : 1;
 
-  } catch (error) {
-    console.error("WITHDRAW HISTORY ERROR:", error);
+      const limit =
+        Number.isFinite(requestedLimit) &&
+        requestedLimit > 0
+          ? Math.min(requestedLimit, 100)
+          : 20;
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load withdraw history.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+      const skip = (page - 1) * limit;
+
+      // --------------------------------------------------
+      // QUERY
+      // --------------------------------------------------
+
+      const filter = {
+        userId,
+      };
+
+      const [total, history] =
+        await Promise.all([
+          Withdraw.countDocuments(filter),
+
+          Withdraw.find(filter)
+            .sort({
+              createdAt: -1,
+              _id: -1,
+            })
+            .skip(skip)
+            .limit(limit)
+            .lean(),
+        ]);
+
+      return res.status(200).json({
+        success: true,
+
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages:
+            total > 0
+              ? Math.ceil(total / limit)
+              : 0,
+
+          hasNextPage:
+            page * limit < total,
+
+          hasPreviousPage:
+            page > 1,
+        },
+
+        history,
+      });
+
+    } catch (error) {
+      console.error(
+        "WITHDRAW HISTORY ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load withdraw history.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
+
 
 // ======================================================
 // GET USER WITHDRAW HISTORY BY USERNAME
@@ -337,96 +758,190 @@ router.get("/history", verifyToken, async (req, res) => {
 // Admin OR Same User
 // ======================================================
 
-router.get("/history/:username", verifyToken, async (req, res) => {
-  try {
-    const username = req.params.username.trim().toLowerCase();
+router.get(
+  "/history/:username",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const requestedUsername = String(
+        req.params.username || ""
+      )
+        .trim()
+        .toLowerCase();
 
-    if (
-      req.user.role !== "admin" &&
-      req.user.username !== username
-    ) {
-      return res.status(403).json({
+      if (!requestedUsername) {
+        return res.status(400).json({
+          success: false,
+          message: "Username is required.",
+        });
+      }
+
+      const currentUsername = String(
+        req.user?.username || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const currentRole = String(
+        req.user?.role || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      // --------------------------------------------------
+      // AUTHORIZATION
+      // --------------------------------------------------
+
+      if (
+        currentRole !== "admin" &&
+        currentUsername !== requestedUsername
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied.",
+        });
+      }
+
+      // --------------------------------------------------
+      // USER
+      // --------------------------------------------------
+
+      const user = await User.findOne({
+        username: requestedUsername,
+      })
+        .select("_id username")
+        .lean();
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      // --------------------------------------------------
+      // HISTORY
+      // --------------------------------------------------
+
+      const history =
+        await Withdraw.find({
+          userId: user._id,
+        })
+          .sort({
+            createdAt: -1,
+            _id: -1,
+          })
+          .limit(100)
+          .lean();
+
+      return res.status(200).json({
+        success: true,
+
+        username:
+          user.username,
+
+        total:
+          history.length,
+
+        history,
+      });
+
+    } catch (error) {
+      console.error(
+        "USER WITHDRAW HISTORY ERROR:",
+        error
+      );
+
+      return res.status(500).json({
         success: false,
-        message: "Access denied.",
+        message:
+          "Unable to load user withdraw history.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
       });
     }
-
-    const user = await User.findOne({ username }).select("_id username");
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    const history = await Withdraw.find({
-      userId: user._id,
-    })
-      .sort({ createdAt: -1 })
-      .limit(100)
-      .lean();
-
-    return res.status(200).json({
-      success: true,
-      username: user.username,
-      total: history.length,
-      history,
-    });
-
-  } catch (error) {
-    console.error("USER WITHDRAW HISTORY ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load user withdraw history.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
+);
+
 
 // ======================================================
 // GET PENDING WITHDRAWALS
 // GET /api/withdraw/pending
-// User sees own pending, Admin sees all pending
+// User = Own Pending
+// Admin = All Pending
 // ======================================================
 
-router.get("/pending", verifyToken, async (req, res) => {
-  try {
-    const query =
-      req.user.role === "admin"
-        ? { status: "PENDING" }
-        : {
-            userId: req.user.id,
-            status: "PENDING",
-          };
+router.get(
+  "/pending",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const userId = req.user?.id;
 
-    const pending = await Withdraw.find(query)
-      .sort({ createdAt: -1 })
-      .lean();
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
 
-    return res.status(200).json({
-      success: true,
-      total: pending.length,
-      pending,
-    });
+      const role = String(
+        req.user?.role || ""
+      )
+        .trim()
+        .toLowerCase();
 
-  } catch (error) {
-    console.error("PENDING WITHDRAW ERROR:", error);
+      const query =
+        role === "admin"
+          ? {
+              status: "PENDING",
+            }
+          : {
+              userId,
+              status: "PENDING",
+            };
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load pending withdrawals.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+      const pending =
+        await Withdraw.find(query)
+          .sort({
+            createdAt: -1,
+            _id: -1,
+          })
+          .limit(100)
+          .lean();
+
+      return res.status(200).json({
+        success: true,
+
+        total:
+          pending.length,
+
+        pending,
+      });
+
+    } catch (error) {
+      console.error(
+        "PENDING WITHDRAW ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load pending withdrawals.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
+
 
 // ======================================================
 // GET MY WITHDRAW SUMMARY
@@ -434,93 +949,178 @@ router.get("/pending", verifyToken, async (req, res) => {
 // Dashboard Cards
 // ======================================================
 
-router.get("/summary", verifyToken, async (req, res) => {
-  try {
-    const withdrawals = await Withdraw.find({
-      userId: req.user.id,
-    }).lean();
+router.get(
+  "/summary",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const userId = req.user?.id;
 
-    let pendingAmount = 0;
-    let approvedAmount = 0;
-    let rejectedAmount = 0;
-    let cancelledAmount = 0;
-
-    let pendingCount = 0;
-    let approvedCount = 0;
-    let rejectedCount = 0;
-    let cancelledCount = 0;
-
-    let totalPKRWithdraw = 0;
-    let totalUSDTWithdraw = 0;
-
-    withdrawals.forEach((item) => {
-      const amount = Number(item.amount || 0);
-
-      switch (item.status) {
-        case "PENDING":
-          pendingCount++;
-          pendingAmount += amount;
-          break;
-
-        case "APPROVED":
-          approvedCount++;
-          approvedAmount += amount;
-
-          if (item.walletType === "PKR") {
-            totalPKRWithdraw += amount;
-          }
-
-          if (item.walletType === "USDT") {
-            totalUSDTWithdraw += amount;
-          }
-          break;
-
-        case "REJECTED":
-          rejectedCount++;
-          rejectedAmount += amount;
-          break;
-
-        case "CANCELLED":
-          cancelledCount++;
-          cancelledAmount += amount;
-          break;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
       }
-    });
 
-    return res.status(200).json({
-      success: true,
+      const withdrawals =
+        await Withdraw.find({
+          userId,
+        })
+          .select(
+            "amount walletType status"
+          )
+          .lean();
 
-      summary: {
-        totalWithdrawals: withdrawals.length,
+      let pendingAmount = 0;
+      let approvedAmount = 0;
+      let rejectedAmount = 0;
+      let cancelledAmount = 0;
 
-        pendingWithdrawals: pendingCount,
-        approvedWithdrawals: approvedCount,
-        rejectedWithdrawals: rejectedCount,
-        cancelledWithdrawals: cancelledCount,
+      let pendingCount = 0;
+      let approvedCount = 0;
+      let rejectedCount = 0;
+      let cancelledCount = 0;
 
-        pendingAmount: Number(pendingAmount.toFixed(2)),
-        approvedAmount: Number(approvedAmount.toFixed(2)),
-        rejectedAmount: Number(rejectedAmount.toFixed(2)),
-        cancelledAmount: Number(cancelledAmount.toFixed(2)),
+      let totalPKRWithdraw = 0;
+      let totalUSDTWithdraw = 0;
 
-        totalPKRWithdraw: Number(totalPKRWithdraw.toFixed(2)),
-        totalUSDTWithdraw: Number(totalUSDTWithdraw.toFixed(6)),
-      },
-    });
+      // --------------------------------------------------
+      // PROCESS SUMMARY
+      // --------------------------------------------------
 
-  } catch (error) {
-    console.error("WITHDRAW SUMMARY ERROR:", error);
+      withdrawals.forEach((item) => {
+        const amount = Number(
+          item.amount || 0
+        );
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load withdraw summary.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+        if (
+          !Number.isFinite(amount) ||
+          amount <= 0
+        ) {
+          return;
+        }
+
+        const status = String(
+          item.status || ""
+        )
+          .trim()
+          .toUpperCase();
+
+        const walletType = String(
+          item.walletType || ""
+        )
+          .trim()
+          .toUpperCase();
+
+        switch (status) {
+          case "PENDING":
+            pendingCount++;
+            pendingAmount += amount;
+            break;
+
+          case "APPROVED":
+            approvedCount++;
+            approvedAmount += amount;
+
+            if (walletType === "PKR") {
+              totalPKRWithdraw +=
+                amount;
+            }
+
+            if (walletType === "USDT") {
+              totalUSDTWithdraw +=
+                amount;
+            }
+
+            break;
+
+          case "REJECTED":
+            rejectedCount++;
+            rejectedAmount += amount;
+            break;
+
+          case "CANCELLED":
+            cancelledCount++;
+            cancelledAmount += amount;
+            break;
+
+          default:
+            break;
+        }
+      });
+
+      return res.status(200).json({
+        success: true,
+
+        summary: {
+          totalWithdrawals:
+            withdrawals.length,
+
+          pendingWithdrawals:
+            pendingCount,
+
+          approvedWithdrawals:
+            approvedCount,
+
+          rejectedWithdrawals:
+            rejectedCount,
+
+          cancelledWithdrawals:
+            cancelledCount,
+
+          pendingAmount:
+            Number(
+              pendingAmount.toFixed(2)
+            ),
+
+          approvedAmount:
+            Number(
+              approvedAmount.toFixed(2)
+            ),
+
+          rejectedAmount:
+            Number(
+              rejectedAmount.toFixed(2)
+            ),
+
+          cancelledAmount:
+            Number(
+              cancelledAmount.toFixed(2)
+            ),
+
+          totalPKRWithdraw:
+            Number(
+              totalPKRWithdraw.toFixed(2)
+            ),
+
+          totalUSDTWithdraw:
+            Number(
+              totalUSDTWithdraw.toFixed(6)
+            ),
+        },
+      });
+
+    } catch (error) {
+      console.error(
+        "WITHDRAW SUMMARY ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load withdraw summary.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
+
 
 // ======================================================
 // GET RECENT WITHDRAWALS
@@ -528,43 +1128,70 @@ router.get("/summary", verifyToken, async (req, res) => {
 // Dashboard Widget
 // ======================================================
 
-router.get("/recent", verifyToken, async (req, res) => {
-  try {
-    const query =
-      req.user.role === "admin"
-        ? {}
-        : { userId: req.user.id };
+router.get(
+  "/recent",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const userId = req.user?.id;
 
-    const recent = await Withdraw.find(query)
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
 
-    return res.status(200).json({
-      success: true,
-      total: recent.length,
-      recent,
-    });
+      const role = String(
+        req.user?.role || ""
+      )
+        .trim()
+        .toLowerCase();
 
-  } catch (error) {
-    console.error("RECENT WITHDRAW ERROR:", error);
+      const query =
+        role === "admin"
+          ? {}
+          : {
+              userId,
+            };
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load recent withdrawals.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+      const recent =
+        await Withdraw.find(query)
+          .sort({
+            createdAt: -1,
+            _id: -1,
+          })
+          .limit(10)
+          .lean();
+
+      return res.status(200).json({
+        success: true,
+
+        total:
+          recent.length,
+
+        recent,
+      });
+
+    } catch (error) {
+      console.error(
+        "RECENT WITHDRAW ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load recent withdrawals.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
-// ======================================================
-// GoldTrade V18 Enterprise Backend
-// withdrawRoutes.js — PART 3/8
-// Admin Withdraw Approval API
-// Production Ready (Render + PM2 + MongoDB Atlas)
-// ======================================================
+);
 
 // ======================================================
 // APPROVE WITHDRAW
@@ -572,200 +1199,600 @@ router.get("/recent", verifyToken, async (req, res) => {
 // Used by frontend/app/admin/withdraw/page.tsx
 // ======================================================
 
-router.patch("/:id/approve", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const withdraw = await Withdraw.findById(req.params.id);
+router.patch(
+  "/:id/approve",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // VALIDATE REQUEST ID
+      // ==================================================
 
-    if (!withdraw) {
-      return res.status(404).json({
-        success: false,
-        message: "Withdraw request not found.",
-      });
-    }
+      const withdrawId = String(
+        req.params.id || ""
+      ).trim();
 
-    if (withdraw.status !== "PENDING") {
-      return res.status(400).json({
-        success: false,
-        message: `Withdraw already ${withdraw.status.toLowerCase()}.`,
-      });
-    }
-
-    // ==================================================
-    // USER WALLET
-    // ==================================================
-
-    const wallet = await getWallet(
-      withdraw.userId,
-      withdraw.username
-    );
-
-    withdraw.walletBefore = {
-      pkrBalance: Number(wallet.pkrBalance || 0),
-      usdtBalance: Number(wallet.usdtBalance || 0),
-      goldBalance: Number(wallet.goldBalance || 0),
-    };
-
-    const amount = Number(withdraw.amount);
-
-    // ==================================================
-    // BALANCE CHECK + DEDUCT
-    // ==================================================
-
-    if (withdraw.walletType === "PKR") {
-      if (wallet.pkrBalance < amount) {
+      if (!withdrawId) {
         return res.status(400).json({
           success: false,
-          message: "Insufficient PKR balance.",
+          message: "Withdraw ID is required.",
         });
       }
 
-      wallet.pkrBalance -= amount;
-      wallet.totalWithdraw += amount;
-    }
+      // ==================================================
+      // FIND WITHDRAW
+      // ==================================================
 
-    if (withdraw.walletType === "USDT") {
-      if (wallet.usdtBalance < amount) {
-        return res.status(400).json({
+      const withdraw =
+        await Withdraw.findById(
+          withdrawId
+        );
+
+      if (!withdraw) {
+        return res.status(404).json({
           success: false,
-          message: "Insufficient USDT balance.",
+          message:
+            "Withdraw request not found.",
         });
       }
 
-      wallet.usdtBalance -= amount;
-      wallet.totalUsdtWithdrawn += amount;
+      // ==================================================
+      // NORMALIZE STATUS
+      // ==================================================
+
+      const withdrawStatus =
+        String(
+          withdraw.status || ""
+        )
+          .trim()
+          .toUpperCase();
+
+      if (withdrawStatus !== "PENDING") {
+        return res.status(400).json({
+          success: false,
+          message:
+            `Withdraw already ${withdrawStatus.toLowerCase()}.`,
+        });
+      }
+
+      // ==================================================
+      // NORMALIZE WALLET TYPE
+      // ==================================================
+
+      const walletType =
+        String(
+          withdraw.walletType || ""
+        )
+          .trim()
+          .toUpperCase();
+
+      if (
+        !["PKR", "USDT"].includes(
+          walletType
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid withdrawal wallet type.",
+        });
+      }
+
+      // ==================================================
+      // VALIDATE AMOUNT
+      // ==================================================
+
+      const amount = Number(
+        withdraw.amount
+      );
+
+      if (
+        !Number.isFinite(amount) ||
+        amount <= 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid withdrawal amount.",
+        });
+      }
+
+      // ==================================================
+      // USER WALLET
+      // ==================================================
+
+      const wallet =
+        await getWallet(
+          withdraw.userId,
+          withdraw.username
+        );
+
+      if (!wallet) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User wallet not found.",
+        });
+      }
+
+      // ==================================================
+      // WALLET STATUS
+      // ==================================================
+
+      if (wallet.isFrozen === true) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "User wallet is frozen.",
+        });
+      }
+
+      if (
+        wallet.status &&
+        String(wallet.status)
+          .trim()
+          .toLowerCase() ===
+          "frozen"
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "User wallet is frozen.",
+        });
+      }
+
+      // ==================================================
+      // CURRENT BALANCES
+      // ==================================================
+
+      const currentPkrBalance =
+        Number(
+          wallet.pkrBalance || 0
+        );
+
+      const currentUsdtBalance =
+        Number(
+          wallet.usdtBalance || 0
+        );
+
+      const currentGoldBalance =
+        Number(
+          wallet.goldBalance || 0
+        );
+
+      const currentLockedPkr =
+        Number(
+          wallet.lockedPkr || 0
+        );
+
+      const currentLockedUsdt =
+        Number(
+          wallet.lockedUsdt || 0
+        );
+
+      // ==================================================
+      // APPROVE PKR WITHDRAW
+      // ==================================================
+
+      if (walletType === "PKR") {
+        // ----------------------------------------------
+        // Verify reserved amount
+        // ----------------------------------------------
+
+        if (
+          currentLockedPkr < amount
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Reserved PKR withdrawal amount is insufficient.",
+            lockedPkr:
+              currentLockedPkr,
+            requestedAmount:
+              amount,
+          });
+        }
+
+        // ----------------------------------------------
+        // Verify actual balance
+        // ----------------------------------------------
+
+        if (
+          currentPkrBalance < amount
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Insufficient PKR balance.",
+            balance:
+              currentPkrBalance,
+            requestedAmount:
+              amount,
+          });
+        }
+
+        // ----------------------------------------------
+        // Deduct actual balance
+        // ----------------------------------------------
+
+        wallet.pkrBalance =
+          currentPkrBalance -
+          amount;
+
+        // ----------------------------------------------
+        // Release consumed lock
+        // ----------------------------------------------
+
+        wallet.lockedPkr =
+          currentLockedPkr -
+          amount;
+
+        // ----------------------------------------------
+        // Update totals
+        // ----------------------------------------------
+
+        wallet.totalWithdraw =
+          Number(
+            wallet.totalWithdraw || 0
+          ) + amount;
+
+        wallet.totalPkrWithdraw =
+          Number(
+            wallet.totalPkrWithdraw || 0
+          ) + amount;
+      }
+
+      // ==================================================
+      // APPROVE USDT WITHDRAW
+      // ==================================================
+
+      if (walletType === "USDT") {
+        // ----------------------------------------------
+        // Verify reserved amount
+        // ----------------------------------------------
+
+        if (
+          currentLockedUsdt < amount
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Reserved USDT withdrawal amount is insufficient.",
+            lockedUsdt:
+              currentLockedUsdt,
+            requestedAmount:
+              amount,
+          });
+        }
+
+        // ----------------------------------------------
+        // Verify actual balance
+        // ----------------------------------------------
+
+        if (
+          currentUsdtBalance < amount
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Insufficient USDT balance.",
+            balance:
+              currentUsdtBalance,
+            requestedAmount:
+              amount,
+          });
+        }
+
+        // ----------------------------------------------
+        // Deduct actual balance
+        // ----------------------------------------------
+
+        wallet.usdtBalance =
+          currentUsdtBalance -
+          amount;
+
+        // ----------------------------------------------
+        // Release consumed lock
+        // ----------------------------------------------
+
+        wallet.lockedUsdt =
+          currentLockedUsdt -
+          amount;
+
+        // ----------------------------------------------
+        // Update totals
+        // ----------------------------------------------
+
+        wallet.totalWithdraw =
+          Number(
+            wallet.totalWithdraw || 0
+          ) + amount;
+
+        wallet.totalUsdtWithdrawn =
+          Number(
+            wallet.totalUsdtWithdrawn || 0
+          ) + amount;
+      }
+
+      // ==================================================
+      // TIMESTAMP
+      // ==================================================
+
+      wallet.lastWithdrawAt =
+        new Date();
+
+      // ==================================================
+      // SAVE WALLET
+      // ==================================================
+
+      await wallet.save();
+
+      // ==================================================
+      // WALLET AFTER SNAPSHOT
+      // ==================================================
+
+      const walletAfter = {
+        pkrBalance:
+          Number(
+            wallet.pkrBalance || 0
+          ),
+
+        usdtBalance:
+          Number(
+            wallet.usdtBalance || 0
+          ),
+
+        goldBalance:
+          Number(
+            wallet.goldBalance || 0
+          ),
+
+        lockedPkr:
+          Number(
+            wallet.lockedPkr || 0
+          ),
+
+        lockedUsdt:
+          Number(
+            wallet.lockedUsdt || 0
+          ),
+      };
+
+      // ==================================================
+      // UPDATE WITHDRAW
+      // ==================================================
+
+      withdraw.walletBefore = {
+        pkrBalance:
+          currentPkrBalance,
+
+        usdtBalance:
+          currentUsdtBalance,
+
+        goldBalance:
+          currentGoldBalance,
+      };
+
+      withdraw.walletAfter = {
+        pkrBalance:
+          walletAfter.pkrBalance,
+
+        usdtBalance:
+          walletAfter.usdtBalance,
+
+        goldBalance:
+          walletAfter.goldBalance,
+      };
+
+      withdraw.status =
+        "APPROVED";
+
+      withdraw.approvedBy =
+        req.user.id;
+
+      withdraw.approvedByUsername =
+        req.user.username ||
+        "Admin";
+
+      withdraw.approvedAt =
+        new Date();
+
+      await withdraw.save();
+
+      // ==================================================
+      // WALLET HISTORY
+      // ==================================================
+
+      try {
+        await WalletHistory.create({
+          userId:
+            withdraw.userId,
+
+          username:
+            withdraw.username,
+
+          walletType,
+
+          type:
+            "WITHDRAW",
+
+          transactionType:
+            "WITHDRAW_APPROVED",
+
+          transactionMode:
+            "DEBIT",
+
+          amount,
+
+          balanceBefore:
+            walletType === "PKR"
+              ? currentPkrBalance
+              : currentUsdtBalance,
+
+          balanceAfter:
+            walletType === "PKR"
+              ? walletAfter.pkrBalance
+              : walletAfter.usdtBalance,
+
+          referenceId:
+            withdraw.referenceId,
+
+          status:
+            "Completed",
+
+          admin:
+            req.user.username ||
+            "Admin",
+
+          adminId:
+            req.user.id,
+
+          note:
+            `Withdraw approved by ${
+              req.user.username ||
+              "Admin"
+            }`,
+        });
+      } catch (historyError) {
+        console.error(
+          "APPROVE WITHDRAW WALLET HISTORY ERROR:",
+          historyError
+        );
+      }
+
+      // ==================================================
+      // TRANSACTION LEDGER
+      // ==================================================
+
+      try {
+        await Transaction.create({
+          userId:
+            withdraw.userId,
+
+          username:
+            withdraw.username,
+
+          walletType,
+
+          transactionType:
+            "WITHDRAW_APPROVED",
+
+          transactionMode:
+            "DEBIT",
+
+          amount,
+
+          balanceBefore:
+            walletType === "PKR"
+              ? currentPkrBalance
+              : currentUsdtBalance,
+
+          balanceAfter:
+            walletType === "PKR"
+              ? walletAfter.pkrBalance
+              : walletAfter.usdtBalance,
+
+          status:
+            "Completed",
+
+          paymentMethod:
+            withdraw.paymentMethod ||
+            "",
+
+          referenceId:
+            withdraw.referenceId,
+
+          adminId:
+            req.user.id,
+
+          adminUsername:
+            req.user.username ||
+            "Admin",
+
+          note:
+            "Withdraw approved successfully.",
+        });
+      } catch (transactionError) {
+        console.error(
+          "APPROVE WITHDRAW TRANSACTION ERROR:",
+          transactionError
+        );
+      }
+
+      // ==================================================
+      // SUCCESS RESPONSE
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Withdraw approved successfully.",
+
+        withdraw: {
+          id:
+            withdraw._id,
+
+          referenceId:
+            withdraw.referenceId,
+
+          username:
+            withdraw.username,
+
+          walletType,
+
+          amount,
+
+          status:
+            withdraw.status,
+
+          approvedBy:
+            withdraw.approvedByUsername,
+
+          approvedAt:
+            withdraw.approvedAt,
+        },
+
+        wallet: {
+          pkrBalance:
+            walletAfter.pkrBalance,
+
+          usdtBalance:
+            walletAfter.usdtBalance,
+
+          goldBalance:
+            walletAfter.goldBalance,
+
+          lockedPkr:
+            walletAfter.lockedPkr,
+
+          lockedUsdt:
+            walletAfter.lockedUsdt,
+        },
+      });
+
+    } catch (error) {
+      console.error(
+        "APPROVE WITHDRAW ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to approve withdraw.",
+
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
     }
-
-    wallet.lastWithdrawAt = new Date();
-
-    await wallet.save();
-
-    withdraw.walletAfter = {
-      pkrBalance: Number(wallet.pkrBalance),
-      usdtBalance: Number(wallet.usdtBalance),
-      goldBalance: Number(wallet.goldBalance),
-    };
-
-    // ==================================================
-    // UPDATE WITHDRAW STATUS
-    // ==================================================
-
-    withdraw.status = "APPROVED";
-    withdraw.approvedBy = req.user.id;
-    withdraw.approvedByUsername = req.user.username;
-    withdraw.approvedAt = new Date();
-
-    await withdraw.save();
-
-    // ==================================================
-    // WALLET HISTORY
-    // ==================================================
-
-    await WalletHistory.create({
-      userId: withdraw.userId,
-      username: withdraw.username,
-
-      walletType: withdraw.walletType,
-      type: "WITHDRAW",
-
-      amount,
-
-      balanceBefore:
-        withdraw.walletType === "PKR"
-          ? withdraw.walletBefore.pkrBalance
-          : withdraw.walletBefore.usdtBalance,
-
-      balanceAfter:
-        withdraw.walletType === "PKR"
-          ? wallet.pkrBalance
-          : wallet.usdtBalance,
-
-      referenceId: withdraw.referenceId,
-
-      admin: req.user.username,
-      note: `Withdraw approved by ${req.user.username}`,
-    });
-
-    // ==================================================
-    // TRANSACTION LEDGER
-    // ==================================================
-
-    await Transaction.create({
-      userId: withdraw.userId,
-      username: withdraw.username,
-
-      walletType: withdraw.walletType,
-
-      transactionType: "WITHDRAW_APPROVED",
-      transactionMode: "DEBIT",
-
-      amount,
-
-      balanceBefore:
-        withdraw.walletType === "PKR"
-          ? withdraw.walletBefore.pkrBalance
-          : withdraw.walletBefore.usdtBalance,
-
-      balanceAfter:
-        withdraw.walletType === "PKR"
-          ? wallet.pkrBalance
-          : wallet.usdtBalance,
-
-      status: "Completed",
-
-      paymentMethod: withdraw.paymentMethod,
-      referenceId: withdraw.referenceId,
-
-      adminId: req.user.id,
-      adminUsername: req.user.username,
-
-      note: "Withdraw approved successfully.",
-    });
-
-    // ==================================================
-    // RESPONSE
-    // ==================================================
-
-    return res.status(200).json({
-      success: true,
-      message: "Withdraw approved successfully.",
-
-      withdraw: {
-        id: withdraw._id,
-        referenceId: withdraw.referenceId,
-        username: withdraw.username,
-        walletType: withdraw.walletType,
-        amount: withdraw.amount,
-        status: withdraw.status,
-        approvedBy: withdraw.approvedByUsername,
-        approvedAt: withdraw.approvedAt,
-      },
-
-      wallet: {
-        pkrBalance: Number(wallet.pkrBalance),
-        usdtBalance: Number(wallet.usdtBalance),
-        goldBalance: Number(wallet.goldBalance),
-      },
-    });
-
-  } catch (error) {
-    console.error("APPROVE WITHDRAW ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to approve withdraw.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
-// ======================================================
-// GoldTrade V18 Enterprise Backend
-// withdrawRoutes.js — PART 4/8
-// Reject Withdraw + Cancel Withdraw APIs
-// Production Ready (Render + PM2 + MongoDB Atlas)
-// ======================================================
+);
 
 // ======================================================
 // REJECT WITHDRAW
@@ -773,270 +1800,932 @@ router.patch("/:id/approve", verifyToken, isAdmin, async (req, res) => {
 // Admin Only
 // ======================================================
 
-router.patch("/:id/reject", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const { rejectReason, note } = req.body;
+router.patch(
+  "/:id/reject",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // VALIDATE ID
+      // ==================================================
 
-    const withdraw = await Withdraw.findById(req.params.id);
+      const withdrawId = String(
+        req.params.id || ""
+      ).trim();
 
-    if (!withdraw) {
-      return res.status(404).json({
+      if (!withdrawId) {
+        return res.status(400).json({
+          success: false,
+          message: "Withdraw ID is required.",
+        });
+      }
+
+      // ==================================================
+      // REQUEST
+      // ==================================================
+
+      const {
+        rejectReason,
+        note,
+      } = req.body || {};
+
+      const withdraw =
+        await Withdraw.findById(
+          withdrawId
+        );
+
+      if (!withdraw) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Withdraw request not found.",
+        });
+      }
+
+      // ==================================================
+      // STATUS CHECK
+      // ==================================================
+
+      const currentStatus =
+        String(
+          withdraw.status || ""
+        )
+          .trim()
+          .toUpperCase();
+
+      if (currentStatus !== "PENDING") {
+        return res.status(400).json({
+          success: false,
+          message:
+            `Withdraw already ${currentStatus.toLowerCase()}.`,
+        });
+      }
+
+      // ==================================================
+      // WALLET TYPE
+      // ==================================================
+
+      const walletType =
+        String(
+          withdraw.walletType || ""
+        )
+          .trim()
+          .toUpperCase();
+
+      if (
+        !["PKR", "USDT"].includes(
+          walletType
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid withdrawal wallet type.",
+        });
+      }
+
+      // ==================================================
+      // AMOUNT
+      // ==================================================
+
+      const amount = Number(
+        withdraw.amount
+      );
+
+      if (
+        !Number.isFinite(amount) ||
+        amount <= 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid withdrawal amount.",
+        });
+      }
+
+      // ==================================================
+      // USER WALLET
+      // ==================================================
+
+      const wallet =
+        await getWallet(
+          withdraw.userId,
+          withdraw.username
+        );
+
+      if (!wallet) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User wallet not found.",
+        });
+      }
+
+      // ==================================================
+      // CURRENT WALLET STATE
+      // ==================================================
+
+      const pkrBalance =
+        Number(
+          wallet.pkrBalance || 0
+        );
+
+      const usdtBalance =
+        Number(
+          wallet.usdtBalance || 0
+        );
+
+      const goldBalance =
+        Number(
+          wallet.goldBalance || 0
+        );
+
+      const lockedPkr =
+        Number(
+          wallet.lockedPkr || 0
+        );
+
+      const lockedUsdt =
+        Number(
+          wallet.lockedUsdt || 0
+        );
+
+      // ==================================================
+      // RELEASE RESERVED BALANCE
+      // ==================================================
+
+      if (walletType === "PKR") {
+        if (lockedPkr < amount) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Reserved PKR withdrawal amount is insufficient.",
+            lockedPkr,
+            requestedAmount: amount,
+          });
+        }
+
+        wallet.lockedPkr =
+          lockedPkr - amount;
+      }
+
+      if (walletType === "USDT") {
+        if (lockedUsdt < amount) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Reserved USDT withdrawal amount is insufficient.",
+            lockedUsdt,
+            requestedAmount: amount,
+          });
+        }
+
+        wallet.lockedUsdt =
+          lockedUsdt - amount;
+      }
+
+      // ==================================================
+      // SAVE WALLET
+      // ==================================================
+
+      await wallet.save();
+
+      // ==================================================
+      // WALLET AFTER
+      // ==================================================
+
+      const walletAfter = {
+        pkrBalance:
+          Number(
+            wallet.pkrBalance || 0
+          ),
+
+        usdtBalance:
+          Number(
+            wallet.usdtBalance || 0
+          ),
+
+        goldBalance:
+          Number(
+            wallet.goldBalance || 0
+          ),
+
+        lockedPkr:
+          Number(
+            wallet.lockedPkr || 0
+          ),
+
+        lockedUsdt:
+          Number(
+            wallet.lockedUsdt || 0
+          ),
+      };
+
+      // ==================================================
+      // REJECTION DETAILS
+      // ==================================================
+
+      const finalRejectReason =
+        String(
+          rejectReason || ""
+        ).trim() ||
+        "Withdraw rejected by admin.";
+
+      withdraw.status =
+        "REJECTED";
+
+      withdraw.rejectReason =
+        finalRejectReason;
+
+      if (
+        String(note || "").trim()
+      ) {
+        withdraw.note =
+          String(note).trim();
+      }
+
+      withdraw.rejectedBy =
+        req.user.id;
+
+      withdraw.rejectedByUsername =
+        req.user.username ||
+        "Admin";
+
+      withdraw.rejectedAt =
+        new Date();
+
+      await withdraw.save();
+
+      // ==================================================
+      // WALLET HISTORY
+      // ==================================================
+
+      try {
+        await WalletHistory.create({
+          userId:
+            withdraw.userId,
+
+          username:
+            withdraw.username,
+
+          walletType,
+
+          type:
+            "WITHDRAW_REJECTED",
+
+          transactionType:
+            "WITHDRAW_REJECTED",
+
+          transactionMode:
+            "RELEASE",
+
+          amount,
+
+          balanceBefore:
+            walletType === "PKR"
+              ? pkrBalance
+              : usdtBalance,
+
+          balanceAfter:
+            walletType === "PKR"
+              ? pkrBalance
+              : usdtBalance,
+
+          referenceId:
+            withdraw.referenceId,
+
+          status:
+            "Rejected",
+
+          admin:
+            req.user.username ||
+            "Admin",
+
+          adminId:
+            req.user.id,
+
+          note:
+            finalRejectReason,
+        });
+      } catch (historyError) {
+        console.error(
+          "REJECT WITHDRAW HISTORY ERROR:",
+          historyError
+        );
+      }
+
+      // ==================================================
+      // TRANSACTION LEDGER
+      // ==================================================
+
+      try {
+        await Transaction.create({
+          userId:
+            withdraw.userId,
+
+          username:
+            withdraw.username,
+
+          walletType,
+
+          transactionType:
+            "WITHDRAW_REJECTED",
+
+          transactionMode:
+            "RELEASE",
+
+          amount,
+
+          balanceBefore:
+            walletType === "PKR"
+              ? pkrBalance
+              : usdtBalance,
+
+          balanceAfter:
+            walletType === "PKR"
+              ? pkrBalance
+              : usdtBalance,
+
+          status:
+            "Rejected",
+
+          paymentMethod:
+            withdraw.paymentMethod ||
+            "",
+
+          referenceId:
+            withdraw.referenceId,
+
+          adminId:
+            req.user.id,
+
+          adminUsername:
+            req.user.username ||
+            "Admin",
+
+          note:
+            finalRejectReason,
+        });
+      } catch (transactionError) {
+        console.error(
+          "REJECT WITHDRAW TRANSACTION ERROR:",
+          transactionError
+        );
+      }
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Withdraw rejected successfully.",
+
+        withdraw: {
+          id:
+            withdraw._id,
+
+          referenceId:
+            withdraw.referenceId,
+
+          username:
+            withdraw.username,
+
+          walletType,
+
+          amount,
+
+          status:
+            withdraw.status,
+
+          rejectedAt:
+            withdraw.rejectedAt,
+
+          rejectedBy:
+            withdraw.rejectedByUsername,
+
+          rejectReason:
+            withdraw.rejectReason,
+        },
+
+        wallet: {
+          pkrBalance:
+            walletAfter.pkrBalance,
+
+          usdtBalance:
+            walletAfter.usdtBalance,
+
+          goldBalance:
+            walletAfter.goldBalance,
+
+          lockedPkr:
+            walletAfter.lockedPkr,
+
+          lockedUsdt:
+            walletAfter.lockedUsdt,
+        },
+      });
+
+    } catch (error) {
+      console.error(
+        "REJECT WITHDRAW ERROR:",
+        error
+      );
+
+      return res.status(500).json({
         success: false,
-        message: "Withdraw request not found.",
+        message:
+          "Unable to reject withdraw request.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
       });
     }
-
-    if (withdraw.status !== "PENDING") {
-      return res.status(400).json({
-        success: false,
-        message: `Withdraw already ${withdraw.status.toLowerCase()}.`,
-      });
-    }
-
-    // ==============================================
-    // UPDATE STATUS
-    // ==============================================
-
-    withdraw.status = "REJECTED";
-    withdraw.rejectReason =
-      rejectReason || "Withdraw rejected by admin.";
-    withdraw.note = note || withdraw.note;
-
-    withdraw.approvedBy = req.user.id;
-    withdraw.approvedByUsername = req.user.username;
-    withdraw.rejectedAt = new Date();
-
-    await withdraw.save();
-
-    // ==============================================
-    // WALLET HISTORY (Audit Only)
-    // ==============================================
-
-    await WalletHistory.create({
-      userId: withdraw.userId,
-      username: withdraw.username,
-
-      walletType: withdraw.walletType,
-      type: "WITHDRAW_REJECTED",
-
-      amount: Number(withdraw.amount),
-
-      balanceBefore:
-        withdraw.walletType === "PKR"
-          ? Number(withdraw.walletBefore?.pkrBalance || 0)
-          : Number(withdraw.walletBefore?.usdtBalance || 0),
-
-      balanceAfter:
-        withdraw.walletType === "PKR"
-          ? Number(withdraw.walletBefore?.pkrBalance || 0)
-          : Number(withdraw.walletBefore?.usdtBalance || 0),
-
-      referenceId: withdraw.referenceId,
-
-      admin: req.user.username,
-      note: withdraw.rejectReason,
-    });
-
-    // ==============================================
-    // TRANSACTION LEDGER
-    // ==============================================
-
-    await Transaction.create({
-      userId: withdraw.userId,
-      username: withdraw.username,
-
-      walletType: withdraw.walletType,
-
-      transactionType: "WITHDRAW_REJECTED",
-      transactionMode: "DEBIT",
-
-      amount: Number(withdraw.amount),
-
-      balanceBefore:
-        withdraw.walletType === "PKR"
-          ? Number(withdraw.walletBefore?.pkrBalance || 0)
-          : Number(withdraw.walletBefore?.usdtBalance || 0),
-
-      balanceAfter:
-        withdraw.walletType === "PKR"
-          ? Number(withdraw.walletBefore?.pkrBalance || 0)
-          : Number(withdraw.walletBefore?.usdtBalance || 0),
-
-      status: "Rejected",
-
-      paymentMethod: withdraw.paymentMethod,
-      referenceId: withdraw.referenceId,
-
-      adminId: req.user.id,
-      adminUsername: req.user.username,
-
-      note: withdraw.rejectReason,
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Withdraw rejected successfully.",
-
-      withdraw: {
-        id: withdraw._id,
-        referenceId: withdraw.referenceId,
-        username: withdraw.username,
-        walletType: withdraw.walletType,
-        amount: withdraw.amount,
-        status: withdraw.status,
-        rejectedAt: withdraw.rejectedAt,
-        rejectedBy: withdraw.approvedByUsername,
-        rejectReason: withdraw.rejectReason,
-      },
-    });
-
-  } catch (error) {
-    console.error("REJECT WITHDRAW ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to reject withdraw request.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
+);
+
 
 // ======================================================
-// CANCEL WITHDRAW (USER)
+// CANCEL WITHDRAW
 // PATCH /api/withdraw/:id/cancel
-// User can cancel only PENDING withdraws
+// User can cancel own PENDING withdrawal
+// Admin can cancel any PENDING withdrawal
 // ======================================================
 
-router.patch("/:id/cancel", verifyToken, async (req, res) => {
-  try {
-    const withdraw = await Withdraw.findById(req.params.id);
+router.patch(
+  "/:id/cancel",
+  verifyToken,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // VALIDATE ID
+      // ==================================================
 
-    if (!withdraw) {
-      return res.status(404).json({
+      const withdrawId = String(
+        req.params.id || ""
+      ).trim();
+
+      if (!withdrawId) {
+        return res.status(400).json({
+          success: false,
+          message: "Withdraw ID is required.",
+        });
+      }
+
+      // ==================================================
+      // FIND WITHDRAW
+      // ==================================================
+
+      const withdraw =
+        await Withdraw.findById(
+          withdrawId
+        );
+
+      if (!withdraw) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Withdraw request not found.",
+        });
+      }
+
+      // ==================================================
+      // AUTHORIZATION
+      // ==================================================
+
+      const role = String(
+        req.user?.role || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const currentUserId =
+        String(
+          req.user?.id || ""
+        );
+
+      const withdrawUserId =
+        String(
+          withdraw.userId || ""
+        );
+
+      const isAdmin =
+        role === "admin";
+
+      const isOwner =
+        withdrawUserId ===
+        currentUserId;
+
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Access denied.",
+        });
+      }
+
+      // ==================================================
+      // STATUS CHECK
+      // ==================================================
+
+      const currentStatus =
+        String(
+          withdraw.status || ""
+        )
+          .trim()
+          .toUpperCase();
+
+      if (currentStatus !== "PENDING") {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Only pending withdraw requests can be cancelled.",
+        });
+      }
+
+      // ==================================================
+      // WALLET TYPE
+      // ==================================================
+
+      const walletType =
+        String(
+          withdraw.walletType || ""
+        )
+          .trim()
+          .toUpperCase();
+
+      if (
+        !["PKR", "USDT"].includes(
+          walletType
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid withdrawal wallet type.",
+        });
+      }
+
+      // ==================================================
+      // AMOUNT
+      // ==================================================
+
+      const amount = Number(
+        withdraw.amount
+      );
+
+      if (
+        !Number.isFinite(amount) ||
+        amount <= 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid withdrawal amount.",
+        });
+      }
+
+      // ==================================================
+      // USER WALLET
+      // ==================================================
+
+      const wallet =
+        await getWallet(
+          withdraw.userId,
+          withdraw.username
+        );
+
+      if (!wallet) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User wallet not found.",
+        });
+      }
+
+      // ==================================================
+      // CURRENT BALANCES
+      // ==================================================
+
+      const pkrBalance =
+        Number(
+          wallet.pkrBalance || 0
+        );
+
+      const usdtBalance =
+        Number(
+          wallet.usdtBalance || 0
+        );
+
+      const goldBalance =
+        Number(
+          wallet.goldBalance || 0
+        );
+
+      const lockedPkr =
+        Number(
+          wallet.lockedPkr || 0
+        );
+
+      const lockedUsdt =
+        Number(
+          wallet.lockedUsdt || 0
+        );
+
+      // ==================================================
+      // RELEASE LOCK
+      // ==================================================
+
+      if (walletType === "PKR") {
+        if (lockedPkr < amount) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Reserved PKR withdrawal amount is insufficient.",
+            lockedPkr,
+            requestedAmount: amount,
+          });
+        }
+
+        wallet.lockedPkr =
+          lockedPkr - amount;
+      }
+
+      if (walletType === "USDT") {
+        if (lockedUsdt < amount) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Reserved USDT withdrawal amount is insufficient.",
+            lockedUsdt,
+            requestedAmount: amount,
+          });
+        }
+
+        wallet.lockedUsdt =
+          lockedUsdt - amount;
+      }
+
+      // ==================================================
+      // SAVE WALLET
+      // ==================================================
+
+      await wallet.save();
+
+      // ==================================================
+      // WALLET AFTER
+      // ==================================================
+
+      const walletAfter = {
+        pkrBalance:
+          Number(
+            wallet.pkrBalance || 0
+          ),
+
+        usdtBalance:
+          Number(
+            wallet.usdtBalance || 0
+          ),
+
+        goldBalance:
+          Number(
+            wallet.goldBalance || 0
+          ),
+
+        lockedPkr:
+          Number(
+            wallet.lockedPkr || 0
+          ),
+
+        lockedUsdt:
+          Number(
+            wallet.lockedUsdt || 0
+          ),
+      };
+
+      // ==================================================
+      // UPDATE WITHDRAW
+      // ==================================================
+
+      withdraw.status =
+        "CANCELLED";
+
+      withdraw.cancelledAt =
+        new Date();
+
+      withdraw.cancelledBy =
+        req.user.id;
+
+      withdraw.cancelledByUsername =
+        req.user.username ||
+        (isAdmin ? "Admin" : withdraw.username);
+
+      withdraw.note =
+        isAdmin
+          ? "Withdraw cancelled by admin."
+          : "Withdraw cancelled by user.";
+
+      await withdraw.save();
+
+      // ==================================================
+      // TRANSACTION LEDGER
+      // ==================================================
+
+      try {
+        await Transaction.create({
+          userId:
+            withdraw.userId,
+
+          username:
+            withdraw.username,
+
+          walletType,
+
+          transactionType:
+            "WITHDRAW_CANCELLED",
+
+          transactionMode:
+            "RELEASE",
+
+          amount,
+
+          balanceBefore:
+            walletType === "PKR"
+              ? pkrBalance
+              : usdtBalance,
+
+          balanceAfter:
+            walletType === "PKR"
+              ? pkrBalance
+              : usdtBalance,
+
+          status:
+            "Cancelled",
+
+          paymentMethod:
+            withdraw.paymentMethod ||
+            "",
+
+          referenceId:
+            withdraw.referenceId,
+
+          adminId:
+            isAdmin
+              ? req.user.id
+              : undefined,
+
+          adminUsername:
+            isAdmin
+              ? req.user.username
+              : undefined,
+
+          note:
+            withdraw.note,
+        });
+      } catch (transactionError) {
+        console.error(
+          "CANCEL WITHDRAW TRANSACTION ERROR:",
+          transactionError
+        );
+      }
+
+      // ==================================================
+      // WALLET HISTORY
+      // ==================================================
+
+      try {
+        await WalletHistory.create({
+          userId:
+            withdraw.userId,
+
+          username:
+            withdraw.username,
+
+          walletType,
+
+          type:
+            "WITHDRAW_CANCELLED",
+
+          transactionType:
+            "WITHDRAW_CANCELLED",
+
+          transactionMode:
+            "RELEASE",
+
+          amount,
+
+          balanceBefore:
+            walletType === "PKR"
+              ? pkrBalance
+              : usdtBalance,
+
+          balanceAfter:
+            walletType === "PKR"
+              ? pkrBalance
+              : usdtBalance,
+
+          referenceId:
+            withdraw.referenceId,
+
+          status:
+            "Cancelled",
+
+          admin:
+            isAdmin
+              ? req.user.username
+              : undefined,
+
+          adminId:
+            isAdmin
+              ? req.user.id
+              : undefined,
+
+          note:
+            withdraw.note,
+        });
+      } catch (historyError) {
+        console.error(
+          "CANCEL WITHDRAW HISTORY ERROR:",
+          historyError
+        );
+      }
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Withdraw cancelled successfully.",
+
+        withdraw: {
+          id:
+            withdraw._id,
+
+          referenceId:
+            withdraw.referenceId,
+
+          username:
+            withdraw.username,
+
+          walletType,
+
+          amount,
+
+          status:
+            withdraw.status,
+
+          cancelledAt:
+            withdraw.cancelledAt,
+
+          cancelledBy:
+            withdraw.cancelledByUsername,
+        },
+
+        wallet: {
+          pkrBalance:
+            walletAfter.pkrBalance,
+
+          usdtBalance:
+            walletAfter.usdtBalance,
+
+          goldBalance:
+            walletAfter.goldBalance,
+
+          lockedPkr:
+            walletAfter.lockedPkr,
+
+          lockedUsdt:
+            walletAfter.lockedUsdt,
+        },
+      });
+
+    } catch (error) {
+      console.error(
+        "CANCEL WITHDRAW ERROR:",
+        error
+      );
+
+      return res.status(500).json({
         success: false,
-        message: "Withdraw request not found.",
+        message:
+          "Unable to cancel withdraw request.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
       });
     }
-
-    // User can cancel only own request (Admin can cancel any)
-    if (
-      req.user.role !== "admin" &&
-      withdraw.userId.toString() !== req.user.id
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied.",
-      });
-    }
-
-    if (withdraw.status !== "PENDING") {
-      return res.status(400).json({
-        success: false,
-        message: "Only pending withdraw requests can be cancelled.",
-      });
-    }
-
-    withdraw.status = "CANCELLED";
-    withdraw.cancelledAt = new Date();
-    withdraw.note = "Withdraw cancelled by user.";
-
-    await withdraw.save();
-
-    // ==============================================
-    // TRANSACTION LEDGER
-    // ==============================================
-
-    await Transaction.create({
-      userId: withdraw.userId,
-      username: withdraw.username,
-
-      walletType: withdraw.walletType,
-
-      transactionType: "WITHDRAW_REJECTED",
-      transactionMode: "DEBIT",
-
-      amount: Number(withdraw.amount),
-
-      balanceBefore:
-        withdraw.walletType === "PKR"
-          ? Number(withdraw.walletBefore?.pkrBalance || 0)
-          : Number(withdraw.walletBefore?.usdtBalance || 0),
-
-      balanceAfter:
-        withdraw.walletType === "PKR"
-          ? Number(withdraw.walletBefore?.pkrBalance || 0)
-          : Number(withdraw.walletBefore?.usdtBalance || 0),
-
-      status: "Rejected",
-
-      paymentMethod: withdraw.paymentMethod,
-      referenceId: withdraw.referenceId,
-
-      note: "Withdraw cancelled by user.",
-    });
-
-    // ==============================================
-    // WALLET HISTORY (Audit Only)
-    // ==============================================
-
-    await WalletHistory.create({
-      userId: withdraw.userId,
-      username: withdraw.username,
-
-      walletType: withdraw.walletType,
-      type: "WITHDRAW_CANCELLED",
-
-      amount: Number(withdraw.amount),
-
-      balanceBefore:
-        withdraw.walletType === "PKR"
-          ? Number(withdraw.walletBefore?.pkrBalance || 0)
-          : Number(withdraw.walletBefore?.usdtBalance || 0),
-
-      balanceAfter:
-        withdraw.walletType === "PKR"
-          ? Number(withdraw.walletBefore?.pkrBalance || 0)
-          : Number(withdraw.walletBefore?.usdtBalance || 0),
-
-      referenceId: withdraw.referenceId,
-
-      note: "Withdraw cancelled by user.",
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Withdraw cancelled successfully.",
-
-      withdraw: {
-        id: withdraw._id,
-        referenceId: withdraw.referenceId,
-        status: withdraw.status,
-        cancelledAt: withdraw.cancelledAt,
-      },
-    });
-
-  } catch (error) {
-    console.error("CANCEL WITHDRAW ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to cancel withdraw request.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
-// ======================================================
-// GoldTrade V18 Enterprise Backend
-// withdrawRoutes.js — PART 5/8
-// Admin Dashboard + Analytics + User Summary APIs
-// Production Ready (Render + PM2 + MongoDB Atlas)
-// ======================================================
+);
 
 // ======================================================
 // ADMIN WITHDRAW DASHBOARD
@@ -1044,92 +2733,260 @@ router.patch("/:id/cancel", verifyToken, async (req, res) => {
 // Used by frontend/app/admin/withdraw/page.tsx
 // ======================================================
 
-router.get("/admin/dashboard", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const [
-      totalWithdraws,
-      pendingWithdraws,
-      approvedWithdraws,
-      rejectedWithdraws,
-      cancelledWithdraws,
-      recentWithdraws,
-    ] = await Promise.all([
-      Withdraw.countDocuments({}),
-      Withdraw.countDocuments({ status: "PENDING" }),
-      Withdraw.countDocuments({ status: "APPROVED" }),
-      Withdraw.countDocuments({ status: "REJECTED" }),
-      Withdraw.countDocuments({ status: "CANCELLED" }),
-      Withdraw.find({})
-        .sort({ createdAt: -1 })
-        .limit(10)
-        .lean(),
-    ]);
-
-    const approvedList = await Withdraw.find({
-      status: "APPROVED",
-    }).lean();
-
-    const pendingList = await Withdraw.find({
-      status: "PENDING",
-    }).lean();
-
-    let totalApprovedAmount = 0;
-    let totalPendingAmount = 0;
-    let totalPKRWithdraws = 0;
-    let totalUSDTWithdraws = 0;
-
-    approvedList.forEach((withdraw) => {
-      const amount = Number(withdraw.amount || 0);
-
-      totalApprovedAmount += amount;
-
-      if (withdraw.walletType === "PKR") {
-        totalPKRWithdraws += amount;
-      }
-
-      if (withdraw.walletType === "USDT") {
-        totalUSDTWithdraws += amount;
-      }
-    });
-
-    pendingList.forEach((withdraw) => {
-      totalPendingAmount += Number(withdraw.amount || 0);
-    });
-
-    return res.status(200).json({
-      success: true,
-
-      dashboard: {
+router.get(
+  "/admin/dashboard",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const [
         totalWithdraws,
         pendingWithdraws,
         approvedWithdraws,
         rejectedWithdraws,
         cancelledWithdraws,
+        recentWithdraws,
+      ] = await Promise.all([
+        Withdraw.countDocuments({}),
 
-        totalApprovedAmount: Number(totalApprovedAmount.toFixed(2)),
-        totalPendingAmount: Number(totalPendingAmount.toFixed(2)),
+        Withdraw.countDocuments({
+          status: "PENDING",
+        }),
 
-        totalPKRWithdraws: Number(totalPKRWithdraws.toFixed(2)),
-        totalUSDTWithdraws: Number(totalUSDTWithdraws.toFixed(6)),
-      },
+        Withdraw.countDocuments({
+          status: "APPROVED",
+        }),
 
-      recentWithdraws,
-      generatedAt: new Date().toISOString(),
-    });
+        Withdraw.countDocuments({
+          status: "REJECTED",
+        }),
 
-  } catch (error) {
-    console.error("ADMIN WITHDRAW DASHBOARD ERROR:", error);
+        Withdraw.countDocuments({
+          status: "CANCELLED",
+        }),
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load withdraw dashboard.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+        Withdraw.find({})
+          .sort({
+            createdAt: -1,
+            _id: -1,
+          })
+          .limit(10)
+          .lean(),
+      ]);
+
+      // --------------------------------------------------
+      // APPROVED TOTALS
+      // --------------------------------------------------
+
+      const approvedStats =
+        await Withdraw.aggregate([
+          {
+            $match: {
+              status: "APPROVED",
+            },
+          },
+
+          {
+            $group: {
+              _id: null,
+
+              totalAmount: {
+                $sum: {
+                  $convert: {
+                    input: "$amount",
+                    to: "double",
+                    onError: 0,
+                    onNull: 0,
+                  },
+                },
+              },
+
+              totalPKR: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: [
+                        {
+                          $toUpper: {
+                            $ifNull: [
+                              "$walletType",
+                              "",
+                            ],
+                          },
+                        },
+                        "PKR",
+                      ],
+                    },
+
+                    {
+                      $convert: {
+                        input: "$amount",
+                        to: "double",
+                        onError: 0,
+                        onNull: 0,
+                      },
+                    },
+
+                    0,
+                  ],
+                },
+              },
+
+              totalUSDT: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: [
+                        {
+                          $toUpper: {
+                            $ifNull: [
+                              "$walletType",
+                              "",
+                            ],
+                          },
+                        },
+                        "USDT",
+                      ],
+                    },
+
+                    {
+                      $convert: {
+                        input: "$amount",
+                        to: "double",
+                        onError: 0,
+                        onNull: 0,
+                      },
+                    },
+
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ]);
+
+      // --------------------------------------------------
+      // PENDING TOTAL
+      // --------------------------------------------------
+
+      const pendingStats =
+        await Withdraw.aggregate([
+          {
+            $match: {
+              status: "PENDING",
+            },
+          },
+
+          {
+            $group: {
+              _id: null,
+
+              totalAmount: {
+                $sum: {
+                  $convert: {
+                    input: "$amount",
+                    to: "double",
+                    onError: 0,
+                    onNull: 0,
+                  },
+                },
+              },
+            },
+          },
+        ]);
+
+      const approvedData =
+        approvedStats[0] || {};
+
+      const pendingData =
+        pendingStats[0] || {};
+
+      const totalApprovedAmount =
+        Number(
+          approvedData.totalAmount || 0
+        );
+
+      const totalPendingAmount =
+        Number(
+          pendingData.totalAmount || 0
+        );
+
+      const totalPKRWithdraws =
+        Number(
+          approvedData.totalPKR || 0
+        );
+
+      const totalUSDTWithdraws =
+        Number(
+          approvedData.totalUSDT || 0
+        );
+
+      // --------------------------------------------------
+      // RESPONSE
+      // --------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+
+        dashboard: {
+          totalWithdraws,
+
+          pendingWithdraws,
+
+          approvedWithdraws,
+
+          rejectedWithdraws,
+
+          cancelledWithdraws,
+
+          totalApprovedAmount:
+            Number(
+              totalApprovedAmount.toFixed(2)
+            ),
+
+          totalPendingAmount:
+            Number(
+              totalPendingAmount.toFixed(2)
+            ),
+
+          totalPKRWithdraws:
+            Number(
+              totalPKRWithdraws.toFixed(2)
+            ),
+
+          totalUSDTWithdraws:
+            Number(
+              totalUSDTWithdraws.toFixed(6)
+            ),
+        },
+
+        recentWithdraws,
+
+        generatedAt:
+          new Date().toISOString(),
+      });
+
+    } catch (error) {
+      console.error(
+        "ADMIN WITHDRAW DASHBOARD ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load withdraw dashboard.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
+
 
 // ======================================================
 // ADMIN WITHDRAW ANALYTICS
@@ -1137,193 +2994,505 @@ router.get("/admin/dashboard", verifyToken, isAdmin, async (req, res) => {
 // Used by Dashboard Charts
 // ======================================================
 
-router.get("/admin/analytics", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const withdrawals = await Withdraw.find({
-      status: "APPROVED",
-    }).lean();
+router.get(
+  "/admin/analytics",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const withdrawals =
+        await Withdraw.find({
+          status: "APPROVED",
+        })
+          .select(
+            "amount walletType createdAt approvedAt"
+          )
+          .lean();
 
-    let totalAmount = 0;
-    let totalPKR = 0;
-    let totalUSDT = 0;
+      let totalAmount = 0;
+      let totalPKR = 0;
+      let totalUSDT = 0;
 
-    const monthlyMap = {};
+      const monthlyMap = {};
 
-    withdrawals.forEach((withdraw) => {
-      const amount = Number(withdraw.amount || 0);
+      // --------------------------------------------------
+      // PROCESS APPROVED WITHDRAWALS
+      // --------------------------------------------------
 
-      const month = new Date(withdraw.createdAt)
-        .toISOString()
-        .slice(0, 7);
+      withdrawals.forEach(
+        (withdraw) => {
+          const amount = Number(
+            withdraw.amount || 0
+          );
 
-      if (!monthlyMap[month]) {
-        monthlyMap[month] = {
-          month,
-          withdrawals: 0,
-          amount: 0,
-          pkr: 0,
-          usdt: 0,
-        };
-      }
+          if (
+            !Number.isFinite(amount) ||
+            amount <= 0
+          ) {
+            return;
+          }
 
-      monthlyMap[month].withdrawals += 1;
-      monthlyMap[month].amount += amount;
+          // Use approval date when available.
+          // Fallback to createdAt.
+          const dateValue =
+            withdraw.approvedAt ||
+            withdraw.createdAt;
 
-      if (withdraw.walletType === "PKR") {
-        monthlyMap[month].pkr += amount;
-        totalPKR += amount;
-      }
+          const date =
+            new Date(dateValue);
 
-      if (withdraw.walletType === "USDT") {
-        monthlyMap[month].usdt += amount;
-        totalUSDT += amount;
-      }
+          if (
+            Number.isNaN(
+              date.getTime()
+            )
+          ) {
+            return;
+          }
 
-      totalAmount += amount;
-    });
+          const month =
+            date.toISOString().slice(0, 7);
 
-    const monthlyAnalytics = Object.values(monthlyMap).sort((a, b) =>
-      a.month.localeCompare(b.month)
-    );
+          if (!monthlyMap[month]) {
+            monthlyMap[month] = {
+              month,
 
-    return res.status(200).json({
-      success: true,
+              withdrawals: 0,
 
-      analytics: {
-        totalApprovedWithdrawals: withdrawals.length,
+              amount: 0,
 
-        totalAmount: Number(totalAmount.toFixed(2)),
-        totalPKR: Number(totalPKR.toFixed(2)),
-        totalUSDT: Number(totalUSDT.toFixed(6)),
+              pkr: 0,
 
-        averageWithdraw:
-          withdrawals.length > 0
-            ? Number((totalAmount / withdrawals.length).toFixed(2))
-            : 0,
+              usdt: 0,
+            };
+          }
 
-        monthlyAnalytics,
-      },
-    });
+          monthlyMap[month]
+            .withdrawals += 1;
 
-  } catch (error) {
-    console.error("WITHDRAW ANALYTICS ERROR:", error);
+          monthlyMap[month]
+            .amount += amount;
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load withdraw analytics.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+          const walletType =
+            String(
+              withdraw.walletType || ""
+            )
+              .trim()
+              .toUpperCase();
+
+          if (
+            walletType === "PKR"
+          ) {
+            monthlyMap[month]
+              .pkr += amount;
+
+            totalPKR += amount;
+          }
+
+          if (
+            walletType === "USDT"
+          ) {
+            monthlyMap[month]
+              .usdt += amount;
+
+            totalUSDT += amount;
+          }
+
+          totalAmount += amount;
+        }
+      );
+
+      // --------------------------------------------------
+      // FORMAT MONTHLY ANALYTICS
+      // --------------------------------------------------
+
+      const monthlyAnalytics =
+        Object.values(
+          monthlyMap
+        )
+          .sort((a, b) =>
+            a.month.localeCompare(
+              b.month
+            )
+          )
+          .map((item) => ({
+            month:
+              item.month,
+
+            withdrawals:
+              Number(
+                item.withdrawals || 0
+              ),
+
+            amount:
+              Number(
+                Number(
+                  item.amount || 0
+                ).toFixed(2)
+              ),
+
+            pkr:
+              Number(
+                Number(
+                  item.pkr || 0
+                ).toFixed(2)
+              ),
+
+            usdt:
+              Number(
+                Number(
+                  item.usdt || 0
+                ).toFixed(6)
+              ),
+          }));
+
+      // --------------------------------------------------
+      // AVERAGE
+      // --------------------------------------------------
+
+      const averageWithdraw =
+        withdrawals.length > 0
+          ? totalAmount /
+            withdrawals.length
+          : 0;
+
+      // --------------------------------------------------
+      // RESPONSE
+      // --------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+
+        analytics: {
+          totalApprovedWithdrawals:
+            withdrawals.length,
+
+          totalAmount:
+            Number(
+              totalAmount.toFixed(2)
+            ),
+
+          totalPKR:
+            Number(
+              totalPKR.toFixed(2)
+            ),
+
+          totalUSDT:
+            Number(
+              totalUSDT.toFixed(6)
+            ),
+
+          averageWithdraw:
+            Number(
+              averageWithdraw.toFixed(2)
+            ),
+
+          monthlyAnalytics,
+        },
+      });
+
+    } catch (error) {
+      console.error(
+        "WITHDRAW ANALYTICS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load withdraw analytics.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
+
 
 // ======================================================
 // ADMIN RECENT WITHDRAWS
 // GET /api/withdraw/admin/recent
 // ======================================================
 
-router.get("/admin/recent", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const limit = Math.min(Number(req.query.limit) || 20, 100);
+router.get(
+  "/admin/recent",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const requestedLimit =
+        Number.parseInt(
+          req.query.limit,
+          10
+        );
 
-    const withdrawals = await Withdraw.find({})
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+      const limit =
+        Number.isFinite(
+          requestedLimit
+        ) &&
+        requestedLimit > 0
+          ? Math.min(
+              requestedLimit,
+              100
+            )
+          : 20;
 
-    return res.status(200).json({
-      success: true,
-      total: withdrawals.length,
-      recentWithdraws: withdrawals,
-    });
+      const withdrawals =
+        await Withdraw.find({})
+          .sort({
+            createdAt: -1,
+            _id: -1,
+          })
+          .limit(limit)
+          .lean();
 
-  } catch (error) {
-    console.error("RECENT WITHDRAW ERROR:", error);
+      return res.status(200).json({
+        success: true,
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load recent withdrawals.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+        total:
+          withdrawals.length,
+
+        limit,
+
+        recentWithdraws:
+          withdrawals,
+      });
+
+    } catch (error) {
+      console.error(
+        "RECENT WITHDRAW ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load recent withdrawals.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
+
 
 // ======================================================
 // ADMIN TOP WITHDRAW USERS
 // GET /api/withdraw/admin/top-users
 // ======================================================
 
-router.get("/admin/top-users", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const topUsers = await Withdraw.aggregate([
-      { $match: { status: "APPROVED" } },
+router.get(
+  "/admin/top-users",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const topUsers =
+        await Withdraw.aggregate([
+          // --------------------------------------------
+          // ONLY APPROVED WITHDRAWALS
+          // --------------------------------------------
 
-      {
-        $group: {
-          _id: "$username",
-
-          totalWithdrawals: { $sum: 1 },
-          totalAmount: { $sum: "$amount" },
-
-          pkrWithdrawals: {
-            $sum: {
-              $cond: [{ $eq: ["$walletType", "PKR"] }, "$amount", 0],
+          {
+            $match: {
+              status: "APPROVED",
             },
           },
 
-          usdtWithdrawals: {
-            $sum: {
-              $cond: [{ $eq: ["$walletType", "USDT"] }, "$amount", 0],
+          // --------------------------------------------
+          // GROUP
+          // --------------------------------------------
+
+          {
+            $group: {
+              _id: "$username",
+
+              totalWithdrawals: {
+                $sum: 1,
+              },
+
+              totalAmount: {
+                $sum: {
+                  $convert: {
+                    input: "$amount",
+                    to: "double",
+                    onError: 0,
+                    onNull: 0,
+                  },
+                },
+              },
+
+              pkrWithdrawals: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: [
+                        {
+                          $toUpper: {
+                            $ifNull: [
+                              "$walletType",
+                              "",
+                            ],
+                          },
+                        },
+                        "PKR",
+                      ],
+                    },
+
+                    {
+                      $convert: {
+                        input:
+                          "$amount",
+                        to: "double",
+                        onError: 0,
+                        onNull: 0,
+                      },
+                    },
+
+                    0,
+                  ],
+                },
+              },
+
+              usdtWithdrawals: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: [
+                        {
+                          $toUpper: {
+                            $ifNull: [
+                              "$walletType",
+                              "",
+                            ],
+                          },
+                        },
+                        "USDT",
+                      ],
+                    },
+
+                    {
+                      $convert: {
+                        input:
+                          "$amount",
+                        to: "double",
+                        onError: 0,
+                        onNull: 0,
+                      },
+                    },
+
+                    0,
+                  ],
+                },
+              },
+
+              lastWithdraw: {
+                $max: "$approvedAt",
+              },
             },
           },
 
-          lastWithdraw: { $max: "$createdAt" },
-        },
-      },
+          // --------------------------------------------
+          // SORT
+          // --------------------------------------------
 
-      { $sort: { totalAmount: -1 } },
+          {
+            $sort: {
+              totalAmount: -1,
+              _id: 1,
+            },
+          },
 
-      { $limit: 20 },
-    ]);
+          // --------------------------------------------
+          // LIMIT
+          // --------------------------------------------
 
-    return res.status(200).json({
-      success: true,
-      total: topUsers.length,
+          {
+            $limit: 20,
+          },
+        ]);
 
-      users: topUsers.map((user, index) => ({
-        rank: index + 1,
-        username: user._id,
+      // --------------------------------------------------
+      // RESPONSE
+      // --------------------------------------------------
 
-        totalWithdrawals: user.totalWithdrawals,
+      return res.status(200).json({
+        success: true,
 
-        totalAmount: Number(user.totalAmount.toFixed(2)),
+        total:
+          topUsers.length,
 
-        pkrWithdrawals: Number(user.pkrWithdrawals.toFixed(2)),
+        users:
+          topUsers.map(
+            (user, index) => ({
+              rank:
+                index + 1,
 
-        usdtWithdrawals: Number(user.usdtWithdrawals.toFixed(6)),
+              username:
+                user._id ||
+                "Unknown",
 
-        lastWithdraw: user.lastWithdraw,
-      })),
-    });
+              totalWithdrawals:
+                Number(
+                  user.totalWithdrawals ||
+                    0
+                ),
 
-  } catch (error) {
-    console.error("TOP WITHDRAW USERS ERROR:", error);
+              totalAmount:
+                Number(
+                  Number(
+                    user.totalAmount || 0
+                  ).toFixed(2)
+                ),
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load top withdraw users.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+              pkrWithdrawals:
+                Number(
+                  Number(
+                    user.pkrWithdrawals ||
+                      0
+                  ).toFixed(2)
+                ),
+
+              usdtWithdrawals:
+                Number(
+                  Number(
+                    user.usdtWithdrawals ||
+                      0
+                  ).toFixed(6)
+                ),
+
+              lastWithdraw:
+                user.lastWithdraw ||
+                null,
+            })
+          ),
+      });
+
+    } catch (error) {
+      console.error(
+        "TOP WITHDRAW USERS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load top withdraw users.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
+
 
 // ======================================================
 // ADMIN USER WITHDRAW SUMMARY
@@ -1336,28 +3505,68 @@ router.get(
   isAdmin,
   async (req, res) => {
     try {
-      const username = req.params.username.trim().toLowerCase();
+      const username =
+        String(
+          req.params.username || ""
+        )
+          .trim()
+          .toLowerCase();
 
-      const user = await User.findOne({ username })
-        .select("_id username fullName email role createdAt")
-        .lean();
+      if (!username) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Username is required.",
+        });
+      }
+
+      // --------------------------------------------------
+      // USER
+      // --------------------------------------------------
+
+      const user =
+        await User.findOne({
+          username,
+        })
+          .select(
+            "_id username fullName email role createdAt"
+          )
+          .lean();
 
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found.",
+          message:
+            "User not found.",
         });
       }
 
-      const wallet = await Wallet.findOne({
-        userId: user._id,
-      }).lean();
+      // --------------------------------------------------
+      // WALLET + WITHDRAWALS
+      // --------------------------------------------------
 
-      const withdrawals = await Withdraw.find({
-        userId: user._id,
-      })
-        .sort({ createdAt: -1 })
-        .lean();
+      const [
+        wallet,
+        withdrawals,
+      ] = await Promise.all([
+        Wallet.findOne({
+          userId: user._id,
+        }).lean(),
+
+        Withdraw.find({
+          userId: user._id,
+        })
+          .sort({
+            createdAt: -1,
+            _id: -1,
+          })
+          .limit(100)
+          .lean(),
+      ]);
+
+      // --------------------------------------------------
+      // STATISTICS
+      // --------------------------------------------------
 
       let pendingAmount = 0;
       let approvedAmount = 0;
@@ -1369,88 +3578,264 @@ router.get(
       let rejectedCount = 0;
       let cancelledCount = 0;
 
-      withdrawals.forEach((withdraw) => {
-        const amount = Number(withdraw.amount || 0);
+      withdrawals.forEach(
+        (withdraw) => {
+          const amount =
+            Number(
+              withdraw.amount || 0
+            );
 
-        switch (withdraw.status) {
-          case "PENDING":
-            pendingCount++;
-            pendingAmount += amount;
-            break;
+          if (
+            !Number.isFinite(amount) ||
+            amount <= 0
+          ) {
+            return;
+          }
 
-          case "APPROVED":
-            approvedCount++;
-            approvedAmount += amount;
-            break;
+          const status =
+            String(
+              withdraw.status || ""
+            )
+              .trim()
+              .toUpperCase();
 
-          case "REJECTED":
-            rejectedCount++;
-            rejectedAmount += amount;
-            break;
+          switch (status) {
+            case "PENDING":
+              pendingCount++;
+              pendingAmount += amount;
+              break;
 
-          case "CANCELLED":
-            cancelledCount++;
-            cancelledAmount += amount;
-            break;
+            case "APPROVED":
+              approvedCount++;
+              approvedAmount += amount;
+              break;
+
+            case "REJECTED":
+              rejectedCount++;
+              rejectedAmount += amount;
+              break;
+
+            case "CANCELLED":
+              cancelledCount++;
+              cancelledAmount += amount;
+              break;
+
+            default:
+              break;
+          }
         }
-      });
+      );
+
+      // --------------------------------------------------
+      // RESPONSE
+      // --------------------------------------------------
 
       return res.status(200).json({
         success: true,
 
         user: {
-          username: user.username,
-          fullName: user.fullName,
-          email: user.email,
-          role: user.role,
-          joinedAt: user.createdAt,
+          id:
+            user._id,
+
+          username:
+            user.username,
+
+          fullName:
+            user.fullName || "",
+
+          email:
+            user.email || "",
+
+          role:
+            user.role || "user",
+
+          joinedAt:
+            user.createdAt || null,
         },
 
         wallet: wallet
           ? {
-              pkrBalance: Number(wallet.pkrBalance || 0),
-              usdtBalance: Number(wallet.usdtBalance || 0),
-              goldBalance: Number(wallet.goldBalance || 0),
+              pkrBalance:
+                Number(
+                  wallet.pkrBalance ||
+                    0
+                ),
+
+              usdtBalance:
+                Number(
+                  wallet.usdtBalance ||
+                    0
+                ),
+
+              goldBalance:
+                Number(
+                  wallet.goldBalance ||
+                    0
+                ),
+
+              lockedPkr:
+                Number(
+                  wallet.lockedPkr ||
+                    0
+                ),
+
+              lockedUsdt:
+                Number(
+                  wallet.lockedUsdt ||
+                    0
+                ),
+
+              availablePkr:
+                Math.max(
+                  Number(
+                    wallet.pkrBalance ||
+                      0
+                  ) -
+                    Number(
+                      wallet.lockedPkr ||
+                        0
+                    ),
+                  0
+                ),
+
+              availableUsdt:
+                Math.max(
+                  Number(
+                    wallet.usdtBalance ||
+                      0
+                  ) -
+                    Number(
+                      wallet.lockedUsdt ||
+                        0
+                    ),
+                  0
+                ),
             }
           : null,
 
         statistics: {
-          totalWithdrawals: withdrawals.length,
+          totalWithdrawals:
+            withdrawals.length,
 
           pendingCount,
+
           approvedCount,
+
           rejectedCount,
+
           cancelledCount,
 
-          pendingAmount: Number(pendingAmount.toFixed(2)),
-          approvedAmount: Number(approvedAmount.toFixed(2)),
-          rejectedAmount: Number(rejectedAmount.toFixed(2)),
-          cancelledAmount: Number(cancelledAmount.toFixed(2)),
+          pendingAmount:
+            Number(
+              pendingAmount.toFixed(2)
+            ),
+
+          approvedAmount:
+            Number(
+              approvedAmount.toFixed(2)
+            ),
+
+          rejectedAmount:
+            Number(
+              rejectedAmount.toFixed(2)
+            ),
+
+          cancelledAmount:
+            Number(
+              cancelledAmount.toFixed(2)
+            ),
         },
 
-        recentWithdrawals: withdrawals.slice(0, 10),
+        recentWithdrawals:
+          withdrawals.slice(0, 10),
       });
 
     } catch (error) {
-      console.error("USER WITHDRAW SUMMARY ERROR:", error);
+      console.error(
+        "USER WITHDRAW SUMMARY ERROR:",
+        error
+      );
 
       return res.status(500).json({
         success: false,
-        message: "Unable to load user withdraw summary.",
+        message:
+          "Unable to load user withdraw summary.",
         error:
-          process.env.NODE_ENV === "production"
+          process.env.NODE_ENV ===
+          "production"
             ? undefined
             : error.message,
       });
     }
   }
 );
+
 // ======================================================
-// GoldTrade V18 Enterprise Backend
-// withdrawRoutes.js — PART 6/8
-// Withdraw Settings + Payment Settings APIs
-// Production Ready (Render + PM2 + MongoDB Atlas)
+// WITHDRAW PAYMENT DEFAULTS
 // ======================================================
+
+const DEFAULT_WITHDRAW_PAYMENT_SETTINGS = {
+  bankName: "",
+  accountTitle: "",
+  accountNumber: "",
+  iban: "",
+
+  usdtNetwork: "TRC20",
+  usdtAddress: "",
+};
+
+// ======================================================
+// NORMALIZE WITHDRAW PAYMENT SETTINGS
+// ======================================================
+
+const normalizeWithdrawPaymentSettings = (
+  paymentSettings
+) => {
+  const source =
+    paymentSettings || {};
+
+  const network =
+    String(
+      source.usdtNetwork ||
+        "TRC20"
+    )
+      .trim()
+      .toUpperCase();
+
+  return {
+    bankName:
+      String(
+        source.bankName || ""
+      ).trim(),
+
+    accountTitle:
+      String(
+        source.accountTitle || ""
+      ).trim(),
+
+    accountNumber:
+      String(
+        source.accountNumber || ""
+      ).trim(),
+
+    iban:
+      String(
+        source.iban || ""
+      ).trim(),
+
+    usdtNetwork:
+      ["TRC20", "ERC20", "BEP20"].includes(
+        network
+      )
+        ? network
+        : "TRC20",
+
+    usdtAddress:
+      String(
+        source.usdtAddress || ""
+      ).trim(),
+  };
+};
 
 // ======================================================
 // GET WITHDRAW SETTINGS
@@ -1458,36 +3843,72 @@ router.get(
 // Admin Dashboard
 // ======================================================
 
-router.get("/settings", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const settings = await getWithdrawSettings();
+router.get(
+  "/settings",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const settings =
+        await getWithdrawSettings();
 
-    return res.status(200).json({
-      success: true,
+      const minimumWithdraw =
+        Number(
+          settings.minimumWithdraw
+        );
 
-      settings: {
-        withdrawEnabled: Boolean(settings.withdrawEnabled),
+      const maximumWithdraw =
+        Number(
+          settings.maximumWithdraw
+        );
 
-        minimumWithdraw: Number(settings.minimumWithdraw),
-        maximumWithdraw: Number(settings.maximumWithdraw),
+      return res.status(200).json({
+        success: true,
 
-        updatedAt: settings.updatedAt,
-      },
-    });
+        settings: {
+          withdrawEnabled:
+            settings.withdrawEnabled !== false,
 
-  } catch (error) {
-    console.error("GET WITHDRAW SETTINGS ERROR:", error);
+          minimumWithdraw:
+            Number.isFinite(
+              minimumWithdraw
+            )
+              ? minimumWithdraw
+              : 100,
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load withdraw settings.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+          maximumWithdraw:
+            Number.isFinite(
+              maximumWithdraw
+            )
+              ? maximumWithdraw
+              : 10000000,
+
+          updatedAt:
+            settings.updatedAt ||
+            null,
+        },
+      });
+
+    } catch (error) {
+      console.error(
+        "GET WITHDRAW SETTINGS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load withdraw settings.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
+
 
 // ======================================================
 // UPDATE WITHDRAW SETTINGS
@@ -1495,66 +3916,210 @@ router.get("/settings", verifyToken, isAdmin, async (req, res) => {
 // Admin Only
 // ======================================================
 
-router.patch("/settings", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const {
-      withdrawEnabled,
-      minimumWithdraw,
-      maximumWithdraw,
-    } = req.body;
+router.patch(
+  "/settings",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const {
+        withdrawEnabled,
+        minimumWithdraw,
+        maximumWithdraw,
+      } = req.body || {};
 
-    const settings = await getWithdrawSettings();
+      const settings =
+        await getWithdrawSettings();
 
-    if (typeof withdrawEnabled === "boolean") {
-      settings.withdrawEnabled = withdrawEnabled;
-    }
+      // --------------------------------------------------
+      // WITHDRAW ENABLED
+      // --------------------------------------------------
 
-    if (minimumWithdraw !== undefined) {
-      settings.minimumWithdraw = Number(minimumWithdraw);
-    }
+      if (
+        withdrawEnabled !==
+        undefined
+      ) {
+        if (
+          typeof withdrawEnabled !==
+          "boolean"
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "withdrawEnabled must be true or false.",
+          });
+        }
 
-    if (maximumWithdraw !== undefined) {
-      settings.maximumWithdraw = Number(maximumWithdraw);
-    }
+        settings.withdrawEnabled =
+          withdrawEnabled;
+      }
 
-    if (
-      Number(settings.minimumWithdraw) >
-      Number(settings.maximumWithdraw)
-    ) {
-      return res.status(400).json({
+      // --------------------------------------------------
+      // CURRENT VALUES
+      // --------------------------------------------------
+
+      let finalMinimum =
+        Number(
+          settings.minimumWithdraw
+        );
+
+      let finalMaximum =
+        Number(
+          settings.maximumWithdraw
+        );
+
+      if (
+        !Number.isFinite(
+          finalMinimum
+        ) ||
+        finalMinimum <= 0
+      ) {
+        finalMinimum = 100;
+      }
+
+      if (
+        !Number.isFinite(
+          finalMaximum
+        ) ||
+        finalMaximum <= 0
+      ) {
+        finalMaximum =
+          10000000;
+      }
+
+      // --------------------------------------------------
+      // MINIMUM WITHDRAW
+      // --------------------------------------------------
+
+      if (
+        minimumWithdraw !==
+        undefined
+      ) {
+        const newMinimum =
+          Number(
+            minimumWithdraw
+          );
+
+        if (
+          !Number.isFinite(
+            newMinimum
+          ) ||
+          newMinimum <= 0
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Minimum withdraw must be a valid number greater than 0.",
+          });
+        }
+
+        finalMinimum =
+          newMinimum;
+      }
+
+      // --------------------------------------------------
+      // MAXIMUM WITHDRAW
+      // --------------------------------------------------
+
+      if (
+        maximumWithdraw !==
+        undefined
+      ) {
+        const newMaximum =
+          Number(
+            maximumWithdraw
+          );
+
+        if (
+          !Number.isFinite(
+            newMaximum
+          ) ||
+          newMaximum <= 0
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Maximum withdraw must be a valid number greater than 0.",
+          });
+        }
+
+        finalMaximum =
+          newMaximum;
+      }
+
+      // --------------------------------------------------
+      // RANGE VALIDATION
+      // --------------------------------------------------
+
+      if (
+        finalMinimum >
+        finalMaximum
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Minimum withdraw cannot be greater than maximum withdraw.",
+        });
+      }
+
+      // --------------------------------------------------
+      // SAVE
+      // --------------------------------------------------
+
+      settings.minimumWithdraw =
+        finalMinimum;
+
+      settings.maximumWithdraw =
+        finalMaximum;
+
+      await settings.save();
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Withdraw settings updated successfully.",
+
+        settings: {
+          withdrawEnabled:
+            settings.withdrawEnabled !== false,
+
+          minimumWithdraw:
+            Number(
+              settings.minimumWithdraw
+            ),
+
+          maximumWithdraw:
+            Number(
+              settings.maximumWithdraw
+            ),
+
+          updatedAt:
+            settings.updatedAt ||
+            null,
+        },
+      });
+
+    } catch (error) {
+      console.error(
+        "UPDATE WITHDRAW SETTINGS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
         success: false,
         message:
-          "Minimum withdraw cannot be greater than maximum withdraw.",
+          "Unable to update withdraw settings.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
       });
     }
-
-    await settings.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Withdraw settings updated successfully.",
-
-      settings: {
-        withdrawEnabled: settings.withdrawEnabled,
-        minimumWithdraw: settings.minimumWithdraw,
-        maximumWithdraw: settings.maximumWithdraw,
-        updatedAt: settings.updatedAt,
-      },
-    });
-
-  } catch (error) {
-    console.error("UPDATE WITHDRAW SETTINGS ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to update withdraw settings.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
+);
+
 
 // ======================================================
 // GET WITHDRAW PAYMENT SETTINGS
@@ -1562,33 +4127,45 @@ router.patch("/settings", verifyToken, isAdmin, async (req, res) => {
 // Used by Withdraw Page
 // ======================================================
 
-router.get("/payment-settings", verifyToken, async (req, res) => {
-  try {
-    const settings = await getWithdrawSettings();
+router.get(
+  "/payment-settings",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const settings =
+        await getWithdrawSettings();
 
-    return res.status(200).json({
-      success: true,
+      const paymentSettings =
+        normalizeWithdrawPaymentSettings(
+          settings.withdrawPaymentSettings
+        );
 
-      paymentSettings: settings.withdrawPaymentSettings || {
-        bankName: "",
-        accountTitle: "",
-        accountNumber: "",
-        iban: "",
+      return res.status(200).json({
+        success: true,
 
-        usdtNetwork: "TRC20",
-        usdtAddress: "",
-      },
-    });
+        paymentSettings,
+      });
 
-  } catch (error) {
-    console.error("GET WITHDRAW PAYMENT SETTINGS ERROR:", error);
+    } catch (error) {
+      console.error(
+        "GET WITHDRAW PAYMENT SETTINGS ERROR:",
+        error
+      );
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load withdraw payment settings.",
-    });
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load withdraw payment settings.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
+
 
 // ======================================================
 // UPDATE WITHDRAW PAYMENT SETTINGS
@@ -1609,36 +4186,146 @@ router.patch(
         iban,
         usdtNetwork,
         usdtAddress,
-      } = req.body;
+      } = req.body || {};
 
-      const settings = await getWithdrawSettings();
+      const settings =
+        await getWithdrawSettings();
 
-      settings.withdrawPaymentSettings = {
-        bankName: bankName || "",
-        accountTitle: accountTitle || "",
-        accountNumber: accountNumber || "",
-        iban: iban || "",
+      // --------------------------------------------------
+      // NETWORK
+      // --------------------------------------------------
 
-        usdtNetwork: usdtNetwork || "TRC20",
-        usdtAddress: usdtAddress || "",
+      const network =
+        String(
+          usdtNetwork ||
+            "TRC20"
+        )
+          .trim()
+          .toUpperCase();
+
+      const allowedNetworks = [
+        "TRC20",
+        "ERC20",
+        "BEP20",
+      ];
+
+      if (
+        !allowedNetworks.includes(
+          network
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid USDT network. Allowed: TRC20, ERC20, BEP20.",
+        });
+      }
+
+      // --------------------------------------------------
+      // NORMALIZE VALUES
+      // --------------------------------------------------
+
+      const normalized = {
+        bankName:
+          String(
+            bankName || ""
+          ).trim(),
+
+        accountTitle:
+          String(
+            accountTitle || ""
+          ).trim(),
+
+        accountNumber:
+          String(
+            accountNumber || ""
+          ).trim(),
+
+        iban:
+          String(
+            iban || ""
+          ).trim(),
+
+        usdtNetwork:
+          network,
+
+        usdtAddress:
+          String(
+            usdtAddress || ""
+          ).trim(),
       };
+
+      // --------------------------------------------------
+      // OPTIONAL ADDRESS VALIDATION
+      // --------------------------------------------------
+
+      if (
+        normalized.usdtAddress
+          .length > 200
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "USDT wallet address is too long.",
+        });
+      }
+
+      if (
+        normalized.bankName.length >
+        150
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Bank name is too long.",
+        });
+      }
+
+      if (
+        normalized.accountTitle
+          .length > 150
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Account title is too long.",
+        });
+      }
+
+      // --------------------------------------------------
+      // SAVE
+      // --------------------------------------------------
+
+      settings.withdrawPaymentSettings =
+        normalized;
 
       await settings.save();
 
       return res.status(200).json({
         success: true,
-        message: "Withdraw payment settings updated successfully.",
-        paymentSettings: settings.withdrawPaymentSettings,
+
+        message:
+          "Withdraw payment settings updated successfully.",
+
+        paymentSettings:
+          normalizeWithdrawPaymentSettings(
+            settings.withdrawPaymentSettings
+          ),
       });
 
     } catch (error) {
-      console.error("UPDATE WITHDRAW PAYMENT SETTINGS ERROR:", error);
+      console.error(
+        "UPDATE WITHDRAW PAYMENT SETTINGS ERROR:",
+        error
+      );
 
       return res.status(500).json({
         success: false,
-        message: "Unable to update withdraw payment settings.",
+        message:
+          "Unable to update withdraw payment settings.",
         error:
-          process.env.NODE_ENV === "production"
+          process.env.NODE_ENV ===
+          "production"
             ? undefined
             : error.message,
       });
@@ -1646,60 +4333,100 @@ router.patch(
   }
 );
 
+
 // ======================================================
 // PUBLIC WITHDRAW PAYMENT DETAILS
 // GET /api/withdraw/payment-details
 // Used by frontend/app/withdraw/page.tsx
 // ======================================================
 
-router.get("/payment-details", async (req, res) => {
-  try {
-    const settings = await getWithdrawSettings();
+router.get(
+  "/payment-details",
+  async (req, res) => {
+    try {
+      const settings =
+        await getWithdrawSettings();
 
-    return res.status(200).json({
-      success: true,
+      const paymentSettings =
+        normalizeWithdrawPaymentSettings(
+          settings.withdrawPaymentSettings
+        );
 
-      withdrawEnabled: settings.withdrawEnabled,
+      const minimumWithdraw =
+        Number(
+          settings.minimumWithdraw
+        );
 
-      limits: {
-        minimumWithdraw: Number(settings.minimumWithdraw),
-        maximumWithdraw: Number(settings.maximumWithdraw),
-      },
+      const maximumWithdraw =
+        Number(
+          settings.maximumWithdraw
+        );
 
-      bank: {
-        bankName:
-          settings.withdrawPaymentSettings?.bankName || "",
-        accountTitle:
-          settings.withdrawPaymentSettings?.accountTitle || "",
-        accountNumber:
-          settings.withdrawPaymentSettings?.accountNumber || "",
-        iban:
-          settings.withdrawPaymentSettings?.iban || "",
-      },
+      return res.status(200).json({
+        success: true,
 
-      usdt: {
-        network:
-          settings.withdrawPaymentSettings?.usdtNetwork || "TRC20",
-        address:
-          settings.withdrawPaymentSettings?.usdtAddress || "",
-      },
-    });
+        withdrawEnabled:
+          settings.withdrawEnabled !==
+          false,
 
-  } catch (error) {
-    console.error("GET WITHDRAW PAYMENT DETAILS ERROR:", error);
+        limits: {
+          minimumWithdraw:
+            Number.isFinite(
+              minimumWithdraw
+            )
+              ? minimumWithdraw
+              : 100,
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load withdraw payment details.",
-    });
+          maximumWithdraw:
+            Number.isFinite(
+              maximumWithdraw
+            )
+              ? maximumWithdraw
+              : 10000000,
+        },
+
+        bank: {
+          bankName:
+            paymentSettings.bankName,
+
+          accountTitle:
+            paymentSettings.accountTitle,
+
+          accountNumber:
+            paymentSettings.accountNumber,
+
+          iban:
+            paymentSettings.iban,
+        },
+
+        usdt: {
+          network:
+            paymentSettings.usdtNetwork,
+
+          address:
+            paymentSettings.usdtAddress,
+        },
+      });
+
+    } catch (error) {
+      console.error(
+        "GET WITHDRAW PAYMENT DETAILS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load withdraw payment details.",
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
-// ======================================================
-// GoldTrade V18 Enterprise Backend
-// withdrawRoutes.js — PART 7/8
-// Admin All Withdraw Requests + Search + Filters APIs
-// Production Ready (Render + PM2 + MongoDB Atlas)
-// ======================================================
+);
 
 // ======================================================
 // ADMIN GET ALL WITHDRAW REQUESTS
@@ -1709,9 +4436,22 @@ router.get("/payment-details", async (req, res) => {
 
 router.get("/admin/all", verifyToken, isAdmin, async (req, res) => {
   try {
-    const page = Math.max(Number(req.query.page) || 1, 1);
-    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    // --------------------------------------------------
+    // PAGINATION
+    // --------------------------------------------------
+
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 20, 1),
+      100
+    );
+
     const skip = (page - 1) * limit;
+
+    // --------------------------------------------------
+    // QUERY PARAMETERS
+    // --------------------------------------------------
 
     const {
       status,
@@ -1724,42 +4464,129 @@ router.get("/admin/all", verifyToken, isAdmin, async (req, res) => {
 
     const query = {};
 
-    if (status) query.status = String(status).toUpperCase();
-    if (walletType) query.walletType = String(walletType).toUpperCase();
+    // --------------------------------------------------
+    // STATUS
+    // --------------------------------------------------
+
+    if (status) {
+      const normalizedStatus = String(status).trim().toUpperCase();
+
+      const allowedStatuses = [
+        "PENDING",
+        "APPROVED",
+        "REJECTED",
+        "CANCELLED",
+      ];
+
+      if (allowedStatuses.includes(normalizedStatus)) {
+        query.status = normalizedStatus;
+      }
+    }
+
+    // --------------------------------------------------
+    // WALLET TYPE
+    // --------------------------------------------------
+
+    if (walletType) {
+      const normalizedWalletType = String(walletType)
+        .trim()
+        .toUpperCase();
+
+      const allowedWalletTypes = ["PKR", "USDT"];
+
+      if (allowedWalletTypes.includes(normalizedWalletType)) {
+        query.walletType = normalizedWalletType;
+      }
+    }
+
+    // --------------------------------------------------
+    // USERNAME SEARCH
+    // --------------------------------------------------
 
     if (username) {
-      query.username = {
-        $regex: username,
-        $options: "i",
-      };
+      const usernameSearch = String(username).trim();
+
+      if (usernameSearch) {
+        const escapedUsername = usernameSearch.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&"
+        );
+
+        query.username = {
+          $regex: escapedUsername,
+          $options: "i",
+        };
+      }
     }
 
+    // --------------------------------------------------
+    // PAYMENT METHOD SEARCH
+    // --------------------------------------------------
+
     if (paymentMethod) {
-      query.paymentMethod = {
-        $regex: paymentMethod,
-        $options: "i",
-      };
+      const paymentMethodSearch = String(paymentMethod).trim();
+
+      if (paymentMethodSearch) {
+        const escapedPaymentMethod = paymentMethodSearch.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&"
+        );
+
+        query.paymentMethod = {
+          $regex: escapedPaymentMethod,
+          $options: "i",
+        };
+      }
     }
+
+    // --------------------------------------------------
+    // DATE FILTER
+    // --------------------------------------------------
 
     if (start || end) {
       query.createdAt = {};
 
-      if (start) query.createdAt.$gte = new Date(start);
+      if (start) {
+        const startDate = new Date(String(start));
+
+        if (!Number.isNaN(startDate.getTime())) {
+          startDate.setHours(0, 0, 0, 0);
+          query.createdAt.$gte = startDate;
+        }
+      }
 
       if (end) {
-        const endDate = new Date(end);
-        endDate.setHours(23, 59, 59, 999);
-        query.createdAt.$lte = endDate;
+        const endDate = new Date(String(end));
+
+        if (!Number.isNaN(endDate.getTime())) {
+          endDate.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = endDate;
+        }
+      }
+
+      // Remove empty date object
+      if (Object.keys(query.createdAt).length === 0) {
+        delete query.createdAt;
       }
     }
 
-    const total = await Withdraw.countDocuments(query);
+    // --------------------------------------------------
+    // DATABASE QUERY
+    // --------------------------------------------------
 
-    const withdrawals = await Withdraw.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    const [total, withdrawals] = await Promise.all([
+      Withdraw.countDocuments(query),
+
+      Withdraw.find(query)
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+    ]);
+
+    // --------------------------------------------------
+    // RESPONSE
+    // --------------------------------------------------
 
     return res.status(200).json({
       success: true,
@@ -1769,11 +4596,33 @@ router.get("/admin/all", verifyToken, isAdmin, async (req, res) => {
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPreviousPage: page > 1,
+      },
+
+      filters: {
+        status: status
+          ? String(status).trim().toUpperCase()
+          : null,
+
+        walletType: walletType
+          ? String(walletType).trim().toUpperCase()
+          : null,
+
+        username: username
+          ? String(username).trim()
+          : null,
+
+        paymentMethod: paymentMethod
+          ? String(paymentMethod).trim()
+          : null,
+
+        start: start || null,
+        end: end || null,
       },
 
       withdrawals,
     });
-
   } catch (error) {
     console.error("ADMIN GET ALL WITHDRAWALS ERROR:", error);
 
@@ -1788,6 +4637,7 @@ router.get("/admin/all", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+
 // ======================================================
 // ADMIN GET SINGLE WITHDRAW REQUEST
 // GET /api/withdraw/admin/:id
@@ -1795,7 +4645,24 @@ router.get("/admin/all", verifyToken, isAdmin, async (req, res) => {
 
 router.get("/admin/:id", verifyToken, isAdmin, async (req, res) => {
   try {
-    const withdraw = await Withdraw.findById(req.params.id).lean();
+    // --------------------------------------------------
+    // VALIDATE ID
+    // --------------------------------------------------
+
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid withdraw request ID.",
+      });
+    }
+
+    // --------------------------------------------------
+    // FIND WITHDRAW
+    // --------------------------------------------------
+
+    const withdraw = await Withdraw.findById(id).lean();
 
     if (!withdraw) {
       return res.status(404).json({
@@ -1804,24 +4671,55 @@ router.get("/admin/:id", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
+    // --------------------------------------------------
+    // FIND USER WALLET
+    // --------------------------------------------------
+
     const wallet = await Wallet.findOne({
       userId: withdraw.userId,
     }).lean();
+
+    // --------------------------------------------------
+    // WALLET DATA
+    // --------------------------------------------------
+
+    const walletData = wallet
+      ? {
+          pkrBalance: Number(wallet.pkrBalance || 0),
+          usdtBalance: Number(wallet.usdtBalance || 0),
+          goldBalance: Number(wallet.goldBalance || 0),
+
+          lockedPkr: Number(wallet.lockedPkr || 0),
+          lockedUsdt: Number(wallet.lockedUsdt || 0),
+          lockedGold: Number(wallet.lockedGold || 0),
+
+          availablePkr: Math.max(
+            Number(wallet.pkrBalance || 0) -
+              Number(wallet.lockedPkr || 0),
+            0
+          ),
+
+          availableUsdt: Math.max(
+            Number(wallet.usdtBalance || 0) -
+              Number(wallet.lockedUsdt || 0),
+            0
+          ),
+
+          availableGold: Math.max(
+            Number(wallet.goldBalance || 0) -
+              Number(wallet.lockedGold || 0),
+            0
+          ),
+        }
+      : null;
 
     return res.status(200).json({
       success: true,
 
       withdraw,
 
-      wallet: wallet
-        ? {
-            pkrBalance: Number(wallet.pkrBalance || 0),
-            usdtBalance: Number(wallet.usdtBalance || 0),
-            goldBalance: Number(wallet.goldBalance || 0),
-          }
-        : null,
+      wallet: walletData,
     });
-
   } catch (error) {
     console.error("ADMIN GET WITHDRAW ERROR:", error);
 
@@ -1836,9 +4734,11 @@ router.get("/admin/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+
 // ======================================================
 // ADMIN SEARCH WITHDRAWALS
 // GET /api/withdraw/admin/search
+//
 // ?reference=WTH-123
 // ?transactionId=ABC123
 // ======================================================
@@ -1849,22 +4749,82 @@ router.get("/admin/search", verifyToken, isAdmin, async (req, res) => {
 
     const query = {};
 
+    // --------------------------------------------------
+    // REFERENCE SEARCH
+    // --------------------------------------------------
+
     if (reference) {
-      query.referenceId = {
-        $regex: reference,
-        $options: "i",
-      };
+      const referenceSearch = String(reference).trim();
+
+      if (referenceSearch) {
+        const escapedReference = referenceSearch.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&"
+        );
+
+        // Support both common field names
+        query.$or = [
+          {
+            referenceId: {
+              $regex: escapedReference,
+              $options: "i",
+            },
+          },
+          {
+            reference: {
+              $regex: escapedReference,
+              $options: "i",
+            },
+          },
+        ];
+      }
     }
+
+    // --------------------------------------------------
+    // TRANSACTION ID SEARCH
+    // --------------------------------------------------
 
     if (transactionId) {
-      query.transactionId = {
-        $regex: transactionId,
-        $options: "i",
-      };
+      const transactionSearch = String(transactionId).trim();
+
+      if (transactionSearch) {
+        const escapedTransactionId = transactionSearch.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&"
+        );
+
+        const transactionQuery = {
+          $or: [
+            {
+              transactionId: {
+                $regex: escapedTransactionId,
+                $options: "i",
+              },
+            },
+          ],
+        };
+
+        // Combine with reference search safely
+        if (query.$or) {
+          query.$and = [
+            { $or: query.$or },
+            transactionQuery,
+          ];
+
+          delete query.$or;
+        } else {
+          Object.assign(query, transactionQuery);
+        }
+      }
     }
 
+    // --------------------------------------------------
+    // LIMIT SEARCH RESULT
+    // --------------------------------------------------
+
     const withdrawals = await Withdraw.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(100)
       .lean();
 
     return res.status(200).json({
@@ -1872,7 +4832,6 @@ router.get("/admin/search", verifyToken, isAdmin, async (req, res) => {
       total: withdrawals.length,
       withdrawals,
     });
-
   } catch (error) {
     console.error("ADMIN SEARCH WITHDRAWALS ERROR:", error);
 
@@ -1887,6 +4846,7 @@ router.get("/admin/search", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+
 // ======================================================
 // USER WITHDRAW REQUESTS BY USERNAME
 // GET /api/withdraw/admin/user/:username
@@ -1898,9 +4858,30 @@ router.get(
   isAdmin,
   async (req, res) => {
     try {
-      const username = req.params.username.trim().toLowerCase();
+      // ------------------------------------------------
+      // NORMALIZE USERNAME
+      // ------------------------------------------------
 
-      const user = await User.findOne({ username }).select("_id username");
+      const username = String(req.params.username || "")
+        .trim()
+        .toLowerCase();
+
+      if (!username) {
+        return res.status(400).json({
+          success: false,
+          message: "Username is required.",
+        });
+      }
+
+      // ------------------------------------------------
+      // FIND USER
+      // ------------------------------------------------
+
+      const user = await User.findOne({
+        username,
+      })
+        .select("_id username")
+        .lean();
 
       if (!user) {
         return res.status(404).json({
@@ -1909,19 +4890,28 @@ router.get(
         });
       }
 
+      // ------------------------------------------------
+      // FIND WITHDRAWALS
+      // ------------------------------------------------
+
       const withdrawals = await Withdraw.find({
         userId: user._id,
       })
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(500)
         .lean();
 
       return res.status(200).json({
         success: true,
-        username,
+
+        username: user.username,
+
+        userId: user._id,
+
         total: withdrawals.length,
+
         withdrawals,
       });
-
     } catch (error) {
       console.error("USER WITHDRAW LIST ERROR:", error);
 
@@ -1937,6 +4927,7 @@ router.get(
   }
 );
 
+
 // ======================================================
 // WITHDRAW REQUEST PREVIEW
 // GET /api/withdraw/admin/preview/:id
@@ -1948,7 +4939,24 @@ router.get(
   isAdmin,
   async (req, res) => {
     try {
-      const withdraw = await Withdraw.findById(req.params.id).lean();
+      // ------------------------------------------------
+      // VALIDATE ID
+      // ------------------------------------------------
+
+      const { id } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid withdraw request ID.",
+        });
+      }
+
+      // ------------------------------------------------
+      // FIND WITHDRAW
+      // ------------------------------------------------
+
+      const withdraw = await Withdraw.findById(id).lean();
 
       if (!withdraw) {
         return res.status(404).json({
@@ -1957,9 +4965,47 @@ router.get(
         });
       }
 
+      // ------------------------------------------------
+      // FIND CURRENT WALLET
+      // ------------------------------------------------
+
       const wallet = await Wallet.findOne({
         userId: withdraw.userId,
       }).lean();
+
+      // ------------------------------------------------
+      // CURRENT WALLET SNAPSHOT
+      // ------------------------------------------------
+
+      const currentWallet = wallet
+        ? {
+            pkrBalance: Number(wallet.pkrBalance || 0),
+            usdtBalance: Number(wallet.usdtBalance || 0),
+            goldBalance: Number(wallet.goldBalance || 0),
+
+            lockedPkr: Number(wallet.lockedPkr || 0),
+            lockedUsdt: Number(wallet.lockedUsdt || 0),
+            lockedGold: Number(wallet.lockedGold || 0),
+
+            availablePkr: Math.max(
+              Number(wallet.pkrBalance || 0) -
+                Number(wallet.lockedPkr || 0),
+              0
+            ),
+
+            availableUsdt: Math.max(
+              Number(wallet.usdtBalance || 0) -
+                Number(wallet.lockedUsdt || 0),
+              0
+            ),
+
+            availableGold: Math.max(
+              Number(wallet.goldBalance || 0) -
+                Number(wallet.lockedGold || 0),
+              0
+            ),
+          }
+        : null;
 
       return res.status(200).json({
         success: true,
@@ -1967,18 +5013,13 @@ router.get(
         preview: {
           withdraw,
 
-          walletBefore: withdraw.walletBefore,
+          walletBefore: withdraw.walletBefore || null,
 
-          currentWallet: wallet
-            ? {
-                pkrBalance: Number(wallet.pkrBalance || 0),
-                usdtBalance: Number(wallet.usdtBalance || 0),
-                goldBalance: Number(wallet.goldBalance || 0),
-              }
-            : null,
+          walletAfter: withdraw.walletAfter || null,
+
+          currentWallet,
         },
       });
-
     } catch (error) {
       console.error("WITHDRAW PREVIEW ERROR:", error);
 
@@ -1992,466 +5033,1313 @@ router.get(
       });
     }
   }
-);// ======================================================
-// GoldTrade V18 Enterprise Backend
-// withdrawRoutes.js — PART 8/8 FINAL
-// Bulk Approve + Bulk Reject + Statistics + Debug + Export
-// Production Ready (Render + PM2 + MongoDB Atlas)
-// ======================================================
+);
 
 // ======================================================
 // BULK APPROVE WITHDRAWALS
 // PATCH /api/withdraw/admin/bulk-approve
 // ======================================================
 
-router.patch("/admin/bulk-approve", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const { withdrawIds } = req.body;
+router.patch(
+  "/admin/bulk-approve",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const { withdrawIds } = req.body;
 
-    if (!Array.isArray(withdrawIds) || withdrawIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "withdrawIds array is required.",
-      });
-    }
+      // --------------------------------------------------
+      // VALIDATE REQUEST
+      // --------------------------------------------------
 
-    let approved = 0;
-    let skipped = 0;
-    const failed = [];
-
-    for (const withdrawId of withdrawIds) {
-      try {
-        const withdraw = await Withdraw.findById(withdrawId);
-
-        if (!withdraw || withdraw.status !== "PENDING") {
-          skipped++;
-          continue;
-        }
-
-        const wallet = await getWallet(withdraw.userId, withdraw.username);
-        const amount = Number(withdraw.amount);
-
-        withdraw.walletBefore = {
-          pkrBalance: Number(wallet.pkrBalance || 0),
-          usdtBalance: Number(wallet.usdtBalance || 0),
-          goldBalance: Number(wallet.goldBalance || 0),
-        };
-
-        if (withdraw.walletType === "PKR") {
-          if (wallet.pkrBalance < amount) {
-            failed.push({
-              withdrawId,
-              error: "Insufficient PKR balance.",
-            });
-            continue;
-          }
-
-          wallet.pkrBalance -= amount;
-          wallet.totalWithdraw += amount;
-        } else {
-          if (wallet.usdtBalance < amount) {
-            failed.push({
-              withdrawId,
-              error: "Insufficient USDT balance.",
-            });
-            continue;
-          }
-
-          wallet.usdtBalance -= amount;
-          wallet.totalUsdtWithdrawn += amount;
-        }
-
-        wallet.lastWithdrawAt = new Date();
-        await wallet.save();
-
-        withdraw.walletAfter = {
-          pkrBalance: Number(wallet.pkrBalance),
-          usdtBalance: Number(wallet.usdtBalance),
-          goldBalance: Number(wallet.goldBalance),
-        };
-
-        withdraw.status = "APPROVED";
-        withdraw.approvedBy = req.user.id;
-        withdraw.approvedByUsername = req.user.username;
-        withdraw.approvedAt = new Date();
-
-        await withdraw.save();
-
-        await WalletHistory.create({
-          userId: withdraw.userId,
-          username: withdraw.username,
-
-          walletType: withdraw.walletType,
-          type: "WITHDRAW",
-
-          amount,
-
-          balanceBefore:
-            withdraw.walletType === "PKR"
-              ? withdraw.walletBefore.pkrBalance
-              : withdraw.walletBefore.usdtBalance,
-
-          balanceAfter:
-            withdraw.walletType === "PKR"
-              ? wallet.pkrBalance
-              : wallet.usdtBalance,
-
-          referenceId: withdraw.referenceId,
-
-          admin: req.user.username,
-          note: "Bulk withdraw approved.",
-        });
-
-        await Transaction.create({
-          userId: withdraw.userId,
-          username: withdraw.username,
-
-          walletType: withdraw.walletType,
-
-          transactionType: "WITHDRAW_APPROVED",
-          transactionMode: "DEBIT",
-
-          amount,
-
-          balanceBefore:
-            withdraw.walletType === "PKR"
-              ? withdraw.walletBefore.pkrBalance
-              : withdraw.walletBefore.usdtBalance,
-
-          balanceAfter:
-            withdraw.walletType === "PKR"
-              ? wallet.pkrBalance
-              : wallet.usdtBalance,
-
-          status: "Completed",
-
-          paymentMethod: withdraw.paymentMethod,
-          referenceId: withdraw.referenceId,
-
-          adminId: req.user.id,
-          adminUsername: req.user.username,
-
-          note: "Bulk withdraw approved.",
-        });
-
-        approved++;
-
-      } catch (err) {
-        failed.push({
-          withdrawId,
-          error: err.message,
+      if (!Array.isArray(withdrawIds) || withdrawIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "withdrawIds array is required.",
         });
       }
+
+      // Prevent extremely large bulk requests
+      if (withdrawIds.length > 100) {
+        return res.status(400).json({
+          success: false,
+          message: "Maximum 100 withdrawals can be processed at once.",
+        });
+      }
+
+      // Remove duplicates
+      const uniqueWithdrawIds = [
+        ...new Set(
+          withdrawIds
+            .map((id) => String(id || "").trim())
+            .filter(Boolean)
+        ),
+      ];
+
+      let approved = 0;
+      let skipped = 0;
+
+      const failed = [];
+
+      // --------------------------------------------------
+      // PROCESS EACH WITHDRAWAL
+      // --------------------------------------------------
+
+      for (const withdrawId of uniqueWithdrawIds) {
+        try {
+          // ----------------------------------------------
+          // VALIDATE OBJECT ID
+          // ----------------------------------------------
+
+          if (!mongoose.Types.ObjectId.isValid(withdrawId)) {
+            failed.push({
+              withdrawId,
+              error: "Invalid withdrawal ID.",
+            });
+
+            continue;
+          }
+
+          // ----------------------------------------------
+          // FIND WITHDRAWAL
+          // ----------------------------------------------
+
+          const withdraw = await Withdraw.findById(withdrawId);
+
+          if (!withdraw) {
+            skipped++;
+
+            continue;
+          }
+
+          // ----------------------------------------------
+          // ONLY PENDING CAN BE APPROVED
+          // ----------------------------------------------
+
+          if (
+            String(withdraw.status || "").toUpperCase() !==
+            "PENDING"
+          ) {
+            skipped++;
+
+            continue;
+          }
+
+          // ----------------------------------------------
+          // NORMALIZE WALLET TYPE
+          // ----------------------------------------------
+
+          const walletType = String(
+            withdraw.walletType || ""
+          )
+            .trim()
+            .toUpperCase();
+
+          if (!["PKR", "USDT"].includes(walletType)) {
+            failed.push({
+              withdrawId,
+              error: "Invalid wallet type.",
+            });
+
+            continue;
+          }
+
+          // ----------------------------------------------
+          // VALIDATE AMOUNT
+          // ----------------------------------------------
+
+          const amount = Number(withdraw.amount);
+
+          if (!Number.isFinite(amount) || amount <= 0) {
+            failed.push({
+              withdrawId,
+              error: "Invalid withdrawal amount.",
+            });
+
+            continue;
+          }
+
+          // ----------------------------------------------
+          // GET WALLET
+          // ----------------------------------------------
+
+          const wallet = await getWallet(
+            withdraw.userId,
+            withdraw.username
+          );
+
+          // ----------------------------------------------
+          // FROZEN WALLET CHECK
+          // ----------------------------------------------
+
+          if (wallet.isFrozen === true) {
+            failed.push({
+              withdrawId,
+              error: "User wallet is frozen.",
+            });
+
+            continue;
+          }
+
+          // ----------------------------------------------
+          // CURRENT BALANCES
+          // ----------------------------------------------
+
+          const currentPkrBalance = Number(
+            wallet.pkrBalance || 0
+          );
+
+          const currentUsdtBalance = Number(
+            wallet.usdtBalance || 0
+          );
+
+          const currentGoldBalance = Number(
+            wallet.goldBalance || 0
+          );
+
+          const currentLockedPkr = Number(
+            wallet.lockedPkr || 0
+          );
+
+          const currentLockedUsdt = Number(
+            wallet.lockedUsdt || 0
+          );
+
+          const currentLockedGold = Number(
+            wallet.lockedGold || 0
+          );
+
+          // ----------------------------------------------
+          // VALIDATE LOCK
+          // ----------------------------------------------
+
+          if (walletType === "PKR") {
+            if (currentLockedPkr < amount) {
+              failed.push({
+                withdrawId,
+                error:
+                  "Insufficient locked PKR amount for approval.",
+              });
+
+              continue;
+            }
+
+            if (currentPkrBalance < amount) {
+              failed.push({
+                withdrawId,
+                error: "Insufficient PKR balance.",
+              });
+
+              continue;
+            }
+          }
+
+          if (walletType === "USDT") {
+            if (currentLockedUsdt < amount) {
+              failed.push({
+                withdrawId,
+                error:
+                  "Insufficient locked USDT amount for approval.",
+              });
+
+              continue;
+            }
+
+            if (currentUsdtBalance < amount) {
+              failed.push({
+                withdrawId,
+                error: "Insufficient USDT balance.",
+              });
+
+              continue;
+            }
+          }
+
+          // ----------------------------------------------
+          // WALLET BEFORE SNAPSHOT
+          // ----------------------------------------------
+
+          withdraw.walletBefore = {
+            pkrBalance: currentPkrBalance,
+            usdtBalance: currentUsdtBalance,
+            goldBalance: currentGoldBalance,
+
+            lockedPkr: currentLockedPkr,
+            lockedUsdt: currentLockedUsdt,
+            lockedGold: currentLockedGold,
+          };
+
+          // ----------------------------------------------
+          // APPLY APPROVAL
+          //
+          // Balance decreases.
+          // Locked amount also decreases.
+          // ----------------------------------------------
+
+          if (walletType === "PKR") {
+            wallet.pkrBalance =
+              currentPkrBalance - amount;
+
+            wallet.lockedPkr =
+              currentLockedPkr - amount;
+
+            wallet.totalWithdraw =
+              Number(wallet.totalWithdraw || 0) + amount;
+
+            wallet.totalPkrWithdraw =
+              Number(wallet.totalPkrWithdraw || 0) + amount;
+          }
+
+          if (walletType === "USDT") {
+            wallet.usdtBalance =
+              currentUsdtBalance - amount;
+
+            wallet.lockedUsdt =
+              currentLockedUsdt - amount;
+
+            wallet.totalWithdraw =
+              Number(wallet.totalWithdraw || 0) + amount;
+
+            wallet.totalUsdtWithdrawn =
+              Number(wallet.totalUsdtWithdrawn || 0) + amount;
+          }
+
+          wallet.lastWithdrawAt = new Date();
+
+          await wallet.save();
+
+          // ----------------------------------------------
+          // WALLET AFTER SNAPSHOT
+          // ----------------------------------------------
+
+          withdraw.walletAfter = {
+            pkrBalance: Number(
+              wallet.pkrBalance || 0
+            ),
+
+            usdtBalance: Number(
+              wallet.usdtBalance || 0
+            ),
+
+            goldBalance: Number(
+              wallet.goldBalance || 0
+            ),
+
+            lockedPkr: Number(
+              wallet.lockedPkr || 0
+            ),
+
+            lockedUsdt: Number(
+              wallet.lockedUsdt || 0
+            ),
+
+            lockedGold: Number(
+              wallet.lockedGold || 0
+            ),
+          };
+
+          // ----------------------------------------------
+          // UPDATE WITHDRAW REQUEST
+          // ----------------------------------------------
+
+          withdraw.walletType = walletType;
+
+          withdraw.status = "APPROVED";
+
+          withdraw.approvedBy = req.user.id;
+
+          withdraw.approvedByUsername =
+            req.user.username;
+
+          withdraw.approvedAt = new Date();
+
+          await withdraw.save();
+
+          // ----------------------------------------------
+          // WALLET HISTORY
+          // ----------------------------------------------
+
+          await WalletHistory.create({
+            userId: withdraw.userId,
+            username: withdraw.username,
+
+            walletType,
+
+            type: "WITHDRAW_APPROVED",
+
+            transactionType: "WITHDRAW_APPROVED",
+            transactionMode: "DEBIT",
+
+            amount,
+
+            balanceBefore:
+              walletType === "PKR"
+                ? withdraw.walletBefore.pkrBalance
+                : withdraw.walletBefore.usdtBalance,
+
+            balanceAfter:
+              walletType === "PKR"
+                ? withdraw.walletAfter.pkrBalance
+                : withdraw.walletAfter.usdtBalance,
+
+            referenceId:
+              withdraw.referenceId ||
+              withdraw.reference ||
+              undefined,
+
+            admin: req.user.username,
+
+            adminId: req.user.id,
+
+            status: "Completed",
+
+            note: "Bulk withdraw approved.",
+          });
+
+          // ----------------------------------------------
+          // TRANSACTION LEDGER
+          // ----------------------------------------------
+
+          await Transaction.create({
+            userId: withdraw.userId,
+            username: withdraw.username,
+
+            walletType,
+
+            transactionType: "WITHDRAW_APPROVED",
+            transactionMode: "DEBIT",
+
+            amount,
+
+            balanceBefore:
+              walletType === "PKR"
+                ? withdraw.walletBefore.pkrBalance
+                : withdraw.walletBefore.usdtBalance,
+
+            balanceAfter:
+              walletType === "PKR"
+                ? withdraw.walletAfter.pkrBalance
+                : withdraw.walletAfter.usdtBalance,
+
+            status: "Completed",
+
+            paymentMethod:
+              withdraw.paymentMethod,
+
+            referenceId:
+              withdraw.referenceId ||
+              withdraw.reference ||
+              undefined,
+
+            adminId: req.user.id,
+
+            adminUsername:
+              req.user.username,
+
+            note: "Bulk withdraw approved.",
+          });
+
+          approved++;
+        } catch (err) {
+          console.error(
+            `BULK APPROVE ITEM ERROR [${withdrawId}]:`,
+            err
+          );
+
+          failed.push({
+            withdrawId,
+            error: err.message || "Approval failed.",
+          });
+        }
+      }
+
+      // --------------------------------------------------
+      // RESPONSE
+      // --------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+
+        message: "Bulk withdraw approval completed.",
+
+        result: {
+          requested: uniqueWithdrawIds.length,
+          approved,
+          skipped,
+          failed: failed.length,
+        },
+
+        failed,
+      });
+    } catch (error) {
+      console.error(
+        "BULK APPROVE WITHDRAW ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: "Bulk approval failed.",
+
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: "Bulk withdraw approval completed.",
-
-      result: {
-        requested: withdrawIds.length,
-        approved,
-        skipped,
-        failed: failed.length,
-      },
-
-      failed,
-    });
-
-  } catch (error) {
-    console.error("BULK APPROVE WITHDRAW ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Bulk approval failed.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
+);
+
 
 // ======================================================
 // BULK REJECT WITHDRAWALS
 // PATCH /api/withdraw/admin/bulk-reject
 // ======================================================
 
-router.patch("/admin/bulk-reject", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const { withdrawIds, rejectReason } = req.body;
+router.patch(
+  "/admin/bulk-reject",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const {
+        withdrawIds,
+        rejectReason,
+      } = req.body;
 
-    if (!Array.isArray(withdrawIds) || withdrawIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "withdrawIds array is required.",
-      });
-    }
+      // --------------------------------------------------
+      // VALIDATE REQUEST
+      // --------------------------------------------------
 
-    let rejected = 0;
-    let skipped = 0;
-    const failed = [];
-
-    for (const withdrawId of withdrawIds) {
-      try {
-        const withdraw = await Withdraw.findById(withdrawId);
-
-        if (!withdraw || withdraw.status !== "PENDING") {
-          skipped++;
-          continue;
-        }
-
-        withdraw.status = "REJECTED";
-        withdraw.rejectReason =
-          rejectReason || "Bulk rejected by admin.";
-
-        withdraw.approvedBy = req.user.id;
-        withdraw.approvedByUsername = req.user.username;
-        withdraw.rejectedAt = new Date();
-
-        await withdraw.save();
-
-        await WalletHistory.create({
-          userId: withdraw.userId,
-          username: withdraw.username,
-
-          walletType: withdraw.walletType,
-          type: "WITHDRAW_REJECTED",
-
-          amount: Number(withdraw.amount),
-
-          balanceBefore:
-            withdraw.walletType === "PKR"
-              ? Number(withdraw.walletBefore?.pkrBalance || 0)
-              : Number(withdraw.walletBefore?.usdtBalance || 0),
-
-          balanceAfter:
-            withdraw.walletType === "PKR"
-              ? Number(withdraw.walletBefore?.pkrBalance || 0)
-              : Number(withdraw.walletBefore?.usdtBalance || 0),
-
-          referenceId: withdraw.referenceId,
-
-          admin: req.user.username,
-          note: withdraw.rejectReason,
-        });
-
-        await Transaction.create({
-          userId: withdraw.userId,
-          username: withdraw.username,
-
-          walletType: withdraw.walletType,
-
-          transactionType: "WITHDRAW_REJECTED",
-          transactionMode: "DEBIT",
-
-          amount: Number(withdraw.amount),
-
-          balanceBefore:
-            withdraw.walletType === "PKR"
-              ? Number(withdraw.walletBefore?.pkrBalance || 0)
-              : Number(withdraw.walletBefore?.usdtBalance || 0),
-
-          balanceAfter:
-            withdraw.walletType === "PKR"
-              ? Number(withdraw.walletBefore?.pkrBalance || 0)
-              : Number(withdraw.walletBefore?.usdtBalance || 0),
-
-          status: "Rejected",
-
-          paymentMethod: withdraw.paymentMethod,
-          referenceId: withdraw.referenceId,
-
-          adminId: req.user.id,
-          adminUsername: req.user.username,
-
-          note: withdraw.rejectReason,
-        });
-
-        rejected++;
-
-      } catch (err) {
-        failed.push({
-          withdrawId,
-          error: err.message,
+      if (
+        !Array.isArray(withdrawIds) ||
+        withdrawIds.length === 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "withdrawIds array is required.",
         });
       }
+
+      if (withdrawIds.length > 100) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Maximum 100 withdrawals can be processed at once.",
+        });
+      }
+
+      const uniqueWithdrawIds = [
+        ...new Set(
+          withdrawIds
+            .map((id) => String(id || "").trim())
+            .filter(Boolean)
+        ),
+      ];
+
+      const reason =
+        String(
+          rejectReason ||
+            "Bulk rejected by admin."
+        ).trim().slice(0, 500);
+
+      let rejected = 0;
+      let skipped = 0;
+
+      const failed = [];
+
+      // --------------------------------------------------
+      // PROCESS EACH WITHDRAWAL
+      // --------------------------------------------------
+
+      for (const withdrawId of uniqueWithdrawIds) {
+        try {
+          // ----------------------------------------------
+          // VALIDATE ID
+          // ----------------------------------------------
+
+          if (
+            !mongoose.Types.ObjectId.isValid(
+              withdrawId
+            )
+          ) {
+            failed.push({
+              withdrawId,
+              error: "Invalid withdrawal ID.",
+            });
+
+            continue;
+          }
+
+          // ----------------------------------------------
+          // FIND WITHDRAWAL
+          // ----------------------------------------------
+
+          const withdraw =
+            await Withdraw.findById(
+              withdrawId
+            );
+
+          if (!withdraw) {
+            skipped++;
+
+            continue;
+          }
+
+          // ----------------------------------------------
+          // ONLY PENDING CAN BE REJECTED
+          // ----------------------------------------------
+
+          if (
+            String(withdraw.status || "").toUpperCase() !==
+            "PENDING"
+          ) {
+            skipped++;
+
+            continue;
+          }
+
+          // ----------------------------------------------
+          // NORMALIZE WALLET TYPE
+          // ----------------------------------------------
+
+          const walletType = String(
+            withdraw.walletType || ""
+          )
+            .trim()
+            .toUpperCase();
+
+          if (!["PKR", "USDT"].includes(walletType)) {
+            failed.push({
+              withdrawId,
+              error: "Invalid wallet type.",
+            });
+
+            continue;
+          }
+
+          // ----------------------------------------------
+          // VALIDATE AMOUNT
+          // ----------------------------------------------
+
+          const amount = Number(
+            withdraw.amount
+          );
+
+          if (!Number.isFinite(amount) || amount <= 0) {
+            failed.push({
+              withdrawId,
+              error: "Invalid withdrawal amount.",
+            });
+
+            continue;
+          }
+
+          // ----------------------------------------------
+          // GET WALLET
+          // ----------------------------------------------
+
+          const wallet = await getWallet(
+            withdraw.userId,
+            withdraw.username
+          );
+
+          // ----------------------------------------------
+          // WALLET BEFORE
+          // ----------------------------------------------
+
+          const currentPkrBalance = Number(
+            wallet.pkrBalance || 0
+          );
+
+          const currentUsdtBalance = Number(
+            wallet.usdtBalance || 0
+          );
+
+          const currentGoldBalance = Number(
+            wallet.goldBalance || 0
+          );
+
+          const currentLockedPkr = Number(
+            wallet.lockedPkr || 0
+          );
+
+          const currentLockedUsdt = Number(
+            wallet.lockedUsdt || 0
+          );
+
+          const currentLockedGold = Number(
+            wallet.lockedGold || 0
+          );
+
+          // ----------------------------------------------
+          // VERIFY LOCK EXISTS
+          // ----------------------------------------------
+
+          if (walletType === "PKR") {
+            if (currentLockedPkr < amount) {
+              failed.push({
+                withdrawId,
+                error:
+                  "Insufficient locked PKR amount for rejection.",
+              });
+
+              continue;
+            }
+          }
+
+          if (walletType === "USDT") {
+            if (currentLockedUsdt < amount) {
+              failed.push({
+                withdrawId,
+                error:
+                  "Insufficient locked USDT amount for rejection.",
+              });
+
+              continue;
+            }
+          }
+
+          // ----------------------------------------------
+          // SAVE WITHDRAW BEFORE SNAPSHOT
+          // ----------------------------------------------
+
+          withdraw.walletBefore = {
+            pkrBalance: currentPkrBalance,
+            usdtBalance: currentUsdtBalance,
+            goldBalance: currentGoldBalance,
+
+            lockedPkr: currentLockedPkr,
+            lockedUsdt: currentLockedUsdt,
+            lockedGold: currentLockedGold,
+          };
+
+          // ----------------------------------------------
+          // RELEASE LOCK
+          //
+          // IMPORTANT:
+          // Rejection does NOT reduce actual balance.
+          // It only releases reserved/locked amount.
+          // ----------------------------------------------
+
+          if (walletType === "PKR") {
+            wallet.lockedPkr =
+              currentLockedPkr - amount;
+          }
+
+          if (walletType === "USDT") {
+            wallet.lockedUsdt =
+              currentLockedUsdt - amount;
+          }
+
+          wallet.lastWithdrawAt = new Date();
+
+          await wallet.save();
+
+          // ----------------------------------------------
+          // WALLET AFTER
+          // ----------------------------------------------
+
+          withdraw.walletAfter = {
+            pkrBalance: Number(
+              wallet.pkrBalance || 0
+            ),
+
+            usdtBalance: Number(
+              wallet.usdtBalance || 0
+            ),
+
+            goldBalance: Number(
+              wallet.goldBalance || 0
+            ),
+
+            lockedPkr: Number(
+              wallet.lockedPkr || 0
+            ),
+
+            lockedUsdt: Number(
+              wallet.lockedUsdt || 0
+            ),
+
+            lockedGold: Number(
+              wallet.lockedGold || 0
+            ),
+          };
+
+          // ----------------------------------------------
+          // UPDATE WITHDRAW
+          // ----------------------------------------------
+
+          withdraw.status = "REJECTED";
+
+          withdraw.rejectReason = reason;
+
+          withdraw.rejectedBy = req.user.id;
+
+          withdraw.rejectedByUsername =
+            req.user.username;
+
+          withdraw.rejectedAt = new Date();
+
+          await withdraw.save();
+
+          // ----------------------------------------------
+          // WALLET HISTORY
+          // ----------------------------------------------
+
+          await WalletHistory.create({
+            userId: withdraw.userId,
+            username: withdraw.username,
+
+            walletType,
+
+            type: "WITHDRAW_REJECTED",
+
+            transactionType: "WITHDRAW_REJECTED",
+            transactionMode: "RELEASE",
+
+            amount,
+
+            balanceBefore:
+              walletType === "PKR"
+                ? withdraw.walletBefore.pkrBalance
+                : withdraw.walletBefore.usdtBalance,
+
+            balanceAfter:
+              walletType === "PKR"
+                ? withdraw.walletAfter.pkrBalance
+                : withdraw.walletAfter.usdtBalance,
+
+            referenceId:
+              withdraw.referenceId ||
+              withdraw.reference ||
+              undefined,
+
+            admin: req.user.username,
+
+            adminId: req.user.id,
+
+            status: "Rejected",
+
+            note: reason,
+          });
+
+          // ----------------------------------------------
+          // TRANSACTION LEDGER
+          // ----------------------------------------------
+
+          await Transaction.create({
+            userId: withdraw.userId,
+            username: withdraw.username,
+
+            walletType,
+
+            transactionType: "WITHDRAW_REJECTED",
+            transactionMode: "RELEASE",
+
+            amount,
+
+            balanceBefore:
+              walletType === "PKR"
+                ? withdraw.walletBefore.pkrBalance
+                : withdraw.walletBefore.usdtBalance,
+
+            balanceAfter:
+              walletType === "PKR"
+                ? withdraw.walletAfter.pkrBalance
+                : withdraw.walletAfter.usdtBalance,
+
+            status: "Rejected",
+
+            paymentMethod:
+              withdraw.paymentMethod,
+
+            referenceId:
+              withdraw.referenceId ||
+              withdraw.reference ||
+              undefined,
+
+            adminId: req.user.id,
+
+            adminUsername:
+              req.user.username,
+
+            note: reason,
+          });
+
+          rejected++;
+        } catch (err) {
+          console.error(
+            `BULK REJECT ITEM ERROR [${withdrawId}]:`,
+            err
+          );
+
+          failed.push({
+            withdrawId,
+            error:
+              err.message || "Rejection failed.",
+          });
+        }
+      }
+
+      // --------------------------------------------------
+      // RESPONSE
+      // --------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Bulk withdraw rejection completed.",
+
+        result: {
+          requested: uniqueWithdrawIds.length,
+          rejected,
+          skipped,
+          failed: failed.length,
+        },
+
+        failed,
+      });
+    } catch (error) {
+      console.error(
+        "BULK REJECT WITHDRAW ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: "Bulk rejection failed.",
+
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: "Bulk withdraw rejection completed.",
-
-      result: {
-        requested: withdrawIds.length,
-        rejected,
-        skipped,
-        failed: failed.length,
-      },
-
-      failed,
-    });
-
-  } catch (error) {
-    console.error("BULK REJECT WITHDRAW ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Bulk rejection failed.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
+);
+
 
 // ======================================================
 // WITHDRAW STATISTICS
 // GET /api/withdraw/statistics
 // ======================================================
 
-router.get("/statistics", verifyToken, async (req, res) => {
-  try {
-    const query =
-      req.user.role === "admin"
+router.get(
+  "/statistics",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const isAdminUser =
+        String(req.user.role || "").toLowerCase() ===
+        "admin";
+
+      const query = isAdminUser
         ? {}
-        : { userId: req.user.id };
+        : {
+            userId: req.user.id,
+          };
 
-    const withdrawals = await Withdraw.find(query).lean();
+      // --------------------------------------------------
+      // AGGREGATE STATISTICS
+      // --------------------------------------------------
 
-    let pendingAmount = 0;
-    let approvedAmount = 0;
-    let rejectedAmount = 0;
-    let totalPKR = 0;
-    let totalUSDT = 0;
+      const statisticsResult =
+        await Withdraw.aggregate([
+          {
+            $match: query,
+          },
 
-    withdrawals.forEach((withdraw) => {
-      const amount = Number(withdraw.amount || 0);
+          {
+            $group: {
+              _id: null,
 
-      switch (withdraw.status) {
-        case "PENDING":
-          pendingAmount += amount;
-          break;
+              totalWithdrawals: {
+                $sum: 1,
+              },
 
-        case "APPROVED":
-          approvedAmount += amount;
+              pendingAmount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: [
+                        "$status",
+                        "PENDING",
+                      ],
+                    },
+                    {
+                      $convert: {
+                        input: "$amount",
+                        to: "double",
+                        onError: 0,
+                        onNull: 0,
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
 
-          if (withdraw.walletType === "PKR") totalPKR += amount;
-          if (withdraw.walletType === "USDT") totalUSDT += amount;
-          break;
+              approvedAmount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: [
+                        "$status",
+                        "APPROVED",
+                      ],
+                    },
+                    {
+                      $convert: {
+                        input: "$amount",
+                        to: "double",
+                        onError: 0,
+                        onNull: 0,
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
 
-        case "REJECTED":
-          rejectedAmount += amount;
-          break;
-      }
-    });
+              rejectedAmount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: [
+                        "$status",
+                        "REJECTED",
+                      ],
+                    },
+                    {
+                      $convert: {
+                        input: "$amount",
+                        to: "double",
+                        onError: 0,
+                        onNull: 0,
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
 
-    return res.status(200).json({
-      success: true,
+              totalPKR: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        {
+                          $eq: [
+                            "$status",
+                            "APPROVED",
+                          ],
+                        },
+                        {
+                          $eq: [
+                            "$walletType",
+                            "PKR",
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      $convert: {
+                        input: "$amount",
+                        to: "double",
+                        onError: 0,
+                        onNull: 0,
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
 
-      statistics: {
-        totalWithdrawals: withdrawals.length,
+              totalUSDT: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        {
+                          $eq: [
+                            "$status",
+                            "APPROVED",
+                          ],
+                        },
+                        {
+                          $eq: [
+                            "$walletType",
+                            "USDT",
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      $convert: {
+                        input: "$amount",
+                        to: "double",
+                        onError: 0,
+                        onNull: 0,
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ]);
 
-        pendingAmount: Number(pendingAmount.toFixed(2)),
-        approvedAmount: Number(approvedAmount.toFixed(2)),
-        rejectedAmount: Number(rejectedAmount.toFixed(2)),
+      const stats =
+        statisticsResult[0] || {};
 
-        totalPKRWithdrawals: Number(totalPKR.toFixed(2)),
-        totalUSDTWithdrawals: Number(totalUSDT.toFixed(6)),
-      },
+      return res.status(200).json({
+        success: true,
 
-      generatedAt: new Date().toISOString(),
-    });
+        statistics: {
+          totalWithdrawals: Number(
+            stats.totalWithdrawals || 0
+          ),
 
-  } catch (error) {
-    console.error("WITHDRAW STATISTICS ERROR:", error);
+          pendingAmount: Number(
+            Number(
+              stats.pendingAmount || 0
+            ).toFixed(2)
+          ),
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load statistics.",
-    });
+          approvedAmount: Number(
+            Number(
+              stats.approvedAmount || 0
+            ).toFixed(2)
+          ),
+
+          rejectedAmount: Number(
+            Number(
+              stats.rejectedAmount || 0
+            ).toFixed(2)
+          ),
+
+          totalPKRWithdrawals: Number(
+            Number(
+              stats.totalPKR || 0
+            ).toFixed(2)
+          ),
+
+          totalUSDTWithdrawals: Number(
+            Number(
+              stats.totalUSDT || 0
+            ).toFixed(6)
+          ),
+        },
+
+        generatedAt:
+          new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(
+        "WITHDRAW STATISTICS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to load statistics.",
+
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
+
 
 // ======================================================
 // WITHDRAW DEBUG
 // GET /api/withdraw/debug
 // ======================================================
 
-router.get("/debug", verifyToken, async (req, res) => {
-  try {
-    const query =
-      req.user.role === "admin"
+router.get(
+  "/debug",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const isAdminUser =
+        String(req.user.role || "").toLowerCase() ===
+        "admin";
+
+      const query = isAdminUser
         ? {}
-        : { userId: req.user.id };
+        : {
+            userId: req.user.id,
+          };
 
-    const [
-      wallet,
-      withdrawCount,
-      pendingCount,
-      transactionCount,
-      historyCount,
-    ] = await Promise.all([
-      Wallet.findOne({ userId: req.user.id }).lean(),
+      // --------------------------------------------------
+      // CURRENT USER WALLET
+      // --------------------------------------------------
 
-      Withdraw.countDocuments(query),
+      const wallet =
+        await Wallet.findOne({
+          userId: req.user.id,
+        }).lean();
 
-      Withdraw.countDocuments({
-        ...query,
-        status: "PENDING",
-      }),
+      // --------------------------------------------------
+      // COUNTS
+      // --------------------------------------------------
 
-      Transaction.countDocuments({
-        ...query,
-        transactionType: { $regex: "^WITHDRAW" },
-      }),
+      const [
+        withdrawCount,
+        pendingCount,
+        transactionCount,
+        historyCount,
+      ] = await Promise.all([
+        Withdraw.countDocuments(query),
 
-      WalletHistory.countDocuments({
-        ...query,
-        type: { $regex: "WITHDRAW" },
-      }),
-    ]);
+        Withdraw.countDocuments({
+          ...query,
+          status: "PENDING",
+        }),
 
-    return res.status(200).json({
-      success: true,
+        Transaction.countDocuments({
+          ...query,
+          transactionType: {
+            $regex: "^WITHDRAW",
+            $options: "i",
+          },
+        }),
 
-      diagnostics: {
-        module: "Withdraw API V18 Enterprise",
+        WalletHistory.countDocuments({
+          ...query,
+          $or: [
+            {
+              type: {
+                $regex: "WITHDRAW",
+                $options: "i",
+              },
+            },
+            {
+              transactionType: {
+                $regex: "WITHDRAW",
+                $options: "i",
+              },
+            },
+          ],
+        }),
+      ]);
 
-        userId: req.user.id,
-        username: req.user.username,
-        role: req.user.role,
+      // --------------------------------------------------
+      // SAFE WALLET DIAGNOSTICS
+      // --------------------------------------------------
 
-        walletExists: !!wallet,
+      const walletDiagnostics = wallet
+        ? {
+            pkrBalance: Number(
+              wallet.pkrBalance || 0
+            ),
 
-        wallet: wallet
-          ? {
-              pkrBalance: Number(wallet.pkrBalance),
-              usdtBalance: Number(wallet.usdtBalance),
-              goldBalance: Number(wallet.goldBalance),
-            }
-          : null,
+            usdtBalance: Number(
+              wallet.usdtBalance || 0
+            ),
 
-        totalWithdrawals: withdrawCount,
-        pendingWithdrawals: pendingCount,
+            goldBalance: Number(
+              wallet.goldBalance || 0
+            ),
 
-        transactionLedgerEntries: transactionCount,
-        walletHistoryEntries: historyCount,
-      },
+            lockedPkr: Number(
+              wallet.lockedPkr || 0
+            ),
 
-      serverTime: new Date().toISOString(),
-    });
+            lockedUsdt: Number(
+              wallet.lockedUsdt || 0
+            ),
 
-  } catch (error) {
-    console.error("WITHDRAW DEBUG ERROR:", error);
+            lockedGold: Number(
+              wallet.lockedGold || 0
+            ),
 
-    return res.status(500).json({
-      success: false,
-      message: "Diagnostics failed.",
-    });
+            availablePkr: Math.max(
+              Number(wallet.pkrBalance || 0) -
+                Number(wallet.lockedPkr || 0),
+              0
+            ),
+
+            availableUsdt: Math.max(
+              Number(wallet.usdtBalance || 0) -
+                Number(wallet.lockedUsdt || 0),
+              0
+            ),
+
+            availableGold: Math.max(
+              Number(wallet.goldBalance || 0) -
+                Number(wallet.lockedGold || 0),
+              0
+            ),
+
+            isFrozen:
+              wallet.isFrozen === true,
+
+            status:
+              wallet.status || "Active",
+          }
+        : null;
+
+      return res.status(200).json({
+        success: true,
+
+        diagnostics: {
+          module:
+            "Withdraw API V18 Enterprise",
+
+          userId: req.user.id,
+
+          username:
+            req.user.username || null,
+
+          role:
+            req.user.role || null,
+
+          walletExists: !!wallet,
+
+          wallet: walletDiagnostics,
+
+          totalWithdrawals:
+            withdrawCount,
+
+          pendingWithdrawals:
+            pendingCount,
+
+          transactionLedgerEntries:
+            transactionCount,
+
+          walletHistoryEntries:
+            historyCount,
+        },
+
+        serverTime:
+          new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(
+        "WITHDRAW DEBUG ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: "Diagnostics failed.",
+
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
+
 
 // ======================================================
 // API ROUTES LIST
@@ -2462,22 +6350,62 @@ router.get("/routes", (req, res) => {
   return res.status(200).json({
     success: true,
 
-    module: "GoldTrade V18 Enterprise Withdraw API",
+    module:
+      "GoldTrade V18 Enterprise Withdraw API",
+
     version: "18.0.0",
 
     routes: [
       "GET /api/withdraw/health",
+
       "POST /api/withdraw/create",
+
+      "GET /api/withdraw/settings",
+      "PATCH /api/withdraw/settings",
+
+      "GET /api/withdraw/payment-settings",
+      "PATCH /api/withdraw/payment-settings",
+      "GET /api/withdraw/payment-details",
+
       "GET /api/withdraw/history",
+      "GET /api/withdraw/history/:username",
+
+      "GET /api/withdraw/pending",
+      "GET /api/withdraw/recent",
+      "GET /api/withdraw/summary",
+
       "PATCH /api/withdraw/:id/approve",
       "PATCH /api/withdraw/:id/reject",
+      "PATCH /api/withdraw/:id/cancel",
+
       "GET /api/withdraw/admin/dashboard",
+      "GET /api/withdraw/admin/analytics",
+      "GET /api/withdraw/admin/recent",
+      "GET /api/withdraw/admin/top-users",
+      "GET /api/withdraw/admin/user-summary/:username",
+
       "GET /api/withdraw/admin/all",
+      "GET /api/withdraw/admin/:id",
+      "GET /api/withdraw/admin/search",
+      "GET /api/withdraw/admin/user/:username",
+      "GET /api/withdraw/admin/preview/:id",
+
       "PATCH /api/withdraw/admin/bulk-approve",
       "PATCH /api/withdraw/admin/bulk-reject",
+
+      "GET /api/withdraw/statistics",
+      "GET /api/withdraw/debug",
+      "GET /api/withdraw/routes",
     ],
 
-    timestamp: new Date().toISOString(),
+    timestamp:
+      new Date().toISOString(),
   });
-})
+});
+
+
+// ======================================================
+// EXPORT ROUTER
+// ======================================================
+
 module.exports = router;

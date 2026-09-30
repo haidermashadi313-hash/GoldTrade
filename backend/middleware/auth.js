@@ -105,27 +105,35 @@ const verifyToken = async (req, res, next) => {
   }
 };
 // ======================================================
-// GoldTrade V18 Enterprise Middleware
-// auth.js — PART 2/2 FINAL
-// Admin + User + Optional Authentication
-// Production Ready (Render + PM2 + Ubuntu)
-// ======================================================
-
-// ======================================================
 // VERIFY ADMIN
+// GOLDTRADE V18 ENTERPRISE — FINAL
+// Supports: id / _id + normalized admin roles
 // ======================================================
 
 const isAdmin = async (req, res, next) => {
   try {
-    if (!req.user?.id) {
+    // ====================================================
+    // GET USER ID
+    // Supports both req.user.id and req.user._id
+    // ====================================================
+
+    const userId =
+      req.user?.id ||
+      req.user?._id;
+
+    if (!userId) {
       return res.status(401).json({
         success: false,
         message: "Authentication required.",
       });
     }
 
-    const user = await User.findById(req.user.id)
-      .select("_id role isActive")
+    // ====================================================
+    // LOAD USER FROM DATABASE
+    // ====================================================
+
+    const user = await User.findById(userId)
+      .select("_id username role isActive")
       .lean();
 
     if (!user) {
@@ -135,6 +143,10 @@ const isAdmin = async (req, res, next) => {
       });
     }
 
+    // ====================================================
+    // ACTIVE ACCOUNT CHECK
+    // ====================================================
+
     if (user.isActive === false) {
       return res.status(403).json({
         success: false,
@@ -142,16 +154,68 @@ const isAdmin = async (req, res, next) => {
       });
     }
 
-    if (user.role !== "admin") {
+    // ====================================================
+    // NORMALIZE ROLE
+    // ====================================================
+
+    const role = String(user.role || "")
+      .trim()
+      .toLowerCase();
+
+    // ====================================================
+    // ACCEPTED ADMIN ROLES
+    // ====================================================
+
+    const adminRoles = [
+      "admin",
+      "administrator",
+      "superadmin",
+      "super_admin",
+    ];
+
+    if (!adminRoles.includes(role)) {
+      console.error("ADMIN ACCESS DENIED:", {
+        userId: String(user._id),
+        username: user.username || null,
+        role: user.role || null,
+      });
+
       return res.status(403).json({
         success: false,
         message: "Administrator access required.",
+        role: user.role || null,
       });
     }
 
+    // ====================================================
+    // NORMALIZE req.user
+    // ====================================================
+
+    req.user = {
+      ...req.user,
+
+      id: String(user._id),
+
+      _id: user._id,
+
+      username: user.username,
+
+      role: "admin",
+
+      isActive: user.isActive,
+    };
+
+    // ====================================================
+    // ADMIN VERIFIED
+    // ====================================================
+
     next();
+
   } catch (error) {
-    console.error("IS ADMIN ERROR:", error.message);
+    console.error(
+      "IS ADMIN ERROR:",
+      error
+    );
 
     return res.status(500).json({
       success: false,

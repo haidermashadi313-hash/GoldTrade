@@ -1,47 +1,93 @@
-/*
-========================================================
- GoldTrade V18 Enterprise Backend
- Settings.js — PART 1/2
- Global Application Settings Model
- Production Ready (Render + PM2 + MongoDB Atlas)
-========================================================
-*/
+// ======================================================
+// GoldTrade V18 Enterprise - Settings Model
+// ======================================================
 
 "use strict";
 
 const mongoose = require("mongoose");
 
 // ======================================================
+// DEPOSIT PAYMENT METHOD SCHEMA
+// ======================================================
+
+const depositPaymentMethodSchema = new mongoose.Schema(
+  {
+    type: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 100,
+    },
+
+    accountName: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 200,
+    },
+
+    accountNumber: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 200,
+    },
+
+    qrCode: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    instructions: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 2000,
+    },
+
+    enabled: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  {
+    _id: true,
+    timestamps: false,
+  }
+);
+
+// ======================================================
 // SETTINGS SCHEMA
 // ======================================================
 
-const SettingsSchema = new mongoose.Schema(
+const settingsSchema = new mongoose.Schema(
   {
     // ==================================================
-    // GOLD MARKET SETTINGS
+    // GOLD / MARKET SETTINGS
     // ==================================================
 
     buyGoldPrice: {
       type: Number,
-      default: 45000,
+      default: 0,
       min: 0,
     },
 
     sellGoldPrice: {
       type: Number,
-      default: 44500,
+      default: 0,
       min: 0,
     },
 
     goldPriceUSD: {
       type: Number,
-      default: 4300,
+      default: 0,
       min: 0,
     },
 
     usdToPkr: {
       type: Number,
-      default: 320,
+      default: 0,
       min: 0,
     },
 
@@ -52,30 +98,10 @@ const SettingsSchema = new mongoose.Schema(
 
     marketStatus: {
       type: String,
-      enum: ["OPEN", "CLOSED", "MAINTENANCE"],
       default: "OPEN",
-      index: true,
-    },
-
-    // ==================================================
-    // USDT SETTINGS
-    // ==================================================
-
-    usdtBuyPrice: {
-      type: Number,
-      default: 320,
-      min: 0,
-    },
-
-    usdtSellPrice: {
-      type: Number,
-      default: 318,
-      min: 0,
-    },
-
-    usdtTradingEnabled: {
-      type: Boolean,
-      default: true,
+      enum: ["OPEN", "CLOSED"],
+      uppercase: true,
+      trim: true,
     },
 
     // ==================================================
@@ -100,137 +126,82 @@ const SettingsSchema = new mongoose.Schema(
     },
 
     // ==================================================
-    // WITHDRAW SETTINGS
+    // V18 DEPOSIT PAYMENT METHODS
     // ==================================================
 
-    withdrawEnabled: {
-      type: Boolean,
-      default: true,
-    },
-
-    minimumWithdraw: {
-      type: Number,
-      default: 1000,
-      min: 0,
-    },
-
-    maximumWithdraw: {
-      type: Number,
-      default: 10000000,
-      min: 0,
-    },
-
-    withdrawFeePercent: {
-      type: Number,
-      default: 0,
-      min: 0,
+    depositPaymentMethods: {
+      type: [depositPaymentMethodSchema],
+      default: [],
     },
 
     // ==================================================
-    // SYSTEM SETTINGS
+    // LEGACY PAYMENT SETTINGS
+    // Kept for compatibility with older frontend/routes
     // ==================================================
 
-    maintenanceMode: {
-      type: Boolean,
-      default: false,
-    },
+    paymentSettings: {
+      bankName: {
+        type: String,
+        default: "",
+        trim: true,
+      },
 
-    registrationEnabled: {
-      type: Boolean,
-      default: true,
-    },
+      accountTitle: {
+        type: String,
+        default: "",
+        trim: true,
+      },
 
-    appVersion: {
-      type: String,
-      default: "18.0.0",
-      trim: true,
-    },
-        // ==================================================
-    // ADMIN AUDIT
-    // ==================================================
+      accountNumber: {
+        type: String,
+        default: "",
+        trim: true,
+      },
 
-    updatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
-    },
+      usdtAddress: {
+        type: String,
+        default: "",
+        trim: true,
+      },
 
-    updatedByUsername: {
-      type: String,
-      default: "",
-      trim: true,
-      lowercase: true,
-    },
-
-    // ==================================================
-    // EXTRA METADATA
-    // ==================================================
-
-    metadata: {
-      type: mongoose.Schema.Types.Mixed,
-      default: {},
+      usdtNetwork: {
+        type: String,
+        default: "",
+        trim: true,
+      },
     },
   },
   {
     timestamps: true,
     collection: "settings",
-    versionKey: false,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+    minimize: false,
   }
 );
 
 // ======================================================
-// COMPOSITE INDEXES (No Duplicate Index Warning)
+// VALIDATION
 // ======================================================
 
-SettingsSchema.index({ updatedAt: -1 });
-
-// ======================================================
-// PRE SAVE MIDDLEWARE
-// ======================================================
-
-SettingsSchema.pre("save", function (next) {
-  this.buyGoldPrice = Number(this.buyGoldPrice || 0);
-  this.sellGoldPrice = Number(this.sellGoldPrice || 0);
-
-  this.goldPriceUSD = Number(this.goldPriceUSD || 0);
-  this.usdToPkr = Number(this.usdToPkr || 0);
-
-  this.usdtBuyPrice = Number(this.usdtBuyPrice || 0);
-  this.usdtSellPrice = Number(this.usdtSellPrice || 0);
-
-  this.minimumDeposit = Number(this.minimumDeposit || 0);
-  this.maximumDeposit = Number(this.maximumDeposit || 0);
-
-  this.minimumWithdraw = Number(this.minimumWithdraw || 0);
-  this.maximumWithdraw = Number(this.maximumWithdraw || 0);
-
-  this.withdrawFeePercent = Number(this.withdrawFeePercent || 0);
-
-  if (this.marketStatus) {
-    this.marketStatus = this.marketStatus.toUpperCase();
+settingsSchema.pre("validate", function (next) {
+  if (
+    Number.isFinite(this.minimumDeposit) &&
+    Number.isFinite(this.maximumDeposit) &&
+    this.minimumDeposit > this.maximumDeposit
+  ) {
+    return next(
+      new Error(
+        "minimumDeposit cannot be greater than maximumDeposit."
+      )
+    );
   }
 
   next();
 });
 
 // ======================================================
-// JSON CLEANUP
-// ======================================================
-
-SettingsSchema.set("toJSON", {
-  virtuals: true,
-  transform(doc, ret) {
-    delete ret.__v;
-    return ret;
-  },
-});
-
-// ======================================================
-// SAFE EXPORT (Render + Nodemon + PM2 Safe)
+// MODEL
 // ======================================================
 
 module.exports =
   mongoose.models.Settings ||
-  mongoose.model("Settings", SettingsSchema);
+  mongoose.model("Settings", settingsSchema);
