@@ -3,7 +3,7 @@
 // =====================================================
 // GoldTrade V18 Enterprise
 // Deposit PKR Page
-// PART 1/3
+// PART 1/10
 // =====================================================
 
 import {
@@ -34,12 +34,23 @@ import {
 } from "lucide-react";
 
 // =====================================================
-// API URL
+// CENTRAL DEPOSIT API HELPER
 // =====================================================
 
-const API =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://goldtrade-2.onrender.com";
+import {
+  API,
+  createDeposit,
+  getDepositHistory,
+  getDepositSettings,
+  getAuthToken,
+  getApiErrorMessage,
+  isUnauthorized,
+  redirectToLogin,
+  normalizeDeposit,
+  normalizeDepositSettings,
+  normalizePaymentMethod,
+  toSafeNumber,
+} from "@/lib/deposit-api";
 
 // =====================================================
 // TYPES
@@ -64,16 +75,19 @@ type PaymentMethodType =
   | "EASYPAISA"
   | "BINANCE"
   | "USDT_BEP20"
-  | "USDT_ERC20";
+  | "USDT_ERC20"
+  | string;
 
 interface PaymentMethod {
   _id?: string;
 
-  method: PaymentMethodType | string;
+  method: PaymentMethodType;
 
   title: string;
 
   accountTitle: string;
+
+  accountName?: string;
 
   accountNumber: string;
 
@@ -87,6 +101,10 @@ interface PaymentMethod {
 
   qrImage?: string;
 
+  qrCode?: string;
+
+  instructions?: string;
+
   enabled: boolean;
 }
 
@@ -94,9 +112,11 @@ type DepositStatus =
   | "PENDING"
   | "APPROVED"
   | "REJECTED"
+  | "CANCELLED"
   | "Pending"
   | "Approved"
-  | "Rejected";
+  | "Rejected"
+  | "Cancelled";
 
 interface DepositHistory {
   _id: string;
@@ -115,21 +135,17 @@ interface DepositHistory {
 
   receiptImage?: string;
 
+  screenshot?: string;
+
   adminNote?: string;
+
+  note?: string;
+
+  rejectReason?: string;
 
   approvedAt?: string;
 
   rejectedAt?: string;
-}
-
-interface DepositPayload {
-  amount: number;
-
-  paymentMethod: string;
-
-  transactionId: string;
-
-  receipt: string;
 }
 
 // =====================================================
@@ -143,33 +159,29 @@ export default function DepositPage() {
   // AUTH
   // ===================================================
 
-  const [token, setToken] =
-    useState("");
+  const [token, setToken] = useState("");
 
-  const [username, setUsername] =
-    useState("");
+  const [username, setUsername] = useState("");
 
-  const [user, setUser] =
-    useState<UserData>({
-      username: "",
-      fullName: "",
-      email: "",
-      role: "user",
-    });
+  const [user, setUser] = useState<UserData>({
+    username: "",
+    fullName: "",
+    email: "",
+    role: "user",
+  });
 
   // ===================================================
   // WALLET
   // ===================================================
 
-  const [wallet, setWallet] =
-    useState<WalletData>({
-      pkrBalance: 0,
-      goldBalance: 0,
-      usdtBalance: 0,
-    });
+  const [wallet, setWallet] = useState<WalletData>({
+    pkrBalance: 0,
+    goldBalance: 0,
+    usdtBalance: 0,
+  });
 
   // ===================================================
-  // PAYMENT METHODS
+  // PAYMENT SETTINGS
   // ===================================================
 
   const [paymentMethods, setPaymentMethods] =
@@ -178,12 +190,23 @@ export default function DepositPage() {
   const [selectedMethod, setSelectedMethod] =
     useState<PaymentMethod | null>(null);
 
+  const [depositsEnabled, setDepositsEnabled] =
+    useState(true);
+
+  const [minimumDeposit, setMinimumDeposit] =
+    useState(500);
+
+  const [maximumDeposit, setMaximumDeposit] =
+    useState(5000000);
+
+  const [receiptRequired, setReceiptRequired] =
+    useState(true);
+
   // ===================================================
   // DEPOSIT FORM
   // ===================================================
 
-  const [amount, setAmount] =
-    useState("");
+  const [amount, setAmount] = useState("");
 
   const [transactionId, setTransactionId] =
     useState("");
@@ -193,10 +216,10 @@ export default function DepositPage() {
 
   const [receiptPreview, setReceiptPreview] =
     useState("");
-    
-    // =====================================================
-   // RECEIPT PREVIEW STATE
-   // =====================================================
+
+  // ===================================================
+  // RECEIPT PREVIEW MODAL
+  // ===================================================
 
   const [previewReceipt, setPreviewReceipt] =
     useState<string | null>(null);
@@ -212,8 +235,7 @@ export default function DepositPage() {
   // UI
   // ===================================================
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
   const [submitting, setSubmitting] =
     useState(false);
@@ -228,14 +250,15 @@ export default function DepositPage() {
     useState("");
 
   // ===================================================
-  // AUTH HEADERS
+  // API TOKEN
   // ===================================================
 
-  const getHeaders = useCallback(() => {
-    return {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
+  const getCurrentToken = useCallback(() => {
+    if (token) {
+      return token;
+    }
+
+    return getAuthToken();
   }, [token]);
 
   // ===================================================
@@ -265,12 +288,14 @@ export default function DepositPage() {
     }
 
     const storedToken =
-      window.localStorage.getItem("token");
+      window.localStorage.getItem("token") ||
+      window.localStorage.getItem("accessToken") ||
+      window.localStorage.getItem("jwt") ||
+      "";
 
     const storedUsername =
-      window.localStorage.getItem(
-        "username"
-      ) || "";
+      window.localStorage.getItem("username") ||
+      "";
 
     const storedUser =
       window.localStorage.getItem("user");
@@ -293,9 +318,25 @@ export default function DepositPage() {
         setUser((current) => ({
           ...current,
           ...parsedUser,
+
           username:
             parsedUser.username ||
-            storedUsername,
+            storedUsername ||
+            current.username,
+
+          fullName:
+            parsedUser.fullName ||
+            parsedUser.username ||
+            current.fullName,
+
+          email:
+            parsedUser.email ||
+            current.email,
+
+          role:
+            parsedUser.role ||
+            current.role ||
+            "user",
         }));
 
         if (
@@ -316,13 +357,53 @@ export default function DepositPage() {
   }, [router]);
 
   // ===================================================
+  // LOGOUT
+  // ===================================================
+
+  const logout = useCallback(() => {
+    if (
+      typeof window !==
+      "undefined"
+    ) {
+      localStorage.removeItem(
+        "token"
+      );
+
+      localStorage.removeItem(
+        "accessToken"
+      );
+
+      localStorage.removeItem(
+        "jwt"
+      );
+
+      localStorage.removeItem(
+        "username"
+      );
+
+      localStorage.removeItem(
+        "role"
+      );
+
+      localStorage.removeItem(
+        "user"
+      );
+    }
+
+    router.replace("/login");
+  }, [router]);
+
+  // ===================================================
   // VERIFY USER SESSION
   // GET /api/auth/check
   // ===================================================
 
   const verifySession =
     useCallback(async () => {
-      if (!token) {
+      const activeToken =
+        getCurrentToken();
+
+      if (!activeToken) {
         return false;
       }
 
@@ -335,7 +416,10 @@ export default function DepositPage() {
 
               headers: {
                 Authorization:
-                  `Bearer ${token}`,
+                  `Bearer ${activeToken}`,
+
+                Accept:
+                  "application/json",
               },
 
               cache: "no-store",
@@ -352,53 +436,55 @@ export default function DepositPage() {
         }
 
         if (
+          response.status === 401 ||
           !response.ok ||
           !data?.success
         ) {
-          localStorage.removeItem(
-            "token"
-          );
-
-          localStorage.removeItem(
-            "username"
-          );
-
-          localStorage.removeItem(
-            "role"
-          );
-
-          router.replace("/login");
-
+          logout();
           return false;
         }
 
         const sessionUser =
-          data.user || {};
+          data?.user || {};
+
+        const resolvedUsername =
+          String(
+            sessionUser.username ||
+              username ||
+              ""
+          ).trim();
 
         setUser({
           username:
-            sessionUser.username ||
-            username,
+            resolvedUsername,
 
           fullName:
-            sessionUser.fullName ||
-            sessionUser.username ||
-            username,
+            String(
+              sessionUser.fullName ||
+                sessionUser.username ||
+                resolvedUsername ||
+                ""
+            ).trim(),
 
           email:
-            sessionUser.email || "",
+            String(
+              sessionUser.email ||
+                ""
+            ).trim(),
 
           role:
-            sessionUser.role ||
-            "user",
+            String(
+              sessionUser.role ||
+                "user"
+            ).trim(),
         });
 
         if (
           !username &&
-          sessionUser.username
+          resolvedUsername
         ) {
           setUsername(
-            sessionUser.username
+            resolvedUsername
           );
         }
 
@@ -409,11 +495,14 @@ export default function DepositPage() {
           error
         );
 
-        router.replace("/login");
-
+        logout();
         return false;
       }
-    }, [token, username, router]);
+    }, [
+      getCurrentToken,
+      username,
+      logout,
+    ]);
 
   // ===================================================
   // VERIFY SESSION WHEN TOKEN AVAILABLE
@@ -425,15 +514,21 @@ export default function DepositPage() {
     }
 
     verifySession();
-  }, [token, verifySession]);
+  }, [
+    token,
+    verifySession,
+  ]);
 
   // ===================================================
-  // COPY
+  // COPY TO CLIPBOARD
   // ===================================================
 
   const copyToClipboard =
     useCallback(
-      async (text: string) => {
+      async (value: string) => {
+        const text =
+          String(value || "").trim();
+
         if (!text) {
           return;
         }
@@ -450,7 +545,12 @@ export default function DepositPage() {
           setTimeout(() => {
             setSuccessMessage("");
           }, 2500);
-        } catch {
+        } catch (error) {
+          console.error(
+            "COPY ERROR:",
+            error
+          );
+
           setErrorMessage(
             "Unable to copy."
           );
@@ -458,31 +558,6 @@ export default function DepositPage() {
       },
       []
     );
-
-  // ===================================================
-  // LOGOUT
-  // ===================================================
-
-  const logout =
-    useCallback(() => {
-      localStorage.removeItem(
-        "token"
-      );
-
-      localStorage.removeItem(
-        "username"
-      );
-
-      localStorage.removeItem(
-        "role"
-      );
-
-      localStorage.removeItem(
-        "user"
-      );
-
-      router.replace("/login");
-    }, [router]);
 
   // ===================================================
   // COUNTERS
@@ -498,6 +573,7 @@ export default function DepositPage() {
       return depositHistory.filter(
         (item) =>
           String(item.status)
+            .trim()
             .toUpperCase() ===
           "APPROVED"
       ).length;
@@ -508,19 +584,34 @@ export default function DepositPage() {
       return depositHistory.filter(
         (item) =>
           String(item.status)
+            .trim()
             .toUpperCase() ===
           "PENDING"
       ).length;
     }, [depositHistory]);
 
-    // =====================================================
+  const rejectedDeposits =
+    useMemo(() => {
+      return depositHistory.filter(
+        (item) =>
+          String(item.status)
+            .trim()
+            .toUpperCase() ===
+          "REJECTED"
+      ).length;
+    }, [depositHistory]);
+
+  // ===================================================
   // LOAD USER WALLET
   // GET /api/wallet/balance
-  // =====================================================
+  // ===================================================
 
   const loadWallet =
     useCallback(async () => {
-      if (!token) {
+      const activeToken =
+        getCurrentToken();
+
+      if (!activeToken) {
         return;
       }
 
@@ -533,7 +624,10 @@ export default function DepositPage() {
 
               headers: {
                 Authorization:
-                  `Bearer ${token}`,
+                  `Bearer ${activeToken}`,
+
+                Accept:
+                  "application/json",
               },
 
               cache: "no-store",
@@ -571,28 +665,39 @@ export default function DepositPage() {
           );
         }
 
+        const source =
+          data?.wallet ||
+          data?.data?.wallet ||
+          {};
+
         setWallet({
-          pkrBalance: Number(
-            data.pkrBalance ??
-              data.balance ??
-              data.wallet?.pkrBalance ??
-              data.wallet?.pkr ??
-              0
-          ),
+          pkrBalance:
+            toSafeNumber(
+              data?.pkrBalance ??
+                data?.balance ??
+                source?.pkrBalance ??
+                source?.pkr ??
+                data?.data?.pkrBalance ??
+                0
+            ),
 
-          goldBalance: Number(
-            data.goldBalance ??
-              data.wallet?.goldBalance ??
-              data.wallet?.gold ??
-              0
-          ),
+          goldBalance:
+            toSafeNumber(
+              data?.goldBalance ??
+                source?.goldBalance ??
+                source?.gold ??
+                data?.data?.goldBalance ??
+                0
+            ),
 
-          usdtBalance: Number(
-            data.usdtBalance ??
-              data.wallet?.usdtBalance ??
-              data.wallet?.usdt ??
-              0
-          ),
+          usdtBalance:
+            toSafeNumber(
+              data?.usdtBalance ??
+                source?.usdtBalance ??
+                source?.usdt ??
+                data?.data?.usdtBalance ??
+                0
+            ),
         });
       } catch (error: any) {
         console.error(
@@ -605,824 +710,1199 @@ export default function DepositPage() {
             "Wallet unavailable."
         );
       }
-    }, [token, logout]);
+    }, [
+      getCurrentToken,
+      logout,
+    ]);
+
+  // ===================================================
+  // FILE HELPER
+  // ===================================================
+
+  const clearReceiptState =
+    useCallback(() => {
+      setReceiptFile(null);
+      setReceiptPreview("");
+    }, []);
 
   // =====================================================
-  // LOAD PAYMENT METHODS
-  // SOURCE OF TRUTH:
-  // GET /api/payment-settings/deposit
-  // =====================================================
+// LOAD PAYMENT SETTINGS
+//
+// SOURCE OF TRUTH:
+// GET /api/deposit/payment-settings
+// =====================================================
 
-  const loadPaymentMethods =
-    useCallback(async () => {
-      if (!token) {
-        return;
-      }
+const loadPaymentSettings =
+  useCallback(async () => {
+    const activeToken =
+      getCurrentToken();
 
-      try {
-        const response =
-          await fetch(
-            `${API}/api/payment-settings/deposit`,
-            {
-              method: "GET",
+    if (!activeToken) {
+      return;
+    }
 
-              headers: {
-                Authorization:
-                  `Bearer ${token}`,
-              },
+    try {
+      const response =
+        await fetch(
+          `${API}/api/deposit/payment-settings`,
+          {
+            method: "GET",
 
-              cache: "no-store",
-            }
-          );
+            headers: {
+              Authorization:
+                `Bearer ${activeToken}`,
 
-        let data: any = {};
+              Accept:
+                "application/json",
+            },
 
-        try {
-          data =
-            await response.json();
-        } catch {
-          data = {};
-        }
-
-        console.log(
-          "V18 USER PAYMENT SETTINGS:",
-          data
-        );
-
-        // -----------------------------------------------
-        // AUTH EXPIRED
-        // -----------------------------------------------
-
-        if (
-          response.status === 401
-        ) {
-          logout();
-          return;
-        }
-
-        // -----------------------------------------------
-        // API ERROR
-        // -----------------------------------------------
-
-        if (
-          !response.ok ||
-          !data?.success
-        ) {
-          throw new Error(
-            data?.message ||
-              `Unable to load payment methods. HTTP ${response.status}.`
-          );
-        }
-
-        // -----------------------------------------------
-        // NORMALIZE METHODS
-        // -----------------------------------------------
-
-        const methods: PaymentMethod[] =
-          Array.isArray(
-            data?.methods
-          )
-            ? data.methods
-                .filter(
-                  (item: any) =>
-                    item &&
-                    item.enabled === true
-                )
-                .map(
-                  (item: any) => ({
-                    _id:
-                      item._id,
-
-                    method:
-                      String(
-                        item.method ||
-                          ""
-                      )
-                        .trim()
-                        .toUpperCase(),
-
-                    title:
-                      String(
-                        item.title ||
-                          item.method ||
-                          ""
-                      ).trim(),
-
-                    accountTitle:
-                      String(
-                        item.accountTitle ||
-                          ""
-                      ).trim(),
-
-                    accountNumber:
-                      String(
-                        item.accountNumber ||
-                          ""
-                      ).trim(),
-
-                    iban:
-                      String(
-                        item.iban ||
-                          ""
-                      ).trim(),
-
-                    bankName:
-                      String(
-                        item.bankName ||
-                          ""
-                      ).trim(),
-
-                    walletAddress:
-                      String(
-                        item.walletAddress ||
-                          ""
-                      ).trim(),
-
-                    network:
-                      String(
-                        item.network ||
-                          ""
-                      ).trim(),
-
-                    qrImage:
-                      String(
-                        item.qrImage ||
-                          ""
-                      ).trim(),
-
-                    enabled:
-                      item.enabled === true,
-                  })
-                )
-                .filter(
-                  (item: PaymentMethod) =>
-                    item.method.length > 0
-                )
-            : [];
-
-        console.log(
-          "V18 ENABLED METHODS:",
-          methods
-        );
-
-        setPaymentMethods(
-          methods
-        );
-
-        // -----------------------------------------------
-        // SELECT METHOD
-        // -----------------------------------------------
-
-        setSelectedMethod(
-          (current) => {
-            if (
-              methods.length === 0
-            ) {
-              return null;
-            }
-
-            if (current) {
-              const existing =
-                methods.find(
-                  (item) =>
-                    item.method ===
-                    current.method
-                );
-
-              if (existing) {
-                return existing;
-              }
-            }
-
-            return methods[0];
+            cache: "no-store",
           }
         );
-      } catch (error: any) {
-        console.error(
-          "V18 PAYMENT SETTINGS ERROR:",
-          error
-        );
 
-        setPaymentMethods([]);
+      let data: any = {};
 
-        setSelectedMethod(null);
-
-        setErrorMessage(
-          error?.message ||
-            "Payment methods unavailable."
-        );
+      try {
+        data =
+          await response.json();
+      } catch {
+        data = {};
       }
-    }, [token, logout]);
 
-  // =====================================================
-  // LOAD DEPOSIT HISTORY
-  // GET /api/deposit/history/:username
-  // =====================================================
+      console.log(
+        "V18 USER DEPOSIT PAYMENT SETTINGS:",
+        data
+      );
 
-  const loadDepositHistory =
-    useCallback(async () => {
+      // =================================================
+      // AUTH EXPIRED
+      // =================================================
+
       if (
-        !token ||
-        !username
+        response.status === 401
       ) {
+        logout();
         return;
       }
 
-      try {
-        const response =
-          await fetch(
-            `${API}/api/deposit/history/${encodeURIComponent(
-              username
-            )}`,
-            {
-              method: "GET",
+      // =================================================
+      // API ERROR
+      // =================================================
 
-              headers: {
-                Authorization:
-                  `Bearer ${token}`,
-              },
+      if (
+        !response.ok ||
+        !data?.success
+      ) {
+        throw new Error(
+          data?.message ||
+            `Unable to load payment settings. HTTP ${response.status}.`
+        );
+      }
 
-              cache: "no-store",
-            }
-          );
+      // =================================================
+      // SETTINGS SOURCE
+      // =================================================
 
-        let data: any = {};
+      const settingsSource =
+        data?.settings ||
+        data?.data?.settings ||
+        data ||
+        {};
 
-        try {
-          data =
-            await response.json();
-        } catch {
-          data = {};
-        }
+      // =================================================
+      // NORMALIZE SETTINGS
+      // =================================================
 
-        console.log(
-          "V18 DEPOSIT HISTORY:",
-          data
+      const normalizedSettings =
+        normalizeDepositSettings(
+          {
+            ...settingsSource,
+
+            paymentMethods:
+              data?.paymentMethods ||
+              data?.methods ||
+              settingsSource?.paymentMethods ||
+              settingsSource?.methods ||
+              [],
+          }
         );
 
-        if (
-          response.status === 401
-        ) {
-          logout();
-          return;
-        }
+      // =================================================
+      // DEPOSIT ENABLED
+      // =================================================
 
-        if (
-          !response.ok ||
-          !data?.success
-        ) {
-          throw new Error(
-            data?.message ||
-              `Unable to load deposit history. HTTP ${response.status}.`
-          );
-        }
+      setDepositsEnabled(
+        normalizedSettings
+          .depositsEnabled !== false
+      );
 
-        const rawHistory =
-          Array.isArray(
-            data.history
-          )
-            ? data.history
-            : Array.isArray(
-                data.deposits
+      // =================================================
+      // MINIMUM DEPOSIT
+      // =================================================
+
+      const backendMinimum =
+        Number(
+          normalizedSettings.minimumDeposit
+        );
+
+      if (
+        Number.isFinite(
+          backendMinimum
+        ) &&
+        backendMinimum > 0
+      ) {
+        setMinimumDeposit(
+          backendMinimum
+        );
+      }
+
+      // =================================================
+      // MAXIMUM DEPOSIT
+      // =================================================
+
+      const backendMaximum =
+        Number(
+          normalizedSettings.maximumDeposit
+        );
+
+      if (
+        Number.isFinite(
+          backendMaximum
+        ) &&
+        backendMaximum > 0
+      ) {
+        setMaximumDeposit(
+          backendMaximum
+        );
+      }
+
+      // =================================================
+      // RECEIPT REQUIRED
+      // =================================================
+
+      setReceiptRequired(
+        normalizedSettings
+          .receiptRequired !== false
+      );
+
+      // =================================================
+      // PAYMENT METHODS
+      // =================================================
+
+      const rawMethods =
+        Array.isArray(
+          normalizedSettings.paymentMethods
+        )
+          ? normalizedSettings.paymentMethods
+          : [];
+
+      const methods: PaymentMethod[] =
+        rawMethods
+          .map(
+            (item: any) =>
+              normalizePaymentMethod(
+                item
               )
-            ? data.deposits
-            : [];
-
-        const history: DepositHistory[] =
-          rawHistory.map(
-            (item: any) => ({
+          )
+          .filter(
+            (
+              item: any
+            ) =>
+              item &&
+              item.enabled === true &&
+              String(
+                item.method || ""
+              ).trim().length > 0
+          )
+          .map(
+            (
+              item: any
+            ): PaymentMethod => ({
               _id:
                 item._id,
 
+              method:
+                String(
+                  item.method ||
+                    ""
+                )
+                  .trim()
+                  .toUpperCase(),
+
+              title:
+                String(
+                  item.title ||
+                    item.method ||
+                    ""
+                ).trim(),
+
+              accountTitle:
+                String(
+                  item.accountTitle ||
+                    item.accountName ||
+                    ""
+                ).trim(),
+
+              accountName:
+                String(
+                  item.accountName ||
+                    item.accountTitle ||
+                    ""
+                ).trim(),
+
+              accountNumber:
+                String(
+                  item.accountNumber ||
+                    ""
+                ).trim(),
+
+              iban:
+                String(
+                  item.iban ||
+                    ""
+                ).trim(),
+
+              bankName:
+                String(
+                  item.bankName ||
+                    ""
+                ).trim(),
+
+              walletAddress:
+                String(
+                  item.walletAddress ||
+                    item.accountNumber ||
+                    ""
+                ).trim(),
+
+              network:
+                String(
+                  item.network ||
+                    ""
+                ).trim(),
+
+              qrImage:
+                String(
+                  item.qrImage ||
+                    item.qrCode ||
+                    ""
+                ).trim(),
+
+              qrCode:
+                String(
+                  item.qrCode ||
+                    item.qrImage ||
+                    ""
+                ).trim(),
+
+              instructions:
+                String(
+                  item.instructions ||
+                    ""
+                ).trim(),
+
+              enabled:
+                item.enabled === true,
+            })
+          );
+
+      console.log(
+        "V18 ENABLED PAYMENT METHODS:",
+        methods
+      );
+
+      setPaymentMethods(
+        methods
+      );
+
+      // =================================================
+      // SELECT PAYMENT METHOD
+      // =================================================
+
+      setSelectedMethod(
+        (current) => {
+          if (
+            methods.length === 0
+          ) {
+            return null;
+          }
+
+          // ---------------------------------------------
+          // Keep current method if it still exists
+          // ---------------------------------------------
+
+          if (current) {
+            const existing =
+              methods.find(
+                (item) =>
+                  String(
+                    item.method
+                  ).toUpperCase() ===
+                  String(
+                    current.method
+                  ).toUpperCase()
+              );
+
+            if (existing) {
+              return existing;
+            }
+          }
+
+          // ---------------------------------------------
+          // Otherwise select first enabled method
+          // ---------------------------------------------
+
+          return methods[0];
+        }
+      );
+    } catch (error: any) {
+      console.error(
+        "V18 PAYMENT SETTINGS ERROR:",
+        error
+      );
+
+      setPaymentMethods([]);
+
+      setSelectedMethod(null);
+
+      setErrorMessage(
+        error?.message ||
+          "Payment methods unavailable."
+      );
+    }
+  }, [
+    getCurrentToken,
+    logout,
+  ]);
+
+// =====================================================
+// LOAD DEPOSIT HISTORY
+//
+// GET /api/deposit/history/:username
+// =====================================================
+
+const loadDepositHistory =
+  useCallback(async () => {
+    const activeToken =
+      getCurrentToken();
+
+    const activeUsername =
+      String(
+        username ||
+          user.username ||
+          ""
+      ).trim();
+
+    if (
+      !activeToken ||
+      !activeUsername
+    ) {
+      return;
+    }
+
+    try {
+      const response =
+        await fetch(
+          `${API}/api/deposit/history/${encodeURIComponent(
+            activeUsername
+          )}`,
+          {
+            method: "GET",
+
+            headers: {
+              Authorization:
+                `Bearer ${activeToken}`,
+
+              Accept:
+                "application/json",
+            },
+
+            cache: "no-store",
+          }
+        );
+
+      let data: any = {};
+
+      try {
+        data =
+          await response.json();
+      } catch {
+        data = {};
+      }
+
+      console.log(
+        "V18 DEPOSIT HISTORY:",
+        data
+      );
+
+      // =================================================
+      // AUTH EXPIRED
+      // =================================================
+
+      if (
+        response.status === 401
+      ) {
+        logout();
+        return;
+      }
+
+      // =================================================
+      // API ERROR
+      // =================================================
+
+      if (
+        !response.ok ||
+        !data?.success
+      ) {
+        throw new Error(
+          data?.message ||
+            `Unable to load deposit history. HTTP ${response.status}.`
+        );
+      }
+
+      // =================================================
+      // HISTORY SOURCE
+      // =================================================
+
+      const rawHistory =
+        Array.isArray(
+          data?.history
+        )
+          ? data.history
+          : Array.isArray(
+              data?.deposits
+            )
+          ? data.deposits
+          : Array.isArray(
+              data?.data?.history
+            )
+          ? data.data.history
+          : Array.isArray(
+              data?.data?.deposits
+            )
+          ? data.data.deposits
+          : [];
+
+      // =================================================
+      // NORMALIZE HISTORY
+      // =================================================
+
+      const history: DepositHistory[] =
+        rawHistory.map(
+          (item: any) => {
+            const normalized =
+              normalizeDeposit(
+                item
+              );
+
+            return {
+              _id:
+                String(
+                  normalized._id ||
+                    normalized.id ||
+                    item?._id ||
+                    item?.id ||
+                    ""
+                ),
+
               amount:
                 Number(
-                  item.amount ??
-                    item.requestAmount ??
+                  normalized.amount ||
+                    item?.amount ||
+                    item?.requestAmount ||
                     0
                 ),
 
               paymentMethod:
                 String(
-                  item.paymentMethod ||
-                    item.method ||
+                  normalized.paymentMethod ||
+                    item?.paymentMethod ||
+                    item?.method ||
                     ""
-                ),
+                ).trim(),
 
               transactionId:
                 String(
-                  item.transactionId ||
-                    item.reference ||
+                  normalized.transactionId ||
+                    item?.transactionId ||
+                    item?.referenceId ||
+                    item?.reference ||
                     ""
-                ),
+                ).trim(),
 
               status:
-                item.status ||
+                normalized.status ||
+                item?.status ||
                 "PENDING",
 
               createdAt:
-                item.createdAt ||
+                normalized.createdAt ||
+                item?.createdAt ||
                 new Date().toISOString(),
 
               receipt:
-                item.receipt ||
+                normalized.screenshot ||
+                normalized.receiptImage ||
+                item?.screenshot ||
+                item?.receiptImage ||
+                item?.receipt ||
                 "",
 
               receiptImage:
-                item.receiptImage ||
-                item.receipt ||
+                normalized.receiptImage ||
+                normalized.screenshot ||
+                item?.receiptImage ||
+                item?.screenshot ||
+                item?.receipt ||
+                "",
+
+              screenshot:
+                normalized.screenshot ||
+                item?.screenshot ||
+                item?.receiptImage ||
                 "",
 
               adminNote:
-                item.adminNote ||
-                item.note ||
+                item?.adminNote ||
+                item?.note ||
+                normalized.note ||
+                "",
+
+              note:
+                item?.note ||
+                normalized.note ||
+                "",
+
+              rejectReason:
+                item?.rejectReason ||
+                normalized.rejectReason ||
                 "",
 
               approvedAt:
-                item.approvedAt,
+                item?.approvedAt ||
+                normalized.approvedAt,
 
               rejectedAt:
-                item.rejectedAt,
-            })
+                item?.rejectedAt ||
+                normalized.rejectedAt,
+            };
+          }
+        );
+
+      // =================================================
+      // SORT — NEWEST FIRST
+      // =================================================
+
+      history.sort(
+        (
+          a,
+          b
+        ) => {
+          const dateA =
+            new Date(
+              a.createdAt
+            ).getTime();
+
+          const dateB =
+            new Date(
+              b.createdAt
+            ).getTime();
+
+          return (
+            dateB - dateA
           );
+        }
+      );
 
-        setDepositHistory(
-          history
-        );
-      } catch (error: any) {
-        console.error(
-          "V18 DEPOSIT HISTORY ERROR:",
-          error
-        );
+      setDepositHistory(
+        history
+      );
+    } catch (error: any) {
+      console.error(
+        "V18 DEPOSIT HISTORY ERROR:",
+        error
+      );
 
-        setDepositHistory([]);
+      setDepositHistory([]);
 
-        setErrorMessage(
-          error?.message ||
-            "History unavailable."
-        );
-      }
-    }, [
-      token,
-      username,
-      logout,
-    ]);
+      setErrorMessage(
+        error?.message ||
+          "Deposit history unavailable."
+      );
+    }
+  }, [
+    getCurrentToken,
+    username,
+    user.username,
+    logout,
+  ]);
 
-  // =====================================================
-  // REFRESH COMPLETE PAGE
-  // =====================================================
+// =====================================================
+// REFRESH COMPLETE DEPOSIT PAGE
+// =====================================================
 
-  const refreshDepositPage =
-    useCallback(async () => {
-      if (!token) {
-        return;
-      }
+const refreshDepositPage =
+  useCallback(async () => {
+    const activeToken =
+      getCurrentToken();
 
-      try {
-        setRefreshing(true);
-
-        setErrorMessage("");
-
-        await Promise.all([
-          loadWallet(),
-          loadPaymentMethods(),
-          loadDepositHistory(),
-        ]);
-
-        console.log(
-          "V18 Deposit page refreshed."
-        );
-      } catch (error: any) {
-        console.error(
-          "DEPOSIT REFRESH ERROR:",
-          error
-        );
-
-        setErrorMessage(
-          error?.message ||
-            "Refresh failed."
-        );
-      } finally {
-        setRefreshing(false);
-      }
-    }, [
-      token,
-      loadWallet,
-      loadPaymentMethods,
-      loadDepositHistory,
-    ]);
-
-  // =====================================================
-  // INITIAL PAGE LOAD
-  // =====================================================
-
-  useEffect(() => {
-    if (
-      !token ||
-      !username
-    ) {
+    if (!activeToken) {
       return;
     }
 
-    let mounted = true;
+    try {
+      setRefreshing(true);
 
-    const initializePage =
-      async () => {
-        try {
-          if (!mounted) {
-            return;
-          }
+      setErrorMessage("");
 
-          setLoading(true);
-          setErrorMessage("");
+      await Promise.all([
+        loadWallet(),
+        loadPaymentSettings(),
+        loadDepositHistory(),
+      ]);
 
-          const valid =
-            await verifySession();
+      console.log(
+        "V18 Deposit page refreshed successfully."
+      );
+    } catch (error: any) {
+      console.error(
+        "V18 DEPOSIT REFRESH ERROR:",
+        error
+      );
 
-          if (
-            !valid ||
-            !mounted
-          ) {
-            return;
-          }
-
-          await Promise.all([
-            loadWallet(),
-            loadPaymentMethods(),
-            loadDepositHistory(),
-          ]);
-
-          if (mounted) {
-            console.log(
-              "V18 Deposit page initialized."
-            );
-          }
-        } catch (error: any) {
-          console.error(
-            "INITIAL DEPOSIT LOAD ERROR:",
-            error
-          );
-
-          if (mounted) {
-            setErrorMessage(
-              error?.message ||
-                "Unable to initialize deposit page."
-            );
-          }
-        } finally {
-          if (mounted) {
-            setLoading(false);
-          }
-        }
-      };
-
-    initializePage();
-
-    return () => {
-      mounted = false;
-    };
+      setErrorMessage(
+        error?.message ||
+          "Unable to refresh deposit page."
+      );
+    } finally {
+      setRefreshing(false);
+    }
   }, [
-    token,
-    username,
-    verifySession,
+    getCurrentToken,
     loadWallet,
-    loadPaymentMethods,
+    loadPaymentSettings,
     loadDepositHistory,
   ]);
 
-  // =====================================================
-  // AUTO REFRESH
-  // =====================================================
+// =====================================================
+// INITIAL PAGE LOAD
+// =====================================================
 
-  useEffect(() => {
-    if (!token) {
-      return;
-    }
+useEffect(() => {
+  if (
+    !token ||
+    !username
+  ) {
+    return;
+  }
 
-    const timer =
-      window.setInterval(() => {
-        refreshDepositPage();
-      }, 60000);
+  let mounted = true;
 
-    return () => {
-      window.clearInterval(
-        timer
-      );
+  const initializePage =
+    async () => {
+      try {
+        if (!mounted) {
+          return;
+        }
+
+        setLoading(true);
+
+        setErrorMessage("");
+
+        // ---------------------------------------------
+        // VERIFY SESSION FIRST
+        // ---------------------------------------------
+
+        const valid =
+          await verifySession();
+
+        if (
+          !valid ||
+          !mounted
+        ) {
+          return;
+        }
+
+        // ---------------------------------------------
+        // LOAD PAGE DATA
+        // ---------------------------------------------
+
+        await Promise.all([
+          loadWallet(),
+          loadPaymentSettings(),
+          loadDepositHistory(),
+        ]);
+
+        if (mounted) {
+          console.log(
+            "V18 Deposit page initialized successfully."
+          );
+        }
+      } catch (error: any) {
+        console.error(
+          "V18 INITIAL DEPOSIT LOAD ERROR:",
+          error
+        );
+
+        if (mounted) {
+          setErrorMessage(
+            error?.message ||
+              "Unable to initialize deposit page."
+          );
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
     };
-  }, [
-    token,
-    refreshDepositPage,
-  ]);
 
-  // =====================================================
-  // PAYMENT METHOD SELECT
-  // =====================================================
+  initializePage();
 
-  const selectPaymentMethod =
-    useCallback(
-      (method: PaymentMethod) => {
-        if (
-          !method.enabled
-        ) {
-          return;
-        }
+  return () => {
+    mounted = false;
+  };
+}, [
+  token,
+  username,
+  verifySession,
+  loadWallet,
+  loadPaymentSettings,
+  loadDepositHistory,
+]);
 
-        setSelectedMethod(
-          method
-        );
+// =====================================================
+// AUTO REFRESH
+//
+// Every 60 seconds
+// =====================================================
 
-        setErrorMessage("");
-        setSuccessMessage("");
+useEffect(() => {
+  if (!token) {
+    return;
+  }
+
+  const timer =
+    window.setInterval(
+      () => {
+        refreshDepositPage();
       },
-      []
+      60000
     );
 
-  // =====================================================
-  // PAYMENT METHOD ICON
-  // =====================================================
-
-  const getMethodIcon =
-    useCallback(
-      (method: string) => {
-        switch (
-          String(method || "")
-            .trim()
-            .toUpperCase()
-        ) {
-          case "BANK":
-            return Landmark;
-
-          case "JAZZCASH":
-            return Smartphone;
-
-          case "EASYPAISA":
-            return Smartphone;
-
-          case "BINANCE":
-          case "USDT_BEP20":
-          case "USDT_ERC20":
-            return Bitcoin;
-
-          default:
-            return CreditCard;
-        }
-      },
-      []
+  return () => {
+    window.clearInterval(
+      timer
     );
+  };
+}, [
+  token,
+  refreshDepositPage,
+]);
 
-  // =====================================================
-  // STATUS COLOR
-  // =====================================================
+// =====================================================
+// PAYMENT METHOD SELECT
+// =====================================================
 
-  const getStatusColor =
-    useCallback(
-      (status: string) => {
-        switch (
-          String(status || "")
-            .trim()
-            .toUpperCase()
-        ) {
-          case "APPROVED":
-            return "text-green-400 border-green-500 bg-green-500/10";
+const selectPaymentMethod =
+  useCallback(
+    (method: PaymentMethod) => {
+      if (
+        !method ||
+        method.enabled !== true
+      ) {
+        return;
+      }
 
-          case "PENDING":
-            return "text-yellow-400 border-yellow-500 bg-yellow-500/10";
-
-          case "REJECTED":
-            return "text-red-400 border-red-500 bg-red-500/10";
-
-          default:
-            return "text-gray-300 border-gray-600 bg-gray-700/10";
-        }
-      },
-      []
-    );
-
-  // =====================================================
-  // DATE FORMAT
-  // =====================================================
-
-  const formatDate =
-    useCallback(
-      (date: string) => {
-        const parsed =
-          new Date(date);
-
-        if (
-          Number.isNaN(
-            parsed.getTime()
-          )
-        ) {
-          return "--";
-        }
-
-        return parsed.toLocaleString(
-          "en-PK",
-          {
-            year: "numeric",
-            month: "short",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-          }
-        );
-      },
-      []
-    );
-
-    // =====================================================
-  // RECEIPT IMAGE SELECT
-  // =====================================================
-
-  const handleReceiptChange =
-    useCallback(
-      (
-        event: ChangeEvent<HTMLInputElement>
-      ) => {
-        setErrorMessage("");
-        setSuccessMessage("");
-
-        const file =
-          event.target.files?.[0];
-
-        if (!file) {
-          return;
-        }
-
-        // -----------------------------------------------
-        // IMAGE ONLY
-        // -----------------------------------------------
-
-        if (
-          !file.type.startsWith(
-            "image/"
-          )
-        ) {
-          setErrorMessage(
-            "Please upload JPG, JPEG or PNG image."
-          );
-
-          event.target.value = "";
-
-          return;
-        }
-
-        // -----------------------------------------------
-        // MAX 5 MB
-        // -----------------------------------------------
-
-        if (
-          file.size >
-          5 * 1024 * 1024
-        ) {
-          setErrorMessage(
-            "Receipt image must be less than 5MB."
-          );
-
-          event.target.value = "";
-
-          return;
-        }
-
-        setReceiptFile(
-          file
-        );
-
-        const reader =
-          new FileReader();
-
-        reader.onloadend = () => {
-          setReceiptPreview(
-            String(
-              reader.result || ""
-            )
-          );
-        };
-
-        reader.readAsDataURL(
-          file
-        );
-      },
-      []
-    );
-
-  // =====================================================
-  // REMOVE RECEIPT
-  // =====================================================
-
-  const removeReceipt =
-    useCallback(() => {
-      setReceiptFile(null);
-
-      setReceiptPreview("");
+      setSelectedMethod(
+        method
+      );
 
       setErrorMessage("");
 
       setSuccessMessage("");
-    }, []);
+    },
+    []
+  );
 
-  // =====================================================
-  // VALIDATE DEPOSIT FORM
-  // =====================================================
+// =====================================================
+// PAYMENT METHOD ICON
+// =====================================================
 
-  const validateDepositForm =
-    useCallback(() => {
+const getMethodIcon =
+  useCallback(
+    (method: string) => {
+      switch (
+        String(method || "")
+          .trim()
+          .toUpperCase()
+      ) {
+        case "BANK":
+          return Landmark;
+
+        case "JAZZCASH":
+          return Smartphone;
+
+        case "EASYPAISA":
+          return Smartphone;
+
+        case "BINANCE":
+        case "USDT_BEP20":
+        case "USDT_ERC20":
+          return Bitcoin;
+
+        default:
+          return CreditCard;
+      }
+    },
+    []
+  );
+
+// =====================================================
+// STATUS COLOR
+// =====================================================
+
+const getStatusColor =
+  useCallback(
+    (status: string) => {
+      switch (
+        String(status || "")
+          .trim()
+          .toUpperCase()
+      ) {
+        case "APPROVED":
+          return "text-green-400 border-green-500 bg-green-500/10";
+
+        case "PENDING":
+          return "text-yellow-400 border-yellow-500 bg-yellow-500/10";
+
+        case "REJECTED":
+          return "text-red-400 border-red-500 bg-red-500/10";
+
+        case "CANCELLED":
+        case "CANCELED":
+          return "text-gray-400 border-gray-500 bg-gray-500/10";
+
+        default:
+          return "text-gray-300 border-gray-600 bg-gray-700/10";
+      }
+    },
+    []
+  );
+
+// =====================================================
+// DATE FORMAT
+// =====================================================
+
+const formatDate =
+  useCallback(
+    (date: string) => {
+      const parsed =
+        new Date(date);
+
+      if (
+        Number.isNaN(
+          parsed.getTime()
+        )
+      ) {
+        return "--";
+      }
+
+      return parsed.toLocaleString(
+        "en-PK",
+        {
+          year: "numeric",
+
+          month: "short",
+
+          day: "2-digit",
+
+          hour: "2-digit",
+
+          minute: "2-digit",
+        }
+      );
+    },
+    []
+  );
+
+// =====================================================
+// RECEIPT IMAGE SELECT
+// =====================================================
+
+const handleReceiptChange =
+  useCallback(
+    (
+      event: ChangeEvent<HTMLInputElement>
+    ) => {
       setErrorMessage("");
 
-      // -----------------------------------------------
-      // PAYMENT METHOD
-      // -----------------------------------------------
+      setSuccessMessage("");
 
-      if (!selectedMethod) {
-        setErrorMessage(
-          "Please select a payment method."
-        );
+      const file =
+        event.target.files?.[0];
 
-        return false;
+      if (!file) {
+        return;
       }
 
-      // -----------------------------------------------
-      // AMOUNT
-      // -----------------------------------------------
-
-      const numericAmount =
-        Number(amount);
+      // ---------------------------------------------
+      // IMAGE ONLY
+      // ---------------------------------------------
 
       if (
-        !amount ||
-        !Number.isFinite(
-          numericAmount
-        ) ||
-        numericAmount <= 0
+        !file.type.startsWith(
+          "image/"
+        )
       ) {
         setErrorMessage(
-          "Enter a valid deposit amount."
+          "Please upload a JPG, JPEG or PNG image."
         );
 
-        return false;
+        event.target.value = "";
+
+        return;
       }
 
-      // -----------------------------------------------
-      // MINIMUM
-      // -----------------------------------------------
+      // ---------------------------------------------
+      // MAX 5 MB
+      // ---------------------------------------------
 
       if (
-        numericAmount < 500
+        file.size >
+        5 * 1024 * 1024
       ) {
         setErrorMessage(
-          "Minimum PKR deposit is 500."
+          "Receipt image must be less than 5MB."
         );
 
-        return false;
+        event.target.value = "";
+
+        return;
       }
 
-      // -----------------------------------------------
-      // MAXIMUM
-      // -----------------------------------------------
+      // ---------------------------------------------
+      // STORE FILE
+      // ---------------------------------------------
 
-      if (
-        numericAmount >
-        5000000
-      ) {
+      setReceiptFile(
+        file
+      );
+
+      // ---------------------------------------------
+      // CREATE PREVIEW
+      // ---------------------------------------------
+
+      const reader =
+        new FileReader();
+
+      reader.onloadend = () => {
+        setReceiptPreview(
+          String(
+            reader.result || ""
+          )
+        );
+      };
+
+      reader.onerror = () => {
+        setReceiptFile(null);
+
+        setReceiptPreview("");
+
         setErrorMessage(
-          "Maximum PKR deposit is 5,000,000."
+          "Unable to read receipt image."
         );
+      };
 
-        return false;
-      }
+      reader.readAsDataURL(
+        file
+      );
+    },
+    []
+  );
 
-      // -----------------------------------------------
-      // TRANSACTION ID
-      // -----------------------------------------------
+// =====================================================
+// REMOVE RECEIPT
+// =====================================================
 
-      if (
-        !transactionId.trim()
-      ) {
-        setErrorMessage(
-          "Transaction ID is required."
-        );
+const removeReceipt =
+  useCallback(() => {
+    setReceiptFile(null);
 
-        return false;
-      }
+    setReceiptPreview("");
 
-      if (
-        transactionId
+    setPreviewReceipt(null);
+
+    setErrorMessage("");
+
+    setSuccessMessage("");
+  }, []);
+
+// =====================================================
+// VALIDATE DEPOSIT FORM
+// =====================================================
+
+const validateDepositForm =
+  useCallback(() => {
+    setErrorMessage("");
+
+    // =================================================
+    // DEPOSITS ENABLED
+    // =================================================
+
+    if (!depositsEnabled) {
+      setErrorMessage(
+        "Deposits are currently disabled. Please try again later."
+      );
+
+      return false;
+    }
+
+    // =================================================
+    // PAYMENT METHOD
+    // =================================================
+
+    if (!selectedMethod) {
+      setErrorMessage(
+        "Please select a payment method."
+      );
+
+      return false;
+    }
+
+    if (
+      selectedMethod.enabled !== true
+    ) {
+      setErrorMessage(
+        "The selected payment method is currently unavailable."
+      );
+
+      return false;
+    }
+
+    // =================================================
+    // AMOUNT
+    // =================================================
+
+    const numericAmount =
+      Number(
+        String(amount)
+          .replace(/,/g, "")
           .trim()
-          .length < 5
-      ) {
-        setErrorMessage(
-          "Transaction ID is too short."
-        );
+      );
 
-        return false;
-      }
+    if (
+      !amount ||
+      !Number.isFinite(
+        numericAmount
+      ) ||
+      numericAmount <= 0
+    ) {
+      setErrorMessage(
+        "Enter a valid deposit amount."
+      );
 
-      // -----------------------------------------------
-      // RECEIPT
-      // -----------------------------------------------
+      return false;
+    }
 
+    // =================================================
+    // INTEGER / DECIMAL SAFETY
+    // =================================================
+
+    if (
+      numericAmount <= 0
+    ) {
+      setErrorMessage(
+        "Deposit amount must be greater than zero."
+      );
+
+      return false;
+    }
+
+    // =================================================
+    // MINIMUM DEPOSIT
+    // =================================================
+
+    if (
+      minimumDeposit > 0 &&
+      numericAmount <
+        minimumDeposit
+    ) {
+      setErrorMessage(
+        `Minimum PKR deposit is ${formatMoney(
+          minimumDeposit
+        )}.`
+      );
+
+      return false;
+    }
+
+    // =================================================
+    // MAXIMUM DEPOSIT
+    // =================================================
+
+    if (
+      maximumDeposit > 0 &&
+      numericAmount >
+        maximumDeposit
+    ) {
+      setErrorMessage(
+        `Maximum PKR deposit is ${formatMoney(
+          maximumDeposit
+        )}.`
+      );
+
+      return false;
+    }
+
+    // =================================================
+    // TRANSACTION ID
+    // =================================================
+
+    const cleanTransactionId =
+      transactionId.trim();
+
+    if (
+      !cleanTransactionId
+    ) {
+      setErrorMessage(
+        "Transaction ID is required."
+      );
+
+      return false;
+    }
+
+    if (
+      cleanTransactionId.length <
+      5
+    ) {
+      setErrorMessage(
+        "Transaction ID is too short."
+      );
+
+      return false;
+    }
+
+    if (
+      cleanTransactionId.length >
+      150
+    ) {
+      setErrorMessage(
+        "Transaction ID is too long."
+      );
+
+      return false;
+    }
+
+    // =================================================
+    // RECEIPT
+    // =================================================
+
+    if (
+      receiptRequired
+    ) {
       if (
-        !receiptFile ||
-        !receiptPreview
+        !receiptFile
       ) {
         setErrorMessage(
           "Please upload payment receipt."
@@ -1431,395 +1911,815 @@ export default function DepositPage() {
         return false;
       }
 
-      return true;
-    }, [
-      selectedMethod,
-      amount,
-      transactionId,
-      receiptFile,
-      receiptPreview,
-    ]);
-
-  // =====================================================
-  // SUBMIT DEPOSIT
-  //
-  // POST /api/deposit/create
-  //
-  // IMPORTANT:
-  // This creates a PENDING request only.
-  // It does NOT credit the wallet.
-  // =====================================================
-
-  const submitDeposit =
-    useCallback(async () => {
       if (
-        submitting
+        !receiptPreview
       ) {
-        return;
+        setErrorMessage(
+          "Receipt preview could not be generated."
+        );
+
+        return false;
+      }
+    }
+
+    // =================================================
+    // RECEIPT FILE SAFETY
+    // =================================================
+
+    if (
+      receiptFile
+    ) {
+      if (
+        !receiptFile.type.startsWith(
+          "image/"
+        )
+      ) {
+        setErrorMessage(
+          "Receipt must be an image file."
+        );
+
+        return false;
       }
 
       if (
-        !validateDepositForm()
+        receiptFile.size >
+        5 * 1024 * 1024
       ) {
-        return;
+        setErrorMessage(
+          "Receipt image must be less than 5MB."
+        );
+
+        return false;
+      }
+    }
+
+    return true;
+  }, [
+    depositsEnabled,
+    selectedMethod,
+    amount,
+    minimumDeposit,
+    maximumDeposit,
+    transactionId,
+    receiptRequired,
+    receiptFile,
+    receiptPreview,
+    formatMoney,
+  ]);
+
+// =====================================================
+// SUBMIT DEPOSIT
+//
+// POST /api/deposit/create
+//
+// IMPORTANT:
+//
+// 1. walletType = PKR
+// 2. multipart/form-data
+// 3. receipt field = screenshot
+// 4. browser automatically creates multipart boundary
+// 5. wallet is NOT credited here
+// 6. request goes into pending/admin verification
+// =====================================================
+
+const submitDeposit =
+  useCallback(async () => {
+    // =================================================
+    // PREVENT DOUBLE SUBMIT
+    // =================================================
+
+    if (
+      submitting
+    ) {
+      return;
+    }
+
+    // =================================================
+    // VALIDATE
+    // =================================================
+
+    if (
+      !validateDepositForm()
+    ) {
+      return;
+    }
+
+    if (
+      !selectedMethod
+    ) {
+      return;
+    }
+
+    const activeToken =
+      getCurrentToken();
+
+    if (
+      !activeToken
+    ) {
+      logout();
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      setErrorMessage("");
+
+      setSuccessMessage("");
+
+      // =================================================
+      // CLEAN VALUES
+      // =================================================
+
+      const numericAmount =
+        Number(
+          String(amount)
+            .replace(/,/g, "")
+            .trim()
+        );
+
+      const cleanPaymentMethod =
+        String(
+          selectedMethod.method ||
+            ""
+        )
+          .trim()
+          .toUpperCase();
+
+      const cleanTransactionId =
+        transactionId.trim();
+
+      // =================================================
+      // FORM DATA
+      //
+      // DO NOT manually set Content-Type.
+      // Browser will add multipart boundary.
+      // =================================================
+
+      const formData =
+        new FormData();
+
+      // -------------------------------------------------
+      // WALLET TYPE
+      // -------------------------------------------------
+
+      formData.append(
+        "walletType",
+        "PKR"
+      );
+
+      // -------------------------------------------------
+      // AMOUNT
+      // -------------------------------------------------
+
+      formData.append(
+        "amount",
+        String(
+          numericAmount
+        )
+      );
+
+      // -------------------------------------------------
+      // PAYMENT METHOD
+      // -------------------------------------------------
+
+      formData.append(
+        "paymentMethod",
+        cleanPaymentMethod
+      );
+
+      // -------------------------------------------------
+      // TRANSACTION ID
+      // -------------------------------------------------
+
+      formData.append(
+        "transactionId",
+        cleanTransactionId
+      );
+
+      // -------------------------------------------------
+      // RECEIPT
+      //
+      // Backend expects:
+      // upload.single("screenshot")
+      // -------------------------------------------------
+
+      if (
+        receiptFile
+      ) {
+        formData.append(
+          "screenshot",
+          receiptFile
+        );
       }
 
-      if (!selectedMethod) {
-        return;
+      // =================================================
+      // OPTIONAL COMPATIBILITY DATA
+      // =================================================
+
+      if (
+        selectedMethod.network
+      ) {
+        formData.append(
+          "network",
+          String(
+            selectedMethod.network
+          ).trim()
+        );
       }
 
-      try {
-        setSubmitting(true);
+      // =================================================
+      // DEBUG
+      // =================================================
 
-        setErrorMessage("");
-        setSuccessMessage("");
+      console.log(
+        "V18 DEPOSIT SUBMIT:",
+        {
+          walletType:
+            "PKR",
 
-        const payload: DepositPayload = {
           amount:
-            Number(amount),
+            numericAmount,
 
           paymentMethod:
-            String(
-              selectedMethod.method
-            ).trim(),
+            cleanPaymentMethod,
 
           transactionId:
-            transactionId.trim(),
+            cleanTransactionId,
 
-          receipt:
-            receiptPreview,
-        };
+          screenshot:
+            receiptFile
+              ? {
+                  name:
+                    receiptFile.name,
 
-        console.log(
-          "V18 DEPOSIT SUBMIT:",
+                  type:
+                    receiptFile.type,
+
+                  size:
+                    receiptFile.size,
+                }
+              : null,
+        }
+      );
+
+      // =================================================
+      // SEND REQUEST
+      // =================================================
+
+      const response =
+        await fetch(
+          `${API}/api/deposit/create`,
           {
-            ...payload,
-            receipt:
-              payload.receipt
-                ? "[IMAGE DATA]"
-                : "",
+            method: "POST",
+
+            headers: {
+              Authorization:
+                `Bearer ${activeToken}`,
+
+              Accept:
+                "application/json",
+            },
+
+            body:
+              formData,
+
+            cache: "no-store",
           }
         );
 
-        const response =
-          await fetch(
-            `${API}/api/deposit/create`,
-            {
-              method: "POST",
+      // =================================================
+      // PARSE RESPONSE
+      // =================================================
 
-              headers:
-                getHeaders(),
+      let data: any = {};
 
-              body:
-                JSON.stringify(
-                  payload
-                ),
-            }
-          );
+      const contentType =
+        response.headers.get(
+          "content-type"
+        ) || "";
 
-        let data: any = {};
-
+      if (
+        contentType.includes(
+          "application/json"
+        )
+      ) {
         try {
           data =
             await response.json();
         } catch {
           data = {};
         }
+      } else {
+        const text =
+          await response.text();
 
-        console.log(
-          "V18 DEPOSIT RESPONSE:",
-          data
-        );
-
-        // ---------------------------------------------
-        // AUTH
-        // ---------------------------------------------
-
-        if (
-          response.status === 401
-        ) {
-          logout();
-          return;
-        }
-
-        // ---------------------------------------------
-        // ERROR
-        // ---------------------------------------------
-
-        if (
-          !response.ok ||
-          !data?.success
-        ) {
-          throw new Error(
-            data?.message ||
-              "Deposit request failed."
-          );
-        }
-
-        // ---------------------------------------------
-        // SUCCESS
-        // ---------------------------------------------
-
-        setSuccessMessage(
-          data.message ||
-            "Deposit request submitted successfully. Awaiting admin verification."
-        );
-
-        // ---------------------------------------------
-        // RESET FORM
-        // ---------------------------------------------
-
-        setAmount("");
-
-        setTransactionId("");
-
-        setReceiptFile(null);
-
-        setReceiptPreview("");
-
-        // ---------------------------------------------
-        // REFRESH HISTORY
-        // ---------------------------------------------
-
-        await Promise.all([
-          loadWallet(),
-          loadDepositHistory(),
-        ]);
-      } catch (error: any) {
-        console.error(
-          "V18 DEPOSIT SUBMIT ERROR:",
-          error
-        );
-
-        setErrorMessage(
-          error?.message ||
-            "Unable to submit deposit."
-        );
-      } finally {
-        setSubmitting(false);
+        data = {
+          success: false,
+          message:
+            text ||
+            `Server returned HTTP ${response.status}.`,
+        };
       }
-    }, [
-      submitting,
-      validateDepositForm,
-      selectedMethod,
-      amount,
-      transactionId,
-      receiptPreview,
-      getHeaders,
-      logout,
-      loadWallet,
-      loadDepositHistory,
-    ]);
 
-  // =====================================================
-  // QUICK AMOUNT BUTTONS
-  // =====================================================
+      console.log(
+        "V18 DEPOSIT RESPONSE:",
+        data
+      );
 
-  const quickAmounts = [
-    500,
-    1000,
-    5000,
-    10000,
-    25000,
-    50000,
-  ];
+      // =================================================
+      // AUTH EXPIRED
+      // =================================================
 
-  const selectQuickAmount =
-    useCallback(
-      (value: number) => {
-        setAmount(
-          String(value)
+      if (
+        response.status === 401
+      ) {
+        logout();
+        return;
+      }
+
+      // =================================================
+      // API ERROR
+      // =================================================
+
+      if (
+        !response.ok ||
+        !data?.success
+      ) {
+        throw new Error(
+          getApiErrorMessage(
+            data,
+            "Deposit request failed."
+          )
         );
+      }
 
-        setErrorMessage("");
-      },
-      []
-    );
+      // =================================================
+      // SUCCESS MESSAGE
+      // =================================================
 
-  // =====================================================
-  // CLEAR FORM
-  // =====================================================
+      setSuccessMessage(
+        data?.message ||
+          "Deposit request submitted successfully. Awaiting admin verification."
+      );
 
-  const clearForm =
-    useCallback(() => {
+      // =================================================
+      // RESET FORM
+      // =================================================
+
       setAmount("");
 
       setTransactionId("");
 
-      setReceiptFile(null);
+      setReceiptFile(
+        null
+      );
 
       setReceiptPreview("");
+
+      setPreviewReceipt(
+        null
+      );
+
+      // =================================================
+      // REFRESH DATA
+      // =================================================
+
+      await Promise.all([
+        loadWallet(),
+        loadDepositHistory(),
+      ]);
+    } catch (error: any) {
+      console.error(
+        "V18 DEPOSIT SUBMIT ERROR:",
+        error
+      );
+
+      // -----------------------------------------------
+      // NETWORK ERROR
+      // -----------------------------------------------
+
+      if (
+        error instanceof TypeError
+      ) {
+        setErrorMessage(
+          "Unable to connect to the GoldTrade server."
+        );
+
+        return;
+      }
+
+      // -----------------------------------------------
+      // NORMAL ERROR
+      // -----------------------------------------------
+
+      setErrorMessage(
+        error?.message ||
+          "Unable to submit deposit."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }, [
+    submitting,
+    validateDepositForm,
+    selectedMethod,
+    getCurrentToken,
+    logout,
+    amount,
+    transactionId,
+    receiptFile,
+    loadWallet,
+    loadDepositHistory,
+  ]);
+
+// =====================================================
+// QUICK AMOUNT VALUES
+// =====================================================
+
+const quickAmounts =
+  useMemo(() => {
+    const defaults = [
+      500,
+      1000,
+      5000,
+      10000,
+      25000,
+      50000,
+    ];
+
+    const minimum =
+      Number(
+        minimumDeposit || 0
+      );
+
+    const maximum =
+      Number(
+        maximumDeposit || 0
+      );
+
+    return defaults.filter(
+      (value) => {
+        if (
+          minimum > 0 &&
+          value < minimum
+        ) {
+          return false;
+        }
+
+        if (
+          maximum > 0 &&
+          value > maximum
+        ) {
+          return false;
+        }
+
+        return true;
+      }
+    );
+  }, [
+    minimumDeposit,
+    maximumDeposit,
+  ]);
+
+// =====================================================
+// SELECT QUICK AMOUNT
+// =====================================================
+
+const selectQuickAmount =
+  useCallback(
+    (value: number) => {
+      if (
+        !Number.isFinite(
+          value
+        )
+      ) {
+        return;
+      }
+
+      if (
+        minimumDeposit > 0 &&
+        value <
+          minimumDeposit
+      ) {
+        setErrorMessage(
+          `Minimum deposit is ${formatMoney(
+            minimumDeposit
+          )}.`
+        );
+
+        return;
+      }
+
+      if (
+        maximumDeposit > 0 &&
+        value >
+          maximumDeposit
+      ) {
+        setErrorMessage(
+          `Maximum deposit is ${formatMoney(
+            maximumDeposit
+          )}.`
+        );
+
+        return;
+      }
+
+      setAmount(
+        String(value)
+      );
 
       setErrorMessage("");
 
       setSuccessMessage("");
-    }, []);
+    },
+    [
+      minimumDeposit,
+      maximumDeposit,
+      formatMoney,
+    ]
+  );
 
-  // =====================================================
-  // FILE SIZE FORMAT
-  // =====================================================
+// =====================================================
+// CLEAR FORM
+// =====================================================
 
-  const formatFileSize =
-    useCallback(
-      (size: number) => {
-        if (
-          size < 1024
-        ) {
-          return `${size} B`;
-        }
+const clearForm =
+  useCallback(() => {
+    setAmount("");
 
-        if (
-          size <
-          1024 * 1024
-        ) {
-          return `${(
-            size / 1024
-          ).toFixed(1)} KB`;
-        }
+    setTransactionId("");
 
+    setReceiptFile(
+      null
+    );
+
+    setReceiptPreview("");
+
+    setPreviewReceipt(
+      null
+    );
+
+    setErrorMessage("");
+
+    setSuccessMessage("");
+  }, []);
+
+// =====================================================
+// FILE SIZE FORMAT
+// =====================================================
+
+const formatFileSize =
+  useCallback(
+    (size: number) => {
+      const safeSize =
+        Number(size || 0);
+
+      if (
+        safeSize < 1024
+      ) {
+        return `${safeSize} B`;
+      }
+
+      if (
+        safeSize <
+        1024 * 1024
+      ) {
         return `${(
-          size /
-          (1024 * 1024)
-        ).toFixed(2)} MB`;
-      },
-      []
-    );
+          safeSize / 1024
+        ).toFixed(1)} KB`;
+      }
 
-  // =====================================================
-  // DEPOSIT SUMMARY
-  // =====================================================
-
-  const depositSummary =
-    useMemo(() => {
-      const totalApprovedAmount =
-        depositHistory
-          .filter(
-            (item) =>
-              String(
-                item.status
-              ).toUpperCase() ===
-              "APPROVED"
-          )
-          .reduce(
-            (
-              sum,
-              item
-            ) =>
-              sum +
-              Number(
-                item.amount ||
-                  0
-              ),
-            0
-          );
-
-      const totalPendingAmount =
-        depositHistory
-          .filter(
-            (item) =>
-              String(
-                item.status
-              ).toUpperCase() ===
-              "PENDING"
-          )
-          .reduce(
-            (
-              sum,
-              item
-            ) =>
-              sum +
-              Number(
-                item.amount ||
-                  0
-              ),
-            0
-          );
-
-      const totalRejectedAmount =
-        depositHistory
-          .filter(
-            (item) =>
-              String(
-                item.status
-              ).toUpperCase() ===
-              "REJECTED"
-          )
-          .reduce(
-            (
-              sum,
-              item
-            ) =>
-              sum +
-              Number(
-                item.amount ||
-                  0
-              ),
-            0
-          );
-
-      return {
-        totalApprovedAmount,
-
-        totalPendingAmount,
-
-        totalRejectedAmount,
-
-        totalRequests:
-          depositHistory.length,
-      };
-    }, [depositHistory]);
-
-  // =====================================================
-  // HELPER: METHOD DISPLAY NAME
-  // =====================================================
-
-  const getPaymentMethodName =
-    useCallback(
-      (method: PaymentMethod) => {
-        if (
-          method.title?.trim()
-        ) {
-          return method.title;
-        }
-
-        switch (
-          String(
-            method.method
-          )
-            .trim()
-            .toUpperCase()
-        ) {
-          case "BANK":
-            return "Bank Transfer";
-
-          case "JAZZCASH":
-            return "JazzCash";
-
-          case "EASYPAISA":
-            return "EasyPaisa";
-
-          case "BINANCE":
-            return "Binance USDT";
-
-          case "USDT_BEP20":
-            return "USDT BEP20";
-
-          case "USDT_ERC20":
-            return "USDT ERC20";
-
-          default:
-            return method.method;
-        }
-      },
-      []
-    );
-
+      return `${(
+        safeSize /
+        (1024 * 1024)
+      ).toFixed(2)} MB`;
+    },
+    []
+  );
 
 // =====================================================
-// PART 4/4
-// GoldTrade V18 Enterprise
-// Deposit UI - Header / Wallet / Payment Methods
+// DEPOSIT SUMMARY
 // =====================================================
+
+const depositSummary =
+  useMemo(() => {
+    const totalApprovedAmount =
+      depositHistory
+        .filter(
+          (item) =>
+            String(
+              item.status
+            )
+              .trim()
+              .toUpperCase() ===
+            "APPROVED"
+        )
+        .reduce(
+          (
+            sum,
+            item
+          ) =>
+            sum +
+            Number(
+              item.amount ||
+                0
+            ),
+          0
+        );
+
+    const totalPendingAmount =
+      depositHistory
+        .filter(
+          (item) =>
+            String(
+              item.status
+            )
+              .trim()
+              .toUpperCase() ===
+            "PENDING"
+        )
+        .reduce(
+          (
+            sum,
+            item
+          ) =>
+            sum +
+            Number(
+              item.amount ||
+                0
+            ),
+          0
+        );
+
+    const totalRejectedAmount =
+      depositHistory
+        .filter(
+          (item) =>
+            String(
+              item.status
+            )
+              .trim()
+              .toUpperCase() ===
+            "REJECTED"
+        )
+        .reduce(
+          (
+            sum,
+            item
+          ) =>
+            sum +
+            Number(
+              item.amount ||
+                0
+            ),
+          0
+        );
+
+    const totalRequestedAmount =
+      depositHistory.reduce(
+        (
+          sum,
+          item
+        ) =>
+          sum +
+          Number(
+            item.amount ||
+              0
+          ),
+        0
+      );
+
+    return {
+      totalRequests:
+        depositHistory.length,
+
+      totalApprovedAmount,
+
+      totalPendingAmount,
+
+      totalRejectedAmount,
+
+      totalRequestedAmount,
+    };
+  }, [
+    depositHistory,
+  ]);
+
+// =====================================================
+// FORM VALIDATION STATUS
+// =====================================================
+
+const isDepositReady =
+  useMemo(() => {
+    const numericAmount =
+      Number(
+        String(amount)
+          .replace(/,/g, "")
+          .trim()
+      );
+
+    const validAmount =
+      Number.isFinite(
+        numericAmount
+      ) &&
+      numericAmount > 0 &&
+      (
+        minimumDeposit <= 0 ||
+        numericAmount >=
+          minimumDeposit
+      ) &&
+      (
+        maximumDeposit <= 0 ||
+        numericAmount <=
+          maximumDeposit
+      );
+
+    const validMethod =
+      Boolean(
+        selectedMethod &&
+        selectedMethod.enabled
+      );
+
+    const validTransaction =
+      transactionId.trim()
+        .length >= 5;
+
+    const validReceipt =
+      receiptRequired
+        ? Boolean(
+            receiptFile &&
+            receiptPreview
+          )
+        : true;
+
+    return Boolean(
+      depositsEnabled &&
+      validMethod &&
+      validAmount &&
+      validTransaction &&
+      validReceipt &&
+      !submitting
+    );
+  }, [
+    amount,
+    minimumDeposit,
+    maximumDeposit,
+    selectedMethod,
+    transactionId,
+    receiptRequired,
+    receiptFile,
+    receiptPreview,
+    depositsEnabled,
+    submitting,
+  ]);
+
+// =====================================================
+// HELPER: PAYMENT METHOD DISPLAY NAME
+// =====================================================
+
+const getPaymentMethodName =
+  useCallback(
+    (method: PaymentMethod) => {
+      if (
+        method.title?.trim()
+      ) {
+        return method.title;
+      }
+
+      switch (
+        String(
+          method.method
+        )
+          .trim()
+          .toUpperCase()
+      ) {
+        case "BANK":
+          return "Bank Transfer";
+
+        case "JAZZCASH":
+          return "JazzCash";
+
+        case "EASYPAISA":
+          return "EasyPaisa";
+
+        case "BINANCE":
+          return "Binance USDT";
+
+        case "USDT_BEP20":
+          return "USDT BEP20";
+
+        case "USDT_ERC20":
+          return "USDT ERC20";
+
+        default:
+          return String(
+            method.method || ""
+          );
+      }
+    },
+    []
+  );
 
 // =====================================================
 // PAGE HEADER
@@ -1834,6 +2734,7 @@ const DepositHeader = () => (
         className="flex items-center gap-2 text-yellow-400 hover:text-yellow-300 mb-3 transition"
       >
         <ArrowLeft size={18} />
+
         Back to Dashboard
       </button>
 
@@ -1854,7 +2755,11 @@ const DepositHeader = () => (
     >
       <RefreshCw
         size={18}
-        className={refreshing ? "animate-spin" : ""}
+        className={
+          refreshing
+            ? "animate-spin"
+            : ""
+        }
       />
 
       Refresh
@@ -1889,16 +2794,97 @@ const WalletSummaryCard = () => (
 );
 
 // =====================================================
+// DEPOSIT STATUS / SETTINGS NOTICE
+// =====================================================
+
+const DepositSettingsNotice = () => {
+  if (
+    depositsEnabled
+  ) {
+    return (
+      <div className="rounded-2xl bg-green-500/10 border border-green-500/20 p-5 mb-8">
+        <div className="flex items-start gap-3">
+          <CheckCircle
+            className="text-green-400 mt-1 shrink-0"
+            size={22}
+          />
+
+          <div>
+            <h3 className="font-bold text-green-400">
+              PKR Deposits Available
+            </h3>
+
+            <p className="text-gray-300 text-sm mt-2">
+              You can submit a deposit request using one of
+              the available payment methods.
+            </p>
+
+            <div className="flex flex-wrap gap-4 mt-3 text-sm">
+              <span className="text-gray-400">
+                Minimum:
+                <strong className="text-green-400 ml-1">
+                  PKR {formatMoney(minimumDeposit)}
+                </strong>
+              </span>
+
+              <span className="text-gray-400">
+                Maximum:
+                <strong className="text-green-400 ml-1">
+                  PKR {formatMoney(maximumDeposit)}
+                </strong>
+              </span>
+
+              <span className="text-gray-400">
+                Receipt:
+                <strong className="text-yellow-400 ml-1">
+                  {receiptRequired
+                    ? "Required"
+                    : "Optional"}
+                </strong>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl bg-red-500/10 border border-red-500/40 p-6 mb-8">
+      <div className="flex items-start gap-3">
+        <AlertCircle
+          className="text-red-400 mt-1 shrink-0"
+          size={24}
+        />
+
+        <div>
+          <h2 className="text-xl font-bold text-red-400">
+            Deposits Currently Disabled
+          </h2>
+
+          <p className="text-gray-400 mt-2">
+            PKR deposits are temporarily unavailable.
+            Please try again later.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// =====================================================
 // PAYMENT METHOD SELECTOR
 // =====================================================
 
 const PaymentMethodsSection = () => {
-  if (paymentMethods.length === 0) {
+  if (
+    paymentMethods.length === 0
+  ) {
     return (
       <div className="rounded-2xl bg-[#111827] border border-red-500/40 p-6 mb-8">
         <div className="flex items-start gap-3">
           <AlertCircle
-            className="text-red-400 mt-1"
+            className="text-red-400 mt-1 shrink-0"
             size={24}
           />
 
@@ -1919,89 +2905,119 @@ const PaymentMethodsSection = () => {
 
   return (
     <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6 mb-8">
-      <h2 className="text-2xl font-bold text-yellow-400 mb-5">
-        Select Payment Method
-      </h2>
+      <div className="flex flex-col sm:flex-row justify-between gap-3 mb-5">
+        <div>
+          <h2 className="text-2xl font-bold text-yellow-400">
+            Select Payment Method
+          </h2>
+
+          <p className="text-gray-500 text-sm mt-1">
+            Select the account where you sent your PKR payment.
+          </p>
+        </div>
+
+        <span className="text-green-400 text-sm font-semibold">
+          {paymentMethods.length} Available
+        </span>
+      </div>
 
       <div className="grid md:grid-cols-2 gap-5">
-        {paymentMethods.map((method) => {
-          const Icon = getMethodIcon(method.method);
+        {paymentMethods.map(
+          (method) => {
+            const Icon =
+              getMethodIcon(
+                method.method
+              );
 
-          const active =
-            selectedMethod?.method === method.method;
+            const active =
+              selectedMethod?.method ===
+              method.method;
 
-          const displayAccount =
-            method.accountNumber ||
-            method.walletAddress ||
-            "";
+            const displayAccount =
+              method.accountNumber ||
+              method.walletAddress ||
+              "";
 
-          return (
-            <button
-              type="button"
-              key={
-                method._id ||
-                `${method.method}-${method.title}`
-              }
-              onClick={() =>
-                selectPaymentMethod(method)
-              }
-              className={`text-left rounded-2xl border p-5 transition ${
-                active
-                  ? "border-green-500 bg-green-500/10"
-                  : "border-gray-700 hover:border-yellow-500"
-              }`}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <Icon
-                  className="text-yellow-400"
-                  size={30}
-                />
+            return (
+              <button
+                type="button"
+                key={
+                  method._id ||
+                  `${method.method}-${method.title}`
+                }
+                onClick={() =>
+                  selectPaymentMethod(
+                    method
+                  )
+                }
+                disabled={
+                  method.enabled !== true
+                }
+                className={`text-left rounded-2xl border p-5 transition ${
+                  active
+                    ? "border-green-500 bg-green-500/10 shadow-lg shadow-green-500/5"
+                    : "border-gray-700 hover:border-yellow-500 bg-[#0F172A]"
+                } ${
+                  method.enabled !== true
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
+              >
+                <div className="flex justify-between items-center mb-4">
+                  <div className="w-11 h-11 rounded-xl bg-yellow-500/10 flex items-center justify-center">
+                    <Icon
+                      className="text-yellow-400"
+                      size={26}
+                    />
+                  </div>
 
-                {active && (
-                  <CheckCircle
-                    className="text-green-400"
-                    size={24}
-                  />
+                  {active && (
+                    <CheckCircle
+                      className="text-green-400"
+                      size={24}
+                    />
+                  )}
+                </div>
+
+                <h3 className="font-bold text-lg text-white">
+                  {getPaymentMethodName(
+                    method
+                  )}
+                </h3>
+
+                {method.accountTitle && (
+                  <p className="text-gray-400 text-sm mt-2">
+                    {method.accountTitle}
+                  </p>
                 )}
-              </div>
 
-              <h3 className="font-bold text-lg text-white">
-                {method.title ||
-                  method.method}
-              </h3>
+                {displayAccount && (
+                  <p className="text-green-400 mt-2 font-semibold break-all">
+                    {displayAccount}
+                  </p>
+                )}
 
-              {method.accountTitle && (
-                <p className="text-gray-400 text-sm mt-2">
-                  {method.accountTitle}
-                </p>
-              )}
+                {method.bankName && (
+                  <p className="text-gray-500 text-xs mt-2">
+                    {method.bankName}
+                  </p>
+                )}
 
-              {displayAccount && (
-                <p className="text-green-400 mt-2 font-semibold break-all">
-                  {displayAccount}
-                </p>
-              )}
+                {method.network && (
+                  <p className="text-cyan-400 text-xs mt-2">
+                    Network: {method.network}
+                  </p>
+                )}
 
-              {method.bankName && (
-                <p className="text-gray-500 text-xs mt-2">
-                  {method.bankName}
-                </p>
-              )}
-
-              {method.network && (
-                <p className="text-cyan-400 text-xs mt-2">
-                  Network: {method.network}
-                </p>
-              )}
-
-              {method.iban && (
-                <p className="text-gray-500 text-xs mt-2 break-all">
-                  IBAN: {method.iban}
-                </p>
-              )}
-            </button>
-          );
-        })}
+                {method.iban && (
+                  <p className="text-gray-500 text-xs mt-2 break-all">
+                    IBAN: {method.iban}
+                  </p>
+                )}
+              </button>
+            );
+          }
+        )}
       </div>
     </div>
   );
@@ -2012,7 +3028,9 @@ const PaymentMethodsSection = () => {
 // =====================================================
 
 const SelectedPaymentDetails = () => {
-  if (!selectedMethod) {
+  if (
+    !selectedMethod
+  ) {
     return null;
   }
 
@@ -2024,9 +3042,15 @@ const SelectedPaymentDetails = () => {
   return (
     <div className="rounded-2xl bg-[#111827] border border-green-500/20 p-6 mb-8">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-green-400">
-          Payment Details
-        </h2>
+        <div>
+          <h2 className="text-2xl font-bold text-green-400">
+            Payment Details
+          </h2>
+
+          <p className="text-gray-500 text-sm mt-1">
+            Send your payment to the following account.
+          </p>
+        </div>
 
         <Shield
           className="text-green-400"
@@ -2036,7 +3060,7 @@ const SelectedPaymentDetails = () => {
 
       <div className="space-y-5">
         {selectedMethod.accountTitle && (
-          <div>
+          <div className="bg-[#1F2937] rounded-xl p-4">
             <p className="text-gray-400 text-sm">
               Account Title
             </p>
@@ -2064,7 +3088,9 @@ const SelectedPaymentDetails = () => {
             <button
               type="button"
               onClick={() =>
-                copyToClipboard(accountValue)
+                copyToClipboard(
+                  accountValue
+                )
               }
               className="shrink-0 bg-green-500 hover:bg-green-600 text-black p-3 rounded-lg transition"
               title="Copy"
@@ -2124,66 +3150,151 @@ const SelectedPaymentDetails = () => {
             </h3>
           </div>
         )}
+
+        {selectedMethod.instructions && (
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+            <p className="text-blue-400 text-sm font-semibold mb-2">
+              Payment Instructions
+            </p>
+
+            <p className="text-gray-300 text-sm whitespace-pre-line">
+              {selectedMethod.instructions}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
 };
+
 // =====================================================
 // DEPOSIT FORM
 // =====================================================
 
 const DepositFormSection = () => (
   <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6 mb-8">
-    <h2 className="text-2xl font-bold text-green-400 mb-6">
-      Deposit Information
-    </h2>
+    <div className="flex flex-col sm:flex-row justify-between gap-3 mb-6">
+      <div>
+        <h2 className="text-2xl font-bold text-green-400">
+          Deposit Information
+        </h2>
 
-    {/* AMOUNT */}
+        <p className="text-gray-500 text-sm mt-1">
+          Enter the exact amount and payment reference.
+        </p>
+      </div>
+
+      <div className="text-left sm:text-right">
+        <p className="text-gray-500 text-xs uppercase">
+          Deposit Range
+        </p>
+
+        <p className="text-green-400 font-semibold mt-1">
+          PKR {formatMoney(minimumDeposit)}
+          {" - "}
+          PKR {formatMoney(maximumDeposit)}
+        </p>
+      </div>
+    </div>
+
+    {/* ================================================
+        AMOUNT
+        ================================================ */}
+
     <div className="mb-6">
       <label
         htmlFor="deposit-amount"
-        className="block text-gray-300 mb-2"
+        className="block text-gray-300 mb-2 font-medium"
       >
         Deposit Amount (PKR)
       </label>
 
-      <input
-        id="deposit-amount"
-        type="number"
-        min="500"
-        max="5000000"
-        step="1"
-        value={amount}
-        onChange={(event) => {
-          setAmount(event.target.value);
-          setErrorMessage("");
-        }}
-        placeholder="Enter Amount"
-        className="w-full bg-[#1F2937] border border-gray-600 rounded-xl p-4 text-white outline-none focus:border-green-400"
-      />
-    </div>
-
-    {/* QUICK AMOUNTS */}
-    <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-8">
-      {quickAmounts.map((item) => (
-        <button
-          type="button"
-          key={item}
-          onClick={() =>
-            selectQuickAmount(item)
+      <div className="relative">
+        <input
+          id="deposit-amount"
+          type="number"
+          min={
+            minimumDeposit > 0
+              ? minimumDeposit
+              : undefined
           }
-          className="bg-[#1F2937] hover:bg-green-500 hover:text-black rounded-xl py-3 font-semibold transition"
-        >
-          {item.toLocaleString("en-PK")}
-        </button>
-      ))}
+          max={
+            maximumDeposit > 0
+              ? maximumDeposit
+              : undefined
+          }
+          step="1"
+          value={amount}
+          disabled={
+            !depositsEnabled ||
+            submitting
+          }
+          onChange={(
+            event
+          ) => {
+            setAmount(
+              event.target.value
+            );
+
+            setErrorMessage("");
+
+            setSuccessMessage("");
+          }}
+          placeholder="Enter amount"
+          className="w-full bg-[#1F2937] border border-gray-600 rounded-xl p-4 pr-20 text-white outline-none focus:border-green-400 disabled:opacity-50"
+        />
+
+        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">
+          PKR
+        </span>
+      </div>
     </div>
 
-    {/* TRANSACTION ID */}
+    {/* ================================================
+        QUICK AMOUNTS
+        ================================================ */}
+
+    {quickAmounts.length > 0 && (
+      <div className="mb-8">
+        <p className="text-gray-400 text-sm mb-3">
+          Quick Amount
+        </p>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+          {quickAmounts.map(
+            (item) => (
+              <button
+                type="button"
+                key={item}
+                disabled={
+                  !depositsEnabled ||
+                  submitting
+                }
+                onClick={() =>
+                  selectQuickAmount(
+                    item
+                  )
+                }
+                className="bg-[#1F2937] hover:bg-green-500 hover:text-black disabled:opacity-50 disabled:cursor-not-allowed rounded-xl py-3 font-semibold transition border border-gray-700 hover:border-green-400"
+              >
+                {item.toLocaleString(
+                  "en-PK"
+                )}
+              </button>
+            )
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* ================================================
+        TRANSACTION ID
+        ================================================ */}
+
     <div className="mb-6">
       <label
         htmlFor="transaction-id"
-        className="block text-gray-300 mb-2"
+        className="block text-gray-300 mb-2 font-medium"
       >
         Transaction ID / Reference Number
       </label>
@@ -2191,19 +3302,36 @@ const DepositFormSection = () => (
       <input
         id="transaction-id"
         type="text"
+        maxLength={150}
         value={transactionId}
-        onChange={(event) => {
+        disabled={
+          !depositsEnabled ||
+          submitting
+        }
+        onChange={(
+          event
+        ) => {
           setTransactionId(
             event.target.value
           );
+
           setErrorMessage("");
+
+          setSuccessMessage("");
         }}
-        placeholder="Enter Transaction Reference"
-        className="w-full bg-[#1F2937] border border-gray-600 rounded-xl p-4 text-white outline-none focus:border-yellow-400"
+        placeholder="Enter transaction/reference ID"
+        className="w-full bg-[#1F2937] border border-gray-600 rounded-xl p-4 text-white outline-none focus:border-yellow-400 disabled:opacity-50"
       />
+
+      <p className="text-gray-500 text-xs mt-2">
+        Enter the transaction/reference number exactly as shown on your payment receipt.
+      </p>
     </div>
 
-    {/* INFORMATION */}
+    {/* ================================================
+        SETTINGS INFORMATION
+        ================================================ */}
+
     <div className="rounded-xl bg-yellow-500/10 border border-yellow-500/20 p-4">
       <div className="flex gap-3 items-start">
         <AlertCircle
@@ -2211,24 +3339,33 @@ const DepositFormSection = () => (
           size={20}
         />
 
-        <div className="text-sm text-gray-300 space-y-1">
+        <div className="text-sm text-gray-300 space-y-2">
           <p>
-            Minimum Deposit:{" "}
-            <span className="text-green-400 font-semibold">
-              PKR 500
+            Minimum Deposit:
+            <span className="text-green-400 font-semibold ml-1">
+              PKR {formatMoney(minimumDeposit)}
             </span>
           </p>
 
           <p>
-            Maximum Deposit:{" "}
-            <span className="text-green-400 font-semibold">
-              PKR 5,000,000
+            Maximum Deposit:
+            <span className="text-green-400 font-semibold ml-1">
+              PKR {formatMoney(maximumDeposit)}
             </span>
           </p>
 
           <p>
-            Your request will remain pending until
-            Admin verifies your payment.
+            Receipt:
+            <span className="text-yellow-400 font-semibold ml-1">
+              {receiptRequired
+                ? "Required"
+                : "Optional"}
+            </span>
+          </p>
+
+          <p className="text-gray-400 pt-1">
+            Your deposit request will remain pending until
+            Admin verifies the payment.
           </p>
         </div>
       </div>
@@ -2241,7 +3378,9 @@ const DepositFormSection = () => (
 // =====================================================
 
 const QRPaymentCard = () => {
-  if (!selectedMethod) {
+  if (
+    !selectedMethod
+  ) {
     return null;
   }
 
@@ -2253,9 +3392,15 @@ const QRPaymentCard = () => {
   return (
     <div className="rounded-2xl bg-[#111827] border border-cyan-500/20 p-6 mb-8">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-2xl font-bold text-cyan-400">
-          Scan QR & Pay
-        </h2>
+        <div>
+          <h2 className="text-2xl font-bold text-cyan-400">
+            Scan QR & Pay
+          </h2>
+
+          <p className="text-gray-500 text-sm mt-1">
+            Scan the QR code if one is available.
+          </p>
+        </div>
 
         <Shield
           className="text-cyan-400"
@@ -2266,10 +3411,17 @@ const QRPaymentCard = () => {
       <div className="flex flex-col lg:flex-row gap-8 items-center">
         {/* QR */}
         <div className="w-56 h-56 rounded-2xl bg-white flex items-center justify-center overflow-hidden shrink-0">
-          {selectedMethod.qrImage ? (
+          {selectedMethod.qrImage ||
+          selectedMethod.qrCode ? (
             <img
-              src={selectedMethod.qrImage}
-              alt={`${selectedMethod.title} payment QR`}
+              src={
+                selectedMethod.qrImage ||
+                selectedMethod.qrCode ||
+                ""
+              }
+              alt={`${getPaymentMethodName(
+                selectedMethod
+              )} payment QR`}
               className="w-full h-full object-contain"
             />
           ) : (
@@ -2294,8 +3446,9 @@ const QRPaymentCard = () => {
             </p>
 
             <h3 className="text-xl font-semibold text-white mt-1">
-              {selectedMethod.title ||
-                selectedMethod.method}
+              {getPaymentMethodName(
+                selectedMethod
+              )}
             </h3>
           </div>
 
@@ -2390,16 +3543,45 @@ const QRPaymentCard = () => {
 
 const ReceiptUploadSection = () => (
   <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6 mb-8">
-    <h2 className="text-2xl font-bold text-yellow-400 mb-6">
-      Upload Payment Receipt
-    </h2>
+    <div className="flex flex-col sm:flex-row justify-between gap-3 mb-6">
+      <div>
+        <h2 className="text-2xl font-bold text-yellow-400">
+          Upload Payment Receipt
+        </h2>
 
-    <label className="cursor-pointer block border-2 border-dashed border-gray-600 hover:border-yellow-400 rounded-2xl p-8 transition">
+        <p className="text-gray-500 text-sm mt-1">
+          {receiptRequired
+            ? "A payment receipt is required."
+            : "You may upload a payment receipt if available."}
+        </p>
+      </div>
+
+      {receiptRequired && (
+        <span className="text-xs text-yellow-400 border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 rounded-full h-fit">
+          Required
+        </span>
+      )}
+    </div>
+
+    <label
+      className={`cursor-pointer block border-2 border-dashed rounded-2xl p-8 transition ${
+        submitting ||
+        !depositsEnabled
+          ? "border-gray-700 opacity-50 cursor-not-allowed"
+          : "border-gray-600 hover:border-yellow-400"
+      }`}
+    >
       <input
         type="file"
         accept="image/png,image/jpeg,image/jpg"
         className="hidden"
-        onChange={handleReceiptChange}
+        disabled={
+          submitting ||
+          !depositsEnabled
+        }
+        onChange={
+          handleReceiptChange
+        }
       />
 
       <div className="flex flex-col items-center text-center">
@@ -2420,18 +3602,49 @@ const ReceiptUploadSection = () => (
 
     {receiptPreview && (
       <div className="mt-6">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-green-400 font-semibold">
-            Receipt Preview
-          </h3>
+        <div className="flex flex-col sm:flex-row justify-between gap-3 items-start sm:items-center mb-3">
+          <div>
+            <h3 className="text-green-400 font-semibold">
+              Receipt Preview
+            </h3>
 
-          <button
-            type="button"
-            onClick={removeReceipt}
-            className="text-red-400 hover:text-red-300 text-sm transition"
-          >
-            Remove
-          </button>
+            {receiptFile && (
+              <p className="text-gray-500 text-xs mt-1">
+                {receiptFile.name}
+                {" • "}
+                {formatFileSize(
+                  receiptFile.size
+                )}
+              </p>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                setPreviewReceipt(
+                  receiptPreview
+                )
+              }
+              className="text-cyan-400 hover:text-cyan-300 text-sm transition"
+            >
+              View Full
+            </button>
+
+            <button
+              type="button"
+              onClick={
+                removeReceipt
+              }
+              disabled={
+                submitting
+              }
+              className="text-red-400 hover:text-red-300 disabled:opacity-50 text-sm transition"
+            >
+              Remove
+            </button>
+          </div>
         </div>
 
         <div className="rounded-2xl overflow-hidden border border-green-500/20 bg-black">
@@ -2441,49 +3654,11 @@ const ReceiptUploadSection = () => (
             className="w-full object-contain max-h-[450px]"
           />
         </div>
-
-        {receiptFile && (
-          <div className="mt-3 flex flex-col sm:flex-row justify-between gap-2 text-sm text-gray-400">
-            <span className="break-all">
-              {receiptFile.name}
-            </span>
-
-            <span>
-              {formatFileSize(
-                receiptFile.size
-              )}
-            </span>
-          </div>
-        )}
       </div>
     )}
-
-    <div className="mt-6 rounded-xl bg-yellow-500/10 border border-yellow-500/20 p-4">
-      <div className="flex gap-3 items-start">
-        <AlertCircle
-          className="text-yellow-400 mt-1 shrink-0"
-          size={20}
-        />
-
-        <div className="space-y-1 text-sm text-gray-300">
-          <p>
-            Upload a clear screenshot of your payment receipt.
-          </p>
-
-          <p>
-            The receipt should contain the transaction
-            ID/reference number.
-          </p>
-
-          <p>
-            Admin will verify the receipt before approving
-            the deposit.
-          </p>
-        </div>
-      </div>
-    </div>
   </div>
 );
+
 // =====================================================
 // SUBMIT DEPOSIT SECTION
 // =====================================================
@@ -2491,68 +3666,169 @@ const ReceiptUploadSection = () => (
 const SubmitDepositSection = () => (
   <div className="rounded-2xl bg-[#111827] border border-green-500/20 p-6 mb-8">
     <div className="space-y-4">
-      {/* SUMMARY */}
+
+      {/* =================================================
+          DEPOSIT SUMMARY
+          ================================================= */}
+
       <div className="grid md:grid-cols-3 gap-4">
+
+        {/* AMOUNT */}
         <div className="bg-[#1F2937] rounded-xl p-4 border border-gray-700">
           <p className="text-gray-400 text-sm">
             Deposit Amount
           </p>
 
           <h3 className="text-green-400 text-xl font-bold mt-1">
-            PKR {formatMoney(Number(amount || 0))}
+            PKR{" "}
+            {formatMoney(
+              Number(
+                String(amount || "")
+                  .replace(/,/g, "")
+                  .trim() || 0
+              )
+            )}
           </h3>
         </div>
 
+        {/* PAYMENT METHOD */}
         <div className="bg-[#1F2937] rounded-xl p-4 border border-gray-700">
           <p className="text-gray-400 text-sm">
             Payment Method
           </p>
 
           <h3 className="text-white text-lg font-semibold mt-1">
-            {selectedMethod?.title ||
-              "Select Method"}
+            {selectedMethod
+              ? getPaymentMethodName(
+                  selectedMethod
+                )
+              : "Select Method"}
           </h3>
         </div>
 
+        {/* TRANSACTION ID */}
         <div className="bg-[#1F2937] rounded-xl p-4 border border-gray-700">
           <p className="text-gray-400 text-sm">
             Transaction ID
           </p>
 
           <h3 className="text-cyan-400 text-lg font-semibold mt-1 break-all">
-            {transactionId ||
+            {transactionId.trim() ||
               "Not Entered"}
           </h3>
         </div>
       </div>
 
-      {/* IMPORTANT WORKFLOW */}
+      {/* =================================================
+          VALIDATION SUMMARY
+          ================================================= */}
+
+      <div className="grid sm:grid-cols-2 gap-4">
+
+        <div className="rounded-xl bg-[#1F2937] border border-gray-700 p-4">
+          <p className="text-gray-500 text-xs uppercase">
+            Deposit Range
+          </p>
+
+          <p className="text-gray-200 font-semibold mt-1">
+            PKR {formatMoney(minimumDeposit)}
+            {" - "}
+            PKR {formatMoney(maximumDeposit)}
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-[#1F2937] border border-gray-700 p-4">
+          <p className="text-gray-500 text-xs uppercase">
+            Receipt
+          </p>
+
+          <p
+            className={`font-semibold mt-1 ${
+              receiptFile
+                ? "text-green-400"
+                : receiptRequired
+                ? "text-yellow-400"
+                : "text-gray-300"
+            }`}
+          >
+            {receiptFile
+              ? "Uploaded"
+              : receiptRequired
+              ? "Required"
+              : "Optional"}
+          </p>
+        </div>
+      </div>
+
+      {/* =================================================
+          IMPORTANT WORKFLOW
+          ================================================= */}
+
       <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 p-4">
         <div className="flex gap-3 items-start">
+
           <Shield
             className="text-blue-400 mt-1 shrink-0"
             size={20}
           />
 
-          <p className="text-sm text-gray-300">
-            After submission, your deposit will be marked
-            <span className="text-yellow-400 font-semibold">
-              {" "}PENDING
-            </span>
-            . Admin will manually verify your payment and
-            then Approve or Reject the request.
-          </p>
+          <div className="text-sm text-gray-300">
+            <p>
+              After submission, your deposit request will
+              be marked as
+              <span className="text-yellow-400 font-semibold">
+                {" "}PENDING
+              </span>
+              .
+            </p>
+
+            <p className="mt-1">
+              Admin will manually verify your payment
+              before approving or rejecting the request.
+            </p>
+
+            <p className="mt-1 text-gray-500">
+              Wallet credit is processed according to the
+              backend approval process.
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* BUTTONS */}
+      {/* =================================================
+          DEPOSIT DISABLED WARNING
+          ================================================= */}
+
+      {!depositsEnabled && (
+        <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-4">
+          <div className="flex items-center gap-3">
+            <AlertCircle
+              className="text-red-400 shrink-0"
+              size={21}
+            />
+
+            <p className="text-red-300 text-sm">
+              Deposits are currently disabled.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* =================================================
+          BUTTONS
+          ================================================= */}
+
       <div className="grid md:grid-cols-2 gap-4 pt-2">
+
+        {/* SUBMIT */}
         <button
           type="button"
           onClick={submitDeposit}
           disabled={
             submitting ||
-            !selectedMethod
+            !depositsEnabled ||
+            !selectedMethod ||
+            !isDepositReady
           }
           className="bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed py-4 rounded-xl font-bold text-lg transition flex justify-center items-center gap-3"
         >
@@ -2574,6 +3850,7 @@ const SubmitDepositSection = () => (
           )}
         </button>
 
+        {/* CLEAR */}
         <button
           type="button"
           onClick={clearForm}
@@ -2582,6 +3859,33 @@ const SubmitDepositSection = () => (
         >
           Clear Form
         </button>
+      </div>
+
+      {/* =================================================
+          READY STATUS
+          ================================================= */}
+
+      <div className="flex items-center justify-center gap-2 pt-2">
+
+        <div
+          className={`w-2.5 h-2.5 rounded-full ${
+            isDepositReady
+              ? "bg-green-400"
+              : "bg-gray-600"
+          }`}
+        />
+
+        <p
+          className={`text-xs ${
+            isDepositReady
+              ? "text-green-400"
+              : "text-gray-500"
+          }`}
+        >
+          {isDepositReady
+            ? "Deposit is ready to submit."
+            : "Complete all required fields before submitting."}
+        </p>
       </div>
     </div>
   </div>
@@ -2597,14 +3901,15 @@ const LoadingOverlay = () => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center">
-      <div className="bg-[#111827] rounded-3xl border border-yellow-500/30 px-8 py-7 flex flex-col items-center gap-4">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+      <div className="bg-[#111827] rounded-3xl border border-yellow-500/30 px-8 py-7 flex flex-col items-center gap-4 max-w-sm w-full">
+
         <Loader2
           className="animate-spin text-yellow-400"
           size={42}
         />
 
-        <h2 className="text-yellow-400 text-xl font-bold">
+        <h2 className="text-yellow-400 text-xl font-bold text-center">
           Loading Deposit Page...
         </h2>
 
@@ -2622,8 +3927,11 @@ const LoadingOverlay = () => {
 
 const DepositStatisticsSection = () => (
   <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+
+    {/* TOTAL */}
     <div className="rounded-2xl bg-[#111827] border border-cyan-500/20 p-5">
       <div className="flex justify-between items-center mb-4">
+
         <Wallet
           className="text-cyan-400"
           size={28}
@@ -2641,10 +3949,19 @@ const DepositStatisticsSection = () => (
       <h2 className="text-3xl font-bold text-cyan-400 mt-3">
         {depositSummary.totalRequests}
       </h2>
+
+      <p className="text-gray-500 text-xs mt-2">
+        PKR{" "}
+        {formatMoney(
+          depositSummary.totalRequestedAmount
+        )}
+      </p>
     </div>
 
+    {/* APPROVED */}
     <div className="rounded-2xl bg-[#111827] border border-green-500/20 p-5">
       <div className="flex justify-between items-center mb-4">
+
         <CheckCircle
           className="text-green-400"
           size={28}
@@ -2671,8 +3988,10 @@ const DepositStatisticsSection = () => (
       </p>
     </div>
 
+    {/* PENDING */}
     <div className="rounded-2xl bg-[#111827] border border-yellow-500/20 p-5">
       <div className="flex justify-between items-center mb-4">
+
         <Loader2
           className="text-yellow-400"
           size={28}
@@ -2699,8 +4018,10 @@ const DepositStatisticsSection = () => (
       </p>
     </div>
 
+    {/* WALLET */}
     <div className="rounded-2xl bg-[#111827] border border-purple-500/20 p-5">
       <div className="flex justify-between items-center mb-4">
+
         <Shield
           className="text-purple-400"
           size={28}
@@ -2728,6 +4049,7 @@ const DepositStatisticsSection = () => (
 
 const DepositHistoryHeader = () => (
   <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 mb-6">
+
     <div>
       <h2 className="text-3xl font-bold text-yellow-400">
         Deposit History
@@ -2768,13 +4090,15 @@ const StatusBadge = ({
   status: string;
 }) => {
   const color =
-    getStatusColor(status);
+    getStatusColor(
+      status
+    );
 
   return (
     <span
       className={`inline-flex items-center justify-center px-4 py-2 rounded-full border text-xs font-bold ${color}`}
     >
-      {String(status).toUpperCase()}
+      {String(status || "UNKNOWN").toUpperCase()}
     </span>
   );
 };
@@ -2785,7 +4109,10 @@ const StatusBadge = ({
 
 const HistorySummaryStrip = () => (
   <div className="rounded-2xl bg-[#111827] border border-gray-700 p-5 mb-8">
+
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+
+      {/* TOTAL */}
       <div>
         <p className="text-gray-400 text-xs uppercase">
           Total Deposits
@@ -2796,6 +4123,7 @@ const HistorySummaryStrip = () => (
         </h3>
       </div>
 
+      {/* APPROVED */}
       <div>
         <p className="text-gray-400 text-xs uppercase">
           Approved Amount
@@ -2809,6 +4137,7 @@ const HistorySummaryStrip = () => (
         </h3>
       </div>
 
+      {/* PENDING */}
       <div>
         <p className="text-gray-400 text-xs uppercase">
           Pending Amount
@@ -2822,15 +4151,20 @@ const HistorySummaryStrip = () => (
         </h3>
       </div>
 
+      {/* WALLET */}
       <div>
         <p className="text-gray-400 text-xs uppercase">
           Wallet Balance
         </p>
 
         <h3 className="text-purple-400 text-xl font-bold mt-2">
-          PKR {formatMoney(wallet.pkrBalance)}
+          PKR{" "}
+          {formatMoney(
+            wallet.pkrBalance
+          )}
         </h3>
       </div>
+
     </div>
   </div>
 );
@@ -2840,7 +4174,8 @@ const HistorySummaryStrip = () => (
 // =====================================================
 
 const EmptyHistoryCard = () => (
-  <div className="rounded-2xl bg-[#111827] border border-gray-700 py-16 text-center">
+  <div className="rounded-2xl bg-[#111827] border border-gray-700 py-16 px-6 text-center">
+
     <Wallet
       className="mx-auto text-gray-500 mb-5"
       size={56}
@@ -2853,6 +4188,24 @@ const EmptyHistoryCard = () => (
     <p className="text-gray-500 mt-3">
       Your submitted deposit requests will appear here.
     </p>
+
+    <button
+      type="button"
+      onClick={refreshDepositPage}
+      disabled={refreshing}
+      className="mt-6 inline-flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 text-black px-5 py-3 rounded-xl font-semibold transition"
+    >
+      <RefreshCw
+        size={17}
+        className={
+          refreshing
+            ? "animate-spin"
+            : ""
+        }
+      />
+
+      Refresh
+    </button>
   </div>
 );
 
@@ -2862,7 +4215,9 @@ const EmptyHistoryCard = () => (
 
 const DepositActivityInfo = () => (
   <div className="rounded-2xl bg-[#111827] border border-blue-500/20 p-6 mb-8">
+
     <div className="flex items-start gap-4">
+
       <AlertCircle
         className="text-blue-400 mt-1 shrink-0"
         size={22}
@@ -2874,6 +4229,7 @@ const DepositActivityInfo = () => (
         </h3>
 
         <ul className="space-y-2 text-gray-300 text-sm">
+
           <li>
             • Send the payment using the selected payment method.
           </li>
@@ -2897,41 +4253,51 @@ const DepositActivityInfo = () => (
           <li>
             • Wallet credit occurs after approval according to the backend approval process.
           </li>
+
         </ul>
       </div>
     </div>
   </div>
 );
 
-
 // =====================================================
 // RECEIPT PREVIEW MODAL
 // =====================================================
 
 const ReceiptPreviewModal = () => {
-  if (!previewReceipt) {
+  if (
+    !previewReceipt
+  ) {
     return null;
   }
 
   return (
     <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative bg-[#111827] rounded-3xl border border-gray-700 max-w-3xl w-full overflow-hidden">
+
+      <div className="relative bg-[#111827] rounded-3xl border border-gray-700 max-w-3xl w-full overflow-hidden shadow-2xl">
+
+        {/* CLOSE */}
         <button
           type="button"
           onClick={() =>
-            setPreviewReceipt(null)
+            setPreviewReceipt(
+              null
+            )
           }
-          className="absolute top-4 right-4 z-10 bg-red-600 hover:bg-red-700 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+          className="absolute top-4 right-4 z-10 bg-red-600 hover:bg-red-700 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold transition"
           aria-label="Close receipt preview"
         >
           ✕
         </button>
 
-        <img
-          src={previewReceipt}
-          alt="Deposit Receipt"
-          className="w-full max-h-[80vh] object-contain bg-black"
-        />
+        {/* IMAGE */}
+        <div className="p-2 bg-black">
+          <img
+            src={previewReceipt}
+            alt="Deposit Receipt"
+            className="w-full max-h-[80vh] object-contain"
+          />
+        </div>
       </div>
     </div>
   );
@@ -2947,7 +4313,9 @@ const DepositStatusTimeline = ({
   status: string;
 }) => {
   const normalized =
-    String(status || "")
+    String(
+      status || ""
+    )
       .trim()
       .toUpperCase();
 
@@ -2962,6 +4330,7 @@ const DepositStatusTimeline = ({
 
   return (
     <div className="flex items-center gap-2">
+
       <div
         className={`w-3 h-3 rounded-full ${
           pending
@@ -2997,6 +4366,7 @@ const DepositStatusTimeline = ({
             : "bg-gray-600"
         }`}
       />
+
     </div>
   );
 };
@@ -3013,27 +4383,39 @@ const DepositHistoryCard = ({
   const receipt =
     item.receipt ||
     item.receiptImage ||
+    item.screenshot ||
     "";
 
   return (
     <div className="rounded-2xl bg-[#111827] border border-gray-700 p-5 mb-4">
+
+      {/* HEADER */}
       <div className="flex justify-between items-start gap-4 mb-4">
+
         <div className="min-w-0">
           <p className="text-gray-400 text-xs uppercase">
-            {item.paymentMethod}
+            {item.paymentMethod ||
+              "Payment"}
           </p>
 
           <h3 className="text-green-400 text-xl font-bold mt-1">
-            PKR {formatMoney(item.amount)}
+            PKR{" "}
+            {formatMoney(
+              item.amount
+            )}
           </h3>
         </div>
 
         <StatusBadge
-          status={item.status}
+          status={
+            item.status
+          }
         />
       </div>
 
+      {/* DETAILS */}
       <div className="space-y-3 text-sm">
+
         <div>
           <p className="text-gray-500">
             Transaction ID
@@ -3058,21 +4440,31 @@ const DepositHistoryCard = ({
         </div>
 
         <DepositStatusTimeline
-          status={item.status}
+          status={
+            item.status
+          }
         />
 
-        {item.adminNote && (
+        {/* ADMIN NOTE */}
+        {(item.adminNote ||
+          item.note ||
+          item.rejectReason) && (
           <div className="rounded-xl bg-[#1F2937] p-3 border border-gray-700">
+
             <p className="text-gray-500 text-xs">
               Admin Note
             </p>
 
             <p className="text-gray-300 mt-1">
-              {item.adminNote}
+              {item.adminNote ||
+                item.note ||
+                item.rejectReason}
             </p>
+
           </div>
         )}
 
+        {/* RECEIPT */}
         {receipt && (
           <button
             type="button"
@@ -3083,27 +4475,27 @@ const DepositHistoryCard = ({
             }
             className="mt-3 w-full bg-[#1F2937] hover:bg-[#374151] border border-gray-600 rounded-xl py-3 flex items-center justify-center gap-2 transition"
           >
-            <ImageIcon size={18} />
+            <ImageIcon
+              size={18}
+            />
 
             View Receipt
           </button>
         )}
+
       </div>
     </div>
   );
 };
 
 // =====================================================
+// PART 6/10
 // DESKTOP HISTORY TABLE
 // =====================================================
 
 const DepositHistoryTable = () => {
-  if (
-    depositHistory.length === 0
-  ) {
-    return (
-      <EmptyHistoryCard />
-    );
+  if (depositHistory.length === 0) {
+    return <EmptyHistoryCard />;
   }
 
   return (
@@ -3139,93 +4531,100 @@ const DepositHistoryTable = () => {
           </thead>
 
           <tbody>
-            {depositHistory.map(
-              (item) => {
-                const receipt =
-                  item.receipt ||
-                  item.receiptImage ||
-                  "";
+            {depositHistory.map((item) => {
+              const receipt =
+                item.receipt ||
+                item.receiptImage ||
+                "";
 
-                return (
-                  <tr
-                    key={
-                      item._id
-                    }
-                    className="border-t border-gray-700 hover:bg-[#182233] transition"
-                  >
-                    <td className="px-5 py-5 whitespace-nowrap">
-                      <p className="font-bold text-green-400 text-lg">
-                        PKR{" "}
-                        {formatMoney(
-                          item.amount
-                        )}
-                      </p>
-                    </td>
+              return (
+                <tr
+                  key={item._id}
+                  className="border-t border-gray-700 hover:bg-[#182233] transition"
+                >
+                  {/* ============================= */}
+                  {/* AMOUNT */}
+                  {/* ============================= */}
 
-                    <td className="px-5 py-5 whitespace-nowrap">
-                      <span className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold">
-                        {item.paymentMethod}
+                  <td className="px-5 py-5 whitespace-nowrap">
+                    <p className="font-bold text-green-400 text-lg">
+                      PKR{" "}
+                      {formatMoney(item.amount)}
+                    </p>
+                  </td>
+
+                  {/* ============================= */}
+                  {/* PAYMENT METHOD */}
+                  {/* ============================= */}
+
+                  <td className="px-5 py-5 whitespace-nowrap">
+                    <span className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold">
+                      {item.paymentMethod}
+                    </span>
+                  </td>
+
+                  {/* ============================= */}
+                  {/* TRANSACTION ID */}
+                  {/* ============================= */}
+
+                  <td className="px-5 py-5">
+                    <p className="text-white font-medium break-all">
+                      {item.transactionId || "--"}
+                    </p>
+                  </td>
+
+                  {/* ============================= */}
+                  {/* STATUS */}
+                  {/* ============================= */}
+
+                  <td className="px-5 py-5">
+                    <div className="space-y-2">
+                      <StatusBadge
+                        status={item.status}
+                      />
+
+                      <DepositStatusTimeline
+                        status={item.status}
+                      />
+                    </div>
+                  </td>
+
+                  {/* ============================= */}
+                  {/* RECEIPT */}
+                  {/* ============================= */}
+
+                  <td className="px-5 py-5">
+                    {receipt ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPreviewReceipt(receipt)
+                        }
+                        className="bg-[#1F2937] hover:bg-[#374151] border border-gray-600 rounded-lg px-3 py-2 text-sm flex items-center gap-2 transition"
+                      >
+                        <ImageIcon size={16} />
+
+                        View
+                      </button>
+                    ) : (
+                      <span className="text-gray-500 text-sm">
+                        No Receipt
                       </span>
-                    </td>
+                    )}
+                  </td>
 
-                    <td className="px-5 py-5">
-                      <p className="text-white font-medium break-all">
-                        {item.transactionId ||
-                          "--"}
-                      </p>
-                    </td>
+                  {/* ============================= */}
+                  {/* DATE */}
+                  {/* ============================= */}
 
-                    <td className="px-5 py-5">
-                      <div className="space-y-2">
-                        <StatusBadge
-                          status={
-                            item.status
-                          }
-                        />
-
-                        <DepositStatusTimeline
-                          status={
-                            item.status
-                          }
-                        />
-                      </div>
-                    </td>
-
-                    <td className="px-5 py-5">
-                      {receipt ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPreviewReceipt(
-                              receipt
-                            )
-                          }
-                          className="bg-[#1F2937] hover:bg-[#374151] border border-gray-600 rounded-lg px-3 py-2 text-sm flex items-center gap-2 transition"
-                        >
-                          <ImageIcon
-                            size={16}
-                          />
-
-                          View
-                        </button>
-                      ) : (
-                        <span className="text-gray-500 text-sm">
-                          No Receipt
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="px-5 py-5 whitespace-nowrap">
-                      <p className="text-gray-400 text-sm">
-                        {formatDate(
-                          item.createdAt
-                        )}
-                      </p>
-                    </td>
-                  </tr>
-                );
-              }
-            )}
+                  <td className="px-5 py-5 whitespace-nowrap">
+                    <p className="text-gray-400 text-sm">
+                      {formatDate(item.createdAt)}
+                    </p>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -3233,38 +4632,59 @@ const DepositHistoryTable = () => {
   );
 };
 
+
 // =====================================================
 // RESPONSIVE HISTORY SECTION
 // =====================================================
 
 const DepositHistorySection = () => (
   <div className="mb-10">
+
+    {/* ============================= */}
+    {/* HISTORY HEADER */}
+    {/* ============================= */}
+
     <DepositHistoryHeader />
 
+    {/* ============================= */}
+    {/* SUMMARY */}
+    {/* ============================= */}
+
     <HistorySummaryStrip />
+
+    {/* ============================= */}
+    {/* DESKTOP TABLE */}
+    {/* ============================= */}
 
     <div className="hidden lg:block">
       <DepositHistoryTable />
     </div>
 
+    {/* ============================= */}
+    {/* MOBILE CARDS */}
+    {/* ============================= */}
+
     <div className="lg:hidden">
       {depositHistory.length === 0 ? (
         <EmptyHistoryCard />
       ) : (
-        depositHistory.map(
-          (item) => (
-            <DepositHistoryCard
-              key={item._id}
-              item={item}
-            />
-          )
-        )
+        depositHistory.map((item) => (
+          <DepositHistoryCard
+            key={item._id}
+            item={item}
+          />
+        ))
       )}
     </div>
+
+    {/* ============================= */}
+    {/* RECEIPT PREVIEW */}
+    {/* ============================= */}
 
     <ReceiptPreviewModal />
   </div>
 );
+
 
 // =====================================================
 // DEPOSIT STATUS LEGEND
@@ -3272,11 +4692,17 @@ const DepositHistorySection = () => (
 
 const DepositStatusLegend = () => (
   <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6 mb-8">
+
     <h3 className="text-xl font-bold text-yellow-400 mb-5">
       Deposit Status Guide
     </h3>
 
     <div className="space-y-4">
+
+      {/* ============================= */}
+      {/* PENDING */}
+      {/* ============================= */}
+
       <div className="flex items-center gap-4">
         <div className="w-4 h-4 rounded-full bg-yellow-400 shrink-0" />
 
@@ -3290,6 +4716,10 @@ const DepositStatusLegend = () => (
           </p>
         </div>
       </div>
+
+      {/* ============================= */}
+      {/* APPROVED */}
+      {/* ============================= */}
 
       <div className="flex items-center gap-4">
         <div className="w-4 h-4 rounded-full bg-green-400 shrink-0" />
@@ -3306,6 +4736,10 @@ const DepositStatusLegend = () => (
         </div>
       </div>
 
+      {/* ============================= */}
+      {/* REJECTED */}
+      {/* ============================= */}
+
       <div className="flex items-center gap-4">
         <div className="w-4 h-4 rounded-full bg-red-400 shrink-0" />
 
@@ -3319,17 +4753,25 @@ const DepositStatusLegend = () => (
           </p>
         </div>
       </div>
+
     </div>
   </div>
 );
+
+
 // =====================================================
 // SUCCESS / ERROR ALERTS
 // =====================================================
 
 const MessageAlerts = () => (
   <>
+    {/* ============================= */}
+    {/* SUCCESS MESSAGE */}
+    {/* ============================= */}
+
     {successMessage && (
       <div className="mb-6 rounded-xl border border-green-500 bg-green-500/10 p-4 flex items-center gap-3">
+
         <CheckCircle
           className="text-green-400 shrink-0"
           size={22}
@@ -3341,8 +4783,13 @@ const MessageAlerts = () => (
       </div>
     )}
 
+    {/* ============================= */}
+    {/* ERROR MESSAGE */}
+    {/* ============================= */}
+
     {errorMessage && (
       <div className="mb-6 rounded-xl border border-red-500 bg-red-500/10 p-4 flex items-center gap-3">
+
         <AlertCircle
           className="text-red-400 shrink-0"
           size={22}
@@ -3356,6 +4803,7 @@ const MessageAlerts = () => (
   </>
 );
 
+
 // =====================================================
 // SUCCESS TOAST
 // =====================================================
@@ -3367,6 +4815,7 @@ const SuccessToast = () => {
 
   return (
     <div className="fixed top-6 right-6 z-[999] max-w-md bg-green-600 text-white rounded-2xl shadow-2xl px-5 py-4 border border-green-400 flex items-start gap-3">
+
       <CheckCircle
         size={22}
         className="text-white shrink-0 mt-0.5"
@@ -3385,6 +4834,7 @@ const SuccessToast = () => {
   );
 };
 
+
 // =====================================================
 // ERROR TOAST
 // =====================================================
@@ -3396,6 +4846,7 @@ const ErrorToast = () => {
 
   return (
     <div className="fixed top-24 right-6 z-[999] max-w-md bg-red-600 text-white rounded-2xl shadow-2xl px-5 py-4 border border-red-400 flex items-start gap-3">
+
       <AlertCircle
         size={22}
         className="text-white shrink-0 mt-0.5"
@@ -3414,13 +4865,21 @@ const ErrorToast = () => {
   );
 };
 
+
 // =====================================================
-// FOOTER
+// PART 7/10
+// DEPOSIT FOOTER
 // =====================================================
 
 const DepositFooter = () => (
   <footer className="mt-16 border-t border-gray-800 pt-8 pb-10">
+
     <div className="grid md:grid-cols-2 gap-8">
+
+      {/* ============================= */}
+      {/* BRAND / DESCRIPTION */}
+      {/* ============================= */}
+
       <div>
         <h2 className="text-yellow-400 font-bold text-xl">
           GoldTrade Enterprise
@@ -3433,38 +4892,65 @@ const DepositFooter = () => (
         </p>
       </div>
 
+      {/* ============================= */}
+      {/* SECURITY / PROCESS FEATURES */}
+      {/* ============================= */}
+
       <div className="space-y-3 text-sm">
+
         <div className="flex items-center gap-3 text-green-400">
           <Shield size={18} />
-          JWT Protected Deposit System
+
+          <span>
+            JWT Protected Deposit System
+          </span>
         </div>
 
         <div className="flex items-center gap-3 text-cyan-400">
           <Wallet size={18} />
-          PKR Wallet Credit After Admin Approval
+
+          <span>
+            PKR Wallet Credit After Admin Approval
+          </span>
         </div>
 
         <div className="flex items-center gap-3 text-yellow-400">
           <CheckCircle size={18} />
-          Manual Payment Verification
+
+          <span>
+            Manual Payment Verification
+          </span>
         </div>
 
         <div className="flex items-center gap-3 text-purple-400">
           <RefreshCw size={18} />
-          Live Wallet Synchronization
+
+          <span>
+            Live Wallet Synchronization
+          </span>
         </div>
+
       </div>
     </div>
 
+    {/* ============================= */}
+    {/* COPYRIGHT */}
+    {/* ============================= */}
+
     <div className="border-t border-gray-800 mt-8 pt-5 text-center text-gray-500 text-sm">
-      © {new Date().getFullYear()} GoldTrade Enterprise
+
+      <p>
+        © {new Date().getFullYear()} GoldTrade Enterprise
+      </p>
 
       <div className="mt-2">
         Powered by Flex.inc
       </div>
+
     </div>
   </footer>
 );
+
 
 // =====================================================
 // FINAL PAGE RETURN
@@ -3472,57 +4958,165 @@ const DepositFooter = () => (
 
 return (
   <main className="min-h-screen bg-[#0B1120] text-white">
-    {/* Loading */}
+
+    {/* ================================================= */}
+    {/* LOADING OVERLAY */}
+    {/* ================================================= */}
+
     <LoadingOverlay />
 
-    {/* Toasts */}
+    {/* ================================================= */}
+    {/* SUCCESS TOAST */}
+    {/* ================================================= */}
+
     <SuccessToast />
+
+    {/* ================================================= */}
+    {/* ERROR TOAST */}
+    {/* ================================================= */}
+
     <ErrorToast />
 
+    {/* ================================================= */}
     {/* MAIN CONTAINER */}
+    {/* ================================================= */}
+
     <div className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
-      {/* Header */}
+
+      {/* ================================================= */}
+      {/* PAGE HEADER */}
+      {/* ================================================= */}
+
       <DepositHeader />
 
-      {/* Wallet */}
+      {/* ================================================= */}
+      {/* WALLET SUMMARY */}
+      {/* ================================================= */}
+
       <WalletSummaryCard />
 
-      {/* Alerts */}
+      {/* ================================================= */}
+      {/* ALERTS */}
+      {/* ================================================= */}
+
       <MessageAlerts />
 
-      {/* Payment Methods */}
+      {/* ================================================= */}
+      {/* PAYMENT METHODS */}
+      {/* ================================================= */}
+
       <PaymentMethodsSection />
 
-      {/* Selected Payment Details */}
+      {/* ================================================= */}
+      {/* SELECTED PAYMENT DETAILS */}
+      {/* ================================================= */}
+
       <SelectedPaymentDetails />
 
-      {/* QR */}
+      {/* ================================================= */}
+      {/* QR PAYMENT */}
+      {/* ================================================= */}
+
       <QRPaymentCard />
 
-      {/* Deposit Form */}
+      {/* ================================================= */}
+      {/* DEPOSIT FORM */}
+      {/* ================================================= */}
+
       <DepositFormSection />
 
-      {/* Receipt */}
+      {/* ================================================= */}
+      {/* RECEIPT UPLOAD */}
+      {/* ================================================= */}
+
       <ReceiptUploadSection />
 
-      {/* Submit */}
+      {/* ================================================= */}
+      {/* SUBMIT DEPOSIT */}
+      {/* ================================================= */}
+
       <SubmitDepositSection />
 
-      {/* Statistics */}
+      {/* ================================================= */}
+      {/* STATISTICS */}
+      {/* ================================================= */}
+
       <DepositStatisticsSection />
 
-      {/* Process Information */}
+      {/* ================================================= */}
+      {/* PROCESS INFORMATION */}
+      {/* ================================================= */}
+
       <DepositActivityInfo />
 
-      {/* Status Guide */}
+      {/* ================================================= */}
+      {/* STATUS GUIDE */}
+      {/* ================================================= */}
+
       <DepositStatusLegend />
 
-      {/* History */}
+      {/* ================================================= */}
+      {/* DEPOSIT HISTORY */}
+      {/* ================================================= */}
+
       <DepositHistorySection />
 
-      {/* Footer */}
+      {/* ================================================= */}
+      {/* FOOTER */}
+      {/* ================================================= */}
+
       <DepositFooter />
+
+    </div>
+  </main>
+);
+
+
+return (
+  <main className="min-h-screen bg-[#0B1120] text-white">
+
+    <LoadingOverlay />
+
+    <SuccessToast />
+
+    <ErrorToast />
+
+    <div className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
+
+      <DepositHeader />
+
+      <WalletSummaryCard />
+
+      <MessageAlerts />
+
+      <PaymentMethodsSection />
+
+      <SelectedPaymentDetails />
+
+      <QRPaymentCard />
+
+      <DepositFormSection />
+
+      <ReceiptUploadSection />
+
+      <SubmitDepositSection />
+
+      <DepositStatisticsSection />
+
+      <DepositActivityInfo />
+
+      <DepositStatusLegend />
+
+      <DepositHistorySection />
+
+      <DepositFooter />
+
     </div>
   </main>
 );
 }
+
+
+// =====================================================
+// PAGE COMPLETE
+// =====================================================
