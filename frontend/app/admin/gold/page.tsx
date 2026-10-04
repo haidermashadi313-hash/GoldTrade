@@ -22,7 +22,10 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 
-const API = process.env.NEXT_PUBLIC_API_URL ||  "https://goldtrade-2.onrender.com";
+const API =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://goldtrade-2.onrender.com";
+
 /* ================= INTERFACES ================= */
 
 interface GoldSettings {
@@ -46,7 +49,6 @@ interface GoldOrder {
 }
 
 export default function AdminGoldPage() {
-
   /* ---------------- LOADING ---------------- */
 
   const [loading, setLoading] = useState(true);
@@ -108,7 +110,9 @@ export default function AdminGoldPage() {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.message || "Unable to load Gold settings.");
+      throw new Error(
+        data.message || "Unable to load Gold settings."
+      );
     }
 
     setSettings(data.settings);
@@ -130,7 +134,9 @@ export default function AdminGoldPage() {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.message || "Unable to load buy orders.");
+      throw new Error(
+        data.message || "Unable to load buy orders."
+      );
     }
 
     setBuyOrders(data.orders || []);
@@ -152,7 +158,9 @@ export default function AdminGoldPage() {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.message || "Unable to load sell orders.");
+      throw new Error(
+        data.message || "Unable to load sell orders."
+      );
     }
 
     setSellOrders(data.orders || []);
@@ -173,7 +181,9 @@ export default function AdminGoldPage() {
         loadSellOrders(),
       ]);
     } catch (error: any) {
-      setErrorMessage(error.message || "Unable to load Gold dashboard.");
+      setErrorMessage(
+        error.message || "Unable to load Gold dashboard."
+      );
     } finally {
       setLoading(false);
     }
@@ -204,9 +214,13 @@ export default function AdminGoldPage() {
     const keyword = search.trim().toLowerCase();
 
     return buyOrders.filter((order) => {
-      if (!keyword) return true;
+      if (!keyword) {
+        return true;
+      }
 
-      return order.username.toLowerCase().includes(keyword);
+      return order.username
+        .toLowerCase()
+        .includes(keyword);
     });
   }, [buyOrders, search]);
 
@@ -214,9 +228,13 @@ export default function AdminGoldPage() {
     const keyword = search.trim().toLowerCase();
 
     return sellOrders.filter((order) => {
-      if (!keyword) return true;
+      if (!keyword) {
+        return true;
+      }
 
-      return order.username.toLowerCase().includes(keyword);
+      return order.username
+        .toLowerCase()
+        .includes(keyword);
     });
   }, [sellOrders, search]);
 
@@ -234,12 +252,14 @@ export default function AdminGoldPage() {
     ).length;
 
     const totalBuyVolume = buyOrders.reduce(
-      (sum, order) => sum + Number(order.quantity || 0),
+      (sum, order) =>
+        sum + Number(order.quantity || 0),
       0
     );
 
     const totalSellVolume = sellOrders.reduce(
-      (sum, order) => sum + Number(order.quantity || 0),
+      (sum, order) =>
+        sum + Number(order.quantity || 0),
       0
     );
 
@@ -259,7 +279,11 @@ export default function AdminGoldPage() {
     return (
       <main className="min-h-screen bg-black flex items-center justify-center">
         <div className="flex items-center gap-3 text-yellow-400 text-xl font-bold">
-          <RefreshCw className="animate-spin" size={28} />
+          <RefreshCw
+            className="animate-spin"
+            size={28}
+          />
+
           Loading Gold Admin Dashboard...
         </div>
       </main>
@@ -279,7 +303,6 @@ export default function AdminGoldPage() {
         {/* ============================================= */}
 
         <header className="flex flex-wrap justify-between items-center gap-5">
-
           <div>
             <h1 className="flex items-center gap-3 text-4xl font-black text-yellow-400">
               <Coins size={38} />
@@ -287,12 +310,12 @@ export default function AdminGoldPage() {
             </h1>
 
             <p className="text-gray-400 mt-2">
-              GoldTrade V18 Enterprise • Live Gold Market Administration
+              GoldTrade V18 Enterprise • Live Gold Market
+              Administration
             </p>
           </div>
 
           <div className="flex gap-3 flex-wrap">
-
             <Link
               href="/admin"
               className="bg-zinc-800 hover:bg-zinc-700 px-5 py-3 rounded-xl font-bold transition"
@@ -307,14 +330,16 @@ export default function AdminGoldPage() {
             >
               <RefreshCw
                 size={18}
-                className={refreshing ? "animate-spin" : ""}
+                className={
+                  refreshing ? "animate-spin" : ""
+                }
               />
 
-              {refreshing ? "Refreshing..." : "Refresh"}
+              {refreshing
+                ? "Refreshing..."
+                : "Refresh"}
             </button>
-
           </div>
-
         </header>
 
         {/* ============================================= */}
@@ -332,33 +357,43 @@ export default function AdminGoldPage() {
         {/* ============================================= */}
 
         <section className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-
           <div className="bg-zinc-900 border border-green-500 rounded-2xl p-5">
-            <TrendingUp className="text-green-400 mb-3" size={28} />
+            <TrendingUp
+              className="text-green-400 mb-3"
+              size={28}
+            />
 
             <p className="text-gray-500 text-sm uppercase">
               Buy Gold Price
             </p>
 
             <h2 className="text-3xl font-black text-green-400 mt-2">
-              PKR {settings.buyGoldPrice.toLocaleString()}
+              PKR{" "}
+              {settings.buyGoldPrice.toLocaleString()}
             </h2>
           </div>
 
           <div className="bg-zinc-900 border border-red-500 rounded-2xl p-5">
-            <TrendingDown className="text-red-400 mb-3" size={28} />
+            <TrendingDown
+              className="text-red-400 mb-3"
+              size={28}
+            />
 
             <p className="text-gray-500 text-sm uppercase">
               Sell Gold Price
             </p>
 
             <h2 className="text-3xl font-black text-red-400 mt-2">
-              PKR {settings.sellGoldPrice.toLocaleString()}
+              PKR{" "}
+              {settings.sellGoldPrice.toLocaleString()}
             </h2>
           </div>
 
           <div className="bg-zinc-900 border border-cyan-500 rounded-2xl p-5">
-            <ArrowDownRight className="text-cyan-400 mb-3" size={28} />
+            <ArrowDownRight
+              className="text-cyan-400 mb-3"
+              size={28}
+            />
 
             <p className="text-gray-500 text-sm uppercase">
               Pending Buy Orders
@@ -370,7 +405,10 @@ export default function AdminGoldPage() {
           </div>
 
           <div className="bg-zinc-900 border border-orange-500 rounded-2xl p-5">
-            <ArrowUpRight className="text-orange-400 mb-3" size={28} />
+            <ArrowUpRight
+              className="text-orange-400 mb-3"
+              size={28}
+            />
 
             <p className="text-gray-500 text-sm uppercase">
               Pending Sell Orders
@@ -380,7 +418,6 @@ export default function AdminGoldPage() {
               {analytics.pendingSell}
             </h2>
           </div>
-
         </section>
 
         {/* ============================================= */}
@@ -388,9 +425,7 @@ export default function AdminGoldPage() {
         {/* ============================================= */}
 
         <section className="grid lg:grid-cols-2 gap-5">
-
           <div className="bg-zinc-900 border border-green-500 rounded-2xl p-6">
-
             <p className="text-gray-500 text-sm uppercase">
               Total Buy Volume
             </p>
@@ -398,11 +433,9 @@ export default function AdminGoldPage() {
             <h2 className="text-4xl font-black text-green-400 mt-3">
               {analytics.totalBuyVolume.toFixed(2)} g
             </h2>
-
           </div>
 
           <div className="bg-zinc-900 border border-orange-500 rounded-2xl p-6">
-
             <p className="text-gray-500 text-sm uppercase">
               Total Sell Volume
             </p>
@@ -410,9 +443,7 @@ export default function AdminGoldPage() {
             <h2 className="text-4xl font-black text-orange-400 mt-3">
               {analytics.totalSellVolume.toFixed(2)} g
             </h2>
-
           </div>
-
         </section>
 
         {/* ============================================= */}
@@ -420,16 +451,15 @@ export default function AdminGoldPage() {
         {/* ============================================= */}
 
         <section className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6 space-y-6">
-
           <div className="flex justify-between items-center flex-wrap gap-4">
-
             <div>
               <h2 className="text-2xl font-black text-yellow-400">
                 Gold Market Status
               </h2>
 
               <p className="text-gray-400 text-sm mt-2">
-                Current Gold Market configuration across GoldTrade.
+                Current Gold Market configuration across
+                GoldTrade.
               </p>
             </div>
 
@@ -444,47 +474,54 @@ export default function AdminGoldPage() {
                 ? "Trading Enabled"
                 : "Trading Disabled"}
             </div>
-
           </div>
 
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-
             <div className="bg-black border border-green-500 rounded-xl p-5">
-              <p className="text-gray-500 text-sm">Buy Price</p>
+              <p className="text-gray-500 text-sm">
+                Buy Price
+              </p>
 
               <h3 className="text-2xl font-black text-green-400 mt-2">
-                PKR {settings.buyGoldPrice.toLocaleString()}
+                PKR{" "}
+                {settings.buyGoldPrice.toLocaleString()}
               </h3>
             </div>
 
             <div className="bg-black border border-red-500 rounded-xl p-5">
-              <p className="text-gray-500 text-sm">Sell Price</p>
+              <p className="text-gray-500 text-sm">
+                Sell Price
+              </p>
 
               <h3 className="text-2xl font-black text-red-400 mt-2">
-                PKR {settings.sellGoldPrice.toLocaleString()}
+                PKR{" "}
+                {settings.sellGoldPrice.toLocaleString()}
               </h3>
             </div>
 
             <div className="bg-black border border-cyan-500 rounded-xl p-5">
-              <p className="text-gray-500 text-sm">Gold USD Price</p>
+              <p className="text-gray-500 text-sm">
+                Gold USD Price
+              </p>
 
               <h3 className="text-2xl font-black text-cyan-400 mt-2">
-                ${settings.goldPriceUSD.toLocaleString()}
+                $
+                {settings.goldPriceUSD.toLocaleString()}
               </h3>
             </div>
 
             <div className="bg-black border border-purple-500 rounded-xl p-5">
-              <p className="text-gray-500 text-sm">USD → PKR</p>
+              <p className="text-gray-500 text-sm">
+                USD → PKR
+              </p>
 
               <h3 className="text-2xl font-black text-purple-400 mt-2">
                 {settings.usdToPkr}
               </h3>
             </div>
-
           </div>
 
           <div className="bg-black border border-zinc-700 rounded-xl p-5">
-
             <p className="text-gray-500 text-sm">
               Market Status
             </p>
@@ -500,9 +537,7 @@ export default function AdminGoldPage() {
                 ? "MARKET OPEN"
                 : "MARKET CLOSED"}
             </h3>
-
           </div>
-
         </section>
 
         {/* ============================================= */}
@@ -510,7 +545,6 @@ export default function AdminGoldPage() {
         {/* ============================================= */}
 
         <section className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6 space-y-5">
-
           <div>
             <h2 className="text-2xl font-black text-yellow-400">
               Search Gold Orders
@@ -522,7 +556,6 @@ export default function AdminGoldPage() {
           </div>
 
           <div className="relative">
-
             <Search
               size={18}
               className="absolute left-4 top-4 text-gray-500"
@@ -537,13 +570,12 @@ export default function AdminGoldPage() {
               placeholder="Search username..."
               className="w-full bg-black border border-zinc-700 rounded-xl pl-11 pr-4 py-3 text-white focus:border-yellow-500 outline-none"
             />
-
           </div>
 
           <div className="flex flex-wrap gap-3">
-
             <span className="bg-black border border-zinc-700 px-4 py-2 rounded-full text-sm">
               Buy Orders:
+
               <span className="ml-2 text-green-400 font-bold">
                 {filteredBuyOrders.length}
               </span>
@@ -551,26 +583,24 @@ export default function AdminGoldPage() {
 
             <span className="bg-black border border-zinc-700 px-4 py-2 rounded-full text-sm">
               Sell Orders:
+
               <span className="ml-2 text-orange-400 font-bold">
                 {filteredSellOrders.length}
               </span>
             </span>
-
           </div>
-
         </section>
-
-        {/* ============================================= */}
+                {/* ============================================= */}
         {/* PENDING GOLD BUY ORDERS */}
         {/* ============================================= */}
 
         <section className="bg-zinc-900 border border-green-500 rounded-2xl overflow-hidden">
-
           <div className="flex justify-between items-center px-6 py-5 border-b border-zinc-800 flex-wrap gap-3">
             <div>
               <h2 className="text-2xl font-black text-green-400">
                 Pending Gold Buy Orders
               </h2>
+
               <p className="text-gray-400 text-sm mt-1">
                 Review customer buy gold requests.
               </p>
@@ -582,23 +612,44 @@ export default function AdminGoldPage() {
           </div>
 
           {/* Desktop Table */}
+
           <div className="hidden lg:block overflow-x-auto">
             <table className="w-full min-w-[1100px]">
               <thead className="bg-black text-gray-400 text-sm">
                 <tr>
-                  <th className="text-left px-5 py-4">Username</th>
-                  <th className="text-left px-5 py-4">Quantity</th>
-                  <th className="text-left px-5 py-4">Price</th>
-                  <th className="text-left px-5 py-4">Total</th>
-                  <th className="text-left px-5 py-4">Date</th>
-                  <th className="text-center px-5 py-4">Actions</th>
+                  <th className="text-left px-5 py-4">
+                    Username
+                  </th>
+
+                  <th className="text-left px-5 py-4">
+                    Quantity
+                  </th>
+
+                  <th className="text-left px-5 py-4">
+                    Price
+                  </th>
+
+                  <th className="text-left px-5 py-4">
+                    Total
+                  </th>
+
+                  <th className="text-left px-5 py-4">
+                    Date
+                  </th>
+
+                  <th className="text-center px-5 py-4">
+                    Actions
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
                 {filteredBuyOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-10 text-gray-500">
+                    <td
+                      colSpan={6}
+                      className="text-center py-10 text-gray-500"
+                    >
                       No pending buy orders found.
                     </td>
                   </tr>
@@ -617,20 +668,23 @@ export default function AdminGoldPage() {
                       </td>
 
                       <td className="px-5 py-4 text-green-400 font-semibold">
-                        PKR {order.price.toLocaleString()}
+                        PKR{" "}
+                        {order.price.toLocaleString()}
                       </td>
 
                       <td className="px-5 py-4 text-cyan-400 font-bold">
-                        PKR {order.totalAmount.toLocaleString()}
+                        PKR{" "}
+                        {order.totalAmount.toLocaleString()}
                       </td>
 
                       <td className="px-5 py-4 text-gray-300 text-sm">
-                        {new Date(order.createdAt).toLocaleDateString()}
+                        {new Date(
+                          order.createdAt
+                        ).toLocaleDateString()}
                       </td>
 
                       <td className="px-5 py-4">
                         <div className="flex justify-center gap-2 flex-wrap">
-
                           <button className="bg-green-500 hover:bg-green-400 text-black px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition">
                             <CheckCircle size={14} />
                             Approve
@@ -640,7 +694,6 @@ export default function AdminGoldPage() {
                             <XCircle size={14} />
                             Reject
                           </button>
-
                         </div>
                       </td>
                     </tr>
@@ -651,6 +704,7 @@ export default function AdminGoldPage() {
           </div>
 
           {/* Mobile Cards */}
+
           <div className="lg:hidden p-5 space-y-4">
             {filteredBuyOrders.map((order) => (
               <div
@@ -663,28 +717,43 @@ export default function AdminGoldPage() {
                   </h3>
 
                   <span className="text-xs text-gray-500">
-                    {new Date(order.createdAt).toLocaleDateString()}
+                    {new Date(
+                      order.createdAt
+                    ).toLocaleDateString()}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-gray-500">Quantity</p>
-                    <p className="text-yellow-400 font-bold">{order.quantity} g</p>
+                    <p className="text-gray-500">
+                      Quantity
+                    </p>
+
+                    <p className="text-yellow-400 font-bold">
+                      {order.quantity} g
+                    </p>
                   </div>
 
                   <div>
-                    <p className="text-gray-500">Price</p>
+                    <p className="text-gray-500">
+                      Price
+                    </p>
+
                     <p className="text-green-400 font-bold">
-                      PKR {order.price.toLocaleString()}
+                      PKR{" "}
+                      {order.price.toLocaleString()}
                     </p>
                   </div>
                 </div>
 
                 <div className="bg-zinc-900 border border-cyan-500 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 uppercase">Order Total</p>
+                  <p className="text-xs text-gray-500 uppercase">
+                    Order Total
+                  </p>
+
                   <h3 className="text-2xl font-black text-cyan-400 mt-2">
-                    PKR {order.totalAmount.toLocaleString()}
+                    PKR{" "}
+                    {order.totalAmount.toLocaleString()}
                   </h3>
                 </div>
 
@@ -702,7 +771,6 @@ export default function AdminGoldPage() {
               </div>
             ))}
           </div>
-
         </section>
 
         {/* ============================================= */}
@@ -710,12 +778,12 @@ export default function AdminGoldPage() {
         {/* ============================================= */}
 
         <section className="bg-zinc-900 border border-orange-500 rounded-2xl overflow-hidden">
-
           <div className="flex justify-between items-center px-6 py-5 border-b border-zinc-800 flex-wrap gap-3">
             <div>
               <h2 className="text-2xl font-black text-orange-400">
                 Pending Gold Sell Orders
               </h2>
+
               <p className="text-gray-400 text-sm mt-1">
                 Review customer sell gold requests.
               </p>
@@ -727,23 +795,44 @@ export default function AdminGoldPage() {
           </div>
 
           {/* Desktop Table */}
+
           <div className="hidden lg:block overflow-x-auto">
             <table className="w-full min-w-[1100px]">
               <thead className="bg-black text-gray-400 text-sm">
                 <tr>
-                  <th className="text-left px-5 py-4">Username</th>
-                  <th className="text-left px-5 py-4">Quantity</th>
-                  <th className="text-left px-5 py-4">Price</th>
-                  <th className="text-left px-5 py-4">Total</th>
-                  <th className="text-left px-5 py-4">Date</th>
-                  <th className="text-center px-5 py-4">Actions</th>
+                  <th className="text-left px-5 py-4">
+                    Username
+                  </th>
+
+                  <th className="text-left px-5 py-4">
+                    Quantity
+                  </th>
+
+                  <th className="text-left px-5 py-4">
+                    Price
+                  </th>
+
+                  <th className="text-left px-5 py-4">
+                    Total
+                  </th>
+
+                  <th className="text-left px-5 py-4">
+                    Date
+                  </th>
+
+                  <th className="text-center px-5 py-4">
+                    Actions
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
                 {filteredSellOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-10 text-gray-500">
+                    <td
+                      colSpan={6}
+                      className="text-center py-10 text-gray-500"
+                    >
                       No pending sell orders found.
                     </td>
                   </tr>
@@ -762,20 +851,23 @@ export default function AdminGoldPage() {
                       </td>
 
                       <td className="px-5 py-4 text-red-400 font-semibold">
-                        PKR {order.price.toLocaleString()}
+                        PKR{" "}
+                        {order.price.toLocaleString()}
                       </td>
 
                       <td className="px-5 py-4 text-cyan-400 font-bold">
-                        PKR {order.totalAmount.toLocaleString()}
+                        PKR{" "}
+                        {order.totalAmount.toLocaleString()}
                       </td>
 
                       <td className="px-5 py-4 text-gray-300 text-sm">
-                        {new Date(order.createdAt).toLocaleDateString()}
+                        {new Date(
+                          order.createdAt
+                        ).toLocaleDateString()}
                       </td>
 
                       <td className="px-5 py-4">
                         <div className="flex justify-center gap-2 flex-wrap">
-
                           <button className="bg-green-500 hover:bg-green-400 text-black px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition">
                             <CheckCircle size={14} />
                             Approve
@@ -785,7 +877,6 @@ export default function AdminGoldPage() {
                             <XCircle size={14} />
                             Reject
                           </button>
-
                         </div>
                       </td>
                     </tr>
@@ -796,6 +887,7 @@ export default function AdminGoldPage() {
           </div>
 
           {/* Mobile Cards */}
+
           <div className="lg:hidden p-5 space-y-4">
             {filteredSellOrders.map((order) => (
               <div
@@ -808,28 +900,43 @@ export default function AdminGoldPage() {
                   </h3>
 
                   <span className="text-xs text-gray-500">
-                    {new Date(order.createdAt).toLocaleDateString()}
+                    {new Date(
+                      order.createdAt
+                    ).toLocaleDateString()}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-gray-500">Quantity</p>
-                    <p className="text-yellow-400 font-bold">{order.quantity} g</p>
+                    <p className="text-gray-500">
+                      Quantity
+                    </p>
+
+                    <p className="text-yellow-400 font-bold">
+                      {order.quantity} g
+                    </p>
                   </div>
 
                   <div>
-                    <p className="text-gray-500">Price</p>
+                    <p className="text-gray-500">
+                      Price
+                    </p>
+
                     <p className="text-red-400 font-bold">
-                      PKR {order.price.toLocaleString()}
+                      PKR{" "}
+                      {order.price.toLocaleString()}
                     </p>
                   </div>
                 </div>
 
                 <div className="bg-zinc-900 border border-cyan-500 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 uppercase">Order Total</p>
+                  <p className="text-xs text-gray-500 uppercase">
+                    Order Total
+                  </p>
+
                   <h3 className="text-2xl font-black text-cyan-400 mt-2">
-                    PKR {order.totalAmount.toLocaleString()}
+                    PKR{" "}
+                    {order.totalAmount.toLocaleString()}
                   </h3>
                 </div>
 
@@ -847,66 +954,70 @@ export default function AdminGoldPage() {
               </div>
             ))}
           </div>
-
         </section>
-
-        {/* ============================================= */}
+                {/* ============================================= */}
         {/* PAGINATION */}
         {/* ============================================= */}
 
         <section className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6 space-y-6">
-
           <div className="flex flex-wrap justify-between items-center gap-4">
-
             <div>
               <h2 className="text-2xl font-black text-yellow-400">
                 Gold Orders Pagination
               </h2>
 
               <p className="text-gray-400 text-sm mt-2">
-                Total Buy Orders: {filteredBuyOrders.length} | Total Sell Orders: {filteredSellOrders.length}
+                Total Buy Orders:{" "}
+                {filteredBuyOrders.length} | Total Sell
+                Orders: {filteredSellOrders.length}
               </p>
             </div>
 
             <span className="bg-yellow-500/20 border border-yellow-500 text-yellow-400 px-4 py-2 rounded-full font-bold text-sm">
               Page {currentPage}
             </span>
-
           </div>
 
           <div className="flex justify-center gap-2 flex-wrap">
-
             <button
-              onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
+              onClick={() =>
+                setCurrentPage(
+                  Math.max(currentPage - 1, 1)
+                )
+              }
               disabled={currentPage === 1}
               className="bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 px-4 py-2 rounded-lg font-bold"
             >
               Previous
             </button>
 
-            {Array.from({ length: 5 }).map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentPage(index + 1)}
-                className={`w-10 h-10 rounded-lg font-bold ${
-                  currentPage === index + 1
-                    ? "bg-yellow-400 text-black"
-                    : "bg-zinc-800 hover:bg-zinc-700"
-                }`}
-              >
-                {index + 1}
-              </button>
-            ))}
+            {Array.from({ length: 5 }).map(
+              (_, index) => (
+                <button
+                  key={index}
+                  onClick={() =>
+                    setCurrentPage(index + 1)
+                  }
+                  className={`w-10 h-10 rounded-lg font-bold ${
+                    currentPage === index + 1
+                      ? "bg-yellow-400 text-black"
+                      : "bg-zinc-800 hover:bg-zinc-700"
+                  }`}
+                >
+                  {index + 1}
+                </button>
+              )
+            )}
 
             <button
-              onClick={() => setCurrentPage(currentPage + 1)}
+              onClick={() =>
+                setCurrentPage(currentPage + 1)
+              }
               className="bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg font-bold"
             >
               Next
             </button>
-
           </div>
-
         </section>
 
         {/* ============================================= */}
@@ -914,12 +1025,14 @@ export default function AdminGoldPage() {
         {/* ============================================= */}
 
         <section className="grid md:grid-cols-3 gap-5">
-
           <Link
             href="/admin/usdt"
             className="bg-zinc-900 border border-cyan-500 rounded-2xl p-6 hover:border-cyan-400 transition"
           >
-            <ShieldCheck className="text-cyan-400 mb-3" size={30} />
+            <ShieldCheck
+              className="text-cyan-400 mb-3"
+              size={30}
+            />
 
             <h3 className="text-xl font-black text-cyan-400">
               USDT Manager
@@ -934,7 +1047,10 @@ export default function AdminGoldPage() {
             href="/admin/wallet"
             className="bg-zinc-900 border border-green-500 rounded-2xl p-6 hover:border-green-400 transition"
           >
-            <Coins className="text-green-400 mb-3" size={30} />
+            <Coins
+              className="text-green-400 mb-3"
+              size={30}
+            />
 
             <h3 className="text-xl font-black text-green-400">
               Wallet Manager
@@ -949,7 +1065,10 @@ export default function AdminGoldPage() {
             href="/admin"
             className="bg-zinc-900 border border-purple-500 rounded-2xl p-6 hover:border-purple-400 transition"
           >
-            <ShieldCheck className="text-purple-400 mb-3" size={30} />
+            <ShieldCheck
+              className="text-purple-400 mb-3"
+              size={30}
+            />
 
             <h3 className="text-xl font-black text-purple-400">
               Admin Dashboard
@@ -959,7 +1078,6 @@ export default function AdminGoldPage() {
               Return to Enterprise Admin Dashboard.
             </p>
           </Link>
-
         </section>
 
         {/* ============================================= */}
@@ -967,20 +1085,19 @@ export default function AdminGoldPage() {
         {/* ============================================= */}
 
         <section className="bg-zinc-900 border border-yellow-500 rounded-2xl p-6 space-y-6">
-
           <h2 className="text-2xl font-black text-yellow-400">
             Gold Market Summary
           </h2>
 
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-
             <div className="bg-black border border-green-500 rounded-xl p-5 text-center">
               <p className="text-gray-500 text-xs uppercase">
                 Buy Price
               </p>
 
               <h3 className="text-2xl font-black text-green-400 mt-2">
-                PKR {settings.buyGoldPrice.toLocaleString()}
+                PKR{" "}
+                {settings.buyGoldPrice.toLocaleString()}
               </h3>
             </div>
 
@@ -990,7 +1107,8 @@ export default function AdminGoldPage() {
               </p>
 
               <h3 className="text-2xl font-black text-red-400 mt-2">
-                PKR {settings.sellGoldPrice.toLocaleString()}
+                PKR{" "}
+                {settings.sellGoldPrice.toLocaleString()}
               </h3>
             </div>
 
@@ -1000,7 +1118,8 @@ export default function AdminGoldPage() {
               </p>
 
               <h3 className="text-2xl font-black text-cyan-400 mt-2">
-                ${settings.goldPriceUSD.toLocaleString()}
+                $
+                {settings.goldPriceUSD.toLocaleString()}
               </h3>
             </div>
 
@@ -1013,27 +1132,23 @@ export default function AdminGoldPage() {
                 {settings.usdToPkr}
               </h3>
             </div>
-
           </div>
-
         </section>
-
-        {/* ============================================= */}
+                {/* ============================================= */}
         {/* FOOTER */}
         {/* ============================================= */}
 
         <footer className="border-t border-zinc-800 pt-8 pb-6">
-
           <div className="grid md:grid-cols-3 gap-8">
-
             <div>
               <h3 className="text-lg font-black text-yellow-400 mb-3">
                 GoldTrade V18 Enterprise
               </h3>
 
               <p className="text-gray-500 text-sm leading-6">
-                Enterprise Gold Management System with Buy/Sell approvals,
-                live pricing, USD conversion and complete trading controls.
+                Enterprise Gold Management System with
+                Buy/Sell approvals, live pricing, USD
+                conversion and complete trading controls.
               </p>
             </div>
 
@@ -1060,9 +1175,10 @@ export default function AdminGoldPage() {
               </h3>
 
               <div className="space-y-3 text-sm">
-
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Trading</span>
+                  <span className="text-gray-500">
+                    Trading
+                  </span>
 
                   <span
                     className={`font-bold ${
@@ -1071,12 +1187,16 @@ export default function AdminGoldPage() {
                         : "text-red-400"
                     }`}
                   >
-                    {settings.goldTradingEnabled ? "LIVE" : "OFFLINE"}
+                    {settings.goldTradingEnabled
+                      ? "LIVE"
+                      : "OFFLINE"}
                   </span>
                 </div>
 
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Market</span>
+                  <span className="text-gray-500">
+                    Market
+                  </span>
 
                   <span
                     className={`font-bold ${
@@ -1088,16 +1208,14 @@ export default function AdminGoldPage() {
                     {settings.marketStatus}
                   </span>
                 </div>
-
               </div>
             </div>
-
           </div>
 
           <div className="border-t border-zinc-800 mt-8 pt-6 flex flex-wrap justify-between items-center gap-4">
-
             <p className="text-gray-500 text-sm">
-              © 2026 GoldTrade V18 Enterprise Gold Market Manager.
+              © 2026 GoldTrade V18 Enterprise Gold Market
+              Manager.
             </p>
 
             <button
@@ -1107,16 +1225,17 @@ export default function AdminGoldPage() {
             >
               <RefreshCw
                 size={16}
-                className={refreshing ? "animate-spin" : ""}
+                className={
+                  refreshing ? "animate-spin" : ""
+                }
               />
 
-              {refreshing ? "Refreshing..." : "Refresh Dashboard"}
+              {refreshing
+                ? "Refreshing..."
+                : "Refresh Dashboard"}
             </button>
-
           </div>
-
         </footer>
-
       </div>
     </main>
   );

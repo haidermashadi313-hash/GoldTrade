@@ -32,7 +32,8 @@ import {
 // =====================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL ||  "https://goldtrade-2.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://goldtrade-2.onrender.com";
 
 // =====================================================
 // TYPES
@@ -53,49 +54,31 @@ interface WalletData {
 
 interface WithdrawMethod {
   _id?: string;
-
   method: "BANK" | "JAZZCASH" | "EASYPAISA" | "BINANCE";
-
   title: string;
-
   enabled: boolean;
-
   network?: string;
-
   minWithdraw?: number;
-
   maxWithdraw?: number;
 }
 
 interface WithdrawHistory {
   _id: string;
-
   amount: number;
-
   withdrawMethod: string;
-
   accountTitle: string;
-
   accountNumber: string;
-
   status: "PENDING" | "APPROVED" | "REJECTED";
-
   createdAt: string;
-
   note?: string;
 }
 
 interface WithdrawPayload {
   amount: number;
-
   withdrawMethod: string;
-
   accountTitle: string;
-
   accountNumber: string;
-
   iban?: string;
-
   network?: string;
 }
 
@@ -111,7 +94,6 @@ export default function WithdrawPage() {
   // =====================================================
 
   const [token, setToken] = useState("");
-
   const [username, setUsername] = useState("");
 
   const [user, setUser] = useState<UserData>({
@@ -135,8 +117,9 @@ export default function WithdrawPage() {
   // WITHDRAW METHODS
   // =====================================================
 
-  const [withdrawMethods, setWithdrawMethods] =
-    useState<WithdrawMethod[]>([]);
+  const [withdrawMethods, setWithdrawMethods] = useState<
+    WithdrawMethod[]
+  >([]);
 
   const [selectedMethod, setSelectedMethod] =
     useState<WithdrawMethod | null>(null);
@@ -146,34 +129,28 @@ export default function WithdrawPage() {
   // =====================================================
 
   const [amount, setAmount] = useState("");
-
   const [accountTitle, setAccountTitle] = useState("");
-
   const [accountNumber, setAccountNumber] = useState("");
-
   const [iban, setIban] = useState("");
-
   const [network, setNetwork] = useState("TRC20");
 
   // =====================================================
   // HISTORY
   // =====================================================
 
-  const [withdrawHistory, setWithdrawHistory] =
-    useState<WithdrawHistory[]>([]);
+  const [withdrawHistory, setWithdrawHistory] = useState<
+    WithdrawHistory[]
+  >([]);
 
   // =====================================================
   // UI STATE
   // =====================================================
 
   const [loading, setLoading] = useState(true);
-
   const [refreshing, setRefreshing] = useState(false);
-
   const [submitting, setSubmitting] = useState(false);
 
   const [successMessage, setSuccessMessage] = useState("");
-
   const [errorMessage, setErrorMessage] = useState("");
 
   // =====================================================
@@ -198,45 +175,90 @@ export default function WithdrawPage() {
     });
   }, []);
 
-// ==========================================================
+  // ==========================================================
 // WITHDRAW AUTH CHECK
+// GOLDTRADE V18 SESSION FIX
 // ==========================================================
 
 useEffect(() => {
   if (typeof window === "undefined") return;
 
+  // ========================================================
+  // READ GOLDTRADE SESSION
+  // Primary session keys
+  // Fallback old keys also supported
+  // ========================================================
+
   const storedToken =
+    localStorage.getItem("goldtrade_token") ||
+    sessionStorage.getItem("goldtrade_token") ||
     localStorage.getItem("token") ||
+    sessionStorage.getItem("token") ||
     localStorage.getItem("accessToken") ||
+    sessionStorage.getItem("accessToken") ||
     localStorage.getItem("jwt") ||
+    sessionStorage.getItem("jwt") ||
     "";
-  const storedUser = localStorage.getItem("user");
-  let parsedUser: Partial<UserData> | null = null;
 
-  if (storedUser) {
-    try {
-      parsedUser = JSON.parse(storedUser);
-    } catch {
-      parsedUser = null;
-    }
-  }
+  const storedUser =
+    localStorage.getItem("goldtrade_user") ||
+    sessionStorage.getItem("goldtrade_user") ||
+    localStorage.getItem("user") ||
+    sessionStorage.getItem("user") ||
+    "";
 
-  if (!storedToken || !parsedUser) {
+  // ========================================================
+  // TOKEN REQUIRED
+  // User object is NOT required here.
+  // /api/auth/check will provide the real user profile.
+  // ========================================================
+
+  if (!storedToken) {
+    console.warn(
+      "WITHDRAW AUTH: No valid GoldTrade token found."
+    );
+
     router.replace("/login");
     return;
   }
 
+  // ========================================================
+  // SET TOKEN
+  // ========================================================
+
   setToken(storedToken);
-  setUsername(parsedUser.username || "");
-  setUser((currentUser) => ({
-    ...currentUser,
-    ...parsedUser,
-    username: parsedUser?.username || "",
-    fullName: parsedUser?.fullName || parsedUser?.username || "",
-    email: parsedUser?.email || "",
-    role: parsedUser?.role || "user",
-  }));
+
+  // ========================================================
+  // LOAD STORED USER IF AVAILABLE
+  // ========================================================
+
+  if (storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser) as Partial<UserData>;
+
+      setUsername(parsedUser.username || "");
+
+      setUser((currentUser) => ({
+        ...currentUser,
+        ...parsedUser,
+        username: parsedUser.username || "",
+        fullName:
+          parsedUser.fullName ||
+          parsedUser.username ||
+          "",
+        email: parsedUser.email || "",
+        role: parsedUser.role || "user",
+      }));
+    } catch (error) {
+      console.warn(
+        "WITHDRAW AUTH: Stored user data is invalid.",
+        error
+      );
+ 
+    }
+  }
 }, [router]);
+
   // =====================================================
   // VERIFY SESSION
   // Backend: GET /api/auth/check
@@ -260,15 +282,22 @@ useEffect(() => {
         router.replace("/login");
         return false;
       }
+      
+      const authenticatedUser = data.user || {};
 
       setUser({
-        username: data.user.username,
+        username: authenticatedUser.username || "",
         fullName:
-          data.user.fullName ||
-          data.user.username,
-        email: data.user.email,
-        role: data.user.role,
+          authenticatedUser.fullName ||
+          authenticatedUser.username ||
+          "",
+        email: authenticatedUser.email || "",
+        role: authenticatedUser.role || "user",
       });
+
+      setUsername(
+        authenticatedUser.username || ""
+      );
 
       return true;
     } catch (err) {
@@ -294,17 +323,23 @@ useEffect(() => {
   // COPY TEXT
   // =====================================================
 
-  const copyToClipboard = useCallback(async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
+  const copyToClipboard = useCallback(
+    async (value: string) => {
+      try {
+        await navigator.clipboard.writeText(value);
 
-      setSuccessMessage("Copied successfully.");
+        setSuccessMessage("Copied successfully.");
 
-      setTimeout(() => setSuccessMessage(""), 2500);
-    } catch {
-      setErrorMessage("Unable to copy.");
-    }
-  }, []);
+        setTimeout(
+          () => setSuccessMessage(""),
+          2500
+        );
+      } catch {
+        setErrorMessage("Unable to copy.");
+      }
+    },
+    []
+  );
 
   // =====================================================
   // WITHDRAW SUMMARY
@@ -335,7 +370,10 @@ useEffect(() => {
   const totalApprovedAmount = useMemo(() => {
     return withdrawHistory
       .filter((item) => item.status === "APPROVED")
-      .reduce((sum, item) => sum + Number(item.amount), 0);
+      .reduce(
+        (sum, item) => sum + Number(item.amount),
+        0
+      );
   }, [withdrawHistory]);
 
   // =====================================================
@@ -351,52 +389,61 @@ useEffect(() => {
     100000,
   ];
 
-  const selectQuickAmount = useCallback((value: number) => {
-    setAmount(String(value));
-  }, []);
+  const selectQuickAmount = useCallback(
+    (value: number) => {
+      setAmount(String(value));
+    },
+    []
+  );
 
   // =====================================================
   // METHOD ICON
   // =====================================================
 
-  const getMethodIcon = useCallback((method: string) => {
-    switch (method) {
-      case "BANK":
-        return Landmark;
+  const getMethodIcon = useCallback(
+    (method: string) => {
+      switch (method) {
+        case "BANK":
+          return Landmark;
 
-      case "JAZZCASH":
-        return Smartphone;
+        case "JAZZCASH":
+          return Smartphone;
 
-      case "EASYPAISA":
-        return Smartphone;
+        case "EASYPAISA":
+          return Smartphone;
 
-      case "BINANCE":
-        return Bitcoin;
+        case "BINANCE":
+          return Bitcoin;
 
-      default:
-        return CreditCard;
-    }
-  }, []);
+        default:
+          return CreditCard;
+      }
+    },
+    []
+  );
 
   // =====================================================
   // STATUS COLOR
   // =====================================================
 
-  const getStatusColor = useCallback((status: string) => {
-    switch (status) {
-      case "APPROVED":
-        return "text-green-400 border-green-500 bg-green-500/10";
+  const getStatusColor = useCallback(
+    (status: string) => {
+      switch (status) {
+        case "APPROVED":
+          return "text-green-400 border-green-500 bg-green-500/10";
 
-      case "PENDING":
-        return "text-yellow-400 border-yellow-500 bg-yellow-500/10";
+        case "PENDING":
+          return "text-yellow-400 border-yellow-500 bg-yellow-500/10";
 
-      case "REJECTED":
-        return "text-red-400 border-red-500 bg-red-500/10";
+        case "REJECTED":
+          return "text-red-400 border-red-500 bg-red-500/10";
 
-      default:
-        return "text-gray-400 border-gray-700 bg-gray-700/10";
-    }
-  }, []);
+        default:
+          return "text-gray-400 border-gray-700 bg-gray-700/10";
+      }
+    },
+    []
+  );
 
   // =====================================================
   // DATE FORMAT
@@ -412,8 +459,7 @@ useEffect(() => {
     });
   }, []);
 
-// =====================================================
-// PART 2/8
+  // PART 2/8
 // Wallet API + Withdraw Methods API + Withdraw History API
 // GoldTrade V18 Enterprise (Production)
 // =====================================================
@@ -427,30 +473,39 @@ const loadWallet = useCallback(async () => {
   if (!token) return;
 
   try {
-    const response = await fetch(`${API}/api/wallet/balance`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-    });
+    const response = await fetch(
+      `${API}/api/wallet/balance`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+      }
+    );
 
     const data = await response.json();
 
     console.log("WITHDRAW WALLET:", data);
 
     if (!response.ok || !data.success) {
-      throw new Error(data.message || "Unable to load wallet.");
+      throw new Error(
+        data.message || "Unable to load wallet."
+      );
     }
 
     setWallet({
-      pkrBalance: Number(data.pkrBalance ?? data.balance ?? 0),
+      pkrBalance: Number(
+        data.pkrBalance ?? data.balance ?? 0
+      ),
       goldBalance: Number(data.goldBalance ?? 0),
       usdtBalance: Number(data.usdtBalance ?? 0),
     });
   } catch (err: any) {
     console.error("LOAD WALLET ERROR:", err);
 
-    setErrorMessage(err.message || "Wallet unavailable.");
+    setErrorMessage(
+      err.message || "Wallet unavailable."
+    );
   }
 }, [token]);
 
@@ -463,12 +518,15 @@ const loadWithdrawMethods = useCallback(async () => {
   if (!token) return;
 
   try {
-    const response = await fetch(`${API}/api/payment-settings/withdraw`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-    });
+    const response = await fetch(
+      `${API}/api/payment-settings/withdraw`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+      }
+    );
 
     const data = await response.json();
 
@@ -476,20 +534,29 @@ const loadWithdrawMethods = useCallback(async () => {
 
     if (!response.ok || !data.success) {
       throw new Error(
-        data.message || "Unable to load withdraw methods."
+        data.message ||
+          "Unable to load withdraw methods."
       );
     }
 
-    const methods: WithdrawMethod[] = (data.methods || [])
-      .filter((item: any) => item.enabled === true)
+    const methods: WithdrawMethod[] = (
+      data.methods || []
+    )
+      .filter(
+        (item: any) => item.enabled === true
+      )
       .map((item: any) => ({
         _id: item._id,
         method: item.method,
         title: item.title,
         enabled: item.enabled,
         network: item.network || "TRC20",
-        minWithdraw: Number(item.minWithdraw ?? 500),
-        maxWithdraw: Number(item.maxWithdraw ?? 5000000),
+        minWithdraw: Number(
+          item.minWithdraw ?? 500
+        ),
+        maxWithdraw: Number(
+          item.maxWithdraw ?? 5000000
+        ),
       }));
 
     setWithdrawMethods(methods);
@@ -502,26 +569,34 @@ const loadWithdrawMethods = useCallback(async () => {
       }
     }
   } catch (err: any) {
-    console.error("WITHDRAW METHODS ERROR:", err);
+    console.error(
+      "WITHDRAW METHODS ERROR:",
+      err
+    );
 
-    setErrorMessage(err.message || "Withdraw methods unavailable.");
+    setErrorMessage(
+      err.message ||
+        "Withdraw methods unavailable."
+    );
   }
 }, [token]);
 
 // =====================================================
 // LOAD USER WITHDRAW HISTORY
-// Backend : GET /api/withdraw/history/:username
+// Backend : GET /api/withdraw/history
 // =====================================================
 
 const loadWithdrawHistory = useCallback(async () => {
-  if (!token || !username) return;
+  if (!token) return;
 
   try {
     const response = await fetch(
-      `${API}/api/withdraw/history/${username}`,
+      `${API}/api/withdraw/history`,
       {
+        method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         cache: "no-store",
       }
@@ -531,64 +606,155 @@ const loadWithdrawHistory = useCallback(async () => {
 
     console.log("WITHDRAW HISTORY:", data);
 
+    // ==================================================
+    // AUTH ERROR
+    // ==================================================
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+      console.error(
+        "WITHDRAW HISTORY AUTH ERROR:",
+        data
+      );
+
+      localStorage.clear();
+      sessionStorage.clear();
+
+      router.replace("/login");
+      return;
+    }
+
+    // ==================================================
+    // API ERROR
+    // ==================================================
+
     if (!response.ok || !data.success) {
       throw new Error(
-        data.message || "Unable to load withdraw history."
+        data.message ||
+          "Unable to load withdraw history."
       );
     }
 
-    const history: WithdrawHistory[] = (data.history || []).map(
-      (item: any) => ({
-        _id: item._id,
-        amount: Number(item.amount),
-        withdrawMethod: item.withdrawMethod,
-        accountTitle: item.accountTitle,
-        accountNumber: item.accountNumber,
-        status: item.status,
-        note: item.note || "",
-        createdAt: item.createdAt,
-      })
-    );
+    // ==================================================
+    // BACKEND RESPONSE
+    //
+    // {
+    //   success: true,
+    //   withdrawals: [],
+    //   pagination: {}
+    // }
+    // ==================================================
+
+    const history: WithdrawHistory[] = (
+      Array.isArray(data.withdrawals)
+        ? data.withdrawals
+        : []
+    ).map((item: any) => ({
+      _id: String(item._id || ""),
+
+      amount: Number(
+        item.amount ??
+          item.requestAmount ??
+          item.adminAmount ??
+          0
+      ),
+
+      withdrawMethod:
+        item.withdrawMethod ||
+        item.paymentMethod ||
+        item.method ||
+        "",
+
+      accountTitle:
+        item.accountTitle ||
+        item.receiverName ||
+        item.accountName ||
+        "",
+
+      accountNumber:
+        item.accountNumber ||
+        item.receiverAccount ||
+        item.walletAddress ||
+        item.receiverWalletAddress ||
+        "",
+
+      status: String(
+        item.status || "PENDING"
+      ).toUpperCase() as
+        | "PENDING"
+        | "APPROVED"
+        | "REJECTED",
+
+      createdAt:
+        item.createdAt ||
+        new Date().toISOString(),
+
+      note:
+        item.note ||
+        item.rejectReason ||
+        item.rejectionReason ||
+        "",
+    }));
 
     setWithdrawHistory(history);
-  } catch (err: any) {
-    console.error("WITHDRAW HISTORY ERROR:", err);
 
-    setErrorMessage(err.message || "Withdraw history unavailable.");
+    console.log(
+      "WITHDRAW HISTORY LOADED:",
+      history
+    );
+  } catch (err: any) {
+    console.error(
+      "WITHDRAW HISTORY ERROR:",
+      err
+    );
+
+    setErrorMessage(
+      err?.message ||
+        "Withdraw history unavailable."
+    );
   }
-}, [token, username]);
+}, [token, router]);
 
 // =====================================================
 // REFRESH COMPLETE PAGE
 // =====================================================
 
-const refreshWithdrawPage = useCallback(async () => {
-  if (!token) return;
+const refreshWithdrawPage = useCallback(
+  async () => {
+    if (!token) return;
 
-  try {
-    setRefreshing(true);
-    setErrorMessage("");
+    try {
+      setRefreshing(true);
+      setErrorMessage("");
 
-    await Promise.all([
-      loadWallet(),
-      loadWithdrawMethods(),
-      loadWithdrawHistory(),
-    ]);
+      await Promise.all([
+        loadWallet(),
+        loadWithdrawMethods(),
+        loadWithdrawHistory(),
+      ]);
 
-    console.log("Withdraw page refreshed.");
-  } catch (err: any) {
-    console.error(err);
+      console.log(
+        "Withdraw page refreshed."
+      );
+    } catch (err: any) {
+      console.error(err);
 
-    setErrorMessage(err.message || "Refresh failed.");
-  } finally {
-    setRefreshing(false);
-  }
-}, [
-  token,
-  loadWallet,
-  loadWithdrawMethods,
-  loadWithdrawHistory,
-]);
+      setErrorMessage(
+        err.message || "Refresh failed."
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  },
+  [
+    token,
+    loadWallet,
+    loadWithdrawMethods,
+    loadWithdrawHistory,
+  ]
+);
 
 // =====================================================
 // INITIAL PAGE LOAD
@@ -611,12 +777,18 @@ useEffect(() => {
         loadWithdrawHistory(),
       ]);
 
-      console.log("Withdraw page loaded successfully.");
+      console.log(
+        "Withdraw page loaded successfully."
+      );
     } catch (err: any) {
-      console.error("INITIAL LOAD ERROR:", err);
+      console.error(
+        "INITIAL LOAD ERROR:",
+        err
+      );
 
       setErrorMessage(
-        err.message || "Unable to initialize withdraw page."
+        err.message ||
+          "Unable to initialize withdraw page."
       );
     } finally {
       setLoading(false);
@@ -651,13 +823,16 @@ useEffect(() => {
 // SELECT WITHDRAW METHOD
 // =====================================================
 
-const selectWithdrawMethod = useCallback((method: WithdrawMethod) => {
-  setSelectedMethod(method);
+const selectWithdrawMethod = useCallback(
+  (method: WithdrawMethod) => {
+    setSelectedMethod(method);
 
-  if (method.network) {
-    setNetwork(method.network);
-  }
-}, []);
+    if (method.network) {
+      setNetwork(method.network);
+    }
+  },
+  []
+);
 
 // =====================================================
 // WITHDRAW LIMITS
@@ -665,8 +840,12 @@ const selectWithdrawMethod = useCallback((method: WithdrawMethod) => {
 
 const withdrawLimits = useMemo(() => {
   return {
-    minimum: Number(selectedMethod?.minWithdraw ?? 500),
-    maximum: Number(selectedMethod?.maxWithdraw ?? 5000000),
+    minimum: Number(
+      selectedMethod?.minWithdraw ?? 500
+    ),
+    maximum: Number(
+      selectedMethod?.maxWithdraw ?? 5000000
+    ),
   };
 }, [selectedMethod]);
 
@@ -683,7 +862,9 @@ const availableBalance = useMemo(() => {
 // =====================================================
 
 const withdrawMaximumBalance = useCallback(() => {
-  setAmount(String(Math.floor(availableBalance)));
+  setAmount(
+    String(Math.floor(availableBalance))
+  );
 }, [availableBalance]);
 
 // =====================================================
@@ -695,16 +876,12 @@ const clearWithdrawForm = useCallback(() => {
   setAccountTitle("");
   setAccountNumber("");
   setIban("");
-  setNetwork(selectedMethod?.network || "TRC20");
+  setNetwork(
+    selectedMethod?.network || "TRC20"
+  );
   setSuccessMessage("");
   setErrorMessage("");
 }, [selectedMethod]);
-
-// =====================================================
-// PART 3/8
-// Withdraw Validation + Submit Withdraw API
-// GoldTrade V18 Enterprise (Production)
-// =====================================================
 
 // =====================================================
 // VALIDATE WITHDRAW FORM
@@ -714,56 +891,82 @@ const validateWithdrawForm = useCallback(() => {
   setErrorMessage("");
 
   if (!selectedMethod) {
-    setErrorMessage("Please select a withdraw method.");
+    setErrorMessage(
+      "Please select a withdraw method."
+    );
     return false;
   }
 
   const withdrawAmount = Number(amount);
 
   if (!amount || isNaN(withdrawAmount)) {
-    setErrorMessage("Enter a valid withdraw amount.");
-    return false;
-  }
-
-  if (withdrawAmount < withdrawLimits.minimum) {
     setErrorMessage(
-      `Minimum withdraw is PKR ${formatMoney(withdrawLimits.minimum)}.`
+      "Enter a valid withdraw amount."
     );
     return false;
   }
 
-  if (withdrawAmount > withdrawLimits.maximum) {
+  if (
+    withdrawAmount <
+    withdrawLimits.minimum
+  ) {
     setErrorMessage(
-      `Maximum withdraw is PKR ${formatMoney(withdrawLimits.maximum)}.`
+      `Minimum withdraw is PKR ${formatMoney(
+        withdrawLimits.minimum
+      )}.`
+    );
+    return false;
+  }
+
+  if (
+    withdrawAmount >
+    withdrawLimits.maximum
+  ) {
+    setErrorMessage(
+      `Maximum withdraw is PKR ${formatMoney(
+        withdrawLimits.maximum
+      )}.`
     );
     return false;
   }
 
   if (withdrawAmount > availableBalance) {
-    setErrorMessage("Insufficient PKR wallet balance.");
+    setErrorMessage(
+      "Insufficient PKR wallet balance."
+    );
     return false;
   }
 
   if (!accountTitle.trim()) {
-    setErrorMessage("Account title is required.");
+    setErrorMessage(
+      "Account title is required."
+    );
     return false;
   }
 
   if (!accountNumber.trim()) {
-    setErrorMessage("Account number is required.");
+    setErrorMessage(
+      "Account number is required."
+    );
     return false;
   }
 
   if (selectedMethod.method === "BANK") {
     if (!iban.trim()) {
-      setErrorMessage("IBAN is required for bank withdrawal.");
+      setErrorMessage(
+        "IBAN is required for bank withdrawal."
+      );
       return false;
     }
   }
 
-  if (selectedMethod.method === "BINANCE") {
+  if (
+    selectedMethod.method === "BINANCE"
+  ) {
     if (!network.trim()) {
-      setErrorMessage("Please select Binance network.");
+      setErrorMessage(
+        "Please select Binance network."
+      );
       return false;
     }
   }
@@ -786,88 +989,124 @@ const validateWithdrawForm = useCallback(() => {
 // Backend : POST /api/withdraw/create
 // =====================================================
 
-const submitWithdraw = useCallback(async () => {
-  if (!validateWithdrawForm()) return;
+const submitWithdraw = useCallback(
+  async () => {
+    if (!validateWithdrawForm()) return;
 
-  try {
-    setSubmitting(true);
-    setErrorMessage("");
-    setSuccessMessage("");
+    try {
+      setSubmitting(true);
+      setErrorMessage("");
+      setSuccessMessage("");
 
-    const payload: WithdrawPayload = {
-      amount: Number(amount),
-      withdrawMethod: selectedMethod!.method,
-      accountTitle: accountTitle.trim(),
-      accountNumber: accountNumber.trim(),
-      iban: iban.trim(),
-      network,
-    };
+      const payload: WithdrawPayload = {
+        amount: Number(amount),
+        withdrawMethod:
+          selectedMethod!.method,
+        accountTitle:
+          accountTitle.trim(),
+        accountNumber:
+          accountNumber.trim(),
+        iban: iban.trim(),
+        network,
+      };
 
-    const response = await fetch(`${API}/api/withdraw/create`, {
-      method: "POST",
-      headers: getHeaders(),
-      body: JSON.stringify(payload),
-    });
+      const response = await fetch(
+        `${API}/api/withdraw/create`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify(payload),
+        }
+      );
 
-    const data = await response.json();
+      const data = await response.json();
 
-    console.log("WITHDRAW RESPONSE:", data);
+      console.log(
+        "WITHDRAW RESPONSE:",
+        data
+      );
 
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || "Withdraw request failed.");
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message ||
+            "Withdraw request failed."
+        );
+      }
+
+      setSuccessMessage(
+        data.message ||
+          "Withdraw request submitted successfully."
+      );
+
+      clearWithdrawForm();
+
+      await Promise.all([
+        loadWallet(),
+        loadWithdrawHistory(),
+      ]);
+    } catch (err: any) {
+      console.error(
+        "WITHDRAW ERROR:",
+        err
+      );
+
+      setErrorMessage(
+        err.message ||
+          "Unable to submit withdraw request."
+      );
+    } finally {
+      setSubmitting(false);
     }
-
-    setSuccessMessage(
-      data.message || "Withdraw request submitted successfully."
-    );
-
-    clearWithdrawForm();
-
-    await Promise.all([
-      loadWallet(),
-      loadWithdrawHistory(),
-    ]);
-  } catch (err: any) {
-    console.error("WITHDRAW ERROR:", err);
-
-    setErrorMessage(
-      err.message || "Unable to submit withdraw request."
-    );
-  } finally {
-    setSubmitting(false);
-  }
-}, [
-  amount,
-  accountTitle,
-  accountNumber,
-  iban,
-  network,
-  selectedMethod,
-  validateWithdrawForm,
-  getHeaders,
-  clearWithdrawForm,
-  loadWallet,
-  loadWithdrawHistory,
-]);
+  },
+  [
+    amount,
+    accountTitle,
+    accountNumber,
+    iban,
+    network,
+    selectedMethod,
+    validateWithdrawForm,
+    getHeaders,
+    clearWithdrawForm,
+    loadWallet,
+    loadWithdrawHistory,
+  ]
+);
 
 // =====================================================
 // QUICK ACTIONS
 // =====================================================
 
-const withdrawHalfBalance = useCallback(() => {
-  const value = Math.floor(availableBalance / 2);
-  setAmount(String(value));
-}, [availableBalance]);
+const withdrawHalfBalance = useCallback(
+  () => {
+    const value = Math.floor(
+      availableBalance / 2
+    );
 
-const withdrawQuarterBalance = useCallback(() => {
-  const value = Math.floor(availableBalance / 4);
-  setAmount(String(value));
-}, [availableBalance]);
+    setAmount(String(value));
+  },
+  [availableBalance]
+);
 
-const withdrawFullBalance = useCallback(() => {
-  const value = Math.floor(availableBalance);
-  setAmount(String(value));
-}, [availableBalance]);
+const withdrawQuarterBalance =
+  useCallback(() => {
+    const value = Math.floor(
+      availableBalance / 4
+    );
+
+    setAmount(String(value));
+  }, [availableBalance]);
+
+const withdrawFullBalance = useCallback(
+  () => {
+    const value = Math.floor(
+      availableBalance
+    );
+
+    setAmount(String(value));
+  },
+  [availableBalance]
+);
 
 // =====================================================
 // NETWORK OPTIONS
@@ -884,27 +1123,51 @@ const networkOptions = [
 // =====================================================
 
 const withdrawSummary = useMemo(() => {
-  const approvedAmount = withdrawHistory
-    .filter((item) => item.status === "APPROVED")
-    .reduce((sum, item) => sum + Number(item.amount), 0);
+  const approvedAmount =
+    withdrawHistory
+      .filter(
+        (item) =>
+          item.status === "APPROVED"
+      )
+      .reduce(
+        (sum, item) =>
+          sum + Number(item.amount),
+        0
+      );
 
-  const pendingAmount = withdrawHistory
-    .filter((item) => item.status === "PENDING")
-    .reduce((sum, item) => sum + Number(item.amount), 0);
+  const pendingAmount =
+    withdrawHistory
+      .filter(
+        (item) =>
+          item.status === "PENDING"
+      )
+      .reduce(
+        (sum, item) =>
+          sum + Number(item.amount),
+        0
+      );
 
-  const rejectedAmount = withdrawHistory
-    .filter((item) => item.status === "REJECTED")
-    .reduce((sum, item) => sum + Number(item.amount), 0);
+  const rejectedAmount =
+    withdrawHistory
+      .filter(
+        (item) =>
+          item.status === "REJECTED"
+      )
+      .reduce(
+        (sum, item) =>
+          sum + Number(item.amount),
+        0
+      );
 
   return {
     approvedAmount,
     pendingAmount,
     rejectedAmount,
-    totalRequests: withdrawHistory.length,
+    totalRequests:
+      withdrawHistory.length,
   };
 }, [withdrawHistory]);
 
-// =====================================================
 // PART 4/8
 // Withdraw Form UI + Payment Method Cards
 // GoldTrade V18 Enterprise (Production)
@@ -922,7 +1185,7 @@ const WithdrawHeader = () => (
         onClick={() => router.back()}
         className="flex items-center gap-2 text-yellow-400 hover:text-yellow-300 mb-3 transition"
       >
-        <ArrowLeft size={18}/>
+        <ArrowLeft size={18} />
         Back to Dashboard
       </button>
 
@@ -942,7 +1205,9 @@ const WithdrawHeader = () => (
     >
       <RefreshCw
         size={18}
-        className={refreshing ? "animate-spin" : ""}
+        className={
+          refreshing ? "animate-spin" : ""
+        }
       />
 
       Refresh
@@ -974,7 +1239,7 @@ const WalletSummaryCard = () => (
         </p>
       </div>
 
-      <Wallet size={42}/>
+      <Wallet size={42} />
 
     </div>
 
@@ -995,15 +1260,20 @@ const WithdrawMethodsSection = () => (
     <div className="grid md:grid-cols-2 gap-5">
 
       {withdrawMethods.map((method) => {
-        const Icon = getMethodIcon(method.method);
+        const Icon = getMethodIcon(
+          method.method
+        );
 
         const active =
-          selectedMethod?.method === method.method;
+          selectedMethod?.method ===
+          method.method;
 
         return (
           <button
             key={method.method}
-            onClick={() => selectWithdrawMethod(method)}
+            onClick={() =>
+              selectWithdrawMethod(method)
+            }
             className={`rounded-2xl p-5 border text-left transition ${
               active
                 ? "border-red-500 bg-red-500/10"
@@ -1012,10 +1282,13 @@ const WithdrawMethodsSection = () => (
           >
             <div className="flex justify-between items-center mb-4">
 
-              <Icon size={30} className="text-yellow-400"/>
+              <Icon
+                size={30}
+                className="text-yellow-400"
+              />
 
               {active && (
-                <CheckCircle className="text-green-400"/>
+                <CheckCircle className="text-green-400" />
               )}
 
             </div>
@@ -1030,7 +1303,13 @@ const WithdrawMethodsSection = () => (
                 <span>Minimum</span>
 
                 <span className="text-green-400 font-semibold">
-                  PKR {formatMoney(Number(method.minWithdraw || 500))}
+                  PKR{" "}
+                  {formatMoney(
+                    Number(
+                      method.minWithdraw ||
+                        500
+                    )
+                  )}
                 </span>
               </div>
 
@@ -1038,7 +1317,13 @@ const WithdrawMethodsSection = () => (
                 <span>Maximum</span>
 
                 <span className="text-green-400 font-semibold">
-                  PKR {formatMoney(Number(method.maxWithdraw || 5000000))}
+                  PKR{" "}
+                  {formatMoney(
+                    Number(
+                      method.maxWithdraw ||
+                        5000000
+                    )
+                  )}
                 </span>
               </div>
 
@@ -1046,7 +1331,7 @@ const WithdrawMethodsSection = () => (
 
             {method.network && (
               <div className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold">
-                <Bitcoin size={14}/>
+                <Bitcoin size={14} />
                 {method.network}
               </div>
             )}
@@ -1082,7 +1367,9 @@ const WithdrawFormSection = () => (
       <input
         type="number"
         value={amount}
-        onChange={(e) => setAmount(e.target.value)}
+        onChange={(e) =>
+          setAmount(e.target.value)
+        }
         placeholder="Enter withdraw amount"
         className="w-full bg-[#1F2937] border border-gray-600 rounded-xl p-4 text-white outline-none focus:border-red-400"
       />
@@ -1096,7 +1383,9 @@ const WithdrawFormSection = () => (
       {quickAmounts.map((value) => (
         <button
           key={value}
-          onClick={() => selectQuickAmount(value)}
+          onClick={() =>
+            selectQuickAmount(value)
+          }
           className="bg-[#1F2937] hover:bg-red-500 hover:text-white rounded-xl py-3 font-semibold transition"
         >
           {value.toLocaleString()}
@@ -1155,7 +1444,10 @@ const WithdrawFormSection = () => (
           </h3>
         </div>
 
-        <Wallet className="text-green-400" size={34}/>
+        <Wallet
+          className="text-green-400"
+          size={34}
+        />
 
       </div>
 
@@ -1172,7 +1464,9 @@ const WithdrawFormSection = () => (
       <input
         type="text"
         value={accountTitle}
-        onChange={(e) => setAccountTitle(e.target.value)}
+        onChange={(e) =>
+          setAccountTitle(e.target.value)
+        }
         placeholder="Enter account title"
         className="w-full bg-[#1F2937] border border-gray-600 rounded-xl p-4 text-white outline-none focus:border-yellow-400"
       />
@@ -1190,7 +1484,9 @@ const WithdrawFormSection = () => (
       <input
         type="text"
         value={accountNumber}
-        onChange={(e) => setAccountNumber(e.target.value)}
+        onChange={(e) =>
+          setAccountNumber(e.target.value)
+        }
         placeholder="Enter account number or wallet address"
         className="w-full bg-[#1F2937] border border-gray-600 rounded-xl p-4 text-white outline-none focus:border-yellow-400"
       />
@@ -1209,7 +1505,9 @@ const WithdrawFormSection = () => (
         <input
           type="text"
           value={iban}
-          onChange={(e) => setIban(e.target.value)}
+          onChange={(e) =>
+            setIban(e.target.value)
+          }
           placeholder="Enter IBAN"
           className="w-full bg-[#1F2937] border border-gray-600 rounded-xl p-4 text-white outline-none focus:border-yellow-400"
         />
@@ -1228,11 +1526,16 @@ const WithdrawFormSection = () => (
 
         <select
           value={network}
-          onChange={(e) => setNetwork(e.target.value)}
+          onChange={(e) =>
+            setNetwork(e.target.value)
+          }
           className="w-full bg-[#1F2937] border border-gray-600 rounded-xl p-4 text-white outline-none focus:border-cyan-400"
         >
           {networkOptions.map((item) => (
-            <option key={item} value={item}>
+            <option
+              key={item}
+              value={item}
+            >
               {item}
             </option>
           ))}
@@ -1247,26 +1550,38 @@ const WithdrawFormSection = () => (
 
       <div className="flex gap-3 items-start">
 
-        <AlertCircle className="text-red-400 mt-1"/>
+        <AlertCircle
+          className="text-red-400 mt-1"
+        />
 
         <div className="space-y-2 text-sm text-gray-300">
 
           <p>
             Minimum Withdraw :
             <span className="text-green-400 font-semibold ml-2">
-              PKR {formatMoney(withdrawLimits.minimum)}
+              PKR{" "}
+              {formatMoney(
+                withdrawLimits.minimum
+              )}
             </span>
           </p>
 
           <p>
             Maximum Withdraw :
             <span className="text-green-400 font-semibold ml-2">
-              PKR {formatMoney(withdrawLimits.maximum)}
+              PKR{" "}
+              {formatMoney(
+                withdrawLimits.maximum
+              )}
             </span>
           </p>
 
           <p>
-            Withdraw requests remain <span className="text-yellow-400">Pending</span> until approved by Admin.
+            Withdraw requests remain{" "}
+            <span className="text-yellow-400">
+              Pending
+            </span>{" "}
+            until approved by GoldTrade Ai.
           </p>
 
         </div>
@@ -1286,21 +1601,26 @@ const MessageAlerts = () => (
   <>
     {successMessage && (
       <div className="mb-6 rounded-xl border border-green-500 bg-green-500/10 p-4 flex items-center gap-3">
-        <CheckCircle className="text-green-400"/>
-        <p className="text-green-300">{successMessage}</p>
+        <CheckCircle className="text-green-400" />
+
+        <p className="text-green-300">
+          {successMessage}
+        </p>
       </div>
     )}
 
     {errorMessage && (
       <div className="mb-6 rounded-xl border border-red-500 bg-red-500/10 p-4 flex items-center gap-3">
-        <AlertCircle className="text-red-400"/>
-        <p className="text-red-300">{errorMessage}</p>
+        <AlertCircle className="text-red-400" />
+
+        <p className="text-red-300">
+          {errorMessage}
+        </p>
       </div>
     )}
   </>
 );
 
-// =====================================================
 // PART 5/8
 // Withdraw Destination Cards + Submit Section
 // GoldTrade V18 Enterprise (Production)
@@ -1313,17 +1633,24 @@ const MessageAlerts = () => (
 const WithdrawDestinationCard = () => {
   if (!selectedMethod) return null;
 
-  const Icon = getMethodIcon(selectedMethod.method);
+  const Icon = getMethodIcon(
+    selectedMethod.method
+  );
 
   return (
     <div className="rounded-2xl bg-[#111827] border border-cyan-500/20 p-6 mb-8">
 
       <div className="flex items-center justify-between mb-6">
+
         <h2 className="text-2xl font-bold text-cyan-400">
           Withdraw Destination
         </h2>
 
-        <Icon className="text-cyan-400" size={28}/>
+        <Icon
+          className="text-cyan-400"
+          size={28}
+        />
+
       </div>
 
       <div className="space-y-5">
@@ -1355,6 +1682,7 @@ const WithdrawDestinationCard = () => {
         <div className="bg-[#1F2937] rounded-xl p-4 border border-gray-700 flex justify-between items-center">
 
           <div>
+
             <p className="text-gray-400 text-sm">
               Account Number / Wallet Address
             </p>
@@ -1362,14 +1690,19 @@ const WithdrawDestinationCard = () => {
             <h3 className="text-white font-semibold mt-1 break-all">
               {accountNumber || "Not Entered"}
             </h3>
+
           </div>
 
           {accountNumber && (
             <button
-              onClick={() => copyToClipboard(accountNumber)}
+              onClick={() =>
+                copyToClipboard(
+                  accountNumber
+                )
+              }
               className="bg-green-500 hover:bg-green-600 text-black p-3 rounded-lg transition"
             >
-              <Copy size={18}/>
+              <Copy size={18} />
             </button>
           )}
 
@@ -1379,6 +1712,7 @@ const WithdrawDestinationCard = () => {
           <div className="bg-[#1F2937] rounded-xl p-4 border border-gray-700 flex justify-between items-center">
 
             <div>
+
               <p className="text-gray-400 text-sm">
                 IBAN
               </p>
@@ -1386,14 +1720,17 @@ const WithdrawDestinationCard = () => {
               <h3 className="text-white font-semibold mt-1 break-all">
                 {iban || "Not Entered"}
               </h3>
+
             </div>
 
             {iban && (
               <button
-                onClick={() => copyToClipboard(iban)}
+                onClick={() =>
+                  copyToClipboard(iban)
+                }
                 className="bg-yellow-500 hover:bg-yellow-600 text-black p-3 rounded-lg transition"
               >
-                <Copy size={18}/>
+                <Copy size={18} />
               </button>
             )}
 
@@ -1440,7 +1777,10 @@ const WithdrawSummaryCard = () => (
         </p>
 
         <h3 className="text-red-400 text-2xl font-bold mt-2">
-          PKR {formatMoney(Number(amount || 0))}
+          PKR{" "}
+          {formatMoney(
+            Number(amount || 0)
+          )}
         </h3>
 
       </div>
@@ -1452,7 +1792,8 @@ const WithdrawSummaryCard = () => (
         </p>
 
         <h3 className="text-green-400 text-2xl font-bold mt-2">
-          PKR {formatMoney(wallet.pkrBalance)}
+          PKR{" "}
+          {formatMoney(wallet.pkrBalance)}
         </h3>
 
       </div>
@@ -1464,7 +1805,8 @@ const WithdrawSummaryCard = () => (
         </p>
 
         <h3 className="text-white text-lg font-semibold mt-2">
-          {selectedMethod?.title || "Not Selected"}
+          {selectedMethod?.title ||
+            "Not Selected"}
         </h3>
 
       </div>
@@ -1476,7 +1818,8 @@ const WithdrawSummaryCard = () => (
         </p>
 
         <h3 className="text-cyan-400 text-lg font-semibold mt-2 break-all">
-          {accountNumber || "Not Entered"}
+          {accountNumber ||
+            "Not Entered"}
         </h3>
 
       </div>
@@ -1495,7 +1838,9 @@ const WithdrawConfirmationInfo = () => (
 
     <div className="flex items-start gap-4">
 
-      <Clock3 className="text-yellow-400 mt-1"/>
+      <Clock3
+        className="text-yellow-400 mt-1"
+      />
 
       <div className="space-y-2">
 
@@ -1504,18 +1849,26 @@ const WithdrawConfirmationInfo = () => (
         </h3>
 
         <p className="text-gray-300 text-sm">
-          Every withdrawal request is manually reviewed by GoldTrade Admin.
+          Every withdrawal request is reviewed by GoldTrade Ai.
         </p>
 
         <ul className="text-gray-400 text-sm space-y-2 mt-3">
 
-          <li>• Status will remain Pending until approved.</li>
+          <li>
+            • Status will remain Pending until approved.
+          </li>
 
-          <li>• Approved requests deduct balance from your PKR Wallet.</li>
+          <li>
+            • Approved requests deduct balance from your PKR Wallet.
+          </li>
 
-          <li>• Rejected requests do not deduct your wallet balance.</li>
+          <li>
+            • Rejected requests do not deduct your wallet balance.
+          </li>
 
-          <li>• Make sure account details are correct before submitting.</li>
+          <li>
+            • Make sure account details are correct before submitting.
+          </li>
 
         </ul>
 
@@ -1544,12 +1897,17 @@ const SubmitWithdrawSection = () => (
         >
           {submitting ? (
             <>
-              <Loader2 size={20} className="animate-spin"/>
+              <Loader2
+                size={20}
+                className="animate-spin"
+              />
+
               Processing Withdrawal...
             </>
           ) : (
             <>
-              <Banknote size={20}/>
+              <Banknote size={20} />
+
               Submit Withdrawal
             </>
           )}
@@ -1571,21 +1929,29 @@ const SubmitWithdrawSection = () => (
 
         <div className="flex gap-3 items-start">
 
-          <AlertCircle className="text-red-400 mt-1"/>
+          <AlertCircle
+            className="text-red-400 mt-1"
+          />
 
           <div className="text-sm text-gray-300 space-y-1">
 
             <p>
               Current Wallet Balance:
               <span className="text-green-400 font-semibold ml-2">
-                PKR {formatMoney(wallet.pkrBalance)}
+                PKR{" "}
+                {formatMoney(
+                  wallet.pkrBalance
+                )}
               </span>
             </p>
 
             <p>
               Requested Withdraw:
               <span className="text-red-400 font-semibold ml-2">
-                PKR {formatMoney(Number(amount || 0))}
+                PKR{" "}
+                {formatMoney(
+                  Number(amount || 0)
+                )}
               </span>
             </p>
 
@@ -1594,7 +1960,11 @@ const SubmitWithdrawSection = () => (
               <span className="text-cyan-400 font-semibold ml-2">
                 PKR{" "}
                 {formatMoney(
-                  Math.max(wallet.pkrBalance - Number(amount || 0), 0)
+                  Math.max(
+                    wallet.pkrBalance -
+                      Number(amount || 0),
+                    0
+                  )
                 )}
               </span>
             </p>
@@ -1641,7 +2011,6 @@ const LoadingOverlay = () => {
   );
 };
 
-// =====================================================
 // PART 6/8
 // Withdraw Statistics + History Summary + Status Cards
 // GoldTrade V18 Enterprise (Production)
@@ -1659,10 +2028,16 @@ const WithdrawStatisticsSection = () => (
     <div className="rounded-2xl bg-[#111827] border border-cyan-500/20 p-5">
 
       <div className="flex justify-between items-center mb-4">
-        <Wallet className="text-cyan-400" size={28}/>
+
+        <Wallet
+          className="text-cyan-400"
+          size={28}
+        />
+
         <span className="text-xs text-cyan-400 font-semibold uppercase">
           Total
         </span>
+
       </div>
 
       <p className="text-gray-400 text-sm">
@@ -1680,10 +2055,16 @@ const WithdrawStatisticsSection = () => (
     <div className="rounded-2xl bg-[#111827] border border-green-500/20 p-5">
 
       <div className="flex justify-between items-center mb-4">
-        <CheckCircle className="text-green-400" size={28}/>
+
+        <CheckCircle
+          className="text-green-400"
+          size={28}
+        />
+
         <span className="text-xs text-green-400 font-semibold uppercase">
           Approved
         </span>
+
       </div>
 
       <p className="text-gray-400 text-sm">
@@ -1695,7 +2076,10 @@ const WithdrawStatisticsSection = () => (
       </h2>
 
       <p className="text-green-300 text-sm mt-3">
-        PKR {formatMoney(withdrawSummary.approvedAmount)}
+        PKR{" "}
+        {formatMoney(
+          withdrawSummary.approvedAmount
+        )}
       </p>
 
     </div>
@@ -1705,10 +2089,16 @@ const WithdrawStatisticsSection = () => (
     <div className="rounded-2xl bg-[#111827] border border-yellow-500/20 p-5">
 
       <div className="flex justify-between items-center mb-4">
-        <Clock3 className="text-yellow-400" size={28}/>
+
+        <Clock3
+          className="text-yellow-400"
+          size={28}
+        />
+
         <span className="text-xs text-yellow-400 font-semibold uppercase">
           Pending
         </span>
+
       </div>
 
       <p className="text-gray-400 text-sm">
@@ -1720,7 +2110,10 @@ const WithdrawStatisticsSection = () => (
       </h2>
 
       <p className="text-yellow-300 text-sm mt-3">
-        PKR {formatMoney(withdrawSummary.pendingAmount)}
+        PKR{" "}
+        {formatMoney(
+          withdrawSummary.pendingAmount
+        )}
       </p>
 
     </div>
@@ -1730,10 +2123,16 @@ const WithdrawStatisticsSection = () => (
     <div className="rounded-2xl bg-[#111827] border border-red-500/20 p-5">
 
       <div className="flex justify-between items-center mb-4">
-        <XCircle className="text-red-400" size={28}/>
+
+        <XCircle
+          className="text-red-400"
+          size={28}
+        />
+
         <span className="text-xs text-red-400 font-semibold uppercase">
           Rejected
         </span>
+
       </div>
 
       <p className="text-gray-400 text-sm">
@@ -1745,7 +2144,10 @@ const WithdrawStatisticsSection = () => (
       </h2>
 
       <p className="text-red-300 text-sm mt-3">
-        PKR {formatMoney(withdrawSummary.rejectedAmount)}
+        PKR{" "}
+        {formatMoney(
+          withdrawSummary.rejectedAmount
+        )}
       </p>
 
     </div>
@@ -1763,6 +2165,7 @@ const WithdrawSummaryStrip = () => (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
 
       <div>
+
         <p className="text-gray-400 text-xs uppercase">
           Total Requests
         </p>
@@ -1770,36 +2173,52 @@ const WithdrawSummaryStrip = () => (
         <h3 className="text-cyan-400 text-2xl font-bold mt-2">
           {withdrawSummary.totalRequests}
         </h3>
+
       </div>
 
       <div>
+
         <p className="text-gray-400 text-xs uppercase">
           Approved Amount
         </p>
 
         <h3 className="text-green-400 text-xl font-bold mt-2">
-          PKR {formatMoney(withdrawSummary.approvedAmount)}
+          PKR{" "}
+          {formatMoney(
+            withdrawSummary.approvedAmount
+          )}
         </h3>
+
       </div>
 
       <div>
+
         <p className="text-gray-400 text-xs uppercase">
           Pending Amount
         </p>
 
         <h3 className="text-yellow-400 text-xl font-bold mt-2">
-          PKR {formatMoney(withdrawSummary.pendingAmount)}
+          PKR{" "}
+          {formatMoney(
+            withdrawSummary.pendingAmount
+          )}
         </h3>
+
       </div>
 
       <div>
+
         <p className="text-gray-400 text-xs uppercase">
           Wallet Balance
         </p>
 
         <h3 className="text-purple-400 text-xl font-bold mt-2">
-          PKR {formatMoney(wallet.pkrBalance)}
+          PKR{" "}
+          {formatMoney(
+            wallet.pkrBalance
+          )}
         </h3>
+
       </div>
 
     </div>
@@ -1833,11 +2252,12 @@ const WithdrawHistoryHeader = () => (
     >
       <RefreshCw
         size={18}
-        className={refreshing ? "animate-spin" : ""}
+        className={
+          refreshing ? "animate-spin" : ""
+        }
       />
 
       Refresh History
-
     </button>
 
   </div>
@@ -1847,9 +2267,15 @@ const WithdrawHistoryHeader = () => (
 // STATUS BADGE
 // =====================================================
 
-const WithdrawStatusBadge = ({ status }: { status: string }) => (
+const WithdrawStatusBadge = ({
+  status,
+}: {
+  status: string;
+}) => (
   <span
-    className={`inline-flex items-center justify-center px-4 py-2 rounded-full border text-xs font-bold ${getStatusColor(status)}`}
+    className={`inline-flex items-center justify-center px-4 py-2 rounded-full border text-xs font-bold ${getStatusColor(
+      status
+    )}`}
   >
     {status}
   </span>
@@ -1862,7 +2288,10 @@ const WithdrawStatusBadge = ({ status }: { status: string }) => (
 const EmptyWithdrawHistoryCard = () => (
   <div className="rounded-2xl bg-[#111827] border border-gray-700 py-16 text-center">
 
-    <Wallet className="mx-auto text-gray-500 mb-5" size={56}/>
+    <Wallet
+      className="mx-auto text-gray-500 mb-5"
+      size={56}
+    />
 
     <h2 className="text-2xl font-bold text-gray-300">
       No Withdraw History Found
@@ -1871,44 +2300,6 @@ const EmptyWithdrawHistoryCard = () => (
     <p className="text-gray-500 mt-3">
       Your withdrawal requests will appear here after submission.
     </p>
-
-  </div>
-);
-
-// =====================================================
-// APPROVAL PROCESS INFO CARD
-// =====================================================
-
-const WithdrawApprovalInfo = () => (
-  <div className="rounded-2xl bg-[#111827] border border-blue-500/20 p-6 mb-8">
-
-    <div className="flex items-start gap-4">
-
-      <Shield className="text-blue-400 mt-1"/>
-
-      <div>
-
-        <h3 className="text-blue-400 font-bold text-lg mb-3">
-          Withdrawal Approval Process
-        </h3>
-
-        <ul className="space-y-2 text-gray-300 text-sm">
-
-          <li>• Submit withdrawal request.</li>
-
-          <li>• Request status becomes Pending.</li>
-
-          <li>• GoldTrade Admin verifies wallet balance.</li>
-
-          <li>• Approved requests deduct PKR from wallet.</li>
-
-          <li>• Rejected requests keep your wallet balance unchanged.</li>
-
-        </ul>
-
-      </div>
-
-    </div>
 
   </div>
 );
@@ -1933,7 +2324,10 @@ const WalletInformationCard = () => (
         </p>
 
         <h3 className="text-green-400 text-2xl font-bold mt-2">
-          PKR {formatMoney(wallet.pkrBalance)}
+          PKR{" "}
+          {formatMoney(
+            wallet.pkrBalance
+          )}
         </h3>
 
       </div>
@@ -1964,10 +2358,8 @@ const WalletInformationCard = () => (
 
     </div>
 
-  </div>
-);
+  </div>);
 
-// =====================================================
 // PART 7/8
 // Withdraw History Table + Mobile Cards + Status Timeline
 // GoldTrade V18 Enterprise (Production)
@@ -1995,7 +2387,9 @@ const WithdrawDetailsModal = () => {
           </h2>
 
           <button
-            onClick={() => setSelectedWithdraw(null)}
+            onClick={() =>
+              setSelectedWithdraw(null)
+            }
             className="bg-red-600 hover:bg-red-700 w-9 h-9 rounded-full flex items-center justify-center"
           >
             ✕
@@ -2009,20 +2403,31 @@ const WithdrawDetailsModal = () => {
 
             <div className="bg-[#1F2937] rounded-xl p-4">
 
-              <p className="text-gray-400 text-sm">Amount</p>
+              <p className="text-gray-400 text-sm">
+                Amount
+              </p>
 
               <h3 className="text-red-400 text-2xl font-bold mt-1">
-                PKR {formatMoney(selectedWithdraw.amount)}
+                PKR{" "}
+                {formatMoney(
+                  selectedWithdraw.amount
+                )}
               </h3>
 
             </div>
 
             <div className="bg-[#1F2937] rounded-xl p-4">
 
-              <p className="text-gray-400 text-sm">Status</p>
+              <p className="text-gray-400 text-sm">
+                Status
+              </p>
 
               <div className="mt-2">
-                <WithdrawStatusBadge status={selectedWithdraw.status}/>
+                <WithdrawStatusBadge
+                  status={
+                    selectedWithdraw.status
+                  }
+                />
               </div>
 
             </div>
@@ -2031,7 +2436,9 @@ const WithdrawDetailsModal = () => {
 
           <div className="bg-[#1F2937] rounded-xl p-4">
 
-            <p className="text-gray-400 text-sm">Withdraw Method</p>
+            <p className="text-gray-400 text-sm">
+              Withdraw Method
+            </p>
 
             <h3 className="text-cyan-400 font-semibold mt-2">
               {selectedWithdraw.withdrawMethod}
@@ -2041,7 +2448,9 @@ const WithdrawDetailsModal = () => {
 
           <div className="bg-[#1F2937] rounded-xl p-4">
 
-            <p className="text-gray-400 text-sm">Account Holder</p>
+            <p className="text-gray-400 text-sm">
+              Account Holder
+            </p>
 
             <h3 className="text-white font-semibold mt-2">
               {selectedWithdraw.accountTitle}
@@ -2052,30 +2461,40 @@ const WithdrawDetailsModal = () => {
           <div className="bg-[#1F2937] rounded-xl p-4 flex justify-between items-center">
 
             <div>
-              <p className="text-gray-400 text-sm">Account Number</p>
+
+              <p className="text-gray-400 text-sm">
+                Account Number
+              </p>
 
               <h3 className="text-green-400 font-semibold mt-2 break-all">
                 {selectedWithdraw.accountNumber}
               </h3>
+
             </div>
 
             <button
               onClick={() =>
-                copyToClipboard(selectedWithdraw.accountNumber)
+                copyToClipboard(
+                  selectedWithdraw.accountNumber
+                )
               }
               className="bg-green-500 hover:bg-green-600 text-black p-3 rounded-lg transition"
             >
-              <Copy size={18}/>
+              <Copy size={18} />
             </button>
 
           </div>
 
           <div className="bg-[#1F2937] rounded-xl p-4">
 
-            <p className="text-gray-400 text-sm">Submitted On</p>
+            <p className="text-gray-400 text-sm">
+              Submitted On
+            </p>
 
             <h3 className="text-white font-medium mt-2">
-              {formatDate(selectedWithdraw.createdAt)}
+              {formatDate(
+                selectedWithdraw.createdAt
+              )}
             </h3>
 
           </div>
@@ -2083,7 +2502,9 @@ const WithdrawDetailsModal = () => {
           {selectedWithdraw.note && (
             <div className="bg-[#1F2937] rounded-xl p-4 border border-yellow-500/20">
 
-              <p className="text-gray-400 text-sm">Admin Note</p>
+              <p className="text-gray-400 text-sm">
+                Admin Note
+              </p>
 
               <p className="text-yellow-300 mt-2">
                 {selectedWithdraw.note}
@@ -2104,7 +2525,11 @@ const WithdrawDetailsModal = () => {
 // STATUS TIMELINE
 // =====================================================
 
-const WithdrawStatusTimeline = ({ status }: { status: string }) => {
+const WithdrawStatusTimeline = ({
+  status,
+}: {
+  status: string;
+}) => {
   const pending = status === "PENDING";
   const approved = status === "APPROVED";
   const rejected = status === "REJECTED";
@@ -2122,7 +2547,7 @@ const WithdrawStatusTimeline = ({ status }: { status: string }) => {
         }`}
       />
 
-      <div className="w-10 h-[2px] bg-gray-600"/>
+      <div className="w-10 h-[2px] bg-gray-600" />
 
       <div
         className={`w-3 h-3 rounded-full ${
@@ -2134,11 +2559,13 @@ const WithdrawStatusTimeline = ({ status }: { status: string }) => {
         }`}
       />
 
-      <div className="w-10 h-[2px] bg-gray-600"/>
+      <div className="w-10 h-[2px] bg-gray-600" />
 
       <div
         className={`w-3 h-3 rounded-full ${
-          rejected ? "bg-red-400" : "bg-gray-600"
+          rejected
+            ? "bg-red-400"
+            : "bg-gray-600"
         }`}
       />
 
@@ -2160,6 +2587,7 @@ const WithdrawHistoryCard = ({
     <div className="flex justify-between items-start mb-4">
 
       <div>
+
         <p className="text-gray-400 text-xs uppercase">
           {item.withdrawMethod}
         </p>
@@ -2170,35 +2598,52 @@ const WithdrawHistoryCard = ({
 
       </div>
 
-      <WithdrawStatusBadge status={item.status}/>
+      <WithdrawStatusBadge
+        status={item.status}
+      />
 
     </div>
 
     <div className="space-y-3 text-sm">
 
       <div>
-        <p className="text-gray-500">Account Holder</p>
-        <p className="text-white">{item.accountTitle}</p>
+        <p className="text-gray-500">
+          Account Holder
+        </p>
+
+        <p className="text-white">
+          {item.accountTitle}
+        </p>
       </div>
 
       <div>
-        <p className="text-gray-500">Account Number</p>
+        <p className="text-gray-500">
+          Account Number
+        </p>
+
         <p className="text-cyan-400 break-all">
           {item.accountNumber}
         </p>
       </div>
 
       <div>
-        <p className="text-gray-500">Submitted On</p>
+        <p className="text-gray-500">
+          Submitted On
+        </p>
+
         <p className="text-white">
           {formatDate(item.createdAt)}
         </p>
       </div>
 
-      <WithdrawStatusTimeline status={item.status}/>
+      <WithdrawStatusTimeline
+        status={item.status}
+      />
 
       <button
-        onClick={() => setSelectedWithdraw(item)}
+        onClick={() =>
+          setSelectedWithdraw(item)
+        }
         className="w-full mt-3 bg-[#1F2937] hover:bg-[#374151] border border-gray-600 rounded-xl py-3 font-semibold transition"
       >
         View Details
@@ -2228,12 +2673,31 @@ const WithdrawHistoryTable = () => {
           <thead className="bg-[#1F2937] text-gray-300 text-sm uppercase">
 
             <tr>
-              <th className="text-left px-5 py-4">Amount</th>
-              <th className="text-left px-5 py-4">Method</th>
-              <th className="text-left px-5 py-4">Account</th>
-              <th className="text-left px-5 py-4">Status</th>
-              <th className="text-left px-5 py-4">Date</th>
-              <th className="text-left px-5 py-4">Details</th>
+
+              <th className="text-left px-5 py-4">
+                Amount
+              </th>
+
+              <th className="text-left px-5 py-4">
+                Method
+              </th>
+
+              <th className="text-left px-5 py-4">
+                Account
+              </th>
+
+              <th className="text-left px-5 py-4">
+                Status
+              </th>
+
+              <th className="text-left px-5 py-4">
+                Date
+              </th>
+
+              <th className="text-left px-5 py-4">
+                Details
+              </th>
+
             </tr>
 
           </thead>
@@ -2247,20 +2711,26 @@ const WithdrawHistoryTable = () => {
               >
 
                 <td className="px-5 py-5 whitespace-nowrap">
+
                   <p className="text-red-400 text-lg font-bold">
-                    PKR {formatMoney(item.amount)}
+                    PKR{" "}
+                    {formatMoney(item.amount)}
                   </p>
+
                 </td>
 
                 <td className="px-5 py-5 whitespace-nowrap">
+
                   <span className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold">
                     {item.withdrawMethod}
                   </span>
+
                 </td>
 
                 <td className="px-5 py-5">
 
                   <div>
+
                     <p className="text-white font-medium">
                       {item.accountTitle}
                     </p>
@@ -2268,6 +2738,7 @@ const WithdrawHistoryTable = () => {
                     <p className="text-gray-400 text-sm break-all mt-1">
                       {item.accountNumber}
                     </p>
+
                   </div>
 
                 </td>
@@ -2275,8 +2746,15 @@ const WithdrawHistoryTable = () => {
                 <td className="px-5 py-5">
 
                   <div className="space-y-2">
-                    <WithdrawStatusBadge status={item.status}/>
-                    <WithdrawStatusTimeline status={item.status}/>
+
+                    <WithdrawStatusBadge
+                      status={item.status}
+                    />
+
+                    <WithdrawStatusTimeline
+                      status={item.status}
+                    />
+
                   </div>
 
                 </td>
@@ -2292,7 +2770,9 @@ const WithdrawHistoryTable = () => {
                 <td className="px-5 py-5">
 
                   <button
-                    onClick={() => setSelectedWithdraw(item)}
+                    onClick={() =>
+                      setSelectedWithdraw(item)
+                    }
                     className="bg-[#1F2937] hover:bg-[#374151] border border-gray-600 rounded-lg px-4 py-2 text-sm transition"
                   >
                     View
@@ -2338,7 +2818,10 @@ const WithdrawHistorySection = () => (
         <EmptyWithdrawHistoryCard />
       ) : (
         withdrawHistory.map((item) => (
-          <WithdrawHistoryCard key={item._id} item={item}/>
+          <WithdrawHistoryCard
+            key={item._id}
+            item={item}
+          />
         ))
       )}
 
@@ -2349,64 +2832,6 @@ const WithdrawHistorySection = () => (
   </div>
 );
 
-// =====================================================
-// STATUS GUIDE CARD
-// =====================================================
-
-const WithdrawStatusGuide = () => (
-  <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6 mb-8">
-
-    <h3 className="text-xl font-bold text-yellow-400 mb-5">
-      Withdrawal Status Guide
-    </h3>
-
-    <div className="space-y-4">
-
-      <div className="flex items-center gap-4">
-        <div className="w-4 h-4 rounded-full bg-yellow-400"/>
-
-        <div>
-          <p className="font-semibold text-yellow-400">Pending</p>
-
-          <p className="text-gray-400 text-sm">
-            Waiting for admin approval.
-          </p>
-        </div>
-
-      </div>
-
-      <div className="flex items-center gap-4">
-        <div className="w-4 h-4 rounded-full bg-green-400"/>
-
-        <div>
-          <p className="font-semibold text-green-400">Approved</p>
-
-          <p className="text-gray-400 text-sm">
-            PKR deducted and withdrawal completed.
-          </p>
-        </div>
-
-      </div>
-
-      <div className="flex items-center gap-4">
-        <div className="w-4 h-4 rounded-full bg-red-400"/>
-
-        <div>
-          <p className="font-semibold text-red-400">Rejected</p>
-
-          <p className="text-gray-400 text-sm">
-            Withdrawal rejected and wallet remains unchanged.
-          </p>
-        </div>
-
-      </div>
-
-    </div>
-
-  </div>
-);
-
-// =====================================================
 // PART 8/8
 // FINAL PAGE RETURN + FOOTER + SUCCESS / ERROR TOAST
 // GoldTrade V18 Enterprise (Production Final)
@@ -2421,11 +2846,21 @@ const SuccessToast = () => {
 
   return (
     <div className="fixed top-6 right-6 z-[999] bg-green-600 border border-green-400 text-white rounded-2xl shadow-2xl px-5 py-4 flex items-center gap-3 animate-pulse">
+
       <CheckCircle size={22} />
+
       <div>
-        <p className="font-bold">Withdrawal Submitted</p>
-        <p className="text-sm text-green-100">{successMessage}</p>
+
+        <p className="font-bold">
+          Withdrawal Submitted
+        </p>
+
+        <p className="text-sm text-green-100">
+          {successMessage}
+        </p>
+
       </div>
+
     </div>
   );
 };
@@ -2439,11 +2874,21 @@ const ErrorToast = () => {
 
   return (
     <div className="fixed top-24 right-6 z-[999] bg-red-600 border border-red-400 text-white rounded-2xl shadow-2xl px-5 py-4 flex items-center gap-3">
+
       <AlertCircle size={22} />
+
       <div>
-        <p className="font-bold">Withdrawal Failed</p>
-        <p className="text-sm text-red-100">{errorMessage}</p>
+
+        <p className="font-bold">
+          Withdrawal Failed
+        </p>
+
+        <p className="text-sm text-red-100">
+          {errorMessage}
+        </p>
+
       </div>
+
     </div>
   );
 };
@@ -2460,14 +2905,16 @@ const WithdrawFooter = () => (
       {/* LEFT */}
 
       <div>
+
         <h2 className="text-red-400 font-bold text-xl">
-          GoldTrade V18 Enterprise
+          GoldTrade  Enterprise
         </h2>
 
         <p className="text-gray-400 mt-3 text-sm leading-6">
           Withdraw PKR securely from your GoldTrade Wallet.
           Every withdrawal request is reviewed and approved automatically before funds are processed.
         </p>
+
       </div>
 
       {/* RIGHT */}
@@ -2475,22 +2922,22 @@ const WithdrawFooter = () => (
       <div className="space-y-3 text-sm">
 
         <div className="flex items-center gap-3 text-green-400">
-          <Shield size={18}/>
+          <Shield size={18} />
           JWT Protected Withdrawal System
         </div>
 
         <div className="flex items-center gap-3 text-red-400">
-          <Banknote size={18}/>
+          <Banknote size={18} />
           Secure PKR Withdrawal Processing
         </div>
 
         <div className="flex items-center gap-3 text-yellow-400">
-          <Clock3 size={18}/>
+          <Clock3 size={18} />
           Automatic Verification
         </div>
 
         <div className="flex items-center gap-3 text-cyan-400">
-          <RefreshCw size={18}/>
+          <RefreshCw size={18} />
           Live Wallet Synchronization
         </div>
 
@@ -2500,7 +2947,7 @@ const WithdrawFooter = () => (
 
     <div className="border-t border-gray-800 mt-8 pt-5 text-center text-gray-500 text-sm">
 
-      © {new Date().getFullYear()} GoldTrade V18 Enterprise
+      © {new Date().getFullYear()} GoldTrade  Enterprise
 
       <div className="mt-2">
         Powered by Flex,inc
@@ -2576,14 +3023,6 @@ return (
 
       <WalletInformationCard />
 
-      {/* Approval Process */}
-
-      <WithdrawApprovalInfo />
-
-      {/* Status Guide */}
-
-      <WithdrawStatusGuide />
-
       {/* History */}
 
       <WithdrawHistorySection />
@@ -2596,4 +3035,4 @@ return (
 
   </main>
 );
-  }
+}

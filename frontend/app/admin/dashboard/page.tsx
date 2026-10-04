@@ -431,7 +431,7 @@ const loadDashboard = useCallback(async () => {
       },
       {
         title: "Gold Settings",
-        href: "/admin/goldsettings",
+        href: "/admin/gold/settings",
         description: "Update live gold prices",
       },
       {
@@ -721,7 +721,7 @@ const loadDashboard = useCallback(async () => {
                   </div>
 
                   <Link
-                    href="/admin/goldsettings"
+                    href="/admin/gold/settings"
                     className="mt-6 inline-flex rounded-xl border border-yellow-500 px-4 py-2 text-sm font-semibold text-yellow-400 hover:bg-yellow-500 hover:text-black"
                   >
                     Update Gold Settings
@@ -764,7 +764,7 @@ const loadDashboard = useCallback(async () => {
                   </div>
 
                   <Link
-                    href="/admin/usdt"
+                    href="/admin/usdt/settings"
                     className="mt-6 inline-flex rounded-xl border border-green-500 px-4 py-2 text-sm font-semibold text-green-400 hover:bg-green-500 hover:text-black"
                   >
                     Update USDT Settings

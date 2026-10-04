@@ -1,5 +1,19 @@
 ﻿"use client";
-import { useEffect, useMemo, useState } from "react";
+
+// =====================================================
+// GoldTrade V18 Enterprise
+// Admin Deposits Management
+// FILE:
+// app/admin/deposits/page.tsx
+// PART 1/4
+// =====================================================
+
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { useRouter } from "next/navigation";
 
 import {
@@ -14,14 +28,26 @@ import {
   User,
   Calendar,
   FileText,
+  Eye,
+  Ban,
+  Loader2,
+  AlertCircle,
+  ArrowLeft,
+  Shield,
 } from "lucide-react";
+
 
 // =====================================================
 // API URL
 // =====================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL ||  "https://goldtrade-2.onrender.com";
+  (
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://goldtrade-2.onrender.com"
+  ).replace(/\/+$/, "");
+
+
 // =====================================================
 // TYPES
 // =====================================================
@@ -30,42 +56,105 @@ interface DepositRequest {
   _id: string;
 
   userId: string;
+
   username: string;
+
   email?: string;
 
-  walletType: "PKR" | "GOLD" | "USDT";
+  walletType:
+    | "PKR"
+    | "GOLD"
+    | "USDT";
 
   amount: number;
 
+  paymentMethod?: string;
+
   transactionId?: string;
 
-  status: "Pending" | "Approved" | "Rejected";
+  status:
+    | "Pending"
+    | "Approved"
+    | "Rejected"
+    | "Cancelled";
 
   screenshot?: string;
 
+  receiptImage?: string;
+
   adminNote?: string;
 
+  rejectReason?: string;
+
   approvedBy?: string;
+
   rejectedBy?: string;
 
+  approvedAt?: string;
+
+  rejectedAt?: string;
+
   createdAt: string;
+
+  updatedAt?: string;
 }
+
+
+// =====================================================
+// STATISTICS
+// =====================================================
 
 interface DepositStatistics {
   totalRequests: number;
 
   pendingRequests: number;
+
   approvedRequests: number;
+
   rejectedRequests: number;
 
   pendingAmount: number;
+
   approvedAmount: number;
+
   rejectedAmount: number;
 
   totalPKR: number;
+
   totalGold: number;
+
   totalUSDT: number;
 }
+
+
+// =====================================================
+// API RESPONSE TYPES
+// =====================================================
+
+interface DepositListResponse {
+  success?: boolean;
+
+  message?: string;
+
+  deposits?: DepositRequest[];
+
+  pagination?: {
+    page?: number;
+    limit?: number;
+    total?: number;
+    totalPages?: number;
+  };
+}
+
+
+interface DepositStatisticsResponse {
+  success?: boolean;
+
+  message?: string;
+
+  statistics?: Partial<DepositStatistics>;
+}
+
 
 // =====================================================
 // COMPONENT
@@ -74,304 +163,537 @@ interface DepositStatistics {
 export default function AdminDepositPage() {
   const router = useRouter();
 
-  // =====================================================
+
+  // ===================================================
   // TOKEN
-  // =====================================================
+  // ===================================================
 
   const token = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    return localStorage.getItem("token") || "";
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    return (
+      localStorage.getItem("token") ||
+      localStorage.getItem("accessToken") ||
+      localStorage.getItem("jwt") ||
+      ""
+    );
   }, []);
 
-  // =====================================================
+
+  // ===================================================
   // STATES
-  // =====================================================
+  // ===================================================
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
 
-  const [message, setMessage] = useState("");
+  const [message, setMessage] =
+    useState("");
+
   const [messageType, setMessageType] =
-    useState<"success" | "error">("success");
+    useState<"success" | "error">(
+      "success"
+    );
 
-  const [deposits, setDeposits] = useState<DepositRequest[]>([]);
+
+  // ===================================================
+  // DEPOSITS
+  // ===================================================
+
+  const [deposits, setDeposits] =
+    useState<DepositRequest[]>([]);
+
   const [filteredDeposits, setFilteredDeposits] =
     useState<DepositRequest[]>([]);
+
+
+  // ===================================================
+  // STATISTICS
+  // ===================================================
 
   const [statistics, setStatistics] =
     useState<DepositStatistics>({
       totalRequests: 0,
 
       pendingRequests: 0,
+
       approvedRequests: 0,
+
       rejectedRequests: 0,
 
       pendingAmount: 0,
+
       approvedAmount: 0,
+
       rejectedAmount: 0,
 
       totalPKR: 0,
+
       totalGold: 0,
+
       totalUSDT: 0,
     });
 
-  const [search, setSearch] = useState("");
+
+  // ===================================================
+  // SEARCH
+  // ===================================================
+
+  const [search, setSearch] =
+    useState("");
+
+
+  // ===================================================
+  // SELECTED DEPOSIT
+  // ===================================================
 
   const [selectedDeposit, setSelectedDeposit] =
-    useState<DepositRequest | null>(null);
+    useState<DepositRequest | null>(
+      null
+    );
 
-  const [adminNote, setAdminNote] = useState("");
 
-  // =====================================================
+  // ===================================================
+  // ADMIN NOTE
+  // ===================================================
+
+  const [adminNote, setAdminNote] =
+    useState("");
+
+
+  // ===================================================
   // AUTH HEADERS
-  // =====================================================
+  // ===================================================
 
-  const getHeaders = () => ({
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  });
+  const getHeaders = () => {
+    const currentToken =
+      typeof window !== "undefined"
+        ? (
+            localStorage.getItem("token") ||
+            localStorage.getItem("accessToken") ||
+            localStorage.getItem("jwt") ||
+            token
+          )
+        : token;
 
-// =====================================================
-// LOAD ALL DEPOSITS
-// =====================================================
+    return {
+      Authorization:
+        currentToken
+          ? `Bearer ${currentToken}`
+          : "",
 
-const loadDeposits = async () => {
-  if (!token) return;
+      "Content-Type":
+        "application/json",
 
-  try {
-    setLoading(true);
+      Accept:
+        "application/json",
+    };
+  };
 
-    const response = await fetch(
-      `${API}/api/deposit/admin/all?page=1&limit=100`,
-      {
-        method: "GET",
-        headers: getHeaders(),
-        cache: "no-store",
+
+  // ===================================================
+  // LOAD ALL DEPOSITS
+  // ===================================================
+
+  const loadDeposits = async () => {
+    if (!token) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      setMessage("");
+
+      const response =
+        await fetch(
+          `${API}/api/deposit/admin/all?page=1&limit=100`,
+          {
+            method: "GET",
+
+            headers:
+              getHeaders(),
+
+            cache: "no-store",
+          }
+        );
+
+      const data =
+        (await response.json()) as DepositListResponse;
+
+      console.log(
+        "DEPOSITS API:",
+        data
+      );
+
+
+      // ================================================
+      // AUTH ERROR
+      // ================================================
+
+      if (response.status === 401) {
+        throw new Error(
+          "Authentication required. Please login again."
+        );
       }
-    );
 
-    const data = await response.json();
 
-    console.log("DEPOSITS API:", data);
+      // ================================================
+      // ADMIN ERROR
+      // ================================================
 
-    // ================================================
-    // AUTH / ADMIN ERROR
-    // ================================================
-
-    if (response.status === 401) {
-      throw new Error("Authentication required. Please login again.");
-    }
-
-    if (response.status === 403) {
-      throw new Error(
-        data.message || "Admin permission required."
-      );
-    }
-
-    // ================================================
-    // API ERROR
-    // ================================================
-
-    if (!response.ok || !data.success) {
-      throw new Error(
-        data.message || "Unable to load deposits."
-      );
-    }
-
-    // ================================================
-    // DEPOSIT LIST
-    // ================================================
-
-    const list: DepositRequest[] = Array.isArray(data.deposits)
-      ? data.deposits
-      : [];
-
-    console.log("DEPOSITS COUNT:", list.length);
-
-    setDeposits(list);
-    setFilteredDeposits(list);
-
-  } catch (error) {
-    console.error("LOAD DEPOSITS ERROR:", error);
-
-    setDeposits([]);
-    setFilteredDeposits([]);
-
-    setMessageType("error");
-
-    setMessage(
-      error instanceof Error
-        ? error.message
-        : "Failed to load deposit requests."
-    );
-  } finally {
-    setLoading(false);
-  }
-};
-
-// =====================================================
-// LOAD STATISTICS
-// =====================================================
-
-const loadStatistics = async () => {
-  if (!token) return;
-
-  try {
-    const response = await fetch(
-      `${API}/api/deposit/statistics`,
-      {
-        method: "GET",
-        headers: getHeaders(),
-        cache: "no-store",
+      if (response.status === 403) {
+        throw new Error(
+          data.message ||
+            "Admin permission required."
+        );
       }
-    );
 
-    const data = await response.json();
 
-    console.log("DEPOSIT STATS:", data);
+      // ================================================
+      // API ERROR
+      // ================================================
 
-    // ================================================
-    // AUTH / ADMIN ERROR
-    // ================================================
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        throw new Error(
+          data.message ||
+            "Unable to load deposits."
+        );
+      }
 
-    if (response.status === 401) {
-      console.error(
-        "STATISTICS AUTH ERROR:",
-        data.message
+
+      // ================================================
+      // DEPOSIT LIST
+      // ================================================
+
+      const list =
+        Array.isArray(
+          data.deposits
+        )
+          ? data.deposits
+          : [];
+
+
+      console.log(
+        "DEPOSITS COUNT:",
+        list.length
       );
-      return;
-    }
 
-    if (response.status === 403) {
+
+      setDeposits(list);
+
+      setFilteredDeposits(list);
+
+    } catch (error) {
       console.error(
-        "STATISTICS ADMIN ERROR:",
-        data.message
+        "LOAD DEPOSITS ERROR:",
+        error
       );
+
+      setDeposits([]);
+
+      setFilteredDeposits([]);
+
+      setMessageType(
+        "error"
+      );
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to load deposit requests."
+      );
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  // ===================================================
+  // LOAD STATISTICS
+  // ===================================================
+
+  const loadStatistics =
+    async () => {
+      if (!token) {
+        return;
+      }
+
+      try {
+        const response =
+          await fetch(
+            `${API}/api/deposit/statistics`,
+            {
+              method: "GET",
+
+              headers:
+                getHeaders(),
+
+              cache: "no-store",
+            }
+          );
+
+        const data =
+          (await response.json()) as DepositStatisticsResponse;
+
+        console.log(
+          "DEPOSIT STATS:",
+          data
+        );
+
+
+        // ================================================
+        // AUTH ERROR
+        // ================================================
+
+        if (
+          response.status === 401
+        ) {
+          console.error(
+            "STATISTICS AUTH ERROR:",
+            data.message
+          );
+
+          return;
+        }
+
+
+        // ================================================
+        // ADMIN ERROR
+        // ================================================
+
+        if (
+          response.status === 403
+        ) {
+          console.error(
+            "STATISTICS ADMIN ERROR:",
+            data.message
+          );
+
+          return;
+        }
+
+
+        // ================================================
+        // SUCCESS
+        // ================================================
+
+        if (
+          response.ok &&
+          data.success
+        ) {
+          const stats =
+            data.statistics || {};
+
+          setStatistics({
+            totalRequests:
+              Number(
+                stats.totalRequests ??
+                  0
+              ),
+
+            pendingRequests:
+              Number(
+                stats.pendingRequests ??
+                  0
+              ),
+
+            approvedRequests:
+              Number(
+                stats.approvedRequests ??
+                  0
+              ),
+
+            rejectedRequests:
+              Number(
+                stats.rejectedRequests ??
+                  0
+              ),
+
+            pendingAmount:
+              Number(
+                stats.pendingAmount ??
+                  0
+              ),
+
+            approvedAmount:
+              Number(
+                stats.approvedAmount ??
+                  0
+              ),
+
+            rejectedAmount:
+              Number(
+                stats.rejectedAmount ??
+                  0
+              ),
+
+            totalPKR:
+              Number(
+                stats.totalPKR ??
+                  0
+              ),
+
+            totalGold:
+              Number(
+                stats.totalGold ??
+                  0
+              ),
+
+            totalUSDT:
+              Number(
+                stats.totalUSDT ??
+                  0
+              ),
+          });
+
+          return;
+        }
+
+
+        console.error(
+          "STATISTICS API ERROR:",
+          data.message ||
+            "Unable to load statistics."
+        );
+
+      } catch (error) {
+        console.error(
+          "LOAD STATISTICS ERROR:",
+          error
+        );
+      }
+    };
+
+
+  // ===================================================
+  // INITIAL LOAD
+  // ===================================================
+
+  useEffect(() => {
+    if (!token) {
+      router.replace(
+        "/login"
+      );
+
       return;
     }
 
-    // ================================================
-    // SUCCESS
-    // ================================================
+    loadDeposits();
 
-    if (response.ok && data.success) {
-      const stats = data.statistics || {};
+    loadStatistics();
 
-      setStatistics({
-        totalRequests: Number(
-          stats.totalRequests ?? 0
-        ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
-        pendingRequests: Number(
-          stats.pendingRequests ?? 0
-        ),
 
-        approvedRequests: Number(
-          stats.approvedRequests ?? 0
-        ),
+  // ===================================================
+  // SEARCH FILTER
+  // ===================================================
 
-        rejectedRequests: Number(
-          stats.rejectedRequests ?? 0
-        ),
+  useEffect(() => {
+    const keyword =
+      search
+        .trim()
+        .toLowerCase();
 
-        pendingAmount: Number(
-          stats.pendingAmount ?? 0
-        ),
 
-        approvedAmount: Number(
-          stats.approvedAmount ?? 0
-        ),
-
-        rejectedAmount: Number(
-          stats.rejectedAmount ?? 0
-        ),
-
-        totalPKR: Number(
-          stats.totalPKR ?? 0
-        ),
-
-        totalGold: Number(
-          stats.totalGold ?? 0
-        ),
-
-        totalUSDT: Number(
-          stats.totalUSDT ?? 0
-        ),
-      });
+    if (!keyword) {
+      setFilteredDeposits(
+        deposits
+      );
 
       return;
     }
 
-    console.error(
-      "STATISTICS API ERROR:",
-      data.message || "Unable to load statistics."
+
+    const filtered =
+      deposits.filter(
+        (deposit) => {
+          const username =
+            deposit.username
+              ?.toLowerCase() ||
+            "";
+
+          const email =
+            deposit.email
+              ?.toLowerCase() ||
+            "";
+
+          const userId =
+            deposit.userId
+              ?.toLowerCase() ||
+            "";
+
+          const transactionId =
+            deposit.transactionId
+              ?.toLowerCase() ||
+            "";
+
+          const walletType =
+            deposit.walletType
+              ?.toLowerCase() ||
+            "";
+
+          const status =
+            deposit.status
+              ?.toLowerCase() ||
+            "";
+
+          const paymentMethod =
+            deposit.paymentMethod
+              ?.toLowerCase() ||
+            "";
+
+
+          return (
+            username.includes(
+              keyword
+            ) ||
+            email.includes(
+              keyword
+            ) ||
+            userId.includes(
+              keyword
+            ) ||
+            transactionId.includes(
+              keyword
+            ) ||
+            walletType.includes(
+              keyword
+            ) ||
+            status.includes(
+              keyword
+            ) ||
+            paymentMethod.includes(
+              keyword
+            )
+          );
+        }
+      );
+
+
+    setFilteredDeposits(
+      filtered
     );
 
-  } catch (error) {
-    console.error(
-      "LOAD STATISTICS ERROR:",
-      error
-    );
-  }
-};
+  }, [
+    search,
+    deposits,
+  ]);
+
 
 // =====================================================
-// INITIAL LOAD
+// PART 2/4
+// REFRESH + DEPOSIT ACTIONS
 // =====================================================
 
-useEffect(() => {
-  if (!token) {
-    router.replace("/login");
-    return;
-  }
-
-  loadDeposits();
-  loadStatistics();
-}, [token]);
-
-// =====================================================
-// SEARCH FILTER
-// =====================================================
-
-useEffect(() => {
-  const keyword = search.trim().toLowerCase();
-
-  if (!keyword) {
-    setFilteredDeposits(deposits);
-    return;
-  }
-
-  const filtered = deposits.filter((deposit) => {
-    const username =
-      deposit.username?.toLowerCase() || "";
-
-    const email =
-      deposit.email?.toLowerCase() || "";
-
-    const userId =
-      deposit.userId?.toLowerCase() || "";
-
-    const transactionId =
-      deposit.transactionId?.toLowerCase() || "";
-
-    const walletType =
-      deposit.walletType?.toLowerCase() || "";
-
-    const status =
-      deposit.status?.toLowerCase() || "";
-
-    return (
-      username.includes(keyword) ||
-      email.includes(keyword) ||
-      userId.includes(keyword) ||
-      transactionId.includes(keyword) ||
-      walletType.includes(keyword) ||
-      status.includes(keyword)
-    );
-  });
-
-  setFilteredDeposits(filtered);
-
-}, [search, deposits]);
 
 // =====================================================
 // REFRESH PAGE
@@ -387,6 +709,7 @@ const refreshPage = async () => {
     ]);
 
     setMessageType("success");
+
     setMessage(
       "Deposit list refreshed successfully."
     );
@@ -398,11 +721,13 @@ const refreshPage = async () => {
     );
 
     setMessageType("error");
+
     setMessage(
       "Unable to refresh deposit data."
     );
   }
 };
+
 
 // =====================================================
 // OPEN DEPOSIT DETAILS
@@ -411,9 +736,15 @@ const refreshPage = async () => {
 const openDepositDetails = (
   deposit: DepositRequest
 ) => {
-  setSelectedDeposit(deposit);
-  setAdminNote(deposit.adminNote || "");
+  setSelectedDeposit(
+    deposit
+  );
+
+  setAdminNote(
+    deposit.adminNote || ""
+  );
 };
+
 
 // =====================================================
 // CLOSE DEPOSIT DETAILS
@@ -421,80 +752,109 @@ const openDepositDetails = (
 
 const closeDepositDetails = () => {
   setSelectedDeposit(null);
+
   setAdminNote("");
 };
+
 
 // =====================================================
 // APPROVE DEPOSIT
 // =====================================================
 
 const approveDeposit = async () => {
-  if (!selectedDeposit) return;
+  if (!selectedDeposit) {
+    return;
+  }
 
   try {
     setLoading(true);
 
-    const response = await fetch(
-      `${API}/api/deposit/${selectedDeposit._id}/approve`,
-      {
-        method: "PATCH",
-        headers: getHeaders(),
-        body: JSON.stringify({
-          adminNote: adminNote.trim(),
-        }),
-      }
-    );
+    setMessage("");
 
-    const data = await response.json();
+    const response =
+      await fetch(
+        `${API}/api/deposit/${selectedDeposit._id}/approve`,
+        {
+          method: "PATCH",
+
+          headers:
+            getHeaders(),
+
+          body: JSON.stringify({
+            adminNote:
+              adminNote.trim(),
+          }),
+        }
+      );
+
+
+    const data =
+      await response.json();
+
 
     console.log(
       "APPROVE RESPONSE:",
       data
     );
 
+
     // ================================================
     // AUTH ERROR
     // ================================================
 
-    if (response.status === 401) {
+    if (
+      response.status === 401
+    ) {
       throw new Error(
         "Authentication required. Please login again."
       );
     }
 
+
     // ================================================
     // ADMIN ERROR
     // ================================================
 
-    if (response.status === 403) {
+    if (
+      response.status === 403
+    ) {
       throw new Error(
         data.message ||
           "Admin permission required."
       );
     }
 
+
     // ================================================
     // API ERROR
     // ================================================
 
-    if (!response.ok || !data.success) {
+    if (
+      !response.ok ||
+      !data.success
+    ) {
       throw new Error(
         data.message ||
           "Unable to approve deposit."
       );
     }
 
+
     // ================================================
     // SUCCESS
     // ================================================
 
-    setMessageType("success");
+    setMessageType(
+      "success"
+    );
 
     setMessage(
       "Deposit approved successfully."
     );
 
+
     closeDepositDetails();
+
 
     await Promise.all([
       loadDeposits(),
@@ -507,7 +867,9 @@ const approveDeposit = async () => {
       error
     );
 
-    setMessageType("error");
+    setMessageType(
+      "error"
+    );
 
     setMessage(
       error instanceof Error
@@ -520,77 +882,105 @@ const approveDeposit = async () => {
   }
 };
 
+
 // =====================================================
 // REJECT DEPOSIT
 // =====================================================
 
 const rejectDeposit = async () => {
-  if (!selectedDeposit) return;
+  if (!selectedDeposit) {
+    return;
+  }
 
   try {
     setLoading(true);
 
-    const response = await fetch(
-      `${API}/api/deposit/${selectedDeposit._id}/reject`,
-      {
-        method: "PATCH",
-        headers: getHeaders(),
-        body: JSON.stringify({
-          adminNote: adminNote.trim(),
-        }),
-      }
-    );
+    setMessage("");
 
-    const data = await response.json();
+    const response =
+      await fetch(
+        `${API}/api/deposit/${selectedDeposit._id}/reject`,
+        {
+          method: "PATCH",
+
+          headers:
+            getHeaders(),
+
+          body: JSON.stringify({
+            adminNote:
+              adminNote.trim(),
+          }),
+        }
+      );
+
+
+    const data =
+      await response.json();
+
 
     console.log(
       "REJECT RESPONSE:",
       data
     );
 
+
     // ================================================
     // AUTH ERROR
     // ================================================
 
-    if (response.status === 401) {
+    if (
+      response.status === 401
+    ) {
       throw new Error(
         "Authentication required. Please login again."
       );
     }
 
+
     // ================================================
     // ADMIN ERROR
     // ================================================
 
-    if (response.status === 403) {
+    if (
+      response.status === 403
+    ) {
       throw new Error(
         data.message ||
           "Admin permission required."
       );
     }
 
+
     // ================================================
     // API ERROR
     // ================================================
 
-    if (!response.ok || !data.success) {
+    if (
+      !response.ok ||
+      !data.success
+    ) {
       throw new Error(
         data.message ||
           "Unable to reject deposit."
       );
     }
 
+
     // ================================================
     // SUCCESS
     // ================================================
 
-    setMessageType("success");
+    setMessageType(
+      "success"
+    );
 
     setMessage(
       "Deposit rejected successfully."
     );
 
+
     closeDepositDetails();
+
 
     await Promise.all([
       loadDeposits(),
@@ -603,7 +993,9 @@ const rejectDeposit = async () => {
       error
     );
 
-    setMessageType("error");
+    setMessageType(
+      "error"
+    );
 
     setMessage(
       error instanceof Error
@@ -616,92 +1008,128 @@ const rejectDeposit = async () => {
   }
 };
 
+
 // =====================================================
 // CANCEL DEPOSIT
 // =====================================================
+//
 // V18 does NOT use DELETE for deposits.
-// The backend provides PATCH /:id/cancel.
-// We keep the function name deleteDeposit so your
-// existing UI buttons do not need to be changed.
+// Backend uses:
+// PATCH /api/deposit/:id/cancel
+//
+// Existing UI can still call this function
+// deleteDeposit().
 // =====================================================
 
 const deleteDeposit = async (
   depositId: string
 ) => {
-  const ok = window.confirm(
-    "Cancel this deposit request?"
-  );
 
-  if (!ok) return;
+  const ok =
+    window.confirm(
+      "Cancel this deposit request?"
+    );
+
+
+  if (!ok) {
+    return;
+  }
+
 
   try {
     setLoading(true);
 
-    const response = await fetch(
-      `${API}/api/deposit/${depositId}/cancel`,
-      {
-        method: "PATCH",
-        headers: getHeaders(),
-        body: JSON.stringify({
-          adminNote: "Cancelled by admin.",
-        }),
-      }
-    );
+    setMessage("");
 
-    const data = await response.json();
+    const response =
+      await fetch(
+        `${API}/api/deposit/${depositId}/cancel`,
+        {
+          method: "PATCH",
+
+          headers:
+            getHeaders(),
+
+          body: JSON.stringify({
+            adminNote:
+              "Cancelled by admin.",
+          }),
+        }
+      );
+
+
+    const data =
+      await response.json();
+
 
     console.log(
       "CANCEL RESPONSE:",
       data
     );
 
+
     // ================================================
     // AUTH ERROR
     // ================================================
 
-    if (response.status === 401) {
+    if (
+      response.status === 401
+    ) {
       throw new Error(
         "Authentication required. Please login again."
       );
     }
 
+
     // ================================================
     // ADMIN ERROR
     // ================================================
 
-    if (response.status === 403) {
+    if (
+      response.status === 403
+    ) {
       throw new Error(
         data.message ||
           "Admin permission required."
       );
     }
 
+
     // ================================================
     // API ERROR
     // ================================================
 
-    if (!response.ok || !data.success) {
+    if (
+      !response.ok ||
+      !data.success
+    ) {
       throw new Error(
         data.message ||
           "Unable to cancel deposit."
       );
     }
 
+
     // ================================================
     // SUCCESS
     // ================================================
 
-    setMessageType("success");
+    setMessageType(
+      "success"
+    );
 
     setMessage(
       "Deposit request cancelled successfully."
     );
 
+
     if (
-      selectedDeposit?._id === depositId
+      selectedDeposit?._id ===
+      depositId
     ) {
       closeDepositDetails();
     }
+
 
     await Promise.all([
       loadDeposits(),
@@ -714,7 +1142,9 @@ const deleteDeposit = async (
       error
     );
 
-    setMessageType("error");
+    setMessageType(
+      "error"
+    );
 
     setMessage(
       error instanceof Error
@@ -727,54 +1157,95 @@ const deleteDeposit = async (
   }
 };
 
+
 // =====================================================
-// FORMATTERS
+// PART 3/4
+// FORMATTERS + STATUS HELPERS
 // =====================================================
 
-const formatMoney = (value: number | string | null | undefined) => {
-  const numericValue = Number(value ?? 0);
 
-  if (!Number.isFinite(numericValue)) {
+// =====================================================
+// FORMAT MONEY
+// =====================================================
+
+const formatMoney = (
+  value:
+    | number
+    | string
+    | null
+    | undefined
+) => {
+  const numericValue =
+    Number(value ?? 0);
+
+  if (
+    !Number.isFinite(
+      numericValue
+    )
+  ) {
     return "0.00";
   }
 
-  return numericValue.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return numericValue.toLocaleString(
+    "en-US",
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
+  );
 };
+
 
 // =====================================================
 // FORMAT DATE
 // =====================================================
 
 const formatDate = (
-  date: string | Date | null | undefined
+  date:
+    | string
+    | Date
+    | null
+    | undefined
 ) => {
   if (!date) {
     return "—";
   }
 
-  const parsedDate = new Date(date);
+  const parsedDate =
+    new Date(date);
 
-  if (Number.isNaN(parsedDate.getTime())) {
+  if (
+    Number.isNaN(
+      parsedDate.getTime()
+    )
+  ) {
     return "—";
   }
 
-  return parsedDate.toLocaleString("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return parsedDate.toLocaleString(
+    "en-US",
+    {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }
+  );
 };
+
 
 // =====================================================
 // STATUS COLOR
 // =====================================================
 
 const getStatusColor = (
-  status: string | null | undefined
+  status:
+    | string
+    | null
+    | undefined
 ) => {
-  switch (String(status || "").toLowerCase()) {
+  switch (
+    String(status || "")
+      .toLowerCase()
+  ) {
     case "approved":
       return (
         "bg-green-600/20 text-green-400 " +
@@ -803,14 +1274,21 @@ const getStatusColor = (
   }
 };
 
+
 // =====================================================
 // WALLET COLOR
 // =====================================================
 
 const getWalletColor = (
-  wallet: string | null | undefined
+  wallet:
+    | string
+    | null
+    | undefined
 ) => {
-  switch (String(wallet || "").toUpperCase()) {
+  switch (
+    String(wallet || "")
+      .toUpperCase()
+  ) {
     case "PKR":
       return "text-green-400";
 
@@ -824,12 +1302,12 @@ const getWalletColor = (
       return "text-white";
   }
 };
+
 // =====================================================
 // PAGE UI START
 // GOLDTRADE V18 ENTERPRISE ADMIN DEPOSIT MANAGER
 // PART 1/2
 // =====================================================
-
 return (
   <div className="min-h-screen bg-[#0B1120] text-white p-4 md:p-6">
 
@@ -853,11 +1331,13 @@ return (
         type="button"
         onClick={refreshPage}
         disabled={loading}
-        className="flex items-center justify-center gap-2
+        className="
+          flex items-center justify-center gap-2
           bg-yellow-500 hover:bg-yellow-600
           disabled:opacity-60 disabled:cursor-not-allowed
           text-black font-semibold px-5 py-3 rounded-xl
-          transition"
+          transition
+        "
       >
         <RefreshCw
           size={18}
@@ -1161,9 +1641,7 @@ return (
         </p>
       )}
 
-    </div>
-
-    {/* =================================================
+    </div>    {/* =================================================
         DEPOSIT TABLE
     ================================================= */}
 
@@ -1239,6 +1717,7 @@ return (
             {/* ================= LOADING ================= */}
 
             {loading ? (
+
               <tr>
 
                 <td
@@ -1400,6 +1879,7 @@ return (
                     <td className="text-center px-4">
 
                       {deposit.transactionId ? (
+
                         <span
                           className="
                             inline-block
@@ -1415,10 +1895,13 @@ return (
                         >
                           {deposit.transactionId}
                         </span>
+
                       ) : (
+
                         <span className="text-xs text-gray-500">
                           Not Provided
                         </span>
+
                       )}
 
                     </td>
@@ -1593,9 +2076,7 @@ return (
 
       </div>
 
-    </div>
-
-        {/* =================================================
+    </div>    {/* =================================================
         DEPOSIT DETAILS MODAL
     ================================================= */}
 
@@ -1812,6 +2293,7 @@ return (
                         );
 
                         setMessageType("success");
+
                         setMessage(
                           "Transaction ID copied."
                         );
@@ -1822,6 +2304,7 @@ return (
                         );
 
                         setMessageType("error");
+
                         setMessage(
                           "Unable to copy transaction ID."
                         );
@@ -1971,9 +2454,7 @@ return (
 
             </div>
 
-          </div>
-
-          {/* ==========================================
+          </div>          {/* ==========================================
               MODAL FOOTER
           ========================================== */}
 
@@ -2104,7 +2585,6 @@ return (
           </div>
 
         </div>
-
       </div>
     )}
 
@@ -2188,27 +2668,36 @@ return (
         <div className="flex flex-wrap items-center justify-center gap-5 text-sm text-gray-400">
 
           <div className="flex items-center gap-2">
+
             <CheckCircle
               size={16}
               className="text-green-400"
             />
+
             Wallet Integration Active
+
           </div>
 
           <div className="flex items-center gap-2">
+
             <Wallet
               size={16}
               className="text-cyan-400"
             />
+
             PKR • GOLD • USDT
+
           </div>
 
           <div className="flex items-center gap-2">
+
             <RefreshCw
               size={16}
               className="text-yellow-400"
             />
+
             Live Refresh Enabled
+
           </div>
 
         </div>

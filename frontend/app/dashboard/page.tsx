@@ -1007,118 +1007,465 @@ if (checkingSession) {
   );
 }
 
-  const formatCurrency = (value: number): string =>
-    Number(value || 0).toLocaleString("en-PK", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  const formatNumber = (value: number): string =>
-    Number(value || 0).toLocaleString("en-PK");
-  const formatDate = (value: string): string => {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
-  };
+const formatCurrency = (value: number): string =>
+  Number(value || 0).toLocaleString("en-PK", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
-  const displayName = user?.email || "Trader";
-  const isMarketOpen = goldMarket.marketStatus === "OPEN";
-  const marketStatusLabel = isMarketOpen ? "Market Open" : "Market Closed";
-  const marketStatusColor = isMarketOpen ? "text-green-400" : "text-red-400";
-  const marketStatusBg = isMarketOpen
-    ? "border-green-500/30 bg-green-500/5"
-    : "border-red-500/30 bg-red-500/5";
-  const marketStatusBadge = isMarketOpen
+const formatNumber = (value: number): string =>
+  Number(value || 0).toLocaleString("en-PK");
+
+const formatDate = (value: string): string => {
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime())
+    ? "-"
+    : date.toLocaleString();
+};
+
+const displayName = user?.email || "Trader";
+
+const isMarketOpen =
+  goldMarket.marketStatus === "OPEN";
+
+const marketStatusLabel = isMarketOpen
+  ? "Market Open"
+  : "Market Closed";
+
+const marketStatusColor = isMarketOpen
+  ? "text-green-400"
+  : "text-red-400";
+
+const marketStatusBg = isMarketOpen
+  ? "border-green-500/30 bg-green-500/5"
+  : "border-red-500/30 bg-red-500/5";
+
+const marketStatusBadge = isMarketOpen
+  ? "border-green-500/30 bg-green-500/10 text-green-400"
+  : "border-red-500/30 bg-red-500/10 text-red-400";
+
+const balanceSummary = {
+  totalGoldValue:
+    Number(wallet.goldBalanceGram || 0) *
+    Number(goldMarket.sellPrice || 0),
+
+  totalAssets:
+    Number(wallet.balancePKR || 0) +
+    Number(wallet.goldBalanceGram || 0) *
+      Number(goldMarket.sellPrice || 0) +
+    Number(wallet.balanceUSDT || 0) *
+      Number(usdtMarket.sellPrice || 0),
+};
+
+const walletHealth =
+  balanceSummary.totalAssets > 0
+    ? "Healthy"
+    : "New";
+
+const marketSummary = {
+  goldBuy: goldMarket.buyPrice,
+  goldSell: goldMarket.sellPrice,
+  usdtBuy: usdtMarket.buyPrice,
+  usdtSell: usdtMarket.sellPrice,
+  status: goldMarket.marketStatus,
+};
+
+const recentTransactions = transactions;
+
+const pendingTransactions = transactions.filter(
+  (item) => item?.status === "pending"
+);
+
+const approvedTransactions = transactions.filter(
+  (item) => item?.status === "approved"
+);
+
+const rejectedTransactions = transactions.filter(
+  (item) => item?.status === "rejected"
+);
+
+/* =====================================================
+   TRANSACTION SUMMARY
+   SAFE AGAINST MISSING item.type
+===================================================== */
+
+const transactionSummary = {
+  total: transactions.length,
+
+  deposits: transactions.filter(
+    (item) =>
+      String(item?.type ?? "")
+        .toLowerCase()
+        .includes("deposit")
+  ).length,
+
+  withdrawals: transactions.filter(
+    (item) =>
+      String(item?.type ?? "")
+        .toLowerCase()
+        .includes("withdraw")
+  ).length,
+
+  goldTrades: transactions.filter(
+    (item) =>
+      String(item?.type ?? "")
+        .toLowerCase()
+        .includes("gold")
+  ).length,
+
+  usdtTrades: transactions.filter(
+    (item) =>
+      String(item?.type ?? "")
+        .toLowerCase()
+        .includes("usdt")
+  ).length,
+};
+
+/* =====================================================
+   TRANSACTION LABEL
+   SAFE AGAINST undefined/null TYPE
+===================================================== */
+
+const getTransactionLabel = (
+  type?: string | null
+): string => {
+  const safeType = String(type ?? "");
+
+  if (!safeType.trim()) {
+    return "Transaction";
+  }
+
+  return safeType
+    .replace(/[_-]/g, " ")
+    .replace(
+      /\b\w/g,
+      (letter) => letter.toUpperCase()
+    );
+};
+
+/* =====================================================
+   TRANSACTION COLOR
+   SAFE AGAINST undefined/null TYPE
+===================================================== */
+
+const getTransactionColor = (
+  type?: string | null
+): string => {
+  const normalized = String(type ?? "")
+    .toLowerCase();
+
+  if (normalized.includes("deposit")) {
+    return "text-green-400";
+  }
+
+  if (normalized.includes("withdraw")) {
+    return "text-red-400";
+  }
+
+  if (normalized.includes("gold")) {
+    return "text-yellow-400";
+  }
+
+  if (normalized.includes("usdt")) {
+    return "text-cyan-400";
+  }
+
+  return "text-white";
+};
+
+/* =====================================================
+   STATUS COLOR
+===================================================== */
+
+const getStatusColor = (
+  status: Transaction["status"]
+) =>
+  status === "approved"
     ? "border-green-500/30 bg-green-500/10 text-green-400"
+    : status === "pending"
+    ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
     : "border-red-500/30 bg-red-500/10 text-red-400";
-  const balanceSummary = {
-    totalGoldValue: wallet.goldBalanceGram * goldMarket.sellPrice,
-    totalAssets:
-      wallet.balancePKR +
-      wallet.goldBalanceGram * goldMarket.sellPrice +
-      wallet.balanceUSDT * usdtMarket.sellPrice,
-  };
-  const walletHealth = balanceSummary.totalAssets > 0 ? "Healthy" : "New";
-  const marketSummary = {
-    goldBuy: goldMarket.buyPrice,
-    goldSell: goldMarket.sellPrice,
-    usdtBuy: usdtMarket.buyPrice,
-    usdtSell: usdtMarket.sellPrice,
-    status: goldMarket.marketStatus,
-  };
-  const recentTransactions = transactions;
-  const pendingTransactions = transactions.filter((item) => item.status === "pending");
-  const approvedTransactions = transactions.filter((item) => item.status === "approved");
-  const rejectedTransactions = transactions.filter((item) => item.status === "rejected");
-  const transactionSummary = {
-    total: transactions.length,
-    deposits: transactions.filter((item) => item.type.toLowerCase().includes("deposit")).length,
-    withdrawals: transactions.filter((item) => item.type.toLowerCase().includes("withdraw")).length,
-    goldTrades: transactions.filter((item) => item.type.toLowerCase().includes("gold")).length,
-    usdtTrades: transactions.filter((item) => item.type.toLowerCase().includes("usdt")).length,
-  };
-  const getTransactionLabel = (type: string) =>
-    type.replace(/[_-]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-  const getTransactionColor = (type: string) => {
-    const normalized = type.toLowerCase();
-    if (normalized.includes("deposit")) return "text-green-400";
-    if (normalized.includes("withdraw")) return "text-red-400";
-    if (normalized.includes("gold")) return "text-yellow-400";
-    if (normalized.includes("usdt")) return "text-cyan-400";
-    return "text-white";
-  };
-  const getStatusColor = (status: Transaction["status"]) =>
-    status === "approved"
-      ? "border-green-500/30 bg-green-500/10 text-green-400"
-      : status === "pending"
-      ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
-      : "border-red-500/30 bg-red-500/10 text-red-400";
 
-  const dashboardCards = [
-    { title: "PKR Balance", value: wallet.balancePKR, prefix: "PKR ", color: "text-green-400", bg: "bg-zinc-950", border: "border-green-500/20" },
-    { title: "Gold Balance", value: wallet.goldBalanceGram, suffix: " g", color: "text-yellow-400", bg: "bg-zinc-950", border: "border-yellow-500/20" },
-    { title: "USDT Balance", value: wallet.balanceUSDT, suffix: " USDT", color: "text-cyan-400", bg: "bg-zinc-950", border: "border-cyan-500/20" },
-  ];
-  const portfolioSummary = [
-    { title: "PKR Wallet", value: wallet.balancePKR, prefix: "PKR ", color: "text-green-400" },
-    { title: "Gold Holdings", value: wallet.goldBalanceGram, suffix: " g", color: "text-yellow-400" },
-    { title: "Gold Value", value: balanceSummary.totalGoldValue, prefix: "PKR ", color: "text-yellow-300" },
-    { title: "USDT", value: wallet.balanceUSDT, suffix: " USDT", color: "text-cyan-400" },
-    { title: "Total Assets", value: balanceSummary.totalAssets, prefix: "PKR ", color: "text-purple-400" },
-  ];
-  const quickActions = [
-    { title: "Deposit", href: "/deposit", description: "Add funds to your wallet.", color: "border-green-500/20" },
-    { title: "Withdraw", href: "/withdraw", description: "Withdraw available funds.", color: "border-red-500/20" },
-    { title: "Buy Gold", href: "/gold/buy", description: "Purchase gold at live rates.", color: "border-yellow-500/20" },
-    { title: "Buy USDT", href: "/usdt/buy", description: "Purchase USDT at live rates.", color: "border-cyan-500/20" },
-  ];
-  const goldCards = [
-    { title: "Buy Price", value: goldMarket.buyPrice, prefix: "PKR ", color: "text-yellow-400", border: "border-yellow-500/20" },
-    { title: "Sell Price", value: goldMarket.sellPrice, prefix: "PKR ", color: "text-yellow-300", border: "border-yellow-500/20" },
-    { title: "Gold Balance", value: wallet.goldBalanceGram, suffix: " g", color: "text-yellow-400", border: "border-yellow-500/20" },
-    { title: "Market Status", value: marketStatusLabel, isStatus: true, color: marketStatusColor, border: "border-yellow-500/20" },
-  ];
-  const usdtCards = [
-    { title: "Buy Rate", value: usdtMarket.buyPrice, prefix: "PKR ", color: "text-cyan-400", border: "border-cyan-500/20" },
-    { title: "Sell Rate", value: usdtMarket.sellPrice, prefix: "PKR ", color: "text-cyan-300", border: "border-cyan-500/20" },
-    { title: "Wallet Balance", value: wallet.balanceUSDT, suffix: " USDT", color: "text-cyan-400", border: "border-cyan-500/20" },
-  ];
-  const performanceCards = [
-    { title: "Total Deposits", value: stats.totalDeposits, prefix: "PKR ", color: "text-green-400" },
-    { title: "Total Withdrawals", value: stats.totalWithdrawals, prefix: "PKR ", color: "text-red-400" },
-    { title: "Portfolio Value", value: stats.portfolioValue, prefix: "PKR ", color: "text-yellow-400" },
-    { title: "Live Profit", value: stats.liveProfit, prefix: "PKR ", color: "text-cyan-400" },
-  ];
-  const goldHoldingCards = [
-    { title: "Gold Balance", value: wallet.goldBalanceGram, suffix: " g", color: "text-yellow-400" },
-    { title: "Buy Price", value: goldMarket.buyPrice, prefix: "PKR ", color: "text-yellow-300" },
-    { title: "Sell Price", value: goldMarket.sellPrice, prefix: "PKR ", color: "text-yellow-300" },
-    { title: "Current Value", value: balanceSummary.totalGoldValue, prefix: "PKR ", color: "text-yellow-400" },
-  ];
-  const usdtHoldingCards = [
-    { title: "USDT Balance", value: wallet.balanceUSDT, suffix: " USDT", color: "text-cyan-400" },
-    { title: "Buy Rate", value: usdtMarket.buyPrice, prefix: "PKR ", color: "text-cyan-300" },
-    { title: "Sell Rate", value: usdtMarket.sellPrice, prefix: "PKR ", color: "text-cyan-300" },
-    { title: "PKR Value", value: wallet.balanceUSDT * usdtMarket.sellPrice, prefix: "PKR ", color: "text-cyan-400" },
-  ];
+/* =====================================================
+   DASHBOARD CARDS
+===================================================== */
+
+const dashboardCards = [
+  {
+    title: "PKR Balance",
+    value: wallet.balancePKR,
+    prefix: "PKR ",
+    color: "text-green-400",
+    bg: "bg-zinc-950",
+    border: "border-green-500/20",
+  },
+
+  {
+    title: "Gold Balance",
+    value: wallet.goldBalanceGram,
+    suffix: " g",
+    color: "text-yellow-400",
+    bg: "bg-zinc-950",
+    border: "border-yellow-500/20",
+  },
+
+  {
+    title: "USDT Balance",
+    value: wallet.balanceUSDT,
+    suffix: " USDT",
+    color: "text-cyan-400",
+    bg: "bg-zinc-950",
+    border: "border-cyan-500/20",
+  },
+];
+
+/* =====================================================
+   PORTFOLIO SUMMARY
+===================================================== */
+
+const portfolioSummary = [
+  {
+    title: "PKR Wallet",
+    value: wallet.balancePKR,
+    prefix: "PKR ",
+    color: "text-green-400",
+  },
+
+  {
+    title: "Gold Holdings",
+    value: wallet.goldBalanceGram,
+    suffix: " g",
+    color: "text-yellow-400",
+  },
+
+  {
+    title: "Gold Value",
+    value: balanceSummary.totalGoldValue,
+    prefix: "PKR ",
+    color: "text-yellow-300",
+  },
+
+  {
+    title: "USDT",
+    value: wallet.balanceUSDT,
+    suffix: " USDT",
+    color: "text-cyan-400",
+  },
+
+  {
+    title: "Total Assets",
+    value: balanceSummary.totalAssets,
+    prefix: "PKR ",
+    color: "text-purple-400",
+  },
+];
+
+/* =====================================================
+   QUICK ACTIONS
+===================================================== */
+
+const quickActions = [
+  {
+    title: "Deposit",
+    href: "/deposit",
+    description: "Add funds to your wallet.",
+    color: "border-green-500/20",
+  },
+
+  {
+    title: "Withdraw",
+    href: "/withdraw",
+    description: "Withdraw available funds.",
+    color: "border-red-500/20",
+  },
+
+  {
+    title: "Buy Gold",
+    href: "/gold/buy",
+    description: "Purchase gold at live rates.",
+    color: "border-yellow-500/20",
+  },
+
+  {
+    title: "Buy USDT",
+    href: "/usdt/buy",
+    description: "Purchase USDT at live rates.",
+    color: "border-cyan-500/20",
+  },
+];
+
+/* =====================================================
+   GOLD CARDS
+===================================================== */
+
+const goldCards = [
+  {
+    title: "Buy Price",
+    value: goldMarket.buyPrice,
+    prefix: "PKR ",
+    color: "text-yellow-400",
+    border: "border-yellow-500/20",
+  },
+
+  {
+    title: "Sell Price",
+    value: goldMarket.sellPrice,
+    prefix: "PKR ",
+    color: "text-yellow-300",
+    border: "border-yellow-500/20",
+  },
+
+  {
+    title: "Gold Balance",
+    value: wallet.goldBalanceGram,
+    suffix: " g",
+    color: "text-yellow-400",
+    border: "border-yellow-500/20",
+  },
+
+  {
+    title: "Market Status",
+    value: marketStatusLabel,
+    isStatus: true,
+    color: marketStatusColor,
+    border: "border-yellow-500/20",
+  },
+];
+
+/* =====================================================
+   USDT CARDS
+===================================================== */
+
+const usdtCards = [
+  {
+    title: "Buy Rate",
+    value: usdtMarket.buyPrice,
+    prefix: "PKR ",
+    color: "text-cyan-400",
+    border: "border-cyan-500/20",
+  },
+
+  {
+    title: "Sell Rate",
+    value: usdtMarket.sellPrice,
+    prefix: "PKR ",
+    color: "text-cyan-300",
+    border: "border-cyan-500/20",
+  },
+
+  {
+    title: "Wallet Balance",
+    value: wallet.balanceUSDT,
+    suffix: " USDT",
+    color: "text-cyan-400",
+    border: "border-cyan-500/20",
+  },
+];
+
+/* =====================================================
+   PERFORMANCE CARDS
+===================================================== */
+
+const performanceCards = [
+  {
+    title: "Total Deposits",
+    value: stats.totalDeposits,
+    prefix: "PKR ",
+    color: "text-green-400",
+  },
+
+  {
+    title: "Total Withdrawals",
+    value: stats.totalWithdrawals,
+    prefix: "PKR ",
+    color: "text-red-400",
+  },
+
+  {
+    title: "Portfolio Value",
+    value: stats.portfolioValue,
+    prefix: "PKR ",
+    color: "text-yellow-400",
+  },
+
+  {
+    title: "Live Profit",
+    value: stats.liveProfit,
+    prefix: "PKR ",
+    color: "text-cyan-400",
+  },
+];
+
+/* =====================================================
+   GOLD HOLDING CARDS
+===================================================== */
+
+const goldHoldingCards = [
+  {
+    title: "Gold Balance",
+    value: wallet.goldBalanceGram,
+    suffix: " g",
+    color: "text-yellow-400",
+  },
+
+  {
+    title: "Buy Price",
+    value: goldMarket.buyPrice,
+    prefix: "PKR ",
+    color: "text-yellow-300",
+  },
+
+  {
+    title: "Sell Price",
+    value: goldMarket.sellPrice,
+    prefix: "PKR ",
+    color: "text-yellow-300",
+  },
+
+  {
+    title: "Current Value",
+    value: balanceSummary.totalGoldValue,
+    prefix: "PKR ",
+    color: "text-yellow-400",
+  },
+];
+
+/* =====================================================
+   USDT HOLDING CARDS
+===================================================== */
+
+const usdtHoldingCards = [
+  {
+    title: "USDT Balance",
+    value: wallet.balanceUSDT,
+    suffix: " USDT",
+    color: "text-cyan-400",
+  },
+
+  {
+    title: "Buy Rate",
+    value: usdtMarket.buyPrice,
+    prefix: "PKR ",
+    color: "text-cyan-300",
+  },
+
+  {
+    title: "Sell Rate",
+    value: usdtMarket.sellPrice,
+    prefix: "PKR ",
+    color: "text-cyan-300",
+  },
+
+  {
+    title: "PKR Value",
+    value:
+      Number(wallet.balanceUSDT || 0) *
+      Number(usdtMarket.sellPrice || 0),
+    prefix: "PKR ",
+    color: "text-cyan-400",
+  },
+];
 
 // ========================================================
 // DASHBOARD HEADER + ALERTS + WALLET SUMMARY UI
@@ -2853,11 +3200,11 @@ return (
 
     <div className="min-w-0">
       <h2 className="text-2xl font-bold text-yellow-400 sm:text-3xl">
-        GoldTrade V18 Enterprise
+        GoldTrade  Enterprise
       </h2>
 
       <p className="mt-2 text-sm leading-6 text-gray-400 sm:text-base">
-        Enterprise Trading Platform • Render Backend • Vercel Frontend
+        Enterprise Trading Platform •
       </p>
 
       <p className="mt-1 max-w-2xl text-xs leading-6 text-gray-500 sm:text-sm">

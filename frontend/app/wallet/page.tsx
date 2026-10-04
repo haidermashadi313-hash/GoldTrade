@@ -1,11 +1,5 @@
 ﻿"use client";
 
-// ==========================================================
-// GoldTrade V18 Enterprise Wallet
-// PART 1/12
-// Production Build (Next.js 15 + TypeScript + Linux Safe)
-// ==========================================================
-
 import React, {
   useState,
   useEffect,
@@ -20,9 +14,6 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   RefreshCw,
-  TrendingUp,
-  DollarSign,
-  Coins,
   CreditCard,
   History,
   Receipt,
@@ -41,9 +32,10 @@ import {
 // API URL
 // ==========================================================
 
-const API =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
-  "https://goldtrade-2.onrender.com";
+const API = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://goldtrade-2.onrender.com"
+).replace(/\/+$/, "");
 
 // ==========================================================
 // TYPES
@@ -96,7 +88,9 @@ interface WalletResponse {
 // ==========================================================
 
 const getSession = () => {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined") {
+    return null;
+  }
 
   const token =
     localStorage.getItem("goldtrade_token") ||
@@ -106,7 +100,9 @@ const getSession = () => {
     localStorage.getItem("goldtrade_user") ||
     sessionStorage.getItem("goldtrade_user");
 
-  if (!token || !user) return null;
+  if (!token || !user) {
+    return null;
+  }
 
   try {
     return {
@@ -118,8 +114,14 @@ const getSession = () => {
   }
 };
 
+// ==========================================================
+// CLEAR SESSION
+// ==========================================================
+
 const clearSession = () => {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    return;
+  }
 
   const keys = [
     "goldtrade_token",
@@ -136,104 +138,151 @@ const clearSession = () => {
 };
 
 // ==========================================================
-// COMPONENT START
+// COMPONENT
 // ==========================================================
 
 export default function WalletPage() {
   const router = useRouter();
-  // ==========================================================
-// CURRENCY FORMATTER
-// ==========================================================
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number.isFinite(value) ? value : 0);
-}
-    // ==========================================================
+  // ========================================================
+  // CURRENCY FORMATTER
+  // ========================================================
+
+  function formatCurrency(value: number): string {
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number.isFinite(value) ? value : 0);
+  }
+
+  // ========================================================
   // AUTH / SESSION STATES
-  // ==========================================================
+  // ========================================================
 
   const [token, setToken] = useState<string>("");
   const [username, setUsername] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>("");
-  const [userRole, setUserRole] = useState<"user" | "admin">("user");
 
-  const [authChecked, setAuthChecked] = useState(false);
+  const [userRole, setUserRole] =
+    useState<"user" | "admin">("user");
 
-  // ==========================================================
+  const [authChecked, setAuthChecked] =
+    useState(false);
+
+  // ========================================================
   // WALLET STATES
-  // ==========================================================
+  // ========================================================
 
-  const [walletBalance, setWalletBalance] = useState<number>(0);
-  const [pkrBalance, setPkrBalance] = useState<number>(0);
-  const [usdtBalance, setUsdtBalance] = useState<number>(0);
-  const [goldBalance, setGoldBalance] = useState<number>(0);
+  const [walletBalance, setWalletBalance] =
+    useState<number>(0);
 
-  // ==========================================================
-  // MARKET STATES
-  // ==========================================================
+  const [pkrBalance, setPkrBalance] =
+    useState<number>(0);
 
-  const [goldBuyPrice, setGoldBuyPrice] = useState<number>(0);
-  const [goldSellPrice, setGoldSellPrice] = useState<number>(0);
-  const [usdtRate, setUsdtRate] = useState<number>(0);
-  const [marketStatus, setMarketStatus] = useState("ACTIVE");
+  const [usdtBalance, setUsdtBalance] =
+    useState<number>(0);
 
-  // ==========================================================
+  const [goldBalance, setGoldBalance] =
+    useState<number>(0);
+
+  // ========================================================
   // HISTORY STATES
-  // ==========================================================
+  // ========================================================
 
-  const [deposits, setDeposits] = useState<Deposit[]>([]);
-  const [withdrawals, setWithdrawals] = useState<Withdraw[]>([]);
+  const [deposits, setDeposits] =
+    useState<Deposit[]>([]);
 
-  // ==========================================================
-  // FORM STATES
-  // ==========================================================
+  const [withdrawals, setWithdrawals] =
+    useState<Withdraw[]>([]);
 
-  const [depositAmount, setDepositAmount] = useState("");
-  const [depositMethod, setDepositMethod] = useState("ABA Bank");
-  const [receiptImage, setReceiptImage] = useState<File | null>(null);
+  // ========================================================
+  // DEPOSIT FORM STATES
+  // ========================================================
 
-  const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [withdrawMethod, setWithdrawMethod] = useState("PKR Bank");
-  const [withdrawAddress, setWithdrawAddress] = useState("");
+  const [depositAmount, setDepositAmount] =
+    useState<string>("");
 
-  // ==========================================================
+  const [depositMethod, setDepositMethod] =
+    useState<string>("ABA Bank");
+
+  const [receiptImage, setReceiptImage] =
+    useState<File | null>(null);
+
+  // ========================================================
+  // WITHDRAW FORM STATES
+  // ========================================================
+
+  const [withdrawAmount, setWithdrawAmount] =
+    useState<string>("");
+
+  const [withdrawMethod, setWithdrawMethod] =
+    useState<string>("PKR Bank");
+
+  const [withdrawAddress, setWithdrawAddress] =
+    useState<string>("");
+
+  // ========================================================
   // SEARCH / FILTER STATES
-  // ==========================================================
+  // ========================================================
 
-  const [searchHistory, setSearchHistory] = useState("");
-  const [historyFilter, setHistoryFilter] = useState<
-    "all" | "deposit" | "withdraw"
-  >("all");
+  const [searchHistory, setSearchHistory] =
+    useState<string>("");
 
-  // ==========================================================
+  const [historyFilter, setHistoryFilter] =
+    useState<"all" | "deposit" | "withdraw">("all");
+
+  // ========================================================
   // UI STATES
-  // ==========================================================
+  // ========================================================
 
-  const [loading, setLoading] = useState(true);
-  const [walletLoading, setWalletLoading] = useState(false);
-  const [depositLoading, setDepositLoading] = useState(false);
-  const [withdrawLoading, setWithdrawLoading] = useState(false);
-  const [refreshLoading, setRefreshLoading] = useState(false);
+  const [loading, setLoading] =
+    useState<boolean>(true);
 
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [walletLoading, setWalletLoading] =
+    useState<boolean>(false);
 
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [depositLoading, setDepositLoading] =
+    useState<boolean>(false);
 
-  const [isOnline, setIsOnline] = useState(true);
+  const [withdrawLoading, setWithdrawLoading] =
+    useState<boolean>(false);
 
-  // ==========================================================
-  // LOADING TEXT (NO INFINITE SPINNER)
-  // ==========================================================
+  const [refreshLoading, setRefreshLoading] =
+    useState<boolean>(false);
+
+  const [successMessage, setSuccessMessage] =
+    useState<string>("");
+
+  const [errorMessage, setErrorMessage] =
+    useState<string>("");
+
+  const [lastRefresh, setLastRefresh] =
+    useState<Date | null>(null);
+
+  const [isOnline, setIsOnline] =
+    useState<boolean>(true);
+
+  // ========================================================
+  // LOADING TEXT
+  // ========================================================
 
   const loadingText = useMemo(() => {
-    if (walletLoading) return "Loading wallet...";
-    if (depositLoading) return "Loading deposits...";
-    if (withdrawLoading) return "Loading withdrawals...";
-    if (refreshLoading) return "Refreshing wallet...";
+    if (walletLoading) {
+      return "Loading wallet...";
+    }
+
+    if (depositLoading) {
+      return "Loading deposits...";
+    }
+
+    if (withdrawLoading) {
+      return "Loading withdrawals...";
+    }
+
+    if (refreshLoading) {
+      return "Refreshing wallet...";
+    }
+
     return "Loading GoldTrade Wallet...";
   }, [
     walletLoading,
@@ -242,261 +291,306 @@ function formatCurrency(value: number): string {
     refreshLoading,
   ]);
 
-  // ==========================================================
-  // SESSION INITIALIZER
-  // ==========================================================
+// ========================================================
+// SESSION INITIALIZER
+// ========================================================
 
-  const initializeSession = useCallback(() => {
-    const session = getSession();
+const initializeSession = useCallback(() => {
+  const session = getSession();
 
-    if (!session) {
-      clearSession();
-      router.replace("/login");
-      return null;
-    }
-
-    setToken(session.token);
-    setUsername(session.user.username);
-    setUserEmail(session.user.email);
-    setUserRole(session.user.role);
-    setAuthChecked(true);
-
-    return session;
-  }, [router]);
-
-  // ==========================================================
-  // NETWORK STATUS LISTENER
-  // ==========================================================
-
-  useEffect(() => {
-    const online = () => setIsOnline(true);
-    const offline = () => setIsOnline(false);
-
-    window.addEventListener("online", online);
-    window.addEventListener("offline", offline);
-
-    return () => {
-      window.removeEventListener("online", online);
-      window.removeEventListener("offline", offline);
-    };
-  }, []);
-    // ==========================================================
-  // AUTH CHECK (FINAL PRODUCTION FIX)
-  // Prevent Login Loading Loop + Dashboard Redirect Loop
-  // ==========================================================
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const session = initializeSession();
-
-    if (!session) return;
-
-    console.log("WALLET SESSION:", session.user.username);
-
-    setLoading(false);
-  }, [initializeSession]);
-
-  // ==========================================================
-  // LOAD COMPLETE WALLET AFTER AUTH
-  // Runs ONLY once after JWT session is verified
-  // ==========================================================
-
-  useEffect(() => {
-    if (!authChecked) return;
-    if (!username || !token) return;
-
-    let cancelled = false;
-
-    const loadEverything = async () => {
-      try {
-        setLoading(true);
-        setErrorMessage("");
-
-        await Promise.all([
-          loadWallet(username, token),
-          loadDepositHistory(username, token),
-          loadWithdrawHistory(username, token),
-          loadMarketRates(),
-        ]);
-
-        if (!cancelled) {
-          setLastRefresh(new Date());
-        }
-
-      } catch (error: any) {
-        console.error("INITIAL LOAD ERROR:", error);
-
-        if (!cancelled) {
-          setErrorMessage("Unable to load wallet.");
-        }
-
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadEverything();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authChecked, username, token]);
-
-  // ==========================================================
-  // PAGE VISIBILITY REFRESH
-  // Refresh wallet when returning to browser tab
-  // ==========================================================
-
-  useEffect(() => {
-    if (!authChecked) return;
-
-    const handleVisibility = async () => {
-      if (document.visibilityState !== "visible") return;
-      if (!username || !token) return;
-
-      try {
-        await loadWallet(username, token);
-        setLastRefresh(new Date());
-      } catch (error) {
-        console.error("VISIBILITY REFRESH ERROR:", error);
-      }
-    };
-
-    document.addEventListener(
-      "visibilitychange",
-      handleVisibility
-    );
-
-    return () => {
-      document.removeEventListener(
-        "visibilitychange",
-        handleVisibility
-      );
-    };
-  }, [authChecked, username, token]);
-
-  // ==========================================================
-  // AUTO REFRESH WALLET EVERY 60 SECONDS
-  // ==========================================================
-
-  useEffect(() => {
-    if (!authChecked) return;
-    if (!username || !token) return;
-
-    const interval = setInterval(async () => {
-      try {
-        await loadWallet(username, token);
-        setLastRefresh(new Date());
-      } catch (error) {
-        console.error("AUTO REFRESH ERROR:", error);
-      }
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, [authChecked, username, token]);
-
-  // ==========================================================
-  // PREVENT DASHBOARD REDIRECT LOOP
-  // ==========================================================
-
-  useEffect(() => {
-    if (!authChecked) return;
-
-    const session = getSession();
-
-    if (!session) {
-      clearSession();
-      router.replace("/login");
-      return;
-    }
-
-    // Wrong role protection
-    if (
-      userRole === "admin" &&
-      !window.location.pathname.startsWith("/admin")
-    ) {
-      router.replace("/admin/dashboard");
-      return;
-    }
-
-    if (
-      userRole === "user" &&
-      window.location.pathname.startsWith("/admin")
-    ) {
-      router.replace("/dashboard");
-    }
-  }, [authChecked, userRole, router]);
-
-  // ==========================================================
-  // LOADING SCREEN (NO INFINITE SPINNER)
-  // ==========================================================
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white">
-
-        <Loader2 className="w-12 h-12 animate-spin text-yellow-400 mb-5" />
-
-        <h2 className="text-xl font-semibold text-yellow-400">
-          GoldTrade Enterprise Wallet
-        </h2>
-
-        <p className="text-gray-400 mt-2">
-          {loadingText}
-        </p>
-
-      </div>
-    );
+  if (!session) {
+    clearSession();
+    router.replace("/login");
+    return null;
   }
-  // ==========================================================
-// LOAD WALLET (PRODUCTION PATCH V18)
-// REPLACE OLD loadWallet() FUNCTION
-// ==========================================================
+
+  setToken(session.token);
+  setUsername(session.user.username);
+  setUserEmail(session.user.email);
+  setUserRole(session.user.role);
+  setAuthChecked(true);
+
+  return session;
+}, [router]);
+
+// ========================================================
+// LAST REFRESH LABEL
+// ========================================================
+
+const lastRefreshLabel = useMemo(() => {
+  if (!lastRefresh) {
+    return "Not refreshed yet";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(lastRefresh);
+}, [lastRefresh]);
+
+// ========================================================
+// WALLET STATUS CLASS
+// ========================================================
+
+const walletStatusClass = useMemo(() => {
+  return isOnline
+    ? "bg-green-500/20 text-green-400 border border-green-500/30"
+    : "bg-red-500/20 text-red-400 border border-red-500/30";
+}, [isOnline]);
+
+// ========================================================
+// WALLET HEALTH
+// ========================================================
+
+const walletHealth = useMemo(() => {
+  return isOnline ? "Healthy" : "Offline";
+}, [isOnline]);
+
+// ========================================================
+// TOTAL WALLET VALUE
+// ========================================================
+
+const totalWalletValue = useMemo(() => {
+  return (
+    Number(walletBalance || 0) +
+    Number(pkrBalance || 0) +
+    Number(usdtBalance || 0) * 3000 +
+    Number(goldBalance || 0) * 6000
+  );
+}, [
+  walletBalance,
+  pkrBalance,
+  usdtBalance,
+  goldBalance,
+]);
+
+// ========================================================
+// LOGOUT
+// ========================================================
+
+const handleLogout = useCallback(() => {
+  clearSession();
+  router.replace("/login");
+}, [router]);
+
+// ========================================================
+// GO TO DEPOSIT
+// ========================================================
+
+const goDeposit = useCallback(() => {
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+}, []);
+
+// ========================================================
+// GO TO WITHDRAW
+// ========================================================
+
+const goWithdraw = useCallback(() => {
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+}, []);
+
+// ========================================================
+// NETWORK STATUS
+// ========================================================
+
+useEffect(() => {
+  const handleOnline = () => {
+    setIsOnline(true);
+  };
+
+  const handleOffline = () => {
+    setIsOnline(false);
+  };
+
+  // Set initial network status correctly.
+  setIsOnline(navigator.onLine);
+
+  window.addEventListener("online", handleOnline);
+  window.addEventListener("offline", handleOffline);
+
+  return () => {
+    window.removeEventListener("online", handleOnline);
+    window.removeEventListener("offline", handleOffline);
+  };
+}, []);
+
+// ========================================================
+// AUTH CHECK
+// ========================================================
+
+useEffect(() => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const session = initializeSession();
+
+  if (!session) {
+    return;
+  }
+
+  console.log(
+    "WALLET SESSION:",
+    session.user.username
+  );
+
+  setLoading(false);
+}, [initializeSession]);
+
+// ========================================================
+// LOAD WALLET
+// ========================================================
 
 const loadWallet = useCallback(
-  async (currentUsername: string, currentToken: string) => {
-    if (!currentUsername || !currentToken) return;
+  async (
+    currentUsername: string,
+    currentToken: string
+  ) => {
+    if (!currentUsername || !currentToken) {
+      return;
+    }
 
     try {
       setWalletLoading(true);
       setErrorMessage("");
 
-      const response = await fetch(
-        `${API}/api/wallet/${encodeURIComponent(currentUsername)}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-        }
-      );
+      const normalizedUsername =
+        currentUsername.trim().toLowerCase();
 
-      // JWT expired
-      if (response.status === 401 || response.status === 403) {
+      const walletUrl =
+        `${API}/api/wallet/${encodeURIComponent(
+          normalizedUsername
+        )}`;
+
+      const response = await fetch(walletUrl, {
+        method: "GET",
+
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+
+        cache: "no-store",
+      });
+
+      // ==================================================
+      // AUTH ERROR
+      // ==================================================
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
         clearSession();
+
+        setToken("");
+        setUsername("");
+        setAuthChecked(false);
+
         router.replace("/login");
+
         return;
       }
 
-      const data = await response.json();
+      // ==================================================
+      // SAFE JSON RESPONSE
+      // ==================================================
+
+      const responseText = await response.text();
+
+      let data: WalletResponse = {
+        success: false,
+      };
+
+      if (responseText.trim()) {
+        try {
+          data = JSON.parse(
+            responseText
+          ) as WalletResponse;
+        } catch {
+          throw new Error(
+            "Wallet API returned invalid JSON."
+          );
+        }
+      }
 
       console.log("WALLET RESPONSE:", data);
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Wallet API failed.");
+      // ==================================================
+      // API ROUTE NOT FOUND
+      // ==================================================
+
+      if (response.status === 404) {
+        throw new Error(
+          data.message ||
+            `Wallet API route not found: ${walletUrl}`
+        );
       }
 
-      const wallet = data.wallet || {};
+      // ==================================================
+      // API ERROR
+      // ==================================================
 
-      setWalletBalance(Number(wallet.wallet ?? 0));
-      setPkrBalance(Number(wallet.pkrBalance ?? 0));
-      setUsdtBalance(Number(wallet.usdtBalance ?? 0));
-      setGoldBalance(Number(wallet.goldBalance ?? 0));
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            `Wallet API failed with status ${response.status}.`
+        );
+      }
+
+      // ==================================================
+      // API SUCCESS CHECK
+      // ==================================================
+
+      if (!data.success) {
+        throw new Error(
+          data.message ||
+            "Wallet API failed."
+        );
+      }
+
+      // ==================================================
+      // WALLET DATA
+      // ==================================================
+
+      const wallet: WalletData =
+        data.wallet || {
+          wallet: 0,
+          pkrBalance: 0,
+          usdtBalance: 0,
+          goldBalance: 0,
+        };
+
+      // ==================================================
+      // UPDATE BALANCES
+      // ==================================================
+
+      setWalletBalance(
+        Number(wallet.wallet ?? 0)
+      );
+
+      setPkrBalance(
+        Number(wallet.pkrBalance ?? 0)
+      );
+
+      setUsdtBalance(
+        Number(wallet.usdtBalance ?? 0)
+      );
+
+      setGoldBalance(
+        Number(wallet.goldBalance ?? 0)
+      );
+
+      // ==================================================
+      // UPDATE HISTORY IF INCLUDED
+      // ==================================================
 
       if (Array.isArray(data.deposits)) {
         setDeposits(data.deposits);
@@ -506,15 +600,26 @@ const loadWallet = useCallback(
         setWithdrawals(data.withdrawals);
       }
 
+      // ==================================================
+      // LAST REFRESH
+      // ==================================================
+
       setLastRefresh(new Date());
-
-    } catch (error: any) {
-      console.error("LOAD WALLET ERROR:", error);
-
-      setErrorMessage(
-        error?.message || "Unable to load wallet."
+    } catch (error: unknown) {
+      console.error(
+        "LOAD WALLET ERROR:",
+        error
       );
 
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to load wallet.";
+
+      setErrorMessage(message);
+
+      // Do NOT overwrite existing balances
+      // with zero when the API temporarily fails.
     } finally {
       setWalletLoading(false);
       setLoading(false);
@@ -522,62 +627,163 @@ const loadWallet = useCallback(
   },
   [router]
 );
-// ==========================================================
-// INITIAL WALLET LOAD (PATCH)
-// ==========================================================
 
-useEffect(() => {
-  if (!authChecked) return;
-  if (!username || !token) return;
-
-  loadWallet(username, token);
-}, [authChecked, username, token, loadWallet]);
-// ==========================================================
-// LOAD DEPOSIT HISTORY (PATCH V18)
-// REPLACE OLD loadDepositHistory()
-// ==========================================================
+// ========================================================
+// LOAD DEPOSIT HISTORY
+// ========================================================
 
 const loadDepositHistory = useCallback(
-  async (currentUsername: string, currentToken: string) => {
-    if (!currentUsername || !currentToken) return;
+  async (
+    currentUsername: string,
+    currentToken: string
+  ) => {
+    if (!currentUsername || !currentToken) {
+      return;
+    }
+
+    const safeUsername = String(currentUsername)
+      .trim()
+      .toLowerCase();
+
+    if (!safeUsername) {
+      setErrorMessage(
+        "Username is missing. Please login again."
+      );
+      return;
+    }
 
     try {
       setDepositLoading(true);
+      setErrorMessage("");
 
-      const response = await fetch(
-        `${API}/api/deposit/history/${encodeURIComponent(currentUsername)}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-        }
-      );
+      const historyUrl =
+        `${API}/api/deposit/history/` +
+        encodeURIComponent(safeUsername);
 
-      if (response.status === 401 || response.status === 403) {
+      const response = await fetch(historyUrl, {
+        method: "GET",
+
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+
+        cache: "no-store",
+      });
+
+      // ==================================================
+      // AUTH ERROR
+      // ==================================================
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
         clearSession();
+
+        setToken("");
+        setUsername("");
+        setAuthChecked(false);
+
         router.replace("/login");
+
         return;
       }
 
-      const data = await response.json();
+      // ==================================================
+      // SAFE RESPONSE PARSING
+      // ==================================================
 
-      console.log("DEPOSIT HISTORY:", data);
+      const responseText = await response.text();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Unable to load deposit history.");
+      let data: {
+        success?: boolean;
+        deposits?: Deposit[];
+        message?: string;
+        error?: string;
+      } = {
+        success: false,
+      };
+
+      if (responseText.trim()) {
+        try {
+          data = JSON.parse(responseText) as {
+            success?: boolean;
+            deposits?: Deposit[];
+            message?: string;
+            error?: string;
+          };
+        } catch {
+          throw new Error(
+            "Deposit history API returned invalid JSON."
+          );
+        }
       }
 
-      setDeposits(Array.isArray(data.deposits) ? data.deposits : []);
+      console.log(
+        "DEPOSIT HISTORY:",
+        data
+      );
 
-    } catch (error: any) {
-      console.error("DEPOSIT HISTORY ERROR:", error);
+      // ==================================================
+      // ROUTE NOT FOUND
+      // ==================================================
 
-      setErrorMessage(error.message || "Deposit history failed.");
+      if (response.status === 404) {
+        throw new Error(
+          data.message ||
+            `Deposit history API route not found: ${historyUrl}`
+        );
+      }
 
-      setDeposits([]);
+      // ==================================================
+      // HTTP ERROR
+      // ==================================================
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            data.error ||
+            `Deposit history request failed with status ${response.status}.`
+        );
+      }
+
+      // ==================================================
+      // API ERROR
+      // ==================================================
+
+      if (!data.success) {
+        throw new Error(
+          data.message ||
+            "Unable to load deposit history."
+        );
+      }
+
+      // ==================================================
+      // UPDATE DEPOSITS
+      // ==================================================
+
+      setDeposits(
+        Array.isArray(data.deposits)
+          ? data.deposits
+          : []
+      );
+    } catch (error: unknown) {
+      console.error(
+        "DEPOSIT HISTORY ERROR:",
+        error
+      );
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Deposit history failed.";
+
+      setErrorMessage(message);
+
+      // API fail hone par existing history ko
+      // unnecessarily blank nahi karte.
     } finally {
       setDepositLoading(false);
     }
@@ -585,129 +791,549 @@ const loadDepositHistory = useCallback(
   [router]
 );
 
-const submitDeposit = async () => {
-  if (!token || !username) return;
+// ========================================================
+// SUBMIT DEPOSIT
+// ========================================================
 
-  const amount = Number(depositAmount);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    setErrorMessage("Please enter a valid deposit amount.");
+const submitDeposit = async () => {
+  // ======================================================
+  // AUTH VALIDATION
+  // ======================================================
+
+  if (!token || !username) {
+    setErrorMessage(
+      "Authentication session is missing. Please login again."
+    );
     return;
   }
+
+  // ======================================================
+  // AMOUNT VALIDATION
+  // ======================================================
+
+  const amount = Number(depositAmount);
+
+  if (
+    !Number.isFinite(amount) ||
+    amount <= 0
+  ) {
+    setErrorMessage(
+      "Please enter a valid deposit amount."
+    );
+    return;
+  }
+
+  // ======================================================
+  // RECEIPT VALIDATION
+  // ======================================================
+
   if (!receiptImage) {
-    setErrorMessage("Please upload a payment receipt.");
+    setErrorMessage(
+      "Please upload a payment receipt."
+    );
+    return;
+  }
+
+  // ======================================================
+  // FILE SIZE VALIDATION
+  // ======================================================
+
+  const maxReceiptSize =
+    10 * 1024 * 1024;
+
+  if (receiptImage.size > maxReceiptSize) {
+    setErrorMessage(
+      "Receipt image must be less than 10 MB."
+    );
     return;
   }
 
   try {
     setDepositLoading(true);
     setErrorMessage("");
-    const formData = new FormData();
-    formData.append("username", username);
-    formData.append("amount", String(amount));
-    formData.append("method", depositMethod);
-    formData.append("receipt", receiptImage);
+    setSuccessMessage("");
 
-    const response = await fetch(`${API}/api/deposit/create`, {
+    // ====================================================
+    // FORM DATA
+    // ====================================================
+
+    const formData = new FormData();
+
+    formData.append(
+      "username",
+      username.trim().toLowerCase()
+    );
+
+    formData.append(
+      "amount",
+      String(amount)
+    );
+
+    formData.append(
+      "method",
+      depositMethod
+    );
+
+    formData.append(
+      "receipt",
+      receiptImage,
+      receiptImage.name
+    );
+
+    // ====================================================
+    // CREATE DEPOSIT
+    // ====================================================
+
+    const createUrl =
+      `${API}/api/deposit/create`;
+
+    const response = await fetch(createUrl, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+
+      // IMPORTANT:
+      // Content-Type manually set nahi karna.
+      // Browser FormData ka multipart boundary
+      // automatically set karega.
+
       body: formData,
     });
-    if (response.status === 401 || response.status === 403) {
+
+    // ====================================================
+    // AUTH ERROR
+    // ====================================================
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
       clearSession();
+
+      setToken("");
+      setUsername("");
+      setAuthChecked(false);
+
       router.replace("/login");
+
       return;
     }
-    const data = await response.json();
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || "Deposit request failed.");
+
+    // ====================================================
+    // SAFE RESPONSE PARSING
+    // ====================================================
+
+    const responseText =
+      await response.text();
+
+    let data: {
+      success?: boolean;
+      message?: string;
+      error?: string;
+    } = {
+      success: false,
+    };
+
+    if (responseText.trim()) {
+      try {
+        data = JSON.parse(responseText) as {
+          success?: boolean;
+          message?: string;
+          error?: string;
+        };
+      } catch {
+        throw new Error(
+          "Deposit API returned invalid JSON."
+        );
+      }
     }
-    setSuccessMessage("Deposit request submitted successfully.");
+
+    console.log(
+      "DEPOSIT RESPONSE:",
+      data
+    );
+
+    // ====================================================
+    // ROUTE NOT FOUND
+    // ====================================================
+
+    if (response.status === 404) {
+      throw new Error(
+        data.message ||
+          `Deposit API route not found: ${createUrl}`
+      );
+    }
+
+    // ====================================================
+    // HTTP ERROR
+    // ====================================================
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+          data.error ||
+          `Deposit request failed with status ${response.status}.`
+      );
+    }
+
+    // ====================================================
+    // API ERROR
+    // ====================================================
+
+    if (!data.success) {
+      throw new Error(
+        data.message ||
+          "Deposit request failed."
+      );
+    }
+
+    // ====================================================
+    // SUCCESS
+    // ====================================================
+
+    setSuccessMessage(
+      "Deposit request submitted successfully."
+    );
+
     setDepositAmount("");
     setReceiptImage(null);
+
+    // ====================================================
+    // REFRESH WALLET + HISTORY
+    // ====================================================
+
     await Promise.all([
-      loadWallet(username, token),
-      loadDepositHistory(username, token),
+      loadWallet(
+        username,
+        token
+      ),
+
+      loadDepositHistory(
+        username,
+        token
+      ),
     ]);
-  } catch (error: any) {
-    setErrorMessage(error?.message || "Deposit request failed.");
+  } catch (error: unknown) {
+    console.error(
+      "DEPOSIT ERROR:",
+      error
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Deposit request failed.";
+
+    setErrorMessage(message);
   } finally {
     setDepositLoading(false);
   }
 };
-// ==========================================================
+
+// ========================================================
 // RECEIPT FILE SELECT
-// ==========================================================
+// ========================================================
 
 const handleReceiptSelect = (
   event: React.ChangeEvent<HTMLInputElement>
 ) => {
-  const file = event.target.files?.[0];
+  const file =
+    event.target.files?.[0];
 
-  if (!file) return;
-
-  const maxSize = 10 * 1024 * 1024;
-
-  if (file.size > maxSize) {
-    setErrorMessage("Receipt image must be less than 10 MB.");
+  if (!file) {
     return;
   }
+
+  // ======================================================
+  // FILE TYPE VALIDATION
+  // ======================================================
+
+  if (
+    !file.type ||
+    !file.type.startsWith("image/")
+  ) {
+    setReceiptImage(null);
+
+    setErrorMessage(
+      "Please select a valid receipt image."
+    );
+
+    // Allow selecting the same file again.
+    event.target.value = "";
+
+    return;
+  }
+
+  // ======================================================
+  // FILE SIZE VALIDATION
+  // ======================================================
+
+  const maxSize =
+    10 * 1024 * 1024;
+
+  if (file.size > maxSize) {
+    setReceiptImage(null);
+
+    setErrorMessage(
+      "Receipt image must be less than 10 MB."
+    );
+
+    // Allow selecting the same file again.
+    event.target.value = "";
+
+    return;
+  }
+
+  // ======================================================
+  // SAVE FILE
+  // ======================================================
 
   setReceiptImage(file);
   setErrorMessage("");
 };
-// ==========================================================
+
+// ========================================================
 // RECEIPT PREVIEW
-// ==========================================================
+// ========================================================
 
 const receiptPreview = useMemo(() => {
-  if (!receiptImage) return "";
+  if (!receiptImage) {
+    return "";
+  }
 
-  return URL.createObjectURL(receiptImage);
+  try {
+    return URL.createObjectURL(
+      receiptImage
+    );
+  } catch (error) {
+    console.error(
+      "RECEIPT PREVIEW ERROR:",
+      error
+    );
+
+    return "";
+  }
 }, [receiptImage]);
+
+// ========================================================
+// RECEIPT PREVIEW CLEANUP
+// ========================================================
 
 useEffect(() => {
   return () => {
     if (receiptPreview) {
-      URL.revokeObjectURL(receiptPreview);
+      URL.revokeObjectURL(
+        receiptPreview
+      );
     }
   };
 }, [receiptPreview]);
-// ==========================================================
-// REFRESH DEPOSIT HISTORY
-// ==========================================================
 
-const refreshDeposits = async () => {
-  if (!username || !token) return;
+// ========================================================
+// LOAD WITHDRAW HISTORY
+// ========================================================
 
-  try {
-    setRefreshLoading(true);
+const loadWithdrawHistory = useCallback(
+  async (
+    currentUsername: string,
+    currentToken: string
+  ) => {
+    const safeUsername = String(currentUsername)
+      .trim()
+      .toLowerCase();
 
-    await loadDepositHistory(username, token);
+    if (!safeUsername || !currentToken) {
+      return;
+    }
 
-    setSuccessMessage("Deposit history refreshed.");
+    try {
+      setWithdrawLoading(true);
+      setErrorMessage("");
 
-    setTimeout(() => setSuccessMessage(""), 2000);
+      // ==================================================
+      // WITHDRAW HISTORY API
+      // Backend route:
+      // GET /api/withdraw/history
+      // ==================================================
 
-  } catch (error) {
-    console.error(error);
-  } finally {
-    setRefreshLoading(false);
-  }
-};
-// ==========================================================
+      const historyUrl =
+        `${API}/api/withdraw/history`;
+
+      const response = await fetch(
+        historyUrl,
+        {
+          method: "GET",
+
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+
+          cache: "no-store",
+        }
+      );
+
+      // ==================================================
+      // AUTH ERROR
+      // ==================================================
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
+        clearSession();
+
+        setToken("");
+        setUsername("");
+        setAuthChecked(false);
+
+        router.replace("/login");
+
+        return;
+      }
+
+      // ==================================================
+      // SAFE RESPONSE PARSING
+      // ==================================================
+
+      const responseText =
+        await response.text();
+
+      let data: {
+        success?: boolean;
+        withdrawals?: Withdraw[];
+        message?: string;
+        error?: string;
+      } = {
+        success: false,
+      };
+
+      if (responseText.trim()) {
+        try {
+          data = JSON.parse(
+            responseText
+          ) as {
+            success?: boolean;
+            withdrawals?: Withdraw[];
+            message?: string;
+            error?: string;
+          };
+        } catch (parseError) {
+          console.error(
+            "WITHDRAW HISTORY JSON PARSE ERROR:",
+            parseError
+          );
+
+          throw new Error(
+            "Withdraw history API returned invalid JSON."
+          );
+        }
+      }
+
+      console.log(
+        "WITHDRAW HISTORY RESPONSE:",
+        data
+      );
+
+      // ==================================================
+      // ROUTE NOT FOUND
+      // ==================================================
+
+      if (response.status === 404) {
+        throw new Error(
+          data.message ||
+            `Withdraw history API route not found: ${historyUrl}`
+        );
+      }
+
+      // ==================================================
+      // HTTP ERROR
+      // ==================================================
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            data.error ||
+            `Withdraw history API failed with status ${response.status}.`
+        );
+      }
+
+      // ==================================================
+      // APPLICATION ERROR
+      // ==================================================
+
+      if (!data.success) {
+        throw new Error(
+          data.message ||
+            "Unable to load withdraw history."
+        );
+      }
+
+      // ==================================================
+      // UPDATE WITHDRAW HISTORY
+      // ==================================================
+
+      if (Array.isArray(data.withdrawals)) {
+        setWithdrawals(data.withdrawals);
+      } else {
+        setWithdrawals([]);
+      }
+    } catch (error: unknown) {
+      console.error(
+        "WITHDRAW HISTORY ERROR:",
+        error
+      );
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Withdraw history failed.";
+
+      setErrorMessage(message);
+
+      // Keep existing withdrawal history
+      // if the API temporarily fails.
+    } finally {
+      setWithdrawLoading(false);
+    }
+  },
+  [router]
+);
+
+// ========================================================
 // DEPOSIT SUMMARY
-// ==========================================================
+// ========================================================
 
 const totalDeposited = useMemo(() => {
   return deposits
-    .filter((item) => item.status?.toLowerCase() === "approved")
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    .filter(
+      (item) =>
+        String(item.status || "").toLowerCase() ===
+        "approved"
+    )
+    .reduce(
+      (sum, item) =>
+        sum + Number(item.amount || 0),
+      0
+    );
 }, [deposits]);
 
 const pendingDeposits = useMemo(() => {
   return deposits
-    .filter((item) => item.status?.toLowerCase() === "pending")
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    .filter(
+      (item) =>
+        String(item.status || "").toLowerCase() ===
+        "pending"
+    )
+    .reduce(
+      (sum, item) =>
+        sum + Number(item.amount || 0),
+      0
+    );
 }, [deposits]);
 
 const recentDeposits = useMemo(() => {
@@ -719,204 +1345,64 @@ const recentDeposits = useMemo(() => {
     )
     .slice(0, 10);
 }, [deposits]);
-// ==========================================================
-// DEPOSIT STATUS BADGE
-// ==========================================================
 
-const getDepositStatusBadge = (status: string) => {
-  switch ((status || "").toLowerCase()) {
+// ========================================================
+// DEPOSIT STATUS
+// ========================================================
+
+const getDepositStatusBadge = (
+  status: string
+): string => {
+  switch (
+    String(status || "").toLowerCase()
+  ) {
     case "approved":
+    case "success":
       return "bg-green-500/20 text-green-400 border border-green-500/30";
 
     case "pending":
       return "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
 
     case "rejected":
+    case "failed":
+    case "cancelled":
       return "bg-red-500/20 text-red-400 border border-red-500/30";
 
     default:
       return "bg-gray-500/20 text-gray-300 border border-gray-500/30";
   }
 };
-// ==========================================================
-// LOAD WITHDRAW HISTORY (PATCH V18)
-// REPLACE OLD loadWithdrawHistory()
-// ==========================================================
 
-const loadWithdrawHistory = useCallback(
-  async (currentUsername: string, currentToken: string) => {
-    if (!currentUsername || !currentToken) return;
-
-    try {
-      setWithdrawLoading(true);
-
-      const response = await fetch(
-        `${API}/api/withdraw/history/${encodeURIComponent(currentUsername)}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-        }
-      );
-
-      if (response.status === 401 || response.status === 403) {
-        clearSession();
-        router.replace("/login");
-        return;
-      }
-
-      const data = await response.json();
-
-      console.log("WITHDRAW HISTORY:", data);
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Unable to load withdraw history."
-        );
-      }
-
-      setWithdrawals(
-        Array.isArray(data.withdrawals) ? data.withdrawals : []
-      );
-
-    } catch (error: any) {
-      console.error("WITHDRAW HISTORY ERROR:", error);
-
-      setErrorMessage(
-        error.message || "Withdraw history failed."
-      );
-
-      setWithdrawals([]);
-
-    } finally {
-      setWithdrawLoading(false);
-    }
-  },
-  [router]
-);
-// ==========================================================
-// SUBMIT WITHDRAW REQUEST (PATCH V18)
-// ==========================================================
-
-const submitWithdraw = async () => {
-  if (!token || !username) return;
-
-  if (!withdrawAmount || Number(withdrawAmount) <= 0) {
-    setErrorMessage("Please enter a valid withdraw amount.");
-    return;
-  }
-
-  if (!withdrawAddress.trim()) {
-    setErrorMessage(
-      "Please enter bank account or wallet address."
-    );
-    return;
-  }
-
-  if (Number(withdrawAmount) > Number(pkrBalance)) {
-    setErrorMessage("Insufficient PKR balance.");
-    return;
-  }
-
-  try {
-    setWithdrawLoading(true);
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    const response = await fetch(`${API}/api/withdraw/create`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        username,
-        amount: Number(withdrawAmount),
-        method: withdrawMethod,
-        walletAddress: withdrawAddress.trim(),
-      }),
-    });
-
-    if (response.status === 401 || response.status === 403) {
-      clearSession();
-      router.replace("/login");
-      return;
-    }
-
-    const data = await response.json();
-
-    console.log("WITHDRAW RESPONSE:", data);
-
-    if (!response.ok || !data.success) {
-      throw new Error(
-        data.message || "Withdraw request failed."
-      );
-    }
-
-    setSuccessMessage(
-      "Withdraw request submitted successfully. Waiting for admin approval."
-    );
-
-    // Reset Form
-    setWithdrawAmount("");
-    setWithdrawAddress("");
-
-    // Refresh wallet & withdraw history
-    await Promise.all([
-      loadWallet(username, token),
-      loadWithdrawHistory(username, token),
-    ]);
-
-  } catch (error: any) {
-    console.error("WITHDRAW ERROR:", error);
-
-    setErrorMessage(
-      error.message || "Withdraw request failed."
-    );
-
-  } finally {
-    setWithdrawLoading(false);
-  }
-};
-// ==========================================================
-// REFRESH WITHDRAW HISTORY
-// ==========================================================
-
-const refreshWithdrawHistory = async () => {
-  if (!username || !token) return;
-
-  try {
-    setRefreshLoading(true);
-
-    await loadWithdrawHistory(username, token);
-
-    setSuccessMessage("Withdraw history refreshed.");
-
-    setTimeout(() => {
-      setSuccessMessage("");
-    }, 2000);
-
-  } finally {
-    setRefreshLoading(false);
-  }
-};
-// ==========================================================
+// ========================================================
 // WITHDRAW SUMMARY
-// ==========================================================
+// ========================================================
 
 const totalWithdrawn = useMemo(() => {
   return withdrawals
-    .filter((item) => item.status?.toLowerCase() === "approved")
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    .filter(
+      (item) =>
+        String(item.status || "").toLowerCase() ===
+        "approved"
+    )
+    .reduce(
+      (sum, item) =>
+        sum + Number(item.amount || 0),
+      0
+    );
 }, [withdrawals]);
 
 const pendingWithdrawals = useMemo(() => {
   return withdrawals
-    .filter((item) => item.status?.toLowerCase() === "pending")
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    .filter(
+      (item) =>
+        String(item.status || "").toLowerCase() ===
+        "pending"
+    )
+    .reduce(
+      (sum, item) =>
+        sum + Number(item.amount || 0),
+      0
+    );
 }, [withdrawals]);
 
 const recentWithdrawals = useMemo(() => {
@@ -928,1362 +1414,1590 @@ const recentWithdrawals = useMemo(() => {
     )
     .slice(0, 10);
 }, [withdrawals]);
-// ==========================================================
-// WITHDRAW STATUS BADGE
-// ==========================================================
 
-const getWithdrawStatusBadge = (status: string) => {
-  switch ((status || "").toLowerCase()) {
+// ========================================================
+// WITHDRAW STATUS
+// ========================================================
+
+const getWithdrawStatusBadge = (
+  status: string
+): string => {
+  switch (
+    String(status || "").toLowerCase()
+  ) {
     case "approved":
+    case "success":
       return "bg-green-500/20 text-green-400 border border-green-500/30";
 
     case "pending":
       return "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
 
     case "rejected":
+    case "failed":
+    case "cancelled":
       return "bg-red-500/20 text-red-400 border border-red-500/30";
 
     default:
       return "bg-gray-500/20 text-gray-300 border border-gray-500/30";
   }
 };
-// ==========================================================
-// LOAD WITHDRAW HISTORY AFTER LOGIN
-// ==========================================================
 
-useEffect(() => {
-  if (!authChecked) return;
-  if (!username || !token) return;
+// ========================================================
+// SEARCH / FILTER — HOOK SAFE
+// IMPORTANT:
+// NO useMemo HERE
+// ========================================================
 
-  loadWithdrawHistory(username, token);
-}, [authChecked, username, token, loadWithdrawHistory]);
-// ==========================================================
-// LOAD LIVE MARKET RATES (PATCH V18)
-// REPLACE OLD loadMarketRates()
-// ==========================================================
+const historyQuery = searchHistory
+  .trim()
+  .toLowerCase();
 
-const loadMarketRates = useCallback(async () => {
-  try {
-    const response = await fetch(`${API}/api/gold/price`, {
-      method: "GET",
-      cache: "no-store",
-    });
+const filteredDeposits = deposits.filter(
+  (deposit) => {
+    const matchesQuery =
+      !historyQuery ||
+      [
+        deposit.method || "",
+        deposit.status || "",
+        String(deposit.amount ?? 0),
+        deposit.createdAt
+          ? new Date(
+              deposit.createdAt
+            ).toLocaleString()
+          : "",
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(historyQuery);
 
-    const data = await response.json();
+    const matchesType =
+      historyFilter === "all" ||
+      historyFilter === "deposit";
 
-    console.log("MARKET RESPONSE:", data);
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || "Market unavailable.");
-    }
-
-    setGoldBuyPrice(Number(data.buyPrice ?? 0));
-    setGoldSellPrice(Number(data.sellPrice ?? 0));
-
-    setUsdtRate(Number(data.usdtRate ?? data.usdtPrice ?? 0));
-
-    setMarketStatus(data.marketStatus || "ACTIVE");
-
-    setLastRefresh(new Date());
-
-  } catch (error) {
-    console.error("MARKET ERROR:", error);
-
-    setGoldBuyPrice(0);
-    setGoldSellPrice(0);
-    setUsdtRate(0);
-    setMarketStatus("OFFLINE");
+    return (
+      matchesQuery &&
+      matchesType
+    );
   }
-}, []);
+);
 
-const refreshDashboard = useCallback(async () => {
-  if (!username || !token) return;
+const filteredWithdrawals =
+  withdrawals.filter(
+    (withdraw) => {
+      const matchesQuery =
+        !historyQuery ||
+        [
+          withdraw.method || "",
+          withdraw.status || "",
+          withdraw.walletAddress || "",
+          String(withdraw.amount ?? 0),
+          withdraw.createdAt
+            ? new Date(
+                withdraw.createdAt
+              ).toLocaleString()
+            : "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(historyQuery);
+
+      const matchesType =
+        historyFilter === "all" ||
+        historyFilter === "withdraw";
+
+      return (
+        matchesQuery &&
+        matchesType
+      );
+    }
+  );
+
+// ========================================================
+// REFRESH DEPOSIT HISTORY
+// ========================================================
+
+const refreshDeposits = async () => {
+  if (!username || !token) {
+    setErrorMessage(
+      "Authentication session is missing. Please login again."
+    );
+    return;
+  }
+
   try {
     setRefreshLoading(true);
-    await Promise.all([
-      loadWallet(username, token),
-      loadDepositHistory(username, token),
-      loadWithdrawHistory(username, token),
-      loadMarketRates(),
-    ]);
-    setLastRefresh(new Date());
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    await loadDepositHistory(
+      username,
+      token
+    );
+
+    setSuccessMessage(
+      "Deposit history refreshed."
+    );
+
+    setTimeout(() => {
+      setSuccessMessage("");
+    }, 2000);
+  } catch (error: unknown) {
+    console.error(
+      "REFRESH DEPOSIT ERROR:",
+      error
+    );
+
+    setErrorMessage(
+      error instanceof Error
+        ? error.message
+        : "Unable to refresh deposit history."
+    );
   } finally {
     setRefreshLoading(false);
   }
+};
+
+// ========================================================
+// SUBMIT WITHDRAW REQUEST
+// ========================================================
+
+const submitWithdraw = async () => {
+  // ======================================================
+  // AUTH VALIDATION
+  // ======================================================
+
+  if (!token || !username) {
+    setErrorMessage(
+      "Authentication session is missing. Please login again."
+    );
+    return;
+  }
+
+  // ======================================================
+  // AMOUNT VALIDATION
+  // ======================================================
+
+  const amount = Number(
+    withdrawAmount
+  );
+
+  if (
+    !Number.isFinite(amount) ||
+    amount <= 0
+  ) {
+    setErrorMessage(
+      "Please enter a valid withdraw amount."
+    );
+    return;
+  }
+
+  // ======================================================
+  // ADDRESS VALIDATION
+  // ======================================================
+
+  const safeWithdrawAddress =
+    withdrawAddress.trim();
+
+  if (!safeWithdrawAddress) {
+    setErrorMessage(
+      "Please enter bank account or wallet address."
+    );
+    return;
+  }
+
+  // ======================================================
+  // BALANCE VALIDATION
+  // ======================================================
+
+  const availableBalance =
+    Number(pkrBalance || 0);
+
+  if (
+    !Number.isFinite(availableBalance) ||
+    availableBalance <= 0
+  ) {
+    setErrorMessage(
+      "Insufficient PKR balance."
+    );
+    return;
+  }
+
+  if (amount > availableBalance) {
+    setErrorMessage(
+      "Insufficient PKR balance."
+    );
+    return;
+  }
+
+  try {
+    setWithdrawLoading(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    // ====================================================
+    // WITHDRAW API
+    // ====================================================
+
+    const withdrawUrl =
+      `${API}/api/withdraw/create`;
+
+    const response = await fetch(
+      withdrawUrl,
+      {
+        method: "POST",
+
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+
+        body: JSON.stringify({
+          username:
+            username.trim().toLowerCase(),
+          amount,
+          method: withdrawMethod,
+          walletAddress:
+            safeWithdrawAddress,
+        }),
+      }
+    );
+
+    // ====================================================
+    // AUTH ERROR
+    // ====================================================
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+      clearSession();
+
+      setToken("");
+      setUsername("");
+      setAuthChecked(false);
+
+      router.replace("/login");
+
+      return;
+    }
+
+    // ====================================================
+    // SAFE RESPONSE PARSING
+    // ====================================================
+
+    const responseText =
+      await response.text();
+
+    let data: {
+      success?: boolean;
+      message?: string;
+      error?: string;
+      withdrawal?: Withdraw;
+    } = {
+      success: false,
+    };
+
+    if (responseText.trim()) {
+      try {
+        data = JSON.parse(
+          responseText
+        ) as {
+          success?: boolean;
+          message?: string;
+          error?: string;
+          withdrawal?: Withdraw;
+        };
+      } catch (parseError) {
+        console.error(
+          "WITHDRAW JSON PARSE ERROR:",
+          parseError
+        );
+
+        throw new Error(
+          "Withdraw API returned invalid JSON."
+        );
+      }
+    }
+
+    console.log(
+      "WITHDRAW RESPONSE:",
+      data
+    );
+
+    // ====================================================
+    // ROUTE NOT FOUND
+    // ====================================================
+
+    if (response.status === 404) {
+      throw new Error(
+        data.message ||
+          data.error ||
+          `Withdraw API route not found: ${withdrawUrl}`
+      );
+    }
+
+    // ====================================================
+    // HTTP ERROR
+    // ====================================================
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+          data.error ||
+          `Withdraw request failed with status ${response.status}.`
+      );
+    }
+
+    // ====================================================
+    // APPLICATION ERROR
+    // ====================================================
+
+    if (!data.success) {
+      throw new Error(
+        data.message ||
+          "Withdraw request failed."
+      );
+    }
+
+    // ====================================================
+    // SUCCESS
+    // ====================================================
+
+    setSuccessMessage(
+      "Withdraw request submitted successfully. Waiting for admin approval."
+    );
+
+    setWithdrawAmount("");
+    setWithdrawAddress("");
+
+    // ====================================================
+    // REFRESH WALLET + WITHDRAW HISTORY
+    // ====================================================
+
+    await Promise.all([
+      loadWallet(
+        username,
+        token
+      ),
+
+      loadWithdrawHistory(
+        username,
+        token
+      ),
+    ]);
+  } catch (error: unknown) {
+    console.error(
+      "WITHDRAW ERROR:",
+      error
+    );
+
+    setErrorMessage(
+      error instanceof Error
+        ? error.message
+        : "Withdraw request failed."
+    );
+  } finally {
+    setWithdrawLoading(false);
+  }
+};
+
+// ========================================================
+// REFRESH WITHDRAW HISTORY
+// ========================================================
+
+const refreshWithdrawHistory = async () => {
+  if (!username || !token) {
+    setErrorMessage(
+      "Authentication session is missing. Please login again."
+    );
+    return;
+  }
+
+  try {
+    setRefreshLoading(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    await loadWithdrawHistory(
+      username,
+      token
+    );
+
+    setSuccessMessage(
+      "Withdraw history refreshed."
+    );
+
+    setTimeout(() => {
+      setSuccessMessage("");
+    }, 2000);
+  } catch (error: unknown) {
+    console.error(
+      "REFRESH WITHDRAW ERROR:",
+      error
+    );
+
+    setErrorMessage(
+      error instanceof Error
+        ? error.message
+        : "Unable to refresh withdraw history."
+    );
+  } finally {
+    setRefreshLoading(false);
+  }
+};
+
+// ========================================================
+// REFRESH WALLET DASHBOARD
+// ========================================================
+
+const refreshDashboard = async () => {
+  if (!username || !token) {
+    setErrorMessage(
+      "Authentication session is missing. Please login again."
+    );
+    return;
+  }
+
+  try {
+    setRefreshLoading(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    await Promise.all([
+      loadWallet(
+        username,
+        token
+      ),
+
+      loadDepositHistory(
+        username,
+        token
+      ),
+
+      loadWithdrawHistory(
+        username,
+        token
+      ),
+    ]);
+
+    setLastRefresh(
+      new Date()
+    );
+
+    setSuccessMessage(
+      "Wallet dashboard refreshed."
+    );
+
+    setTimeout(() => {
+      setSuccessMessage("");
+    }, 2000);
+  } catch (error: unknown) {
+    console.error(
+      "REFRESH DASHBOARD ERROR:",
+      error
+    );
+
+    setErrorMessage(
+      error instanceof Error
+        ? error.message
+        : "Unable to refresh wallet dashboard."
+    );
+  } finally {
+    setRefreshLoading(false);
+  }
+};
+
+// ========================================================
+// INITIAL DATA LOAD
+// ========================================================
+
+useEffect(() => {
+  if (!authChecked) {
+    return;
+  }
+
+  if (!username || !token) {
+    return;
+  }
+
+  let cancelled = false;
+
+  const loadInitialData = async () => {
+    try {
+      if (cancelled) {
+        return;
+      }
+
+      setLoading(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      await Promise.all([
+        loadWallet(
+          username,
+          token
+        ),
+
+        loadDepositHistory(
+          username,
+          token
+        ),
+
+        loadWithdrawHistory(
+          username,
+          token
+        ),
+      ]);
+
+      if (!cancelled) {
+        setLastRefresh(
+          new Date()
+        );
+      }
+    } catch (error: unknown) {
+      console.error(
+        "INITIAL WALLET LOAD ERROR:",
+        error
+      );
+
+      if (!cancelled) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to load wallet."
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }
+  };
+
+  void loadInitialData();
+
+  return () => {
+    cancelled = true;
+  };
 }, [
+  authChecked,
   username,
   token,
   loadWallet,
   loadDepositHistory,
   loadWithdrawHistory,
-  loadMarketRates,
-]);
-// ==========================================================
-// PORTFOLIO VALUE
-// ==========================================================
-
-const portfolioValue = useMemo(() => {
-  const wallet = Number(walletBalance || 0);
-  const pkr = Number(pkrBalance || 0);
-
-  const gold =
-    Number(goldBalance || 0) * Number(goldSellPrice || 0);
-
-  const usdt =
-    Number(usdtBalance || 0) * Number(usdtRate || 0);
-
-  return wallet + pkr + gold + usdt;
-}, [
-  walletBalance,
-  pkrBalance,
-  goldBalance,
-  usdtBalance,
-  goldSellPrice,
-  usdtRate,
 ]);
 
 // ==========================================================
-// WALLET HEALTH
+// LOADING SCREEN
 // ==========================================================
 
-const walletHealth = useMemo(() => {
-  if (portfolioValue >= 1000000) return "PLATINUM";
-  if (portfolioValue >= 500000) return "GOLD";
-  if (portfolioValue >= 100000) return "SILVER";
-  return "STANDARD";
-}, [portfolioValue]);
-// ==========================================================
-// AUTO REFRESH MARKET (30 Seconds)
-// ==========================================================
+if (loading) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-black text-white">
+      <Loader2
+        className="mb-5 h-12 w-12 animate-spin text-yellow-400"
+        aria-label="Loading"
+      />
 
-useEffect(() => {
-  if (!authChecked) return;
-
-  const interval = setInterval(() => {
-    loadMarketRates();
-  }, 30000);
-
-  return () => clearInterval(interval);
-}, [authChecked, loadMarketRates]);
-
-// ==========================================================
-// AUTO REFRESH WALLET (60 Seconds)
-// ==========================================================
-
-useEffect(() => {
-  if (!authChecked) return;
-  if (!username || !token) return;
-
-  const interval = setInterval(() => {
-    refreshDashboard();
-  }, 60000);
-
-  return () => clearInterval(interval);
-}, [authChecked, username, token]);
-// ==========================================================
-// REFRESH WHEN USER RETURNS TO TAB
-// ==========================================================
-
-useEffect(() => {
-  const handleVisibility = async () => {
-    if (document.visibilityState !== "visible") return;
-
-    if (!authChecked || !username || !token) return;
-
-    try {
-      await refreshDashboard();
-    } catch (error) {
-      console.error("VISIBILITY REFRESH:", error);
-    }
-  };
-
-  document.addEventListener(
-    "visibilitychange",
-    handleVisibility
-  );
-
-  return () => {
-    document.removeEventListener(
-      "visibilitychange",
-      handleVisibility
-    );
-  };
-}, [authChecked, username, token]);
-// ==========================================================
-// MARKET BADGE STYLE
-// ==========================================================
-
-const marketBadgeClass = useMemo(() => {
-  return marketStatus === "ACTIVE"
-    ? "bg-green-500/20 text-green-400 border border-green-500/30"
-    : "bg-red-500/20 text-red-400 border border-red-500/30";
-}, [marketStatus]);
-
-// ==========================================================
-// LAST REFRESH LABEL
-// ==========================================================
-
-const lastRefreshLabel = useMemo(() => {
-  if (!lastRefresh) return "Never";
-
-  return lastRefresh.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}, [lastRefresh]);
-// ==========================================================
-// LOGOUT (PATCH V18)
-// REPLACE OLD handleLogout()
-// ==========================================================
-
-const handleLogout = useCallback(async () => {
-  try {
-    if (token) {
-      await fetch(`${API}/api/auth/logout`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-    }
-  } catch (error) {
-    console.error("LOGOUT API ERROR:", error);
-  } finally {
-    clearSession();
-
-    setToken("");
-    setUsername("");
-    setUserEmail("");
-    setUserRole("user");
-    setAuthChecked(false);
-
-    setWalletBalance(0);
-    setPkrBalance(0);
-    setUsdtBalance(0);
-    setGoldBalance(0);
-
-    setDeposits([]);
-    setWithdrawals([]);
-
-    setLoading(false);
-
-    router.replace("/login");
-  }
-}, [router, token]);
-// ==========================================================
-// SESSION VALIDATION
-// ==========================================================
-
-const validateSession = useCallback(() => {
-  const session = getSession();
-
-  if (!session) {
-    clearSession();
-    router.replace("/login");
-    return false;
-  }
-
-  return true;
-}, [router]);
-// ==========================================================
-// SAFE NAVIGATION
-// ==========================================================
-
-const navigateProtected = useCallback(
-  (path: string) => {
-    if (!validateSession()) return;
-
-    router.push(path);
-  },
-  [router, validateSession]
-);
-
-const goDashboard = () => navigateProtected("/dashboard");
-const goWallet = () => navigateProtected("/wallet");
-const goDeposit = () => navigateProtected("/deposit");
-const goWithdraw = () => navigateProtected("/withdraw");
-const goUSDT = () => navigateProtected("/usdt");
-const goGold = () => navigateProtected("/gold");
-const goProfile = () => navigateProtected("/profile");
-// ==========================================================
-// SESSION WATCHER
-// ==========================================================
-
-useEffect(() => {
-  if (!authChecked) return;
-
-  const interval = setInterval(() => {
-    validateSession();
-  }, 20000);
-
-  return () => clearInterval(interval);
-}, [authChecked, validateSession]);
-// ==========================================================
-// PREVENT BACK AFTER LOGOUT
-// ==========================================================
-
-useEffect(() => {
-  const handlePopState = () => {
-    if (!getSession()) {
-      router.replace("/login");
-    }
-  };
-
-  window.addEventListener("popstate", handlePopState);
-
-  return () => {
-    window.removeEventListener("popstate", handlePopState);
-  };
-}, [router]);
-// ==========================================================
-// ONLINE REFRESH
-// ==========================================================
-
-useEffect(() => {
-  if (!isOnline) return;
-  if (!authChecked) return;
-  if (!username || !token) return;
-
-  refreshDashboard();
-}, [isOnline, authChecked, username, token]);
-
-return (
-  <main className="min-h-screen bg-black px-4 py-8 text-white md:px-8">
-{/* ========================================================== */}
-{/* GOLDTRADE WALLET HEADER */}
-{/* ========================================================== */}
-
-<section className="mb-8 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
-
-  <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-
-    <div>
-      <h1 className="text-3xl font-bold text-yellow-400">
-        GoldTrade Wallet
-      </h1>
+      <h2 className="text-xl font-semibold text-yellow-400">
+        GoldTrade Enterprise Wallet
+      </h2>
 
       <p className="mt-2 text-gray-400">
-        Welcome back,{" "}
-        <span className="font-semibold text-white">
-          {username}
-        </span>
-      </p>
-
-      <p className="mt-1 text-xs text-gray-500">
-        Last Refresh : {lastRefreshLabel}
+        {loadingText}
       </p>
     </div>
+  );
+}
+// ==========================================================
+// MAIN WALLET UI
+// ==========================================================
 
-    <div className="flex flex-wrap gap-3">
+return (
 
-      <button
-        onClick={refreshDashboard}
-        disabled={refreshLoading}
-        className="flex items-center gap-2 rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-black transition hover:bg-yellow-400 disabled:opacity-60"
-      >
-        {refreshLoading ? (
-          <Loader2 className="h-5 w-5 animate-spin"/>
-        ) : (
-          <RefreshCw className="h-5 w-5"/>
-        )}
+  <main className="min-h-screen bg-black px-4 py-6 text-white md:px-6 lg:px-8">
 
-        Refresh Wallet
-      </button>
+    {/* ======================================================
+        WALLET HEADER
+    ====================================================== */}
 
-      <button
-        onClick={handleLogout}
-        className="flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
-      >
-        Logout
-      </button>
+    <section className="mb-8 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
 
-    </div>
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
-  </div>
+        {/* HEADER INFO */}
 
-</section>
+        <div>
 
-{/* ========================================================== */}
-{/* SUCCESS / ERROR ALERTS */}
-{/* ========================================================== */}
+          <h1 className="text-3xl font-bold text-yellow-400">
+            GoldTrade Wallet
+          </h1>
 
-{successMessage && (
-  <div className="mb-5 flex items-center gap-3 rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-green-400">
-    <CheckCircle2 className="h-5 w-5"/>
-    {successMessage}
-  </div>
-)}
+          <p className="mt-2 text-gray-400">
+            Welcome back{" "}
+            <span className="font-semibold text-white">
+              {username}
+            </span>
+          </p>
 
-{errorMessage && (
-  <div className="mb-5 flex items-center gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-400">
-    <AlertCircle className="h-5 w-5"/>
-    {errorMessage}
-  </div>
-)}
+          <p className="mt-1 text-xs text-gray-500">
+            Last Refresh : {lastRefreshLabel}
+          </p>
 
-{/* ========================================================== */}
-{/* WALLET BALANCE CARDS */}
-{/* ========================================================== */}
-
-<section className="mb-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-
-  <div className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-5">
-
-    <Wallet className="mb-4 h-8 w-8 text-yellow-400"/>
-
-    <p className="text-sm text-gray-400">Wallet Balance</p>
-
-    <h2 className="mt-2 text-3xl font-bold text-yellow-400">
-      PKR {formatCurrency(walletBalance)}
-    </h2>
-
-  </div>
-
-  <div className="rounded-3xl border border-green-500/20 bg-zinc-950 p-5">
-
-    <DollarSign className="mb-4 h-8 w-8 text-green-400"/>
-
-    <p className="text-sm text-gray-400">PKR Balance</p>
-
-    <h2 className="mt-2 text-3xl font-bold text-green-400">
-      PKR {formatCurrency(pkrBalance)}
-    </h2>
-
-  </div>
-
-  <div className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-5">
-
-    <Coins className="mb-4 h-8 w-8 text-blue-400"/>
-
-    <p className="text-sm text-gray-400">USDT Balance</p>
-
-    <h2 className="mt-2 text-3xl font-bold text-blue-400">
-      {formatCurrency(usdtBalance)} USDT
-    </h2>
-
-  </div>
-
-  <div className="rounded-3xl border border-orange-500/20 bg-zinc-950 p-5">
-
-    <ShieldCheck className="mb-4 h-8 w-8 text-orange-400"/>
-
-    <p className="text-sm text-gray-400">Gold Balance</p>
-
-    <h2 className="mt-2 text-3xl font-bold text-orange-400">
-      {formatCurrency(goldBalance)} Gram
-    </h2>
-
-  </div>
-
-</section>
-
-{/* ========================================================== */}
-{/* PORTFOLIO CARD */}
-{/* ========================================================== */}
-
-<section className="mb-10 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
-
-  <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-
-    <div>
-
-      <p className="text-gray-400">
-        Total Portfolio Value
-      </p>
-
-      <h2 className="mt-3 text-4xl font-bold text-yellow-400">
-        PKR {formatCurrency(portfolioValue)}
-      </h2>
-
-      <p className="mt-2 text-sm text-gray-500">
-        Wallet Status :{" "}
-        <span className="font-semibold text-yellow-400">
-          {walletHealth}
-        </span>
-      </p>
-
-    </div>
-
-    <span
-      className={`rounded-full px-5 py-3 text-sm font-semibold ${marketBadgeClass}`}
-    >
-      Market : {marketStatus}
-    </span>
-
-  </div>
-
-  <div className="mt-8 grid gap-4 md:grid-cols-3">
-
-    <div className="rounded-2xl border border-zinc-800 bg-black p-4">
-
-      <p className="text-sm text-gray-400">
-        Gold Buy Price
-      </p>
-
-      <p className="mt-2 text-2xl font-bold text-yellow-400">
-        PKR {formatCurrency(goldBuyPrice)}
-      </p>
-
-    </div>
-
-    <div className="rounded-2xl border border-zinc-800 bg-black p-4">
-
-      <p className="text-sm text-gray-400">
-        Gold Sell Price
-      </p>
-
-      <p className="mt-2 text-2xl font-bold text-green-400">
-        PKR {formatCurrency(goldSellPrice)}
-      </p>
-
-    </div>
-
-    <div className="rounded-2xl border border-zinc-800 bg-black p-4">
-
-      <p className="text-sm text-gray-400">
-        USDT Live Rate
-      </p>
-
-      <p className="mt-2 text-2xl font-bold text-blue-400">
-        PKR {formatCurrency(usdtRate)}
-      </p>
-
-    </div>
-
-  </div>
-
-</section>
-
-{/* ========================================================== */}
-{/* QUICK ACTION BUTTONS */}
-{/* ========================================================== */}
-
-<section className="mb-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-
-  <button
-    onClick={goDeposit}
-    className="rounded-2xl bg-green-600 p-5 text-white transition hover:bg-green-700"
-  >
-    <ArrowDownCircle className="mx-auto mb-3 h-10 w-10"/>
-
-    <p className="font-semibold">
-      Deposit PKR
-    </p>
-  </button>
-
-  <button
-    onClick={goWithdraw}
-    className="rounded-2xl bg-red-600 p-5 text-white transition hover:bg-red-700"
-  >
-    <ArrowUpCircle className="mx-auto mb-3 h-10 w-10"/>
-
-    <p className="font-semibold">
-      Withdraw PKR
-    </p>
-  </button>
-
-  <button
-    onClick={goUSDT}
-    className="rounded-2xl bg-blue-600 p-5 text-white transition hover:bg-blue-700"
-  >
-    <Coins className="mx-auto mb-3 h-10 w-10"/>
-
-    <p className="font-semibold">
-      USDT Trading
-    </p>
-  </button>
-
-  <button
-    onClick={goGold}
-    className="rounded-2xl bg-yellow-500 p-5 font-semibold text-black transition hover:bg-yellow-400"
-  >
-    <TrendingUp className="mx-auto mb-3 h-10 w-10"/>
-
-    Gold Trading
-  </button>
-
-</section>
-{/* ========================================================== */}
-{/* MANUAL PKR DEPOSIT */}
-{/* ========================================================== */}
-
-<section className="mb-10 rounded-3xl border border-green-500/20 bg-zinc-950 p-6">
-
-  <div className="mb-6 flex items-center justify-between">
-    <div>
-      <h2 className="text-2xl font-bold text-green-400">
-        Manual PKR Deposit
-      </h2>
-
-      <p className="mt-1 text-sm text-gray-400">
-        Upload your payment receipt after sending funds.
-      </p>
-    </div>
-
-    <Receipt className="h-8 w-8 text-green-400" />
-  </div>
-
-  {/* Deposit Form */}
-
-  <div className="grid gap-5 md:grid-cols-2">
-
-    <div>
-      <label className="mb-2 block text-sm text-gray-300">
-        Deposit Amount (PKR)
-      </label>
-
-      <input
-        type="number"
-        value={depositAmount}
-        onChange={(e) => setDepositAmount(e.target.value)}
-        placeholder="Enter PKR Amount"
-        className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-green-500"
-      />
-    </div>
-
-    <div>
-      <label className="mb-2 block text-sm text-gray-300">
-        Payment Method
-      </label>
-
-      <select
-        value={depositMethod}
-        onChange={(e) => setDepositMethod(e.target.value)}
-        className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-green-500"
-      >
-        <option value="ABA Bank">ABA Bank</option>
-        <option value="Binance">Binance</option>
-        <option value="Cash App">Cash App</option>
-        <option value="Bank Transfer">Bank Transfer</option>
-      </select>
-    </div>
-
-  </div>
-
-  {/* Payment Details */}
-
-  <div className="mt-6 rounded-2xl border border-yellow-500/20 bg-black p-5">
-
-    <h3 className="mb-3 font-semibold text-yellow-400">
-      Payment Details
-    </h3>
-
-    <div className="space-y-2 text-sm text-gray-300">
-
-      <p>**ABA Bank:** GoldTrade Enterprise</p>
-      <p>**Account Number:** 000-000-000000</p>
-
-      <p>**Binance UID:** 123456789</p>
-
-      <p>**Cash App:** $GoldTradePKR</p>
-
-    </div>
-
-  </div>
-
-  {/* Upload Receipt */}
-
-  <div className="mt-6">
-
-    <label className="mb-3 block text-sm text-gray-300">
-      Upload Receipt
-    </label>
-
-    <input
-      type="file"
-      accept="image/*"
-      onChange={handleReceiptSelect}
-      className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white"
-    />
-
-    {receiptImage && (
-      <div className="mt-3 rounded-xl border border-green-500/20 bg-black p-3">
-
-        <p className="text-sm text-green-400">
-          Receipt Selected
-        </p>
-
-        <p className="mt-1 text-sm text-gray-300">
-          {receiptImage.name}
-        </p>
-
-      </div>
-    )}
-
-    {receiptPreview && (
-      <div className="mt-5">
-
-        <p className="mb-2 text-sm text-gray-400">
-          Receipt Preview
-        </p>
-
-        <img
-          src={receiptPreview}
-          alt="Receipt Preview"
-          className="max-h-80 rounded-2xl border border-green-500/20 object-contain"
-        />
-
-      </div>
-    )}
-
-  </div>
-
-  {/* Submit Deposit */}
-
-  <button
-    onClick={submitDeposit}
-    disabled={depositLoading}
-    className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-3 font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
-  >
-    {depositLoading ? (
-      <>
-        <Loader2 className="h-5 w-5 animate-spin"/>
-        Uploading Deposit...
-      </>
-    ) : (
-      <>
-        <ArrowDownCircle className="h-5 w-5"/>
-        Submit Deposit
-      </>
-    )}
-  </button>
-
-</section>
-
-{/* ========================================================== */}
-{/* DEPOSIT SUMMARY */}
-{/* ========================================================== */}
-
-<section className="mb-10 grid gap-5 md:grid-cols-2">
-
-  <div className="rounded-2xl border border-green-500/20 bg-zinc-950 p-5">
-
-    <p className="text-sm text-gray-400">
-      Approved Deposits
-    </p>
-
-    <h3 className="mt-2 text-3xl font-bold text-green-400">
-      PKR {formatCurrency(totalDeposited)}
-    </h3>
-
-  </div>
-
-  <div className="rounded-2xl border border-yellow-500/20 bg-zinc-950 p-5">
-
-    <p className="text-sm text-gray-400">
-      Pending Deposits
-    </p>
-
-    <h3 className="mt-2 text-3xl font-bold text-yellow-400">
-      PKR {formatCurrency(pendingDeposits)}
-    </h3>
-
-  </div>
-
-</section>
-
-{/* ========================================================== */}
-{/* DEPOSIT HISTORY */}
-{/* ========================================================== */}
-
-<section className="mb-10 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
-
-  <div className="mb-6 flex items-center justify-between">
-
-    <div>
-      <h2 className="text-2xl font-bold text-yellow-400">
-        Deposit History
-      </h2>
-
-      <p className="mt-1 text-sm text-gray-400">
-        Latest Deposit Requests
-      </p>
-    </div>
-
-    <button
-      onClick={refreshDeposits}
-      className="rounded-lg bg-yellow-500 px-4 py-2 font-semibold text-black transition hover:bg-yellow-400"
-    >
-      Refresh
-    </button>
-
-  </div>
-
-  {depositLoading ? (
-    <div className="flex justify-center py-10">
-      <Loader2 className="h-8 w-8 animate-spin text-yellow-400"/>
-    </div>
-  ) : recentDeposits.length === 0 ? (
-    <div className="rounded-xl border border-zinc-800 bg-black p-6 text-center text-gray-500">
-      No Deposit History Found.
-    </div>
-  ) : (
-    <div className="space-y-4">
-
-      {recentDeposits.map((deposit) => (
-        <div
-          key={deposit._id}
-          className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-black p-5 md:flex-row md:items-center md:justify-between"
-        >
-
-          <div>
-
-            <h3 className="text-lg font-semibold text-white">
-              PKR {formatCurrency(deposit.amount)}
-            </h3>
-
-            <p className="mt-1 text-sm text-gray-400">
-              {deposit.method}
-            </p>
-
-            <p className="mt-1 text-xs text-gray-500">
-              {new Date(deposit.createdAt).toLocaleString()}
-            </p>
-
+          <div className="mt-3">
+            <span
+              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${walletStatusClass}`}
+            >
+              {isOnline ? "Online" : "Offline"}
+            </span>
           </div>
 
-          <span
-            className={`rounded-full px-4 py-2 text-xs font-semibold ${getDepositStatusBadge(
-              deposit.status
-            )}`}
+        </div>
+
+        {/* HEADER ACTIONS */}
+
+        <div className="flex flex-wrap gap-3">
+
+          <button
+            type="button"
+            onClick={refreshDashboard}
+            disabled={refreshLoading}
+            className="flex items-center gap-2 rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-black transition hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {deposit.status}
+            {refreshLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-5 w-5" />
+            )}
+
+            Refresh Wallet
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700"
+          >
+            Logout
+          </button>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    {/* SUCCESS MESSAGE */}
+
+    {successMessage && (
+      <div className="mb-5 flex items-center gap-3 rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-green-400">
+
+        <CheckCircle2 className="h-5 w-5 shrink-0" />
+
+        <span>{successMessage}</span>
+
+      </div>
+    )}
+
+    {/* ERROR MESSAGE */}
+
+    {errorMessage && (
+      <div className="mb-5 flex items-center gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-400">
+
+        <AlertCircle className="h-5 w-5 shrink-0" />
+
+        <span>{errorMessage}</span>
+
+      </div>
+    )}
+
+    {/* ======================================================
+        WALLET BALANCE CARDS
+    ====================================================== */}
+
+    <section className="mb-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+      {/* WALLET BALANCE */}
+
+      <div className="rounded-3xl border border-yellow-500/20 bg-zinc-950 p-5">
+
+        <Wallet className="mb-4 h-8 w-8 text-yellow-400" />
+
+        <p className="text-sm text-gray-400">
+          Wallet Balance
+        </p>
+
+        <h2 className="mt-2 text-3xl font-bold text-yellow-400">
+          PKR {formatCurrency(walletBalance)}
+        </h2>
+
+      </div>
+
+      {/* PKR BALANCE */}
+
+      <div className="rounded-3xl border border-green-500/20 bg-zinc-950 p-5">
+
+        <CreditCard className="mb-4 h-8 w-8 text-green-400" />
+
+        <p className="text-sm text-gray-400">
+          PKR Balance
+        </p>
+
+        <h2 className="mt-2 text-3xl font-bold text-green-400">
+          PKR {formatCurrency(pkrBalance)}
+        </h2>
+
+      </div>
+
+      {/* USDT BALANCE */}
+
+      <div className="rounded-3xl border border-blue-500/20 bg-zinc-950 p-5">
+
+        <Wallet className="mb-4 h-8 w-8 text-blue-400" />
+
+        <p className="text-sm text-gray-400">
+          USDT Balance
+        </p>
+
+        <h2 className="mt-2 text-3xl font-bold text-blue-400">
+          {formatCurrency(usdtBalance)} USDT
+        </h2>
+
+      </div>
+
+      {/* GOLD BALANCE */}
+
+      <div className="rounded-3xl border border-orange-500/20 bg-zinc-950 p-5">
+
+        <ShieldCheck className="mb-4 h-8 w-8 text-orange-400" />
+
+        <p className="text-sm text-gray-400">
+          Gold Balance
+        </p>
+
+        <h2 className="mt-2 text-3xl font-bold text-orange-400">
+          {formatCurrency(goldBalance)} Gram
+        </h2>
+
+      </div>
+
+    </section>
+
+    {/* ======================================================
+        PORTFOLIO SUMMARY
+    ====================================================== */}
+
+    <section className="mb-10 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
+
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+
+        {/* PORTFOLIO VALUE */}
+
+        <div>
+
+          <p className="text-gray-400">
+            Total Wallet Value
+          </p>
+
+          <h2 className="mt-3 text-4xl font-bold text-yellow-400">
+            PKR {formatCurrency(totalWalletValue)}
+          </h2>
+
+          <p className="mt-2 text-sm text-gray-500">
+            Wallet Status:{" "}
+            <span className="font-semibold text-yellow-400">
+              {walletHealth}
+            </span>
+          </p>
+
+        </div>
+
+        {/* WALLET STATUS */}
+
+        <div>
+
+          <span
+            className={`rounded-full px-5 py-3 text-sm font-semibold ${walletStatusClass}`}
+          >
+            {isOnline
+              ? "Wallet Online"
+              : "Wallet Offline"}
           </span>
 
         </div>
-      ))}
 
-    </div>
-  )}
+      </div>
 
-</section>
-{/* ========================================================== */}
-{/* WITHDRAW PKR */}
-{/* ========================================================== */}
+      {/* PORTFOLIO DETAILS */}
 
-<section className="mb-10 rounded-3xl border border-red-500/20 bg-zinc-950 p-6">
+      <div className="mt-8 grid gap-4 md:grid-cols-3">
 
-  <div className="mb-6 flex items-center justify-between">
+        {/* PKR WALLET */}
 
-    <div>
-      <h2 className="text-2xl font-bold text-red-400">
-        Withdraw PKR
-      </h2>
+        <div className="rounded-2xl border border-zinc-800 bg-black p-4">
 
-      <p className="mt-1 text-sm text-gray-400">
-        Submit a withdrawal request. Admin approval is required.
-      </p>
-    </div>
+          <p className="text-sm text-gray-400">
+            PKR Wallet
+          </p>
 
-    <CreditCard className="h-8 w-8 text-red-400"/>
+          <p className="mt-2 text-2xl font-bold text-yellow-400">
+            PKR {formatCurrency(walletBalance)}
+          </p>
 
-  </div>
+        </div>
 
-  {/* Withdraw Form */}
+        {/* AVAILABLE PKR */}
 
-  <div className="grid gap-5 md:grid-cols-2">
+        <div className="rounded-2xl border border-zinc-800 bg-black p-4">
 
-    <div>
-      <label className="mb-2 block text-sm text-gray-300">
-        Withdraw Amount (PKR)
-      </label>
+          <p className="text-sm text-gray-400">
+            Available PKR
+          </p>
 
-      <input
-        type="number"
-        value={withdrawAmount}
-        onChange={(e) => setWithdrawAmount(e.target.value)}
-        placeholder="Enter PKR Amount"
-        className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-red-500"
-      />
-    </div>
+          <p className="mt-2 text-2xl font-bold text-green-400">
+            PKR {formatCurrency(pkrBalance)}
+          </p>
 
-    <div>
-      <label className="mb-2 block text-sm text-gray-300">
-        Withdraw Method
-      </label>
+        </div>
 
-      <select
-        value={withdrawMethod}
-        onChange={(e) => setWithdrawMethod(e.target.value)}
-        className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-red-500"
+        {/* LAST UPDATED */}
+
+        <div className="rounded-2xl border border-zinc-800 bg-black p-4">
+
+          <p className="text-sm text-gray-400">
+            Last Updated
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-blue-400">
+            {lastRefreshLabel}
+          </p>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    {/* ======================================================
+        QUICK ACTIONS
+    ====================================================== */}
+
+    <section className="mb-10 grid gap-4 md:grid-cols-2">
+
+      {/* DEPOSIT */}
+
+      <button
+        type="button"
+        onClick={goDeposit}
+        className="rounded-2xl bg-green-600 p-5 text-white transition hover:bg-green-700"
       >
-        <option value="PKR Bank">PKR Bank</option>
-        <option value="ABA Bank">ABA Bank</option>
-        <option value="Binance USDT">Binance USDT</option>
-        <option value="Cash App">Cash App</option>
-      </select>
-    </div>
 
-  </div>
+        <ArrowDownCircle className="mx-auto mb-3 h-10 w-10" />
 
-  {/* Bank / Wallet Address */}
+        <p className="font-semibold">
+          Deposit PKR
+        </p>
 
-  <div className="mt-6">
+        <p className="mt-1 text-sm text-green-100">
+          Add funds to your wallet
+        </p>
 
-    <label className="mb-2 block text-sm text-gray-300">
-      Bank Account / Wallet Address
-    </label>
+      </button>
 
-    <textarea
-      rows={3}
-      value={withdrawAddress}
-      onChange={(e) => setWithdrawAddress(e.target.value)}
-      placeholder="Enter your Bank Account / ABA / Binance Wallet Address"
-      className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-red-500"
-    />
+      {/* WITHDRAW */}
 
-  </div>
+      <button
+        type="button"
+        onClick={goWithdraw}
+        className="rounded-2xl bg-red-600 p-5 text-white transition hover:bg-red-700"
+      >
 
-  {/* Balance Card */}
+        <ArrowUpCircle className="mx-auto mb-3 h-10 w-10" />
 
-  <div className="mt-6 rounded-2xl border border-green-500/20 bg-black p-5">
+        <p className="font-semibold">
+          Withdraw PKR
+        </p>
 
-    <div className="flex items-center justify-between">
+        <p className="mt-1 text-sm text-red-100">
+          Submit withdrawal request
+        </p>
 
-      <div>
+      </button>
+
+    </section>
+
+    {/* ======================================================
+        MANUAL PKR DEPOSIT
+    ====================================================== */}
+
+    <section className="mb-10 rounded-3xl border border-green-500/20 bg-zinc-950 p-6">
+
+      {/* DEPOSIT HEADER */}
+
+      <div className="mb-6 flex items-center justify-between">
+
+        <div>
+
+          <h2 className="text-2xl font-bold text-green-400">
+            Manual PKR Deposit
+          </h2>
+
+          <p className="mt-1 text-sm text-gray-400">
+            Upload your payment receipt after sending funds.
+          </p>
+
+        </div>
+
+        <Receipt className="h-8 w-8 text-green-400" />
+
+      </div>
+
+      <div className="grid gap-5 md:grid-cols-2">
+
+        {/* DEPOSIT AMOUNT */}
+
+        <div>
+
+          <label className="mb-2 block text-sm text-gray-300">
+            Deposit Amount (PKR)
+          </label>
+
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={depositAmount}
+            onChange={(e) =>
+              setDepositAmount(e.target.value)
+            }
+            placeholder="Enter PKR Amount"
+            className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-green-500"
+          />
+
+        </div>
+
+        {/* PAYMENT METHOD */}
+
+        <div>
+
+          <label className="mb-2 block text-sm text-gray-300">
+            Payment Method
+          </label>
+
+          <select
+            value={depositMethod}
+            onChange={(e) =>
+              setDepositMethod(e.target.value)
+            }
+            className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-green-500"
+          >
+
+            <option value="ABA Bank">
+              ABA Bank
+            </option>
+
+            <option value="Binance">
+              Binance
+            </option>
+
+            <option value="Cash App">
+              Cash App
+            </option>
+
+            <option value="Bank Transfer">
+              Bank Transfer
+            </option>
+
+          </select>
+
+        </div>
+
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-yellow-500/20 bg-black p-5">
+
+        <h3 className="mb-3 font-semibold text-yellow-400">
+          Payment Details
+        </h3>
+
+        <div className="space-y-2 text-sm text-gray-300">
+
+          <p>
+            <strong>ABA Bank:</strong>{" "}
+            GoldTrade Enterprise
+          </p>
+
+          <p>
+            <strong>Account Number:</strong>{" "}
+            000-000-000000
+          </p>
+
+          <p>
+            <strong>Binance UID:</strong>{" "}
+            123456789
+          </p>
+
+          <p>
+            <strong>Cash App:</strong>{" "}
+            $GoldTradePKR
+          </p>
+
+        </div>
+
+      </div>
+
+      <div className="mt-6">
+
+        <label className="mb-3 block text-sm text-gray-300">
+          Upload Receipt
+        </label>
+
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleReceiptSelect}
+          className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white"
+        />
+
+        {/* RECEIPT SELECTED */}
+
+        {receiptImage && (
+          <div className="mt-3 rounded-xl border border-green-500/20 bg-black p-3">
+
+            <p className="text-sm text-green-400">
+              Receipt Selected
+            </p>
+
+            <p className="mt-1 break-all text-sm text-gray-300">
+              {receiptImage.name}
+            </p>
+
+          </div>
+        )}
+
+        {/* RECEIPT PREVIEW */}
+
+        {receiptPreview && (
+          <div className="mt-5">
+
+            <p className="mb-2 text-sm text-gray-400">
+              Receipt Preview
+            </p>
+
+            <img
+              src={receiptPreview}
+              alt="Receipt Preview"
+              className="max-h-80 rounded-2xl border border-green-500/20 object-contain"
+            />
+
+          </div>
+        )}
+
+      </div>
+
+      <button
+        type="button"
+        onClick={submitDeposit}
+        disabled={depositLoading}
+        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-3 font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+
+        {depositLoading ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Uploading Deposit...
+          </>
+        ) : (
+          <>
+            <ArrowDownCircle className="h-5 w-5" />
+            Submit Deposit
+          </>
+        )}
+
+      </button>
+
+    </section>    <section className="mb-10 grid gap-5 md:grid-cols-2">
+
+      {/* APPROVED DEPOSITS */}
+
+      <div className="rounded-2xl border border-green-500/20 bg-zinc-950 p-5">
 
         <p className="text-sm text-gray-400">
-          Available PKR Balance
+          Approved Deposits
         </p>
 
         <h3 className="mt-2 text-3xl font-bold text-green-400">
-          PKR {formatCurrency(pkrBalance)}
+          PKR {formatCurrency(totalDeposited)}
         </h3>
 
       </div>
 
-      <Landmark className="h-10 w-10 text-green-400"/>
+      {/* PENDING DEPOSITS */}
 
-    </div>
+      <div className="rounded-2xl border border-yellow-500/20 bg-zinc-950 p-5">
 
-  </div>
+        <p className="text-sm text-gray-400">
+          Pending Deposits
+        </p>
 
-  {/* Submit Button */}
+        <h3 className="mt-2 text-3xl font-bold text-yellow-400">
+          PKR {formatCurrency(pendingDeposits)}
+        </h3>
 
-  <button
-    onClick={submitWithdraw}
-    disabled={withdrawLoading}
-    className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
-  >
-    {withdrawLoading ? (
-      <>
-        <Loader2 className="h-5 w-5 animate-spin"/>
-        Sending Withdraw Request...
-      </>
-    ) : (
-      <>
-        <ArrowUpCircle className="h-5 w-5"/>
-        Submit Withdraw Request
-      </>
-    )}
-  </button>
+      </div>
 
-</section>
+    </section>
 
-{/* ========================================================== */}
-{/* WITHDRAW SUMMARY */}
-{/* ========================================================== */}
+    {/* ======================================================
+        DEPOSIT HISTORY
+    ====================================================== */}
 
-<section className="mb-10 grid gap-5 md:grid-cols-2">
+    <section className="mb-10 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
 
-  <div className="rounded-2xl border border-red-500/20 bg-zinc-950 p-5">
+      {/* HISTORY HEADER */}
 
-    <p className="text-sm text-gray-400">
-      Approved Withdrawals
-    </p>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-    <h3 className="mt-2 text-3xl font-bold text-red-400">
-      PKR {formatCurrency(totalWithdrawn)}
-    </h3>
+        <div>
 
-  </div>
+          <h2 className="text-2xl font-bold text-yellow-400">
+            Deposit History
+          </h2>
 
-  <div className="rounded-2xl border border-yellow-500/20 bg-zinc-950 p-5">
+          <p className="mt-1 text-sm text-gray-400">
+            Latest deposit requests
+          </p>
 
-    <p className="text-sm text-gray-400">
-      Pending Withdrawals
-    </p>
+        </div>
 
-    <h3 className="mt-2 text-3xl font-bold text-yellow-400">
-      PKR {formatCurrency(pendingWithdrawals)}
-    </h3>
+        {/* REFRESH BUTTON */}
 
-  </div>
-
-</section>
-
-{/* ========================================================== */}
-{/* WITHDRAW HISTORY */}
-{/* ========================================================== */}
-
-<section className="mb-10 rounded-3xl border border-red-500/20 bg-zinc-950 p-6">
-
-  <div className="mb-6 flex items-center justify-between">
-
-    <div>
-      <h2 className="text-2xl font-bold text-red-400">
-        Withdraw History
-      </h2>
-
-      <p className="mt-1 text-sm text-gray-400">
-        Latest withdrawal requests.
-      </p>
-    </div>
-
-    <button
-      onClick={refreshWithdrawHistory}
-      className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition hover:bg-red-500"
-    >
-      Refresh
-    </button>
-
-  </div>
-
-  {withdrawLoading ? (
-    <div className="flex justify-center py-10">
-      <Loader2 className="h-8 w-8 animate-spin text-red-400"/>
-    </div>
-  ) : recentWithdrawals.length === 0 ? (
-    <div className="rounded-xl border border-zinc-800 bg-black p-6 text-center text-gray-500">
-      No Withdraw History Found.
-    </div>
-  ) : (
-    <div className="space-y-4">
-
-      {recentWithdrawals.map((withdraw) => (
-        <div
-          key={withdraw._id}
-          className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-black p-5 md:flex-row md:items-center md:justify-between"
+        <button
+          type="button"
+          onClick={refreshDeposits}
+          disabled={refreshLoading}
+          className="flex items-center justify-center gap-2 rounded-lg bg-yellow-500 px-4 py-2 font-semibold text-black transition hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
 
-          <div>
+          {refreshLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
 
-            <h3 className="text-lg font-semibold text-white">
-              PKR {formatCurrency(withdraw.amount)}
-            </h3>
+          Refresh
 
-            <p className="mt-1 text-sm text-gray-400">
-              {withdraw.method}
-            </p>
+        </button>
 
-            <p className="mt-1 text-xs text-gray-500">
-              {new Date(withdraw.createdAt).toLocaleString()}
-            </p>
+      </div>
 
-          </div>
+      {depositLoading ? (
 
-          <span
-            className={`rounded-full px-4 py-2 text-xs font-semibold ${getWithdrawStatusBadge(
-              withdraw.status
-            )}`}
+        // LOADING
+
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
+        </div>
+
+      ) : filteredDeposits.length === 0 ? (
+
+        // EMPTY STATE
+
+        <div className="rounded-xl border border-zinc-800 bg-black p-6 text-center text-gray-500">
+          No Deposit History Found.
+        </div>
+
+      ) : (
+
+        // DEPOSIT LIST
+
+        <div className="space-y-4">
+
+          {filteredDeposits.map((deposit) => (
+
+            <div
+              key={deposit._id}
+              className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-black p-5 md:flex-row md:items-center md:justify-between"
+            >
+
+              {/* DEPOSIT INFO */}
+
+              <div>
+
+                <h3 className="text-lg font-semibold text-white">
+                  PKR {formatCurrency(deposit.amount)}
+                </h3>
+
+                <p className="mt-1 text-sm text-gray-400">
+                  {deposit.method}
+                </p>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  {new Date(
+                    deposit.createdAt
+                  ).toLocaleString()}
+                </p>
+
+              </div>
+
+              {/* DEPOSIT STATUS */}
+
+              <span
+                className={`w-fit rounded-full px-4 py-2 text-xs font-semibold ${getDepositStatusBadge(
+                  deposit.status
+                )}`}
+              >
+                {deposit.status}
+              </span>
+
+            </div>
+
+          ))}
+
+        </div>
+
+      )}
+
+    </section>
+
+    {/* ======================================================
+        WITHDRAW PKR
+    ====================================================== */}
+
+    <section className="mb-10 rounded-3xl border border-red-500/20 bg-zinc-950 p-6">
+
+      {/* WITHDRAW HEADER */}
+
+      <div className="mb-6 flex items-center justify-between">
+
+        <div>
+
+          <h2 className="text-2xl font-bold text-red-400">
+            Withdraw PKR
+          </h2>
+
+          <p className="mt-1 text-sm text-gray-400">
+            Submit a withdrawal request. Admin approval is required.
+          </p>
+
+        </div>
+
+        <CreditCard className="h-8 w-8 text-red-400" />
+
+      </div>
+
+      <div className="grid gap-5 md:grid-cols-2">
+
+        {/* WITHDRAW AMOUNT */}
+
+        <div>
+
+          <label className="mb-2 block text-sm text-gray-300">
+            Withdraw Amount (PKR)
+          </label>
+
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={withdrawAmount}
+            onChange={(e) =>
+              setWithdrawAmount(e.target.value)
+            }
+            placeholder="Enter PKR Amount"
+            className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-red-500"
+          />
+
+        </div>
+
+        {/* WITHDRAW METHOD */}
+
+        <div>
+
+          <label className="mb-2 block text-sm text-gray-300">
+            Withdraw Method
+          </label>
+
+          <select
+            value={withdrawMethod}
+            onChange={(e) =>
+              setWithdrawMethod(e.target.value)
+            }
+            className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-red-500"
           >
-            {withdraw.status}
-          </span>
+
+            <option value="PKR Bank">
+              PKR Bank
+            </option>
+
+            <option value="ABA Bank">
+              ABA Bank
+            </option>
+
+            <option value="Binance USDT">
+              Binance USDT
+            </option>
+
+            <option value="Cash App">
+              Cash App
+            </option>
+
+          </select>
 
         </div>
-      ))}
-
-    </div>
-  )}
-
-</section>
-
-{/* ========================================================== */}
-{/* WALLET TIMELINE */}
-{/* ========================================================== */}
-
-<section className="mb-10 rounded-3xl border border-blue-500/20 bg-zinc-950 p-6">
-
-  <div className="mb-6 flex items-center justify-between">
-
-    <div>
-      <h2 className="text-2xl font-bold text-blue-400">
-        Wallet Timeline
-      </h2>
-
-      <p className="mt-1 text-sm text-gray-400">
-        Recent deposits and withdrawals.
-      </p>
-    </div>
-
-    <History className="h-8 w-8 text-blue-400"/>
-
-  </div>
-
-  <div className="space-y-4">
-
-    {recentDeposits.slice(0, 5).map((deposit) => (
-      <div
-        key={`deposit-${deposit._id}`}
-        className="flex items-center justify-between rounded-xl border border-green-500/20 bg-black p-4"
-      >
-
-        <div className="flex items-center gap-3">
-
-          <ArrowDownCircle className="h-8 w-8 text-green-400"/>
-
-          <div>
-
-            <p className="font-semibold text-green-400">
-              Deposit Received
-            </p>
-
-            <p className="text-sm text-gray-400">
-              {deposit.method}
-            </p>
-
-            <p className="text-xs text-gray-500">
-              {new Date(deposit.createdAt).toLocaleString()}
-            </p>
-
-          </div>
-
-        </div>
-
-        <span className="font-bold text-green-400">
-          + PKR {formatCurrency(deposit.amount)}
-        </span>
 
       </div>
-    ))}
 
-    {recentWithdrawals.slice(0, 5).map((withdraw) => (
-      <div
-        key={`withdraw-${withdraw._id}`}
-        className="flex items-center justify-between rounded-xl border border-red-500/20 bg-black p-4"
-      >
+      <div className="mt-6">
 
-        <div className="flex items-center gap-3">
+        <label className="mb-2 block text-sm text-gray-300">
+          Bank Account / Wallet Address
+        </label>
 
-          <ArrowUpCircle className="h-8 w-8 text-red-400"/>
-
-          <div>
-
-            <p className="font-semibold text-red-400">
-              Withdraw Request
-            </p>
-
-            <p className="text-sm text-gray-400">
-              {withdraw.method}
-            </p>
-
-            <p className="text-xs text-gray-500">
-              {new Date(withdraw.createdAt).toLocaleString()}
-            </p>
-
-          </div>
-
-        </div>
-
-        <span className="font-bold text-red-400">
-          - PKR {formatCurrency(withdraw.amount)}
-        </span>
-
-      </div>
-    ))}
-
-  </div>
-
-</section>
-{/* ========================================================== */}
-{/* TRANSACTION SEARCH & FILTER */}
-{/* ========================================================== */}
-
-<section className="mb-10 rounded-3xl border border-blue-500/20 bg-zinc-950 p-6">
-
-  <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
-    <div>
-      <h2 className="text-2xl font-bold text-blue-400">
-        Search Transactions
-      </h2>
-
-      <p className="mt-1 text-sm text-gray-400">
-        Search deposits or withdrawals by amount, method or status.
-      </p>
-    </div>
-
-    <div className="flex flex-wrap gap-3">
-
-      <div className="relative">
-
-        <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-500" />
-
-        <input
-          type="text"
-          value={searchHistory}
-          onChange={(e) => setSearchHistory(e.target.value)}
-          placeholder="Search..."
-          className="rounded-xl border border-zinc-700 bg-black py-3 pl-10 pr-4 text-white outline-none focus:border-blue-500"
+        <textarea
+          rows={3}
+          value={withdrawAddress}
+          onChange={(e) =>
+            setWithdrawAddress(e.target.value)
+          }
+          placeholder="Enter your Bank Account / ABA / Binance Wallet Address"
+          className="w-full rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-red-500"
         />
 
       </div>
 
-      <select
-        value={historyFilter}
-        onChange={(e) =>
-          setHistoryFilter(
-            e.target.value as "all" | "deposit" | "withdraw"
-          )
-        }
-        className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-white outline-none focus:border-blue-500"
+      <div className="mt-6 rounded-2xl border border-green-500/20 bg-black p-5">
+
+        <div className="flex items-center justify-between">
+
+          <div>
+
+            <p className="text-sm text-gray-400">
+              Available PKR Balance
+            </p>
+
+            <h3 className="mt-2 text-3xl font-bold text-green-400">
+              PKR {formatCurrency(pkrBalance)}
+            </h3>
+
+          </div>
+
+          <Landmark className="h-10 w-10 text-green-400" />
+
+        </div>
+
+      </div>
+
+      <button
+        type="button"
+        onClick={submitWithdraw}
+        disabled={withdrawLoading}
+        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <option value="all">All Transactions</option>
-        <option value="deposit">Deposits</option>
-        <option value="withdraw">Withdrawals</option>
-      </select>
 
-    </div>
+        {withdrawLoading ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Sending Withdraw Request...
+          </>
+        ) : (
+          <>
+            <ArrowUpCircle className="h-5 w-5" />
+            Submit Withdraw Request
+          </>
+        )}
 
-  </div>
+      </button>
 
-</section>
-{/* ========================================================== */}
-{/* WALLET STATISTICS */}
-{/* ========================================================== */}
+    </section>
+    {/* ======================================================
+        WITHDRAW SUMMARY
+    ====================================================== */}
 
-<section className="mb-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+    <section className="mb-10 grid gap-5 md:grid-cols-2">
 
-  <div className="rounded-2xl border border-green-500/20 bg-zinc-950 p-5">
-    <p className="text-sm text-gray-400">Approved Deposits</p>
+      {/* APPROVED WITHDRAWALS */}
 
-    <h3 className="mt-2 text-2xl font-bold text-green-400">
-      PKR {formatCurrency(totalDeposited)}
-    </h3>
-  </div>
+      <div className="rounded-2xl border border-red-500/20 bg-zinc-950 p-5">
 
-  <div className="rounded-2xl border border-red-500/20 bg-zinc-950 p-5">
-    <p className="text-sm text-gray-400">Approved Withdrawals</p>
+        <p className="text-sm text-gray-400">
+          Approved Withdrawals
+        </p>
 
-    <h3 className="mt-2 text-2xl font-bold text-red-400">
-      PKR {formatCurrency(totalWithdrawn)}
-    </h3>
-  </div>
+        <h3 className="mt-2 text-3xl font-bold text-red-400">
+          PKR {formatCurrency(totalWithdrawn)}
+        </h3>
 
-  <div className="rounded-2xl border border-yellow-500/20 bg-zinc-950 p-5">
-    <p className="text-sm text-gray-400">Portfolio Value</p>
+      </div>
 
-    <h3 className="mt-2 text-2xl font-bold text-yellow-400">
-      PKR {formatCurrency(portfolioValue)}
-    </h3>
-  </div>
+      {/* PENDING WITHDRAWALS */}
 
-  <div className="rounded-2xl border border-blue-500/20 bg-zinc-950 p-5">
-    <p className="text-sm text-gray-400">Wallet Status</p>
+      <div className="rounded-2xl border border-yellow-500/20 bg-zinc-950 p-5">
 
-    <h3 className="mt-2 text-2xl font-bold text-blue-400">
-      {walletHealth}
-    </h3>
-  </div>
+        <p className="text-sm text-gray-400">
+          Pending Withdrawals
+        </p>
 
-</section>
-{/* ========================================================== */}
-{/* CONTACT SUPPORT */}
-{/* ========================================================== */}
+        <h3 className="mt-2 text-3xl font-bold text-yellow-400">
+          PKR {formatCurrency(pendingWithdrawals)}
+        </h3>
 
-<section className="mb-10 rounded-3xl border border-yellow-500/20 bg-zinc-950 p-6">
+      </div>
 
-  <h2 className="mb-6 text-2xl font-bold text-yellow-400">
-    Contact GoldTrade Support
-  </h2>
+    </section>
 
-  <div className="grid gap-5 md:grid-cols-2">
+    {/* ======================================================
+        WITHDRAW HISTORY
+    ====================================================== */}
 
-    {/* WhatsApp */}
+    <section className="mb-10 rounded-3xl border border-red-500/20 bg-zinc-950 p-6">
 
-    <a
-      href="https://wa.me/855000000000"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="rounded-2xl border border-green-500/20 bg-black p-5 transition hover:border-green-500"
-    >
-      <div className="flex items-center gap-4">
+      {/* HISTORY HEADER */}
 
-        <div className="rounded-full bg-green-600 p-3">
-          <ArrowDownCircle className="h-6 w-6 text-white"/>
-        </div>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
         <div>
-          <p className="font-semibold text-green-400">
-            WhatsApp Support
+
+          <h2 className="text-2xl font-bold text-red-400">
+            Withdraw History
+          </h2>
+
+          <p className="mt-1 text-sm text-gray-400">
+            Latest withdrawal requests.
           </p>
 
-          <p className="text-sm text-gray-400">
-            +855 XX XXX XXX
+        </div>
+
+        {/* REFRESH BUTTON */}
+
+        <button
+          type="button"
+          onClick={refreshWithdrawHistory}
+          disabled={refreshLoading}
+          className="flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+
+          {refreshLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+
+          Refresh
+
+        </button>
+
+      </div>
+
+      {/* ====================================================
+          HISTORY CONTENT
+      ==================================================== */}
+
+      {withdrawLoading ? (
+
+        // LOADING
+
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin text-red-400" />
+        </div>
+
+      ) : filteredWithdrawals.length === 0 ? (
+
+        // EMPTY STATE
+
+        <div className="rounded-xl border border-zinc-800 bg-black p-6 text-center text-gray-500">
+          No Withdraw History Found.
+        </div>
+
+      ) : (
+
+        // WITHDRAW LIST
+
+        <div className="space-y-4">
+
+          {filteredWithdrawals.map((withdraw) => (
+
+            <div
+              key={withdraw._id}
+              className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-black p-5 md:flex-row md:items-center md:justify-between"
+            >
+
+              {/* WITHDRAW INFO */}
+
+              <div>
+
+                <h3 className="text-lg font-semibold text-white">
+                  PKR {formatCurrency(withdraw.amount)}
+                </h3>
+
+                <p className="mt-1 text-sm text-gray-400">
+                  {withdraw.method}
+                </p>
+
+                <p className="mt-1 break-all text-xs text-gray-500">
+                  {withdraw.walletAddress}
+                </p>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  {new Date(
+                    withdraw.createdAt
+                  ).toLocaleString()}
+                </p>
+
+              </div>
+
+              {/* WITHDRAW STATUS */}
+
+              <span
+                className={`w-fit rounded-full px-4 py-2 text-xs font-semibold ${getWithdrawStatusBadge(
+                  withdraw.status
+                )}`}
+              >
+                {withdraw.status}
+              </span>
+
+            </div>
+
+          ))}
+
+        </div>
+
+      )}
+
+    </section>
+
+    {/* ======================================================
+        WALLET FOOTER
+    ====================================================== */}
+
+    <section className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
+
+      <div className="flex flex-col gap-3 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+
+        <div>
+
+          <p className="text-sm font-semibold text-gray-300">
+            GoldTrade Enterprise Wallet
           </p>
+
+          <p className="mt-1 text-xs text-gray-500">
+            Secure wallet dashboard for deposits and withdrawals.
+          </p>
+
+        </div>
+
+        <div
+          className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold ${walletStatusClass}`}
+        >
+          {walletHealth}
         </div>
 
       </div>
-    </a>
 
-    {/* Telegram */}
+    </section>
 
-    <a
-      href="https://t.me/GoldTradeSupport"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="rounded-2xl border border-blue-500/20 bg-black p-5 transition hover:border-blue-500"
-    >
-      <div className="flex items-center gap-4">
-
-        <div className="rounded-full bg-blue-600 p-3">
-          <TrendingUp className="h-6 w-6 text-white"/>
-        </div>
-
-        <div>
-          <p className="font-semibold text-blue-400">
-            Telegram Support
-          </p>
-
-          <p className="text-sm text-gray-400">
-            @GoldTradeSupport
-          </p>
-        </div>
-
-      </div>
-    </a>
-
-  </div>
-
-</section>
-{/* ========================================================== */}
-{/* SECURITY NOTICE */}
-{/* ========================================================== */}
-
-<section className="mb-10 rounded-3xl border border-orange-500/20 bg-zinc-950 p-6">
-
-  <div className="flex items-start gap-4">
-
-    <ShieldCheck className="mt-1 h-10 w-10 text-orange-400"/>
-
-    <div>
-
-      <h3 className="text-xl font-semibold text-orange-400">
-        Security Notice
-      </h3>
-
-      <ul className="mt-3 space-y-2 text-sm text-gray-300">
-
-        <li>• Never share your GoldTrade password or OTP.</li>
-
-        <li>• Deposit receipts are verified by administrators.</li>
-
-        <li>• Withdrawals require administrator approval.</li>
-
-        <li>• JWT session expires automatically after logout.</li>
-
-        <li>• Use only official GoldTrade support channels.</li>
-
-      </ul>
-
-    </div>
-
-  </div>
-
-</section>
-
-    </main>
-  );
+  </main>
+);
 }
-

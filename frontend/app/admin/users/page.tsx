@@ -1,12 +1,5 @@
 ﻿"use client";
 
-// =====================================================
-// GoldTrade V18 Enterprise
-// ADMIN USERS MANAGER
-// PART 1/6
-// Production Version
-// =====================================================
-
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -30,10 +23,13 @@ import {
 
 // =====================================================
 // API URL
+// GOLDTRADE V18
 // =====================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL ||  "https://goldtrade-2.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://goldtrade-2.onrender.com";
+
 // =====================================================
 // TYPES
 // =====================================================
@@ -49,9 +45,13 @@ interface AdminUser {
 
   username: string;
   email: string;
-
   role: string;
+
   status: "Active" | "Frozen";
+
+  isActive?: boolean;
+  isFrozen?: boolean;
+  isVerified?: boolean;
 
   wallet?: UserWallet;
 
@@ -60,6 +60,7 @@ interface AdminUser {
   usdtBalance?: number;
 
   createdAt: string;
+  updatedAt?: string;
 }
 
 interface UserStatistics {
@@ -77,7 +78,6 @@ interface UserStatistics {
 // =====================================================
 
 export default function AdminUsersPage() {
-
   // ===================================================
   // AUTH
   // ===================================================
@@ -91,14 +91,14 @@ export default function AdminUsersPage() {
   // USERS
   // ===================================================
 
-  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [users, setUsers] =
+    useState<AdminUser[]>([]);
 
   const [statistics, setStatistics] =
     useState<UserStatistics>({
       totalUsers: 0,
       activeUsers: 0,
       frozenUsers: 0,
-
       totalPKR: 0,
       totalGold: 0,
       totalUSDT: 0,
@@ -108,24 +108,29 @@ export default function AdminUsersPage() {
   // UI STATES
   // ===================================================
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
 
   const [refreshing, setRefreshing] =
     useState(false);
 
-  const [error, setError] = useState("");
+  const [error, setError] =
+    useState("");
 
-  const [message, setMessage] = useState("");
+  const [message, setMessage] =
+    useState("");
 
-  const [messageType, setMessageType] = useState<
-    "success" | "error"
-  >("success");
+  const [messageType, setMessageType] =
+    useState<"success" | "error">(
+      "success"
+    );
 
   // ===================================================
   // SEARCH
   // ===================================================
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] =
+    useState("");
 
   // ===================================================
   // SELECTED USER
@@ -141,18 +146,29 @@ export default function AdminUsersPage() {
   // EDIT WALLET VALUES
   // ===================================================
 
-  const [editPKR, setEditPKR] = useState(0);
+  const [editPKR, setEditPKR] =
+    useState(0);
 
-  const [editGold, setEditGold] = useState(0);
+  const [editGold, setEditGold] =
+    useState(0);
 
-  const [editUSDT, setEditUSDT] = useState(0);
+  const [editUSDT, setEditUSDT] =
+    useState(0);
+
+    // ===================================================
+  // VIEW USER
+  // ===================================================
+
+  const [viewUser, setViewUser] =
+    useState<AdminUser | null>(null);
 
   // ===================================================
   // TOKEN LOAD
   // ===================================================
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
+    const savedToken =
+      localStorage.getItem("token");
 
     if (!savedToken) {
       window.location.href = "/login";
@@ -175,80 +191,314 @@ export default function AdminUsersPage() {
   );
 
   // ===================================================
-  // FORMATTERS
+  // SAFE NUMBER
   // ===================================================
 
-  const formatMoney = (value: number = 0) =>
-    Number(value).toLocaleString("en-PK", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+  const toNumber = (value: unknown): number => {
+    const number = Number(value);
 
-  const formatDate = (date?: string) => {
-    if (!date) return "--";
-
-    return new Date(date).toLocaleString("en-GB", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+    return Number.isFinite(number)
+      ? number
+      : 0;
   };
 
   // ===================================================
+  // FORMAT MONEY
+  // ===================================================
+
+  const formatMoney = (
+    value: number = 0
+  ): string => {
+    return toNumber(value).toLocaleString(
+      "en-PK",
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
+    );
+  };
+
+  // ===================================================
+  // FORMAT DATE
+  // ===================================================
+
+  const formatDate = (
+    date?: string
+  ): string => {
+    if (!date) {
+      return "--";
+    }
+
+    const parsedDate = new Date(date);
+
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
+      return "--";
+    }
+
+    return parsedDate.toLocaleString(
+      "en-GB",
+      {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }
+    );
+  };
+
+  // ===================================================
+  // GET PKR BALANCE
+  // ===================================================
+
+  const getPKR = (
+    user: AdminUser
+  ): number => {
+    return toNumber(
+      user.wallet?.pkr ??
+        user.pkrBalance ??
+        0
+    );
+  };
+
+  // ===================================================
+  // GET GOLD BALANCE
+  // ===================================================
+
+  const getGold = (
+    user: AdminUser
+  ): number => {
+    return toNumber(
+      user.wallet?.gold ??
+        user.goldBalance ??
+        0
+    );
+  };
+
+  // ===================================================
+  // GET USDT BALANCE
+  // ===================================================
+
+  const getUSDT = (
+    user: AdminUser
+  ): number => {
+    return toNumber(
+      user.wallet?.usdt ??
+        user.usdtBalance ??
+        0
+    );
+  };
+    // ===================================================
   // FILTER USERS
   // ===================================================
 
   const filteredUsers = useMemo(() => {
-    const keyword = search.toLowerCase();
+    const keyword = search.trim().toLowerCase();
+
+    if (!keyword) {
+      return users;
+    }
 
     return users.filter((user) => {
+      const username = String(
+        user.username ?? ""
+      ).toLowerCase();
+
+      const email = String(
+        user.email ?? ""
+      ).toLowerCase();
+
+      const role = String(
+        user.role ?? ""
+      ).toLowerCase();
+
       return (
-        user.username.toLowerCase().includes(keyword) ||
-        user.email.toLowerCase().includes(keyword)
+        username.includes(keyword) ||
+        email.includes(keyword) ||
+        role.includes(keyword)
       );
     });
   }, [users, search]);
-    // ===================================================
-  // LOAD USERS + STATISTICS (PRODUCTION)
+
+  // ===================================================
+  // USER STATUS
+  // ===================================================
+
+  const getUserStatus = (
+    user: AdminUser
+  ): "Active" | "Frozen" => {
+    if (
+      user.isFrozen ||
+      user.isActive === false ||
+      user.status === "Frozen"
+    ) {
+      return "Frozen";
+    }
+
+    return "Active";
+  };
+
+  // ===================================================
+  // TOKEN EXPIRY / AUTH FAILURE
+  // ===================================================
+
+  const handleUnauthorized = () => {
+    localStorage.removeItem("token");
+
+    setToken("");
+
+    window.location.href = "/login";
+  };
+
+  // ===================================================
+  // LOAD USERS + STATISTICS
   // ===================================================
 
   const loadUsersDashboard = async () => {
-    if (!token) return;
+    if (!token) {
+      return;
+    }
 
     try {
       setLoading(true);
-      setRefreshing(false);
       setError("");
 
-      const [usersRes, statisticsRes] = await Promise.all([
-        fetch(`${API}/api/admin/users`, {
-          headers: adminHeaders,
-          cache: "no-store",
-        }),
+      const [usersRes, statisticsRes] =
+        await Promise.all([
+          fetch(
+            `${API}/api/admin/users`,
+            {
+              method: "GET",
+              headers: adminHeaders,
+              cache: "no-store",
+            }
+          ),
 
-        fetch(`${API}/api/admin/users/statistics`, {
-          headers: adminHeaders,
-          cache: "no-store",
-        }),
-      ]);
+          fetch(
+            `${API}/api/admin/users/statistics`,
+            {
+              method: "GET",
+              headers: adminHeaders,
+              cache: "no-store",
+            }
+          ),
+        ]);
 
-      const usersData = await usersRes.json();
-      const statisticsData = await statisticsRes.json();
+      // ==================================================
+      // SAFE JSON PARSING
+      // ==================================================
 
-      console.log("USERS API:", usersData);
-      console.log("USER STATISTICS API:", statisticsData);
+      let usersData: any = {};
+      let statisticsData: any = {};
 
-      // USERS
-      if (usersRes.ok && usersData.success) {
-        setUsers(usersData.users || []);
-      } else {
-        setUsers([]);
-        setError(usersData.message || "Unable to load users.");
+      try {
+        usersData = await usersRes.json();
+      } catch (jsonError) {
+        console.error(
+          "USERS API JSON ERROR:",
+          jsonError
+        );
       }
 
-      // STATISTICS
-      if (statisticsRes.ok && statisticsData.success) {
-        setStatistics(statisticsData.statistics);
+      try {
+        statisticsData =
+          await statisticsRes.json();
+      } catch (jsonError) {
+        console.error(
+          "STATISTICS API JSON ERROR:",
+          jsonError
+        );
+      }
+
+      // ==================================================
+      // DEBUG
+      // ==================================================
+
+      console.log(
+        "USERS API:",
+        usersData
+      );
+
+      console.log(
+        "USER STATISTICS API:",
+        statisticsData
+      );
+
+      // ==================================================
+      // AUTHORIZATION FAILURE
+      // ==================================================
+
+      if (
+        usersRes.status === 401 ||
+        usersRes.status === 403 ||
+        statisticsRes.status === 401 ||
+        statisticsRes.status === 403
+      ) {
+        handleUnauthorized();
+        return;
+      }
+
+      // ==================================================
+      // USERS
+      // ==================================================
+
+      if (
+        usersRes.ok &&
+        usersData?.success === true &&
+        Array.isArray(usersData?.users)
+      ) {
+        setUsers(usersData.users);
       } else {
+        setUsers([]);
+
+        const usersMessage =
+          usersData?.message ||
+          `Unable to load users. (${usersRes.status})`;
+
+        setError(usersMessage);
+      }
+
+      // ==================================================
+      // STATISTICS
+      // ==================================================
+
+      if (
+        statisticsRes.ok &&
+        statisticsData?.success === true
+      ) {
+        const stats =
+          statisticsData?.statistics || {};
+
+        setStatistics({
+          totalUsers: toNumber(
+            stats.totalUsers
+          ),
+
+          activeUsers: toNumber(
+            stats.activeUsers
+          ),
+
+          frozenUsers: toNumber(
+            stats.frozenUsers
+          ),
+
+          totalPKR: toNumber(
+            stats.totalPKR
+          ),
+
+          totalGold: toNumber(
+            stats.totalGold
+          ),
+
+          totalUSDT: toNumber(
+            stats.totalUSDT
+          ),
+        });
+      } else {
+        // Statistics failure should not
+        // destroy already-loaded users.
+
         setStatistics({
           totalUsers: 0,
           activeUsers: 0,
@@ -257,24 +507,50 @@ export default function AdminUsersPage() {
           totalGold: 0,
           totalUSDT: 0,
         });
-      }
 
-    } catch (error: any) {
-      console.error("LOAD USERS ERROR:", error);
-      setError(error.message || "Failed to load users.");
+        console.error(
+          "STATISTICS API ERROR:",
+          statisticsData?.message ||
+            `Request failed with status ${statisticsRes.status}`
+        );
+      }
+    } catch (error: unknown) {
+      console.error(
+        "LOAD USERS ERROR:",
+        error
+      );
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load users."
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
-
-  // ===================================================
+    // ===================================================
   // REFRESH USERS
   // ===================================================
 
   const refreshUsers = async () => {
+    if (!token) {
+      return;
+    }
+
     setRefreshing(true);
-    await loadUsersDashboard();
+
+    try {
+      await loadUsersDashboard();
+    } catch (error) {
+      console.error(
+        "REFRESH USERS ERROR:",
+        error
+      );
+
+      setRefreshing(false);
+    }
   };
 
   // ===================================================
@@ -282,28 +558,64 @@ export default function AdminUsersPage() {
   // ===================================================
 
   const checkAdminAuth = async () => {
-    if (!token) return;
+    if (!token) {
+      return;
+    }
 
     try {
-      const response = await fetch(`${API}/api/admin/auth/check`, {
-        headers: adminHeaders,
-        cache: "no-store",
-      });
+      const response = await fetch(
+        `${API}/api/admin/auth/check`,
+        {
+          method: "GET",
+          headers: adminHeaders,
+          cache: "no-store",
+        }
+      );
 
-      const data = await response.json();
+      let data: any = {};
 
-      console.log("ADMIN AUTH:", data);
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error(
+          "ADMIN AUTH JSON ERROR:",
+          jsonError
+        );
+      }
 
-      if (!response.ok || !data.success) {
-        localStorage.removeItem("token");
-        window.location.href = "/login";
+      console.log(
+        "ADMIN AUTH:",
+        data
+      );
+
+      // =================================================
+      // UNAUTHORIZED
+      // =================================================
+
+      if (
+        response.status === 401 ||
+        response.status === 403 ||
+        !response.ok ||
+        data?.success !== true
+      ) {
+        handleUnauthorized();
         return;
       }
 
-      setAdminName(data.user?.username || "Administrator");
+      // =================================================
+      // ADMIN NAME
+      // =================================================
 
+      setAdminName(
+        data?.user?.username ||
+          data?.user?.fullName ||
+          "Administrator"
+      );
     } catch (error) {
-      console.error("ADMIN AUTH ERROR:", error);
+      console.error(
+        "ADMIN AUTH ERROR:",
+        error
+      );
     }
   };
 
@@ -312,35 +624,54 @@ export default function AdminUsersPage() {
   // ===================================================
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      return;
+    }
 
     checkAdminAuth();
     loadUsersDashboard();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   // ===================================================
-  // CLEAR MESSAGE AFTER 4 SECONDS
+  // CLEAR MESSAGE
   // ===================================================
 
   useEffect(() => {
-    if (!message) return;
+    if (!message) {
+      return;
+    }
 
     const timer = setTimeout(() => {
       setMessage("");
     }, 4000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [message]);
-    // ===================================================
+
+  // ===================================================
   // OPEN WALLET EDIT MODAL
   // ===================================================
 
-  const openWalletModal = (user: AdminUser) => {
+  const openWalletModal = (
+    user: AdminUser
+  ) => {
     setSelectedUser(user);
 
-    setEditPKR(Number(user.wallet?.pkr ?? user.pkrBalance ?? 0));
-    setEditGold(Number(user.wallet?.gold ?? user.goldBalance ?? 0));
-    setEditUSDT(Number(user.wallet?.usdt ?? user.usdtBalance ?? 0));
+    setEditPKR(
+      getPKR(user)
+    );
+
+    setEditGold(
+      getGold(user)
+    );
+
+    setEditUSDT(
+      getUSDT(user)
+    );
 
     setWalletModalOpen(true);
   };
@@ -351,6 +682,7 @@ export default function AdminUsersPage() {
 
   const closeWalletModal = () => {
     setWalletModalOpen(false);
+
     setSelectedUser(null);
 
     setEditPKR(0);
@@ -359,15 +691,72 @@ export default function AdminUsersPage() {
   };
 
   // ===================================================
+  // OPEN USER VIEW
+  // ===================================================
+
+  const openUserView = (
+    user: AdminUser
+  ) => {
+    setViewUser(user);
+  };
+
+  // ===================================================
+  // CLOSE USER VIEW
+  // ===================================================
+
+  const closeUserView = () => {
+    setViewUser(null);
+  };
+
+    // ===================================================
   // UPDATE USER WALLET
   // POST /api/admin/users/:id/wallet
   // ===================================================
 
   const updateUserWallet = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser) {
+      return;
+    }
+
+    const pkr = Number(editPKR);
+    const gold = Number(editGold);
+    const usdt = Number(editUSDT);
+
+    // =================================================
+    // VALIDATE WALLET VALUES
+    // =================================================
+
+    if (
+      !Number.isFinite(pkr) ||
+      !Number.isFinite(gold) ||
+      !Number.isFinite(usdt)
+    ) {
+      setMessage(
+        "Wallet values must be valid numbers."
+      );
+
+      setMessageType("error");
+
+      return;
+    }
+
+    if (
+      pkr < 0 ||
+      gold < 0 ||
+      usdt < 0
+    ) {
+      setMessage(
+        "Wallet values cannot be negative."
+      );
+
+      setMessageType("error");
+
+      return;
+    }
 
     try {
       setLoading(true);
+      setError("");
 
       const response = await fetch(
         `${API}/api/admin/users/${selectedUser._id}/wallet`,
@@ -375,37 +764,85 @@ export default function AdminUsersPage() {
           method: "POST",
           headers: adminHeaders,
           body: JSON.stringify({
-            pkr: Number(editPKR),
-            gold: Number(editGold),
-            usdt: Number(editUSDT),
+            pkr,
+            gold,
+            usdt,
           }),
         }
       );
 
-      const data = await response.json();
+      // =================================================
+      // SAFE JSON RESPONSE
+      // =================================================
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Wallet update failed.");
+      let data: any = {};
+
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error(
+          "UPDATE WALLET JSON ERROR:",
+          jsonError
+        );
       }
 
-      setMessage("Wallet updated successfully.");
+      // =================================================
+      // AUTHORIZATION
+      // =================================================
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
+        handleUnauthorized();
+        return;
+      }
+
+      // =================================================
+      // API ERROR
+      // =================================================
+
+      if (
+        !response.ok ||
+        data?.success !== true
+      ) {
+        throw new Error(
+          data?.message ||
+            `Wallet update failed. (${response.status})`
+        );
+      }
+
+      // =================================================
+      // SUCCESS
+      // =================================================
+
+      setMessage(
+        "Wallet updated successfully."
+      );
+
       setMessageType("success");
 
       closeWalletModal();
+
       await loadUsersDashboard();
+    } catch (error: unknown) {
+      console.error(
+        "UPDATE WALLET ERROR:",
+        error
+      );
 
-    } catch (error: any) {
-      console.error("UPDATE WALLET ERROR:", error);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Wallet update failed."
+      );
 
-      setMessage(error.message || "Wallet update failed.");
       setMessageType("error");
-
     } finally {
       setLoading(false);
     }
   };
-
-  // ===================================================
+    // ===================================================
   // FREEZE / UNFREEZE USER
   // POST /api/admin/users/:id/status
   // ===================================================
@@ -414,32 +851,91 @@ export default function AdminUsersPage() {
     userId: string,
     status: "Active" | "Frozen"
   ) => {
+    if (!userId) {
+      return;
+    }
+
     try {
+      setLoading(true);
+
       const response = await fetch(
         `${API}/api/admin/users/${userId}/status`,
         {
           method: "POST",
           headers: adminHeaders,
-          body: JSON.stringify({ status }),
+          body: JSON.stringify({
+            status,
+          }),
         }
       );
 
-      const data = await response.json();
+      // =================================================
+      // SAFE JSON RESPONSE
+      // =================================================
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Status update failed.");
+      let data: any = {};
+
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error(
+          "STATUS JSON ERROR:",
+          jsonError
+        );
       }
 
-      setMessage(`User ${status.toLowerCase()} successfully.`);
+      // =================================================
+      // AUTHORIZATION
+      // =================================================
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
+        handleUnauthorized();
+        return;
+      }
+
+      // =================================================
+      // API ERROR
+      // =================================================
+
+      if (
+        !response.ok ||
+        data?.success !== true
+      ) {
+        throw new Error(
+          data?.message ||
+            `Status update failed. (${response.status})`
+        );
+      }
+
+      // =================================================
+      // SUCCESS
+      // =================================================
+
+      setMessage(
+        `User ${status.toLowerCase()} successfully.`
+      );
+
       setMessageType("success");
 
       await loadUsersDashboard();
+    } catch (error: unknown) {
+      console.error(
+        "STATUS UPDATE ERROR:",
+        error
+      );
 
-    } catch (error: any) {
-      console.error("STATUS UPDATE ERROR:", error);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Status update failed."
+      );
 
-      setMessage(error.message || "Status update failed.");
       setMessageType("error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -448,14 +944,24 @@ export default function AdminUsersPage() {
   // DELETE /api/admin/users/:id
   // ===================================================
 
-  const deleteUser = async (userId: string) => {
+  const deleteUser = async (
+    userId: string
+  ) => {
+    if (!userId) {
+      return;
+    }
+
     const confirmed = window.confirm(
       "Delete this user permanently?"
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
+      setLoading(true);
+
       const response = await fetch(
         `${API}/api/admin/users/${userId}`,
         {
@@ -464,22 +970,88 @@ export default function AdminUsersPage() {
         }
       );
 
-      const data = await response.json();
+      // =================================================
+      // SAFE JSON RESPONSE
+      // =================================================
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Delete failed.");
+      let data: any = {};
+
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error(
+          "DELETE USER JSON ERROR:",
+          jsonError
+        );
       }
 
-      setMessage("User deleted successfully.");
+      // =================================================
+      // AUTHORIZATION
+      // =================================================
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
+        handleUnauthorized();
+        return;
+      }
+
+      // =================================================
+      // API ERROR
+      // =================================================
+
+      if (
+        !response.ok ||
+        data?.success !== true
+      ) {
+        throw new Error(
+          data?.message ||
+            `Delete failed. (${response.status})`
+        );
+      }
+
+      // =================================================
+      // SUCCESS
+      // =================================================
+
+      setMessage(
+        "User deleted successfully."
+      );
+
       setMessageType("success");
 
+      // If deleted user was currently selected,
+      // clear selected/view state.
+
+      if (
+        selectedUser?._id === userId
+      ) {
+        closeWalletModal();
+      }
+
+      if (
+        viewUser?._id === userId
+      ) {
+        closeUserView();
+      }
+
       await loadUsersDashboard();
+    } catch (error: unknown) {
+      console.error(
+        "DELETE USER ERROR:",
+        error
+      );
 
-    } catch (error: any) {
-      console.error("DELETE USER ERROR:", error);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Delete failed."
+      );
 
-      setMessage(error.message || "Delete failed.");
       setMessageType("error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -487,8 +1059,18 @@ export default function AdminUsersPage() {
   // USER STATUS BADGE
   // ===================================================
 
-  const getUserStatusClass = (status?: string) => {
-    if ((status || "Active") === "Frozen") {
+  const getUserStatusClass = (
+    status?: string
+  ): string => {
+    const normalizedStatus = String(
+      status || "Active"
+    )
+      .trim()
+      .toLowerCase();
+
+    if (
+      normalizedStatus === "frozen"
+    ) {
       return "text-red-400 bg-red-500/10 border border-red-500/30";
     }
 
@@ -499,607 +1081,836 @@ export default function AdminUsersPage() {
   // ROLE BADGE
   // ===================================================
 
-  const getRoleClass = (role?: string) => {
-    if ((role || "").toUpperCase() === "ADMIN") {
+  const getRoleClass = (
+    role?: string
+  ): string => {
+    const normalizedRole = String(
+      role || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    if (
+      normalizedRole === "admin"
+    ) {
       return "text-red-400 bg-red-500/10 border border-red-500/30";
     }
 
     return "text-blue-400 bg-blue-500/10 border border-blue-500/30";
   };
-    // =====================================================
-  // PAGE UI START
-  // =====================================================
+  
+  // ===================================================
+  // PAGE UI
+  // ===================================================
 
   return (
-    <div className="min-h-screen bg-[#0B1120] text-white p-6">
+    <main className="min-h-screen bg-black text-white">
 
-      {/* ========================================== */}
-      {/* PAGE HEADER */}
-      {/* ========================================== */}
+      {/* =================================================
+          PAGE CONTAINER
+      ================================================= */}
 
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 mb-8">
+      <div className="mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
 
-        <div>
-          <h1 className="text-3xl font-bold text-yellow-400">
-            GoldTrade V18 • Enterprise User Manager
-          </h1>
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
-          <p className="text-gray-400 mt-2">
-            Welcome back,
-            <span className="text-green-400 font-semibold ml-2">
-              {adminName}
-            </span>
-          </p>
+        <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
-          <p className="text-gray-500 text-sm mt-1">
-            Manage users, wallet balances and account status.
-          </p>
-        </div>
+          <div>
+            <div className="flex items-center gap-3">
 
-        <button
-          onClick={refreshUsers}
-          disabled={refreshing}
-          className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 text-black font-semibold px-5 py-3 rounded-xl transition"
-        >
-          <RefreshCw
-            size={18}
-            className={refreshing ? "animate-spin" : ""}
-          />
-
-          {refreshing ? "Refreshing..." : "Refresh Users"}
-        </button>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* SUCCESS / ERROR MESSAGE */}
-      {/* ========================================== */}
-
-      {message && (
-        <div
-          className={`mb-6 rounded-xl px-4 py-3 border font-medium ${
-            messageType === "success"
-              ? "bg-green-600/20 border-green-500 text-green-300"
-              : "bg-red-600/20 border-red-500 text-red-300"
-          }`}
-        >
-          {message}
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-6 rounded-xl px-4 py-3 border border-red-600 bg-red-600/10 text-red-300">
-          {error}
-        </div>
-      )}
-
-      {/* ========================================== */}
-      {/* STATISTICS CARDS */}
-      {/* ========================================== */}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
-
-        {/* TOTAL USERS */}
-
-        <div className="rounded-2xl bg-[#111827] border border-blue-600/30 p-5">
-
-          <div className="flex justify-between items-center mb-3">
-            <Users className="text-blue-400" size={28} />
-
-            <span className="text-xs font-semibold text-blue-400">
-              USERS
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Total Registered Users
-          </p>
-
-          <h2 className="text-3xl font-bold text-blue-400 mt-2">
-            {statistics.totalUsers}
-          </h2>
-
-        </div>
-
-        {/* ACTIVE USERS */}
-
-        <div className="rounded-2xl bg-[#111827] border border-green-600/30 p-5">
-
-          <div className="flex justify-between items-center mb-3">
-            <UserCheck className="text-green-400" size={28} />
-
-            <span className="text-xs font-semibold text-green-400">
-              ACTIVE
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Active Accounts
-          </p>
-
-          <h2 className="text-3xl font-bold text-green-400 mt-2">
-            {statistics.activeUsers}
-          </h2>
-
-        </div>
-
-        {/* FROZEN USERS */}
-
-        <div className="rounded-2xl bg-[#111827] border border-red-600/30 p-5">
-
-          <div className="flex justify-between items-center mb-3">
-            <UserX className="text-red-400" size={28} />
-
-            <span className="text-xs font-semibold text-red-400">
-              FROZEN
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Frozen Accounts
-          </p>
-
-          <h2 className="text-3xl font-bold text-red-400 mt-2">
-            {statistics.frozenUsers}
-          </h2>
-
-        </div>
-
-        {/* ADMIN */}
-
-        <div className="rounded-2xl bg-[#111827] border border-purple-600/30 p-5">
-
-          <div className="flex justify-between items-center mb-3">
-            <Shield className="text-purple-400" size={28} />
-
-            <span className="text-xs font-semibold text-purple-400">
-              ADMIN
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Logged-in Administrator
-          </p>
-
-          <h2 className="text-xl font-bold text-purple-400 mt-2 truncate">
-            {adminName}
-          </h2>
-
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* WALLET SUMMARY CARDS */}
-      {/* ========================================== */}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-
-        {/* PKR */}
-
-        <div className="rounded-2xl bg-[#111827] border border-green-600/20 p-5">
-
-          <div className="flex justify-between items-center mb-2">
-            <DollarSign className="text-green-400" size={24} />
-
-            <span className="text-green-400 text-xs font-semibold">
-              PKR
-            </span>
-          </div>
-
-          <h3 className="text-2xl font-bold text-green-400">
-            PKR {formatMoney(statistics.totalPKR)}
-          </h3>
-
-          <p className="text-gray-400 text-sm mt-2">
-            Total PKR Wallet Balance
-          </p>
-
-        </div>
-
-        {/* GOLD */}
-
-        <div className="rounded-2xl bg-[#111827] border border-yellow-600/20 p-5">
-
-          <div className="flex justify-between items-center mb-2">
-            <Coins className="text-yellow-400" size={24} />
-
-            <span className="text-yellow-400 text-xs font-semibold">
-              GOLD
-            </span>
-          </div>
-
-          <h3 className="text-2xl font-bold text-yellow-400">
-            {statistics.totalGold.toFixed(3)} Gold
-          </h3>
-
-          <p className="text-gray-400 text-sm mt-2">
-            Total Gold Wallet Balance
-          </p>
-
-        </div>
-
-        {/* USDT */}
-
-        <div className="rounded-2xl bg-[#111827] border border-cyan-600/20 p-5">
-
-          <div className="flex justify-between items-center mb-2">
-            <Wallet className="text-cyan-400" size={24} />
-
-            <span className="text-cyan-400 text-xs font-semibold">
-              USDT
-            </span>
-          </div>
-
-          <h3 className="text-2xl font-bold text-cyan-400">
-            {statistics.totalUSDT.toFixed(2)} USDT
-          </h3>
-
-          <p className="text-gray-400 text-sm mt-2">
-            Total USDT Wallet Balance
-          </p>
-
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* SEARCH BAR */}
-      {/* ========================================== */}
-
-      <div className="rounded-2xl bg-[#111827] border border-gray-700 p-5 mb-8">
-
-        <div className="relative">
-
-          <Search
-            size={20}
-            className="absolute left-4 top-3.5 text-gray-500"
-          />
-
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search username or email..."
-            className="w-full bg-[#1F2937] border border-gray-600 rounded-xl py-3 pl-12 pr-4 outline-none focus:border-yellow-500 transition"
-          />
-
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* USERS TABLE STARTS HERE */}
-      {/* ========================================== */}
-
-      <div className="rounded-2xl border border-gray-700 bg-[#111827] overflow-hidden">
-
-        <div className="px-6 py-5 border-b border-gray-700 flex justify-between items-center">
-
-          <h2 className="text-xl font-bold text-yellow-400">
-            User Management ({filteredUsers.length})
-          </h2>
-
-          <Users className="text-yellow-400" />
-
-        </div>
-
-        <div className="overflow-x-auto">
-
-          <table className="w-full min-w-[1200px]">
-
-            <thead className="bg-[#1F2937] text-gray-300 text-sm">
-
-              <tr>
-
-                <th className="text-left px-5 py-4">User</th>
-
-                <th className="text-center">Role</th>
-
-                <th className="text-center">Status</th>
-
-                <th className="text-center">PKR</th>
-
-                <th className="text-center">Gold</th>
-
-                <th className="text-center">USDT</th>
-
-                <th className="text-center">Joined</th>
-
-                <th className="text-center">Actions</th>
-
-              </tr>
-
-            </thead>
-
-            <tbody>
-                            {loading ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="py-12 text-center text-gray-400"
-                  >
-                    Loading users...
-                  </td>
-                </tr>
-
-              ) : filteredUsers.length === 0 ? (
-
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="py-12 text-center text-red-300"
-                  >
-                    No users found.
-                  </td>
-                </tr>
-
-              ) : (
-
-                filteredUsers.map((user) => (
-
-                  <tr
-                    key={user._id}
-                    className="border-b border-gray-800 hover:bg-[#1B2435] transition"
-                  >
-
-                    {/* USER INFO */}
-
-                    <td className="px-5 py-4">
-
-                      <div className="flex items-center gap-3">
-
-                        <div className="w-11 h-11 rounded-full bg-yellow-500/20 flex items-center justify-center">
-
-                          <Users
-                            size={20}
-                            className="text-yellow-400"
-                          />
-
-                        </div>
-
-                        <div>
-
-                          <p className="font-semibold text-white">
-                            {user.username}
-                          </p>
-
-                          <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
-
-                            <Mail size={14} />
-
-                            {user.email}
-
-                          </div>
-
-                        </div>
-
-                      </div>
-
-                    </td>
-
-                    {/* ROLE */}
-
-                    <td className="text-center">
-
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${getRoleClass(
-                          user.role
-                        )}`}
-                      >
-                        {user.role}
-                      </span>
-
-                    </td>
-
-                    {/* STATUS */}
-
-                    <td className="text-center">
-
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${getUserStatusClass(
-                          user.status
-                        )}`}
-                      >
-                        {user.status || "Active"}
-                      </span>
-
-                    </td>
-
-                    {/* PKR */}
-
-                    <td className="text-center text-green-400 font-semibold">
-
-                      PKR{" "}
-
-                      {formatMoney(
-                        Number(
-                          user.wallet?.pkr ??
-                            user.pkrBalance ??
-                            0
-                        )
-                      )}
-
-                    </td>
-
-                    {/* GOLD */}
-
-                    <td className="text-center text-yellow-400 font-semibold">
-
-                      {Number(
-                        user.wallet?.gold ??
-                          user.goldBalance ??
-                          0
-                      ).toFixed(3)}{" "}
-
-                      Gold
-
-                    </td>
-
-                    {/* USDT */}
-
-                    <td className="text-center text-cyan-400 font-semibold">
-
-                      {Number(
-                        user.wallet?.usdt ??
-                          user.usdtBalance ??
-                          0
-                      ).toFixed(2)}{" "}
-
-                      USDT
-
-                    </td>
-
-                    {/* JOIN DATE */}
-
-                    <td className="text-center text-gray-400 text-sm">
-
-                      <div className="flex flex-col items-center gap-1">
-
-                        <Calendar
-                          size={14}
-                          className="text-gray-500"
-                        />
-
-                        {formatDate(user.createdAt)}
-
-                      </div>
-
-                    </td>
-
-                    {/* ACTION BUTTONS */}
-
-                    <td className="px-4 py-4">
-
-                      <div className="flex flex-wrap justify-center gap-2">
-
-                        {/* VIEW */}
-
-                        <button
-                          onClick={() => setSelectedUser(user)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1"
-                        >
-                          <Eye size={14} />
-                          View
-                        </button>
-
-                        {/* EDIT WALLET */}
-
-                        <button
-                          onClick={() => openWalletModal(user)}
-                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1"
-                        >
-                          <Edit size={14} />
-                          Wallet
-                        </button>
-
-                        {/* FREEZE / UNFREEZE */}
-
-                        {user.status === "Frozen" ? (
-
-                          <button
-                            onClick={() =>
-                              updateUserStatus(
-                                user._id,
-                                "Active"
-                              )
-                            }
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1"
-                          >
-                            <UserCheck size={14} />
-                            Unfreeze
-                          </button>
-
-                        ) : (
-
-                          <button
-                            onClick={() =>
-                              updateUserStatus(
-                                user._id,
-                                "Frozen"
-                              )
-                            }
-                            className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1"
-                          >
-                            <UserX size={14} />
-                            Freeze
-                          </button>
-
-                        )}
-
-                        {/* DELETE */}
-
-                        <button
-                          onClick={() => deleteUser(user._id)}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1"
-                        >
-                          <Trash2 size={14} />
-                          Delete
-                        </button>
-
-                      </div>
-
-                    </td>
-
-                  </tr>
-
-                ))
-
-              )}
-
-            </tbody>
-                      </table>
-        </div>
-      </div>
-
-      {/* ========================================== */}
-      {/* WALLET EDIT MODAL */}
-      {/* ========================================== */}
-
-      {walletModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-
-          <div className="w-full max-w-xl rounded-3xl bg-[#111827] border border-yellow-500/30 shadow-2xl overflow-hidden">
-
-            {/* HEADER */}
-
-            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-700">
+              <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3">
+                <Users
+                  size={24}
+                  className="text-yellow-400"
+                />
+              </div>
 
               <div>
-                <h2 className="text-2xl font-bold text-yellow-400">
-                  Edit Wallet Balance
-                </h2>
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                  User Management
+                </h1>
 
-                <p className="text-gray-400 text-sm mt-1">
-                  {selectedUser.username}
+                <p className="mt-1 text-sm text-gray-400">
+                  Manage users, wallets and account status
                 </p>
               </div>
 
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+
+            <div className="hidden rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 sm:block">
+              <p className="text-xs text-gray-500">
+                Administrator
+              </p>
+
+              <p className="text-sm font-semibold text-white">
+                {adminName}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={refreshUsers}
+              disabled={refreshing || loading}
+              className="flex items-center gap-2 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm font-semibold text-yellow-400 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw
+                size={17}
+                className={
+                  refreshing
+                    ? "animate-spin"
+                    : ""
+                }
+              />
+
+              {refreshing
+                ? "Refreshing..."
+                : "Refresh"}
+            </button>
+
+          </div>
+
+        </div>
+
+        {/* =================================================
+            MESSAGE
+        ================================================= */}
+
+        {message && (
+          <div
+            className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${
+              messageType === "success"
+                ? "border-green-500/30 bg-green-500/10 text-green-400"
+                : "border-red-500/30 bg-red-500/10 text-red-400"
+            }`}
+          >
+
+            {messageType === "success" ? (
+              <UserCheck size={18} />
+            ) : (
+              <XCircle size={18} />
+            )}
+
+            <span>{message}</span>
+
+            <button
+              type="button"
+              onClick={() =>
+                setMessage("")
+              }
+              className="ml-auto opacity-70 transition hover:opacity-100"
+            >
+              <XCircle size={17} />
+            </button>
+
+          </div>
+        )}
+
+        {/* =================================================
+            ERROR
+        ================================================= */}
+
+        {error && (
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-4 text-sm text-red-400">
+
+            <XCircle
+              size={18}
+              className="mt-0.5 shrink-0"
+            />
+
+            <div>
+              <p className="font-semibold">
+                Unable to load users
+              </p>
+
+              <p className="mt-1 text-red-300/80">
+                {error}
+              </p>
+            </div>
+
+          </div>
+        )}
+
+        {/* =================================================
+            STATISTICS
+        ================================================= */}
+
+        <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+
+          {/* TOTAL USERS */}
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex items-center justify-between">
+
+              <div>
+                <p className="text-sm text-gray-400">
+                  Total Users
+                </p>
+
+                <p className="mt-2 text-3xl font-bold text-white">
+                  {statistics.totalUsers.toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-blue-500/10 p-3">
+                <Users
+                  size={22}
+                  className="text-blue-400"
+                />
+              </div>
+
+            </div>
+          </div>
+
+          {/* ACTIVE USERS */}
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex items-center justify-between">
+
+              <div>
+                <p className="text-sm text-gray-400">
+                  Active Users
+                </p>
+
+                <p className="mt-2 text-3xl font-bold text-green-400">
+                  {statistics.activeUsers.toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-green-500/10 p-3">
+                <UserCheck
+                  size={22}
+                  className="text-green-400"
+                />
+              </div>
+
+            </div>
+          </div>
+
+          {/* FROZEN USERS */}
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex items-center justify-between">
+
+              <div>
+                <p className="text-sm text-gray-400">
+                  Frozen Users
+                </p>
+
+                <p className="mt-2 text-3xl font-bold text-red-400">
+                  {statistics.frozenUsers.toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-red-500/10 p-3">
+                <UserX
+                  size={22}
+                  className="text-red-400"
+                />
+              </div>
+
+            </div>
+          </div>
+
+          {/* TOTAL PKR */}
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex items-center justify-between">
+
+              <div>
+                <p className="text-sm text-gray-400">
+                  Total PKR
+                </p>
+
+                <p className="mt-2 text-2xl font-bold text-yellow-400">
+                  {formatMoney(
+                    statistics.totalPKR
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-yellow-500/10 p-3">
+                <DollarSign
+                  size={22}
+                  className="text-yellow-400"
+                />
+              </div>
+
+            </div>
+          </div>
+
+          {/* TOTAL GOLD */}
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex items-center justify-between">
+
+              <div>
+                <p className="text-sm text-gray-400">
+                  Total Gold
+                </p>
+
+                <p className="mt-2 text-2xl font-bold text-orange-400">
+                  {formatMoney(
+                    statistics.totalGold
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-orange-500/10 p-3">
+                <Coins
+                  size={22}
+                  className="text-orange-400"
+                />
+              </div>
+
+            </div>
+          </div>
+
+          {/* TOTAL USDT */}
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex items-center justify-between">
+
+              <div>
+                <p className="text-sm text-gray-400">
+                  Total USDT
+                </p>
+
+                <p className="mt-2 text-2xl font-bold text-emerald-400">
+                  {formatMoney(
+                    statistics.totalUSDT
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-emerald-500/10 p-3">
+                <Wallet
+                  size={22}
+                  className="text-emerald-400"
+                />
+              </div>
+
+            </div>
+          </div>
+
+        </section>
+                {/* =================================================
+            SEARCH / FILTER BAR
+        ================================================= */}
+
+        <section className="mb-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+
+            <div className="relative w-full lg:max-w-xl">
+
+              <Search
+                size={19}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
+              />
+
+              <input
+                type="text"
+                value={search}
+                onChange={(event) =>
+                  setSearch(
+                    event.target.value
+                  )
+                }
+                placeholder="Search username, email or role..."
+                className="w-full rounded-xl border border-white/10 bg-black/40 py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-yellow-500/50"
+              />
+
+            </div>
+
+            <div className="flex items-center justify-between gap-4 text-sm">
+
+              <span className="text-gray-500">
+                Showing
+              </span>
+
+              <span className="font-semibold text-white">
+                {filteredUsers.length}
+              </span>
+
+              <span className="text-gray-500">
+                of
+              </span>
+
+              <span className="font-semibold text-white">
+                {users.length}
+              </span>
+
+              <span className="text-gray-500">
+                users
+              </span>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* =================================================
+            USERS TABLE
+        ================================================= */}
+
+        <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+
+          <div className="flex flex-col gap-3 border-b border-white/10 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+
+            <div>
+              <h2 className="text-lg font-bold text-white">
+                All Users
+              </h2>
+
+              <p className="mt-1 text-xs text-gray-500">
+                User accounts and wallet balances
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Shield size={15} />
+              Admin Access
+            </div>
+
+          </div>
+
+          {loading && users.length === 0 ? (
+            <div className="flex min-h-[300px] items-center justify-center">
+
+              <div className="flex flex-col items-center gap-3 text-gray-400">
+
+                <RefreshCw
+                  size={28}
+                  className="animate-spin text-yellow-400"
+                />
+
+                <p className="text-sm">
+                  Loading users...
+                </p>
+
+              </div>
+
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="flex min-h-[300px] items-center justify-center px-6 text-center">
+
+              <div>
+
+                <Users
+                  size={40}
+                  className="mx-auto mb-4 text-gray-600"
+                />
+
+                <h3 className="text-lg font-semibold text-gray-300">
+                  No users found
+                </h3>
+
+                <p className="mt-2 text-sm text-gray-500">
+                  {search
+                    ? "Try a different search."
+                    : "There are no users available."}
+                </p>
+
+              </div>
+
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+
+              <table className="min-w-[1150px] w-full">
+
+                <thead>
+                  <tr className="border-b border-white/10 bg-black/20 text-left">
+
+                    <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      User
+                    </th>
+
+                    <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      Role
+                    </th>
+
+                    <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      Status
+                    </th>
+
+                    <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      PKR
+                    </th>
+
+                    <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      GOLD
+                    </th>
+
+                    <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      USDT
+                    </th>
+
+                    <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      Created
+                    </th>
+
+                    <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      Actions
+                    </th>
+
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-white/5">
+
+                  {filteredUsers.map(
+                    (user) => {
+                      const userStatus =
+                        user.isFrozen
+                          ? "Frozen"
+                          : user.status ||
+                            "Active";
+
+                      return (
+                        <tr
+                          key={user._id}
+                          className="transition hover:bg-white/[0.025]"
+                        >
+
+                          {/* USER */}
+
+                          <td className="px-5 py-5">
+
+                            <div className="flex items-center gap-3">
+
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yellow-500/10 text-sm font-bold text-yellow-400">
+                                {String(
+                                  user.username ||
+                                    "U"
+                                )
+                                  .charAt(0)
+                                  .toUpperCase()}
+                              </div>
+
+                              <div className="min-w-0">
+
+                                <p className="truncate font-semibold text-white">
+                                  {user.username}
+                                </p>
+
+                                <p className="mt-1 flex items-center gap-1 truncate text-xs text-gray-500">
+
+                                  <Mail
+                                    size={12}
+                                  />
+
+                                  {user.email ||
+                                    "--"}
+
+                                </p>
+
+                              </div>
+
+                            </div>
+
+                          </td>
+
+                          {/* ROLE */}
+
+                          <td className="px-5 py-5">
+
+                            <span
+                              className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getRoleClass(
+                                user.role
+                              )}`}
+                            >
+                              {String(
+                                user.role ||
+                                  "USER"
+                              ).toUpperCase()}
+                            </span>
+
+                          </td>
+
+                          {/* STATUS */}
+
+                          <td className="px-5 py-5">
+
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getUserStatusClass(
+                                userStatus
+                              )}`}
+                            >
+                              {userStatus}
+                            </span>
+
+                          </td>
+
+                          {/* PKR */}
+
+                          <td className="px-5 py-5 text-right">
+
+                            <span className="font-semibold text-yellow-400">
+                              {formatMoney(
+                                getPKR(
+                                  user
+                                )
+                              )}
+                            </span>
+
+                          </td>
+
+                          {/* GOLD */}
+
+                          <td className="px-5 py-5 text-right">
+
+                            <span className="font-semibold text-orange-400">
+                              {formatMoney(
+                                getGold(
+                                  user
+                                )
+                              )}
+                            </span>
+
+                          </td>
+
+                          {/* USDT */}
+
+                          <td className="px-5 py-5 text-right">
+
+                            <span className="font-semibold text-emerald-400">
+                              {formatMoney(
+                                getUSDT(
+                                  user
+                                )
+                              )}
+                            </span>
+
+                          </td>
+
+                          {/* CREATED */}
+
+                          <td className="px-5 py-5">
+
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+
+                              <Calendar
+                                size={14}
+                                className="text-gray-600"
+                              />
+
+                              {formatDate(
+                                user.createdAt
+                              )}
+
+                            </div>
+
+                          </td>
+
+                          {/* ACTIONS */}
+
+                          <td className="px-5 py-5">
+
+                            <div className="flex items-center justify-end gap-2">
+
+                              {/* VIEW */}
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openUserView(
+                                    user
+                                  )
+                                }
+                                title="View user"
+                                className="rounded-lg border border-white/10 bg-white/5 p-2 text-gray-300 transition hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-blue-400"
+                              >
+                                <Eye
+                                  size={16}
+                                />
+                              </button>
+
+                              {/* WALLET */}
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openWalletModal(
+                                    user
+                                  )
+                                }
+                                title="Edit wallet"
+                                className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-2 text-yellow-400 transition hover:bg-yellow-500/10"
+                              >
+                                <Edit
+                                  size={16}
+                                />
+                              </button>
+
+                              {/* STATUS */}
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateUserStatus(
+                                    user._id,
+                                    userStatus ===
+                                      "Frozen"
+                                      ? "Active"
+                                      : "Frozen"
+                                  )
+                                }
+                                title={
+                                  userStatus ===
+                                  "Frozen"
+                                    ? "Unfreeze user"
+                                    : "Freeze user"
+                                }
+                                className={`rounded-lg border p-2 transition ${
+                                  userStatus ===
+                                  "Frozen"
+                                    ? "border-green-500/20 bg-green-500/5 text-green-400 hover:bg-green-500/10"
+                                    : "border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10"
+                                }`}
+                              >
+                                {userStatus ===
+                                "Frozen" ? (
+                                  <UserCheck
+                                    size={16}
+                                  />
+                                ) : (
+                                  <UserX
+                                    size={16}
+                                  />
+                                )}
+                              </button>
+
+                              {/* DELETE */}
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  deleteUser(
+                                    user._id
+                                  )
+                                }
+                                title="Delete user"
+                                className="rounded-lg border border-red-500/20 bg-red-500/5 p-2 text-red-400 transition hover:bg-red-500/10"
+                              >
+                                <Trash2
+                                  size={16}
+                                />
+                              </button>
+
+                            </div>
+
+                          </td>
+
+                        </tr>
+                      );
+                    }
+                  )}
+
+                </tbody>
+
+              </table>
+
+            </div>
+          )}
+
+        </section>
+
+      </div>
+            {/* =================================================
+          WALLET EDIT MODAL
+      ================================================= */}
+
+      {walletModalOpen && selectedUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              closeWalletModal();
+            }
+          }}
+        >
+
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d0d] shadow-2xl">
+
+            {/* MODAL HEADER */}
+
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-5">
+
+              <div className="flex items-center gap-3">
+
+                <div className="rounded-xl bg-yellow-500/10 p-3">
+                  <Wallet
+                    size={21}
+                    className="text-yellow-400"
+                  />
+                </div>
+
+                <div>
+                  <h2 className="font-bold text-white">
+                    Edit User Wallet
+                  </h2>
+
+                  <p className="mt-1 text-xs text-gray-500">
+                    {selectedUser.username}
+                  </p>
+                </div>
+
+              </div>
+
               <button
+                type="button"
                 onClick={closeWalletModal}
-                className="text-gray-400 hover:text-red-400 transition"
+                className="rounded-lg p-2 text-gray-500 transition hover:bg-white/5 hover:text-white"
               >
-                <XCircle size={28} />
+                <XCircle size={20} />
               </button>
 
             </div>
 
-            {/* BODY */}
+            {/* MODAL BODY */}
 
-            <div className="p-6 space-y-5">
+            <div className="space-y-5 p-5">
 
               {/* USER INFO */}
 
-              <div className="bg-[#1F2937] rounded-xl p-4">
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
 
-                <p className="text-xs text-gray-400 mb-1">Username</p>
+                <div className="flex items-center gap-3">
 
-                <h3 className="font-semibold text-white text-lg">
-                  {selectedUser.username}
-                </h3>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-yellow-500/10 font-bold text-yellow-400">
+                    {String(
+                      selectedUser.username ||
+                        "U"
+                    )
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
 
-                <p className="text-gray-400 text-sm mt-1">
-                  {selectedUser.email}
-                </p>
+                  <div className="min-w-0">
+
+                    <p className="truncate font-semibold text-white">
+                      {selectedUser.username}
+                    </p>
+
+                    <p className="truncate text-xs text-gray-500">
+                      {selectedUser.email ||
+                        "--"}
+                    </p>
+
+                  </div>
+
+                </div>
 
               </div>
 
@@ -1107,18 +1918,33 @@ export default function AdminUsersPage() {
 
               <div>
 
-                <label className="block text-sm text-green-400 mb-2 font-medium">
-                  PKR Wallet
+                <label className="mb-2 block text-sm font-medium text-gray-300">
+                  PKR Balance
                 </label>
 
-                <input
-                  type="number"
-                  value={editPKR}
-                  onChange={(e) =>
-                    setEditPKR(Number(e.target.value))
-                  }
-                  className="w-full rounded-xl bg-[#1F2937] border border-gray-600 px-4 py-3 outline-none focus:border-green-500 transition"
-                />
+                <div className="relative">
+
+                  <DollarSign
+                    size={17}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-yellow-400"
+                  />
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editPKR}
+                    onChange={(event) =>
+                      setEditPKR(
+                        Number(
+                          event.target.value
+                        )
+                      )
+                    }
+                    className="w-full rounded-xl border border-white/10 bg-black/40 py-3 pl-10 pr-4 text-white outline-none transition focus:border-yellow-500/50"
+                  />
+
+                </div>
 
               </div>
 
@@ -1126,19 +1952,33 @@ export default function AdminUsersPage() {
 
               <div>
 
-                <label className="block text-sm text-yellow-400 mb-2 font-medium">
-                  GOLD Wallet
+                <label className="mb-2 block text-sm font-medium text-gray-300">
+                  Gold Balance
                 </label>
 
-                <input
-                  type="number"
-                  step="0.001"
-                  value={editGold}
-                  onChange={(e) =>
-                    setEditGold(Number(e.target.value))
-                  }
-                  className="w-full rounded-xl bg-[#1F2937] border border-gray-600 px-4 py-3 outline-none focus:border-yellow-500 transition"
-                />
+                <div className="relative">
+
+                  <Coins
+                    size={17}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-400"
+                  />
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.000001"
+                    value={editGold}
+                    onChange={(event) =>
+                      setEditGold(
+                        Number(
+                          event.target.value
+                        )
+                      )
+                    }
+                    className="w-full rounded-xl border border-white/10 bg-black/40 py-3 pl-10 pr-4 text-white outline-none transition focus:border-orange-500/50"
+                  />
+
+                </div>
 
               </div>
 
@@ -1146,19 +1986,362 @@ export default function AdminUsersPage() {
 
               <div>
 
-                <label className="block text-sm text-cyan-400 mb-2 font-medium">
-                  USDT Wallet
+                <label className="mb-2 block text-sm font-medium text-gray-300">
+                  USDT Balance
                 </label>
 
-                <input
-                  type="number"
-                  step="0.01"
-                  value={editUSDT}
-                  onChange={(e) =>
-                    setEditUSDT(Number(e.target.value))
-                  }
-                  className="w-full rounded-xl bg-[#1F2937] border border-gray-600 px-4 py-3 outline-none focus:border-cyan-500 transition"
-                />
+                <div className="relative">
+
+                  <Wallet
+                    size={17}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-400"
+                  />
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editUSDT}
+                    onChange={(event) =>
+                      setEditUSDT(
+                        Number(
+                          event.target.value
+                        )
+                      )
+                    }
+                    className="w-full rounded-xl border border-white/10 bg-black/40 py-3 pl-10 pr-4 text-white outline-none transition focus:border-emerald-500/50"
+                  />
+
+                </div>
+
+              </div>
+
+              {/* WARNING */}
+
+              <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-4 py-3">
+
+                <p className="text-xs leading-5 text-yellow-300/80">
+                  Wallet values will be updated according to
+                  the values entered above. Make sure the
+                  amounts are correct before saving.
+                </p>
+
+              </div>
+
+            </div>
+
+            {/* MODAL FOOTER */}
+
+            <div className="flex flex-col-reverse gap-3 border-t border-white/10 px-5 py-5 sm:flex-row sm:justify-end">
+
+              <button
+                type="button"
+                onClick={closeWalletModal}
+                disabled={loading}
+                className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-gray-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={updateUserWallet}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 rounded-xl bg-yellow-500 px-5 py-3 text-sm font-bold text-black transition hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+
+                {loading ? (
+                  <>
+                    <RefreshCw
+                      size={17}
+                      className="animate-spin"
+                    />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={17} />
+                    Save Wallet
+                  </>
+                )}
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+            {/* =================================================
+          USER DETAILS MODAL
+      ================================================= */}
+
+      {viewUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              closeUserView();
+            }
+          }}
+        >
+
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d0d] shadow-2xl">
+
+            {/* HEADER */}
+
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-5">
+
+              <div className="flex items-center gap-3">
+
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-500/10 font-bold text-blue-400">
+                  {String(
+                    viewUser.username || "U"
+                  )
+                    .charAt(0)
+                    .toUpperCase()}
+                </div>
+
+                <div>
+                  <h2 className="font-bold text-white">
+                    User Details
+                  </h2>
+
+                  <p className="mt-1 text-xs text-gray-500">
+                    {viewUser.username}
+                  </p>
+                </div>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={closeUserView}
+                className="rounded-lg p-2 text-gray-500 transition hover:bg-white/5 hover:text-white"
+              >
+                <XCircle size={20} />
+              </button>
+
+            </div>
+
+            {/* BODY */}
+
+            <div className="space-y-5 p-5">
+
+              {/* ACCOUNT INFORMATION */}
+
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
+
+                <div className="mb-4 flex items-center gap-2">
+
+                  <Shield
+                    size={17}
+                    className="text-blue-400"
+                  />
+
+                  <h3 className="font-semibold text-white">
+                    Account Information
+                  </h3>
+
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      Username
+                    </p>
+
+                    <p className="mt-1 font-medium text-white">
+                      {viewUser.username}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      Email
+                    </p>
+
+                    <p className="mt-1 break-all font-medium text-white">
+                      {viewUser.email ||
+                        "--"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      Role
+                    </p>
+
+                    <span
+                      className={`mt-1 inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getRoleClass(
+                        viewUser.role
+                      )}`}
+                    >
+                      {String(
+                        viewUser.role ||
+                          "USER"
+                      ).toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      Status
+                    </p>
+
+                    <span
+                      className={`mt-1 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getUserStatusClass(
+                        viewUser.isFrozen
+                          ? "Frozen"
+                          : viewUser.status
+                      )}`}
+                    >
+                      {viewUser.isFrozen
+                        ? "Frozen"
+                        : viewUser.status ||
+                          "Active"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      Created At
+                    </p>
+
+                    <p className="mt-1 flex items-center gap-2 text-sm text-gray-300">
+
+                      <Calendar
+                        size={14}
+                        className="text-gray-500"
+                      />
+
+                      {formatDate(
+                        viewUser.createdAt
+                      )}
+
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      User ID
+                    </p>
+
+                    <p className="mt-1 break-all font-mono text-xs text-gray-400">
+                      {viewUser._id}
+                    </p>
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* WALLET INFORMATION */}
+
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
+
+                <div className="mb-4 flex items-center gap-2">
+
+                  <Wallet
+                    size={17}
+                    className="text-yellow-400"
+                  />
+
+                  <h3 className="font-semibold text-white">
+                    Wallet Information
+                  </h3>
+
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+
+                  {/* PKR */}
+
+                  <div className="rounded-xl border border-yellow-500/10 bg-yellow-500/5 p-4">
+
+                    <div className="mb-2 flex items-center gap-2">
+
+                      <DollarSign
+                        size={16}
+                        className="text-yellow-400"
+                      />
+
+                      <span className="text-xs text-gray-500">
+                        PKR
+                      </span>
+
+                    </div>
+
+                    <p className="text-lg font-bold text-yellow-400">
+                      {formatMoney(
+                        getPKR(
+                          viewUser
+                        )
+                      )}
+                    </p>
+
+                  </div>
+
+                  {/* GOLD */}
+
+                  <div className="rounded-xl border border-orange-500/10 bg-orange-500/5 p-4">
+
+                    <div className="mb-2 flex items-center gap-2">
+
+                      <Coins
+                        size={16}
+                        className="text-orange-400"
+                      />
+
+                      <span className="text-xs text-gray-500">
+                        GOLD
+                      </span>
+
+                    </div>
+
+                    <p className="text-lg font-bold text-orange-400">
+                      {formatMoney(
+                        getGold(
+                          viewUser
+                        )
+                      )}
+                    </p>
+
+                  </div>
+
+                  {/* USDT */}
+
+                  <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/5 p-4">
+
+                    <div className="mb-2 flex items-center gap-2">
+
+                      <Wallet
+                        size={16}
+                        className="text-emerald-400"
+                      />
+
+                      <span className="text-xs text-gray-500">
+                        USDT
+                      </span>
+
+                    </div>
+
+                    <p className="text-lg font-bold text-emerald-400">
+                      {formatMoney(
+                        getUSDT(
+                          viewUser
+                        )
+                      )}
+                    </p>
+
+                  </div>
+
+                </div>
 
               </div>
 
@@ -1166,22 +2349,28 @@ export default function AdminUsersPage() {
 
             {/* FOOTER */}
 
-            <div className="border-t border-gray-700 px-6 py-5 flex justify-end gap-3">
+            <div className="flex flex-col gap-3 border-t border-white/10 px-5 py-5 sm:flex-row sm:justify-end">
 
               <button
-                onClick={closeWalletModal}
-                className="bg-gray-700 hover:bg-gray-600 px-5 py-3 rounded-xl font-semibold transition"
+                type="button"
+                onClick={() => {
+                  closeUserView();
+                  openWalletModal(
+                    viewUser
+                  );
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-5 py-3 text-sm font-semibold text-yellow-400 transition hover:bg-yellow-500/10"
               >
-                Cancel
+                <Edit size={16} />
+                Edit Wallet
               </button>
 
               <button
-                onClick={updateUserWallet}
-                disabled={loading}
-                className="bg-green-600 hover:bg-green-700 disabled:opacity-60 px-5 py-3 rounded-xl font-semibold flex items-center gap-2 transition"
+                type="button"
+                onClick={closeUserView}
+                className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-gray-300 transition hover:bg-white/10"
               >
-                <Save size={18} />
-                Save Wallet
+                Close
               </button>
 
             </div>
@@ -1191,72 +2380,6 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* LOADING OVERLAY */}
-      {/* ========================================== */}
-
-      {loading && (
-        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center">
-
-          <div className="bg-[#111827] border border-yellow-500/30 rounded-2xl px-8 py-6 flex flex-col items-center gap-4 shadow-2xl">
-
-            <RefreshCw
-              size={36}
-              className="animate-spin text-yellow-400"
-            />
-
-            <h3 className="text-xl font-bold text-yellow-400">
-              GoldTrade V18 Enterprise
-            </h3>
-
-            <p className="text-gray-300 text-sm">
-              Processing request...
-            </p>
-
-          </div>
-
-        </div>
-      )}
-
-      {/* ========================================== */}
-      {/* FOOTER */}
-      {/* ========================================== */}
-
-      <footer className="mt-10 border-t border-gray-800 pt-6 flex flex-col md:flex-row items-center justify-between gap-3">
-
-        <div>
-
-          <h3 className="text-yellow-400 font-bold">
-            GoldTrade V18 Enterprise
-          </h3>
-
-          <p className="text-gray-500 text-sm">
-            Admin User Management Module
-          </p>
-
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
-
-          <div className="flex items-center gap-2">
-            <Shield size={16} className="text-green-400" />
-            Secure User Management
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Wallet size={16} className="text-cyan-400" />
-            PKR / GOLD / USDT Wallet Support
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Users size={16} className="text-blue-400" />
-            Enterprise Admin Panel
-          </div>
-
-        </div>
-
-      </footer>
-
-    </div>
+    </main>
   );
 }

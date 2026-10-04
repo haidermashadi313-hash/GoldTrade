@@ -46,7 +46,7 @@ interface Portfolio {
 // PAGE
 // ==========================================
 
-const GoldsellPage: React.FC = () => {
+const GoldbuyPage: React.FC = () => {
   // ==========================================
   // USER STATES
   // ==========================================
@@ -58,55 +58,52 @@ const GoldsellPage: React.FC = () => {
   // GOLD PRICE
   // ==========================================
 
-  const [goldPrice, setGoldPrice] =
-    useState<GoldPrice>({
-      buyPrice: 0,
-      sellPrice: 0,
-      goldPriceUSD: 0,
-      UsdtoPkr: 0,
-      tradingEnabled: true,
-      marketStatus: "OPEN",
-    });
+  const [goldPrice, setGoldPrice] = useState<GoldPrice>({
+    buyPrice: 0,
+    sellPrice: 0,
+    goldPriceUSD: 0,
+    UsdtoPkr: 0,
+    tradingEnabled: true,
+    marketStatus: "OPEN",
+  });
 
   // ==========================================
   // PORTFOLIO
   // ==========================================
 
-  const [portfolio, setPortfolio] =
-    useState<Portfolio>({
-      goldBalance: 0,
-      WalletBalance: 0,
-      averagebuyPrice: 0,
-      currentPrice: 0,
-      portfolioValue: 0,
-      liveProfit: 0,
-      totalProfitLoss: 0,
-      totalGoldbuy: 0,
-      totalGoldsell: 0,
-    });
+  const [portfolio, setPortfolio] = useState<Portfolio>({
+    goldBalance: 0,
+    WalletBalance: 0,
+    averagebuyPrice: 0,
+    currentPrice: 0,
+    portfolioValue: 0,
+    liveProfit: 0,
+    totalProfitLoss: 0,
+    totalGoldbuy: 0,
+    totalGoldsell: 0,
+  });
 
   // ==========================================
-  // SELL STATES
+  // BUY STATES
   // ==========================================
 
   const [grams, setGrams] = useState("");
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] =
-    useState(false);
+  const [processing, setProcessing] = useState(false);
 
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] =
-    useState<"success" | "error">("success");
+  const [messageType, setMessageType] = useState<
+    "success" | "error"
+  >("success");
 
   // ==========================================
-  // CONFIRMATION MODAL
+  // BUY CONFIRMATION MODAL
   // ==========================================
 
-  const [showConfirm, setShowConfirm] =
-    useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // ==========================================
-  // LOAD USER + JWT
+  // LOAD USER FROM LOCAL STORAGE
   // ==========================================
 
   useEffect(() => {
@@ -125,16 +122,16 @@ const GoldsellPage: React.FC = () => {
   }, []);
 
   // ==========================================
-  // FETCH LIVE DATA
+  // FETCH LIVE GOLD PRICE + PORTFOLIO
   // ==========================================
 
   const fetchPortfolio = async () => {
     try {
       setLoading(true);
 
-      // ----------------------------------------
-      // GOLD PRICE
-      // ----------------------------------------
+      // ------------------------------------------
+      // LIVE GOLD PRICE
+      // ------------------------------------------
 
       const priceRes = await axios.get(
         `${API}/api/gold/price`,
@@ -173,9 +170,9 @@ const GoldsellPage: React.FC = () => {
         });
       }
 
-      // ----------------------------------------
-      // JWT REQUIRED
-      // ----------------------------------------
+      // ------------------------------------------
+      // JWT CHECK
+      // ------------------------------------------
 
       if (!token) {
         console.log(
@@ -185,9 +182,9 @@ const GoldsellPage: React.FC = () => {
         return;
       }
 
-      // ----------------------------------------
+      // ------------------------------------------
       // USER PORTFOLIO
-      // ----------------------------------------
+      // ------------------------------------------
 
       const portfolioRes = await axios.get(
         `${API}/api/gold/portfolio`,
@@ -254,7 +251,7 @@ const GoldsellPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error(
-        "SELL PAGE ERROR:",
+        "BUY PAGE ERROR:",
         error?.response?.data ||
           error?.message
       );
@@ -297,7 +294,7 @@ const GoldsellPage: React.FC = () => {
   }, [token]);
 
   // ==========================================
-  // AUTO CLEAR MESSAGES
+  // CLEAR MESSAGE AFTER 4 SECONDS
   // ==========================================
 
   useEffect(() => {
@@ -313,66 +310,67 @@ const GoldsellPage: React.FC = () => {
   }, [message]);
 
   // ==========================================
-  // LIVE SELL CALCULATIONS
+  // LIVE BUY CALCULATIONS
   // ==========================================
 
-  const sellValue = useMemo(() => {
+  const buyValue = useMemo(() => {
     const qty = Number(grams);
 
     if (!qty || qty <= 0) {
       return 0;
     }
 
-    return qty * goldPrice.sellPrice;
-  }, [grams, goldPrice.sellPrice]);
+    return qty * goldPrice.buyPrice;
+  }, [grams, goldPrice.buyPrice]);
 
-  // ==========================================
-  // ESTIMATED PROFIT / LOSS
-  // ==========================================
-
-  const estimatedProfit = useMemo(() => {
-    const qty = Number(grams);
-
-    if (!qty || qty <= 0) {
-      return 0;
-    }
-
-    return (
-      qty *
-      (goldPrice.sellPrice -
-        portfolio.averagebuyPrice)
-    );
-  }, [
-    grams,
-    goldPrice.sellPrice,
-    portfolio.averagebuyPrice,
-  ]);
-
-  // ==========================================
-  // WALLET AFTER SELLING
-  // ==========================================
-
-  const WalletAftersell = useMemo(() => {
-    return (
-      portfolio.WalletBalance + sellValue
+  const remainingWallet = useMemo(() => {
+    return Math.max(
+      portfolio.WalletBalance - buyValue,
+      0
     );
   }, [
     portfolio.WalletBalance,
-    sellValue,
+    buyValue,
   ]);
 
-  // ==========================================
-  // REMAINING GOLD
-  // ==========================================
+  const newGoldBalance = useMemo(() => {
+    return (
+      portfolio.goldBalance +
+      Number(grams || 0)
+    );
+  }, [
+    portfolio.goldBalance,
+    grams,
+  ]);
 
-  const remainingGold = useMemo(() => {
+  const newAveragePrice = useMemo(() => {
     const qty = Number(grams);
 
-    return Math.max(
-      portfolio.goldBalance - qty,
-      0
-    );
-  }, [portfolio.goldBalance, grams]);
+    if (!qty || qty <= 0) {
+      return portfolio.averagebuyPrice;
+    }
+
+    if (portfolio.goldBalance === 0) {
+      return goldPrice.buyPrice;
+    }
+
+    const totalCost =
+      portfolio.goldBalance *
+        portfolio.averagebuyPrice +
+      qty * goldPrice.buyPrice;
+
+    const totalGold =
+      portfolio.goldBalance + qty;
+
+    return totalGold > 0
+      ? totalCost / totalGold
+      : portfolio.averagebuyPrice;
+  }, [
+    grams,
+    portfolio.goldBalance,
+    portfolio.averagebuyPrice,
+    goldPrice.buyPrice,
+  ]);
 
   // ==========================================
   // QUICK GRAM BUTTONS
@@ -393,35 +391,10 @@ const GoldsellPage: React.FC = () => {
   };
 
   // ==========================================
-  // INPUT VALIDATION
-  // ==========================================
-
-  const handleGramInput = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const value = e.target.value;
-
-    if (value === "") {
-      setGrams("");
-      return;
-    }
-
-    const qty = Number(value);
-
-    if (!Number.isFinite(qty) || qty < 0) {
-      return;
-    }
-
-    setGrams(value);
-  };
-
-  // ==========================================
-  // OPEN CONFIRMATION MODAL
+  // OPEN BUY CONFIRMATION
   // ==========================================
 
   const openConfirmation = () => {
-    const qty = Number(grams);
-
     if (!goldPrice.tradingEnabled) {
       setMessage(
         "Gold trading is currently closed."
@@ -431,6 +404,8 @@ const GoldsellPage: React.FC = () => {
 
       return;
     }
+
+    const qty = Number(grams);
 
     if (!qty || qty <= 0) {
       setMessage(
@@ -442,9 +417,9 @@ const GoldsellPage: React.FC = () => {
       return;
     }
 
-    if (qty > portfolio.goldBalance) {
+    if (buyValue > portfolio.WalletBalance) {
       setMessage(
-        "Insufficient Gold Balance."
+        "Insufficient PKR Wallet Balance."
       );
 
       setMessageType("error");
@@ -456,10 +431,10 @@ const GoldsellPage: React.FC = () => {
   };
 
   // ==========================================
-  // SELL GOLD API
+  // BUY GOLD API
   // ==========================================
 
-  const sellGold = async () => {
+  const buyGold = async () => {
     try {
       if (!token) {
         setMessage(
@@ -487,7 +462,7 @@ const GoldsellPage: React.FC = () => {
       }
 
       const response = await axios.post(
-        `${API}/api/gold/sell`,
+        `${API}/api/gold/buy`,
         {
           grams: qty,
         },
@@ -501,7 +476,7 @@ const GoldsellPage: React.FC = () => {
 
       if (response.data?.success) {
         setMessage(
-          "Gold sold successfully."
+          "Gold purchased successfully."
         );
 
         setMessageType("success");
@@ -512,27 +487,48 @@ const GoldsellPage: React.FC = () => {
       } else {
         setMessage(
           response.data?.message ||
-            "Gold selling failed."
+            "Gold purchase failed."
         );
 
         setMessageType("error");
       }
     } catch (error: any) {
       console.error(
-        "SELL GOLD ERROR:",
-        error?.response?.data ||
-          error?.message
+        "BUY GOLD ERROR:",
+        error?.response?.data || error
       );
 
       setMessage(
         error?.response?.data?.message ||
-          "Gold selling failed."
+          "Gold purchase failed."
       );
 
       setMessageType("error");
     } finally {
       setProcessing(false);
     }
+  };
+    // ==========================================
+  // INPUT VALIDATION
+  // ==========================================
+
+  const handleGramInput = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = e.target.value;
+
+    if (value === "") {
+      setGrams("");
+      return;
+    }
+
+    const qty = Number(value);
+
+    if (!Number.isFinite(qty) || qty < 0) {
+      return;
+    }
+
+    setGrams(value);
   };
 
   // ==========================================
@@ -541,16 +537,16 @@ const GoldsellPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex justify-center items-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="h-16 w-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
+          <div className="mx-auto mb-6 h-16 w-16 animate-spin rounded-full border-4 border-green-400 border-t-transparent" />
 
-          <h2 className="text-red-400 text-3xl font-black">
+          <h2 className="text-3xl font-black text-green-400">
             GoldTrade V18
           </h2>
 
-          <p className="text-gray-400 mt-2">
-            Loading Sell Gold Page...
+          <p className="mt-2 text-gray-400">
+            Loading Buy Gold Page...
           </p>
         </div>
       </div>
@@ -569,18 +565,18 @@ const GoldsellPage: React.FC = () => {
 
       <div className="flex justify-between items-center flex-wrap gap-4 mb-8">
         <div>
-          <h1 className="text-4xl font-black text-red-400">
-            Sell GOLD
+          <h1 className="text-4xl font-black text-green-400">
+            Buy GOLD
           </h1>
 
           <p className="text-gray-400 mt-2">
-            Sell your Gold instantly into your PKR Wallet.
+            Purchase Gold instantly using your PKR Wallet.
           </p>
 
           {username && (
             <p className="text-gray-500 text-sm mt-1">
               Account:{" "}
-              <span className="text-red-400 font-semibold">
+              <span className="text-green-400 font-semibold">
                 {username}
               </span>
             </p>
@@ -591,7 +587,7 @@ const GoldsellPage: React.FC = () => {
           type="button"
           onClick={fetchPortfolio}
           disabled={processing}
-          className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold px-5 py-3 rounded-xl transition-all duration-300 hover:scale-105"
+          className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold px-5 py-3 rounded-xl transition-all duration-300 hover:scale-105"
         >
           🔄 Refresh
         </button>
@@ -618,6 +614,25 @@ const GoldsellPage: React.FC = () => {
       ======================================== */}
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+        {/* BUY PRICE */}
+
+        <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
+          <p className="text-gray-400 text-sm">
+            Buy Price
+          </p>
+
+          <h2 className="text-3xl font-black text-green-400 mt-2">
+            PKR{" "}
+            {goldPrice.buyPrice.toLocaleString(
+              "en-PK",
+              {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }
+            )}
+          </h2>
+        </div>
+
         {/* SELL PRICE */}
 
         <div className="bg-zinc-900 border border-red-500 rounded-3xl p-6">
@@ -637,28 +652,9 @@ const GoldsellPage: React.FC = () => {
           </h2>
         </div>
 
-        {/* AVERAGE BUY PRICE */}
-
-        <div className="bg-zinc-900 border border-green-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">
-            Average Buy Price
-          </p>
-
-          <h2 className="text-3xl font-black text-green-400 mt-2">
-            PKR{" "}
-            {portfolio.averagebuyPrice.toLocaleString(
-              "en-PK",
-              {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              }
-            )}
-          </h2>
-        </div>
-
         {/* MARKET STATUS */}
 
-        <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6">
+        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
           <p className="text-gray-400 text-sm">
             Market Status
           </p>
@@ -676,15 +672,15 @@ const GoldsellPage: React.FC = () => {
 
         {/* TRADING STATUS */}
 
-        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
+        <div className="bg-zinc-900 border border-cyan-500 rounded-3xl p-6">
           <p className="text-gray-400 text-sm">
-            Trading Status
+            Trading
           </p>
 
           <h2
             className={`text-3xl font-black mt-2 ${
               goldPrice.tradingEnabled
-                ? "text-yellow-400"
+                ? "text-cyan-400"
                 : "text-red-400"
             }`}
           >
@@ -699,7 +695,7 @@ const GoldsellPage: React.FC = () => {
           PORTFOLIO SUMMARY
       ======================================== */}
 
-      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mb-10">
+      <div className="grid md:grid-cols-3 gap-6 mb-10">
         {/* GOLD BALANCE */}
 
         <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6">
@@ -731,41 +727,16 @@ const GoldsellPage: React.FC = () => {
           </h2>
         </div>
 
-        {/* PORTFOLIO VALUE */}
+        {/* AVERAGE BUY PRICE */}
 
         <div className="bg-zinc-900 border border-blue-500 rounded-3xl p-6">
           <p className="text-gray-400 text-sm">
-            Portfolio Value
+            Average Buy Price
           </p>
 
           <h2 className="text-3xl font-black text-blue-400 mt-2">
             PKR{" "}
-            {portfolio.portfolioValue.toLocaleString(
-              "en-PK",
-              {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              }
-            )}
-          </h2>
-        </div>
-
-        {/* REALIZED PROFIT / LOSS */}
-
-        <div className="bg-zinc-900 border border-purple-500 rounded-3xl p-6">
-          <p className="text-gray-400 text-sm">
-            Realized Profit / Loss
-          </p>
-
-          <h2
-            className={`text-3xl font-black mt-2 ${
-              portfolio.totalProfitLoss >= 0
-                ? "text-green-400"
-                : "text-red-400"
-            }`}
-          >
-            PKR{" "}
-            {portfolio.totalProfitLoss.toLocaleString(
+            {portfolio.averagebuyPrice.toLocaleString(
               "en-PK",
               {
                 minimumFractionDigits: 2,
@@ -777,36 +748,36 @@ const GoldsellPage: React.FC = () => {
       </div>
 
       {/* ========================================
-          SELL PANEL
+          BUY PANEL
       ======================================== */}
 
-      <div className="bg-zinc-900 border border-red-500 rounded-3xl p-8 mb-10">
-        <h2 className="text-3xl font-black text-red-400 mb-6">
-          Gold Selling Panel
+      <div className="bg-zinc-900 border border-green-500 rounded-3xl p-8 mb-10">
+        <h2 className="text-3xl font-black text-green-400 mb-6">
+          Gold Buying Panel
         </h2>
 
-        {/* GOLD QUANTITY */}
+        {/* GOLD QUANTITY INPUT */}
 
         <label
-          htmlFor="gold-sell-grams"
-          className="block text-gray-300 mb-3"
+          htmlFor="gold-grams"
+          className="block text-gray-300 mb-2"
         >
           Gold Quantity (Grams)
         </label>
 
         <input
-          id="gold-sell-grams"
+          id="gold-grams"
           type="number"
           min="0"
           step="0.001"
           value={grams}
           onChange={handleGramInput}
-          placeholder="Enter grams to sell..."
+          placeholder="Enter grams to buy..."
           disabled={
             processing ||
             !goldPrice.tradingEnabled
           }
-          className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-4 text-white outline-none focus:border-red-500 disabled:opacity-50 mb-6"
+          className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-4 text-white outline-none focus:border-green-500 disabled:opacity-50 mb-5"
         />
 
         {/* ========================================
@@ -823,10 +794,10 @@ const GoldsellPage: React.FC = () => {
                 processing ||
                 !goldPrice.tradingEnabled
               }
-              className={`rounded-xl py-3 font-bold transition-all duration-300 ${
+              className={`rounded-xl py-3 font-bold transition ${
                 grams === item.toString()
-                  ? "bg-red-500 text-white"
-                  : "bg-zinc-800 hover:bg-red-700"
+                  ? "bg-green-500 text-black"
+                  : "bg-zinc-800 hover:bg-green-700"
               } disabled:opacity-50`}
             >
               {item}g
@@ -851,35 +822,16 @@ const GoldsellPage: React.FC = () => {
             </span>
           </div>
 
-          {/* SELL PRICE */}
+          {/* LIVE BUY PRICE */}
 
           <div className="flex justify-between">
             <span className="text-gray-400">
-              Sell Price / Gram
-            </span>
-
-            <span className="text-red-400 font-bold">
-              PKR{" "}
-              {goldPrice.sellPrice.toLocaleString(
-                "en-PK",
-                {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                }
-              )}
-            </span>
-          </div>
-
-          {/* AVERAGE BUY PRICE */}
-
-          <div className="flex justify-between">
-            <span className="text-gray-400">
-              Average Buy Price
+              Live Buy Price
             </span>
 
             <span className="text-green-400 font-bold">
               PKR{" "}
-              {portfolio.averagebuyPrice.toLocaleString(
+              {goldPrice.buyPrice.toLocaleString(
                 "en-PK",
                 {
                   minimumFractionDigits: 2,
@@ -889,16 +841,35 @@ const GoldsellPage: React.FC = () => {
             </span>
           </div>
 
-          {/* TOTAL RECEIVE AMOUNT */}
+          {/* TOTAL PURCHASE COST */}
 
-          <div className="border-t border-zinc-700 pt-3 flex justify-between text-lg">
+          <div className="border-t border-zinc-700 pt-4 flex justify-between text-lg">
             <span>
-              Total Receive Amount
+              Total Purchase Cost
+            </span>
+
+            <span className="text-green-400 font-black">
+              PKR{" "}
+              {buyValue.toLocaleString(
+                "en-PK",
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }
+              )}
+            </span>
+          </div>
+
+          {/* WALLET AFTER PURCHASE */}
+
+          <div className="flex justify-between text-lg">
+            <span>
+              Wallet After Purchase
             </span>
 
             <span className="text-yellow-400 font-black">
               PKR{" "}
-              {sellValue.toLocaleString(
+              {remainingWallet.toLocaleString(
                 "en-PK",
                 {
                   minimumFractionDigits: 2,
@@ -908,64 +879,35 @@ const GoldsellPage: React.FC = () => {
             </span>
           </div>
 
-          {/* ESTIMATED PROFIT / LOSS */}
+          {/* GOLD BALANCE AFTER BUY */}
 
           <div className="flex justify-between text-lg">
             <span>
-              Estimated Profit / Loss
-            </span>
-
-            <span
-              className={`font-black ${
-                estimatedProfit >= 0
-                  ? "text-green-400"
-                  : "text-red-400"
-              }`}
-            >
-              PKR{" "}
-              {estimatedProfit.toLocaleString(
-                "en-PK",
-                {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                }
-              )}
-            </span>
-          </div>
-
-          {/* WALLET AFTER SELL */}
-
-          <div className="flex justify-between text-lg">
-            <span>
-              Wallet After Selling
-            </span>
-
-            <span className="text-cyan-400 font-black">
-              PKR{" "}
-              {WalletAftersell.toLocaleString(
-                "en-PK",
-                {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                }
-              )}
-            </span>
-          </div>
-
-          {/* REMAINING GOLD */}
-
-          <div className="flex justify-between text-lg">
-            <span>
-              Remaining Gold
+              Gold Balance After Buy
             </span>
 
             <span className="text-yellow-400 font-black">
-              {remainingGold.toFixed(3)} g
+              {newGoldBalance.toFixed(3)} g
+            </span>
+          </div>
+
+          {/* NEW AVERAGE PRICE */}
+
+          <div className="flex justify-between text-lg">
+            <span>
+              New Average Buy Price
+            </span>
+
+            <span className="text-blue-400 font-black">
+              PKR{" "}
+              {Math.round(
+                newAveragePrice
+              ).toLocaleString("en-PK")}
             </span>
           </div>
         </div>
 
-        {/* SELL BUTTON */}
+        {/* BUY BUTTON */}
 
         <button
           type="button"
@@ -974,195 +916,47 @@ const GoldsellPage: React.FC = () => {
             processing ||
             !goldPrice.tradingEnabled
           }
-          className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-xl py-4 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
+          className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-black text-xl py-4 rounded-2xl transition-all duration-300"
         >
           {processing
-            ? "Processing Sell..."
-            : "Sell GOLD NOW"}
+            ? "Processing..."
+            : "Buy GOLD NOW"}
         </button>
       </div>
             {/* ========================================
-          SELL INFORMATION
-      ======================================== */}
-
-      <div className="grid md:grid-cols-2 gap-6 mb-10">
-        {/* ========================================
-            SELLING RULES
-        ======================================== */}
-
-        <div className="bg-zinc-900 border border-red-600 rounded-3xl p-6">
-          <h3 className="text-xl font-black text-red-400 mb-5">
-            Selling Rules
-          </h3>
-
-          <ul className="space-y-3 text-gray-300 text-sm">
-            <li>
-              • Gold is sold at the Live Sell Price.
-            </li>
-
-            <li>
-              • PKR Wallet is credited instantly after selling.
-            </li>
-
-            <li>
-              • Gold balance decreases immediately.
-            </li>
-
-            <li>
-              • Profit/Loss is calculated automatically.
-            </li>
-
-            <li>
-              • Every sell trade is saved in Gold history.
-            </li>
-
-            <li>
-              • Trading must be OPEN to sell Gold.
-            </li>
-          </ul>
-        </div>
-
-        {/* ========================================
-            WALLET PREVIEW
-        ======================================== */}
-
-        <div className="bg-zinc-900 border border-yellow-600 rounded-3xl p-6">
-          <h3 className="text-xl font-black text-yellow-400 mb-5">
-            Wallet Preview
-          </h3>
-
-          <div className="space-y-4">
-            {/* CURRENT WALLET */}
-
-            <div className="flex justify-between">
-              <span className="text-gray-400">
-                Current Wallet
-              </span>
-
-              <span className="text-green-400 font-bold">
-                PKR{" "}
-                {portfolio.WalletBalance.toLocaleString(
-                  "en-PK",
-                  {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }
-                )}
-              </span>
-            </div>
-
-            {/* RECEIVE AMOUNT */}
-
-            <div className="flex justify-between">
-              <span className="text-gray-400">
-                Receive Amount
-              </span>
-
-              <span className="text-yellow-400 font-bold">
-                + PKR{" "}
-                {sellValue.toLocaleString(
-                  "en-PK",
-                  {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }
-                )}
-              </span>
-            </div>
-
-            {/* WALLET AFTER SELL */}
-
-            <div className="flex justify-between border-t border-zinc-700 pt-3">
-              <span className="text-gray-400">
-                Wallet After Sell
-              </span>
-
-              <span className="text-cyan-400 font-black">
-                PKR{" "}
-                {WalletAftersell.toLocaleString(
-                  "en-PK",
-                  {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }
-                )}
-              </span>
-            </div>
-
-            {/* REMAINING GOLD */}
-
-            <div className="flex justify-between">
-              <span className="text-gray-400">
-                Remaining Gold Balance
-              </span>
-
-              <span className="text-yellow-400 font-bold">
-                {remainingGold.toFixed(3)} g
-              </span>
-            </div>
-
-            {/* ESTIMATED PROFIT / LOSS */}
-
-            <div className="flex justify-between">
-              <span className="text-gray-400">
-                Estimated Profit / Loss
-              </span>
-
-              <span
-                className={`font-bold ${
-                  estimatedProfit >= 0
-                    ? "text-green-400"
-                    : "text-red-400"
-                }`}
-              >
-                PKR{" "}
-                {estimatedProfit.toLocaleString(
-                  "en-PK",
-                  {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }
-                )}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================
-          SELL CONFIRMATION MODAL
+          CONFIRMATION MODAL
       ======================================== */}
 
       {showConfirm && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-          <div className="bg-zinc-900 border border-red-500 rounded-3xl w-full max-w-md p-6">
-            <h2 className="text-2xl font-black text-red-400 mb-5">
-              Confirm Gold Sale
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4">
+          <div className="bg-zinc-900 border border-green-500 rounded-3xl w-full max-w-md p-6">
+            <h2 className="text-2xl font-black text-green-400 mb-4">
+              Confirm Gold Purchase
             </h2>
 
-            <div className="space-y-3 text-gray-300">
-              {/* GOLD QUANTITY */}
+            <div className="space-y-3">
+              {/* QUANTITY */}
 
               <div className="flex justify-between">
-                <span>
-                  Gold Quantity
+                <span className="text-gray-400">
+                  Quantity
                 </span>
 
-                <span>
+                <span className="font-bold">
                   {grams} g
                 </span>
               </div>
 
-              {/* SELL PRICE */}
+              {/* PRICE PER GRAM */}
 
               <div className="flex justify-between">
-                <span>
-                  Sell Price
+                <span className="text-gray-400">
+                  Price / Gram
                 </span>
 
-                <span>
+                <span className="font-bold">
                   PKR{" "}
-                  {goldPrice.sellPrice.toLocaleString(
+                  {goldPrice.buyPrice.toLocaleString(
                     "en-PK",
                     {
                       minimumFractionDigits: 2,
@@ -1172,16 +966,16 @@ const GoldsellPage: React.FC = () => {
                 </span>
               </div>
 
-              {/* AVERAGE BUY PRICE */}
+              {/* TOTAL COST */}
 
-              <div className="flex justify-between">
+              <div className="flex justify-between text-green-400 font-bold text-lg border-t border-zinc-700 pt-3">
                 <span>
-                  Average Buy Price
+                  Total Cost
                 </span>
 
                 <span>
                   PKR{" "}
-                  {portfolio.averagebuyPrice.toLocaleString(
+                  {buyValue.toLocaleString(
                     "en-PK",
                     {
                       minimumFractionDigits: 2,
@@ -1191,41 +985,16 @@ const GoldsellPage: React.FC = () => {
                 </span>
               </div>
 
-              {/* YOU WILL RECEIVE */}
+              {/* WALLET AFTER PURCHASE */}
 
-              <div className="flex justify-between text-yellow-400 font-bold text-lg border-t border-zinc-700 pt-3">
-                <span>
-                  You Will Receive
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">
+                  Wallet After Purchase
                 </span>
 
-                <span>
+                <span className="text-yellow-400 font-semibold">
                   PKR{" "}
-                  {sellValue.toLocaleString(
-                    "en-PK",
-                    {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    }
-                  )}
-                </span>
-              </div>
-
-              {/* ESTIMATED PROFIT / LOSS */}
-
-              <div className="flex justify-between">
-                <span>
-                  Estimated Profit / Loss
-                </span>
-
-                <span
-                  className={`font-bold ${
-                    estimatedProfit >= 0
-                      ? "text-green-400"
-                      : "text-red-400"
-                  }`}
-                >
-                  PKR{" "}
-                  {estimatedProfit.toLocaleString(
+                  {remainingWallet.toLocaleString(
                     "en-PK",
                     {
                       minimumFractionDigits: 2,
@@ -1238,7 +1007,7 @@ const GoldsellPage: React.FC = () => {
 
             {/* MODAL ACTIONS */}
 
-            <div className="flex gap-4 mt-8">
+            <div className="flex gap-4 mt-6">
               <button
                 type="button"
                 onClick={() =>
@@ -1252,13 +1021,13 @@ const GoldsellPage: React.FC = () => {
 
               <button
                 type="button"
-                onClick={sellGold}
+                onClick={buyGold}
                 disabled={processing}
-                className="flex-1 bg-red-600 hover:bg-red-500 py-3 rounded-xl font-bold text-white transition disabled:opacity-50"
+                className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 py-3 rounded-xl font-bold transition"
               >
                 {processing
-                  ? "Selling..."
-                  : "Confirm Sell"}
+                  ? "Processing..."
+                  : "Confirm Buy"}
               </button>
             </div>
           </div>
@@ -1266,42 +1035,222 @@ const GoldsellPage: React.FC = () => {
       )}
 
       {/* ========================================
-          ENTERPRISE FOOTER
+          ADDITIONAL PORTFOLIO INFORMATION
+      ======================================== */}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-10">
+        {/* PORTFOLIO VALUE */}
+
+        <div className="bg-zinc-900 border border-blue-500/50 rounded-2xl p-5">
+          <p className="text-gray-400 text-sm">
+            Portfolio Value
+          </p>
+
+          <h3 className="text-2xl font-black text-blue-400 mt-2">
+            PKR{" "}
+            {portfolio.portfolioValue.toLocaleString(
+              "en-PK",
+              {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }
+            )}
+          </h3>
+        </div>
+
+        {/* LIVE PROFIT */}
+
+        <div className="bg-zinc-900 border border-green-500/50 rounded-2xl p-5">
+          <p className="text-gray-400 text-sm">
+            Live Profit
+          </p>
+
+          <h3
+            className={`text-2xl font-black mt-2 ${
+              portfolio.liveProfit >= 0
+                ? "text-green-400"
+                : "text-red-400"
+            }`}
+          >
+            PKR{" "}
+            {portfolio.liveProfit.toLocaleString(
+              "en-PK",
+              {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }
+            )}
+          </h3>
+        </div>
+
+        {/* TOTAL PROFIT / LOSS */}
+
+        <div className="bg-zinc-900 border border-purple-500/50 rounded-2xl p-5">
+          <p className="text-gray-400 text-sm">
+            Total Profit / Loss
+          </p>
+
+          <h3
+            className={`text-2xl font-black mt-2 ${
+              portfolio.totalProfitLoss >= 0
+                ? "text-green-400"
+                : "text-red-400"
+            }`}
+          >
+            PKR{" "}
+            {portfolio.totalProfitLoss.toLocaleString(
+              "en-PK",
+              {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }
+            )}
+          </h3>
+        </div>
+
+        {/* CURRENT GOLD PRICE */}
+
+        <div className="bg-zinc-900 border border-yellow-500/50 rounded-2xl p-5">
+          <p className="text-gray-400 text-sm">
+            Current Gold Price
+          </p>
+
+          <h3 className="text-2xl font-black text-yellow-400 mt-2">
+            PKR{" "}
+            {portfolio.currentPrice.toLocaleString(
+              "en-PK",
+              {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }
+            )}
+          </h3>
+        </div>
+      </div>
+
+      {/* ========================================
+          GOLD TRANSACTION SUMMARY
+      ======================================== */}
+
+      <div className="bg-zinc-900 border border-zinc-700 rounded-3xl p-6 mb-10">
+        <h2 className="text-2xl font-black text-white mb-5">
+          Gold Transaction Summary
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* TOTAL GOLD BOUGHT */}
+
+          <div className="bg-black rounded-2xl p-5 border border-green-500/30">
+            <p className="text-gray-400 text-sm">
+              Total Gold Bought
+            </p>
+
+            <p className="text-2xl font-black text-green-400 mt-2">
+              {portfolio.totalGoldbuy.toFixed(3)} g
+            </p>
+          </div>
+
+          {/* TOTAL GOLD SOLD */}
+
+          <div className="bg-black rounded-2xl p-5 border border-red-500/30">
+            <p className="text-gray-400 text-sm">
+              Total Gold Sold
+            </p>
+
+            <p className="text-2xl font-black text-red-400 mt-2">
+              {portfolio.totalGoldsell.toFixed(3)} g
+            </p>
+          </div>
+        </div>
+      </div>
+            {/* ========================================
+          MARKET INFORMATION
+      ======================================== */}
+
+      <div className="bg-zinc-900 border border-cyan-500/30 rounded-3xl p-6 mb-10">
+        <h2 className="text-2xl font-black text-cyan-400 mb-5">
+          Gold Market Information
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* GOLD USD */}
+
+          <div className="bg-black rounded-2xl p-5">
+            <p className="text-gray-400 text-sm">
+              Gold Price USD
+            </p>
+
+            <p className="text-xl font-bold text-yellow-400 mt-2">
+              $
+              {goldPrice.goldPriceUSD.toLocaleString(
+                "en-US",
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }
+              )}
+            </p>
+          </div>
+
+          {/* USD TO PKR */}
+
+          <div className="bg-black rounded-2xl p-5">
+            <p className="text-gray-400 text-sm">
+              USD to PKR
+            </p>
+
+            <p className="text-xl font-bold text-cyan-400 mt-2">
+              {goldPrice.UsdtoPkr.toLocaleString(
+                "en-PK",
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }
+              )}
+            </p>
+          </div>
+
+          {/* MARKET STATE */}
+
+          <div className="bg-black rounded-2xl p-5">
+            <p className="text-gray-400 text-sm">
+              Trading Status
+            </p>
+
+            <p
+              className={`text-xl font-bold mt-2 ${
+                goldPrice.tradingEnabled
+                  ? "text-green-400"
+                  : "text-red-400"
+              }`}
+            >
+              {goldPrice.tradingEnabled
+                ? "ENABLED"
+                : "DISABLED"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================
+          FOOTER
       ======================================== */}
 
       <div className="mt-12 border-t border-zinc-800 pt-6 text-center text-gray-500 text-sm">
-        <p className="font-semibold text-red-400 mb-2 text-lg">
+        <p className="font-semibold text-green-400 mb-2 text-lg">
           GoldTrade Enterprise V18
         </p>
 
         <p>
-          Sell Gold Module • Live Market • JWT Protected • Real-Time Portfolio
+          Buy Gold Module • Secure JWT • Live Gold Market
         </p>
 
         <p className="mt-2">
           Powered by GoldTrade Enterprise Backend API
         </p>
-
-        <div className="mt-4 flex justify-center gap-6 flex-wrap text-xs">
-          <span className="text-red-400">
-            • Live Sell Market
-          </span>
-
-          <span className="text-yellow-400">
-            • Auto Refresh 30s
-          </span>
-
-          <span className="text-blue-400">
-            • Secure JWT Authentication
-          </span>
-
-          <span className="text-green-400">
-            • Instant Wallet Credit
-          </span>
-        </div>
       </div>
     </div>
   );
 };
 
-export default GoldsellPage;
+export default GoldbuyPage;

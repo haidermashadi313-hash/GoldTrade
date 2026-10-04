@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   Wallet,
-  Landmark,
-  Building2,
   CreditCard,
   Copy,
   Save,
@@ -22,10 +20,23 @@ import {
   Settings,
 } from "lucide-react";
 
-// =====================================================
-// API URL
+// ============================================================
 // GOLDTRADE V18
-// =====================================================
+// ADMIN PAYMENT SETTINGS
+// PART 1/8
+// ============================================================
+//
+// IMPORTANT:
+// - Payment Methods -> /api/payment-settings/admin/deposit
+// - General Deposit Settings -> /api/deposit/settings
+// - Admin authentication -> Bearer token
+// - No old payment API is used
+// ============================================================
+
+
+// ============================================================
+// API URL
+// ============================================================
 
 const API = (() => {
   const configuredAPI =
@@ -36,8 +47,10 @@ const API = (() => {
   }
 
   if (typeof window !== "undefined") {
-    const hostname = window.location.hostname;
+    const hostname =
+      window.location.hostname;
 
+    // Local development
     if (
       hostname === "localhost" ||
       hostname === "127.0.0.1" ||
@@ -46,15 +59,22 @@ const API = (() => {
       return "http://localhost:5000";
     }
 
+    // Production
+    //
+    // IMPORTANT:
+    // NEXT_PUBLIC_API_URL should normally be set
+    // in Vercel environment variables.
+    //
     return "https://goldtrade-2.onrender.com";
   }
 
   return "https://goldtrade-2.onrender.com";
 })();
 
-// =====================================================
-// V18 BACKEND PAYMENT METHOD
-// =====================================================
+
+// ============================================================
+// PAYMENT METHOD TYPES
+// ============================================================
 
 interface BackendPaymentMethod {
   _id?: string;
@@ -78,28 +98,31 @@ interface BackendPaymentMethod {
   qrImage?: string;
 }
 
-// =====================================================
-// FRONTEND PAYMENT METHOD
-// =====================================================
 
 interface DepositPaymentMethod {
   _id?: string;
 
+  // Display name
   type: string;
 
+  // Backend accountTitle
   accountName: string;
 
+  // Backend accountNumber
   accountNumber: string;
 
+  // Backend qrImage
   qrCode: string;
 
+  // Frontend-only informational field
   instructions: string;
 
   enabled: boolean;
 
-  // V18 fields
+  // Backend method
   method?: string;
 
+  // Backend title
   title?: string;
 
   iban?: string;
@@ -109,9 +132,10 @@ interface DepositPaymentMethod {
   network?: string;
 }
 
-// =====================================================
+
+// ============================================================
 // DEPOSIT SETTINGS
-// =====================================================
+// ============================================================
 
 interface DepositSettings {
   depositsEnabled: boolean;
@@ -122,16 +146,17 @@ interface DepositSettings {
 
   methods: DepositPaymentMethod[];
 
-  paymentMethods?: DepositPaymentMethod[];
+  paymentMethods: DepositPaymentMethod[];
 
-  total?: number;
+  total: number;
 
   updatedAt?: string;
 }
 
-// =====================================================
+
+// ============================================================
 // STATISTICS
-// =====================================================
+// ============================================================
 
 interface PaymentStatistics {
   totalMethods: number;
@@ -147,163 +172,223 @@ interface PaymentStatistics {
   maximumDeposit: number;
 }
 
-// =====================================================
-// EMPTY METHOD
-// =====================================================
 
-const createEmptyMethod = (): DepositPaymentMethod => ({
-  type: "",
+// ============================================================
+// EMPTY PAYMENT METHOD
+// ============================================================
 
-  accountName: "",
+const createEmptyMethod =
+  (): DepositPaymentMethod => ({
+    type: "",
 
-  accountNumber: "",
+    accountName: "",
 
-  qrCode: "",
+    accountNumber: "",
 
-  instructions: "",
+    qrCode: "",
 
-  enabled: true,
+    instructions: "",
 
-  method: "",
+    enabled: true,
 
-  title: "",
+    method: "",
 
-  iban: "",
+    title: "",
 
-  walletAddress: "",
+    iban: "",
 
-  network: "",
-});
+    walletAddress: "",
 
-// =====================================================
+    network: "",
+  });
+
+
+// ============================================================
+// DEFAULT SETTINGS
+// ============================================================
+
+const createDefaultSettings =
+  (): DepositSettings => ({
+    depositsEnabled: true,
+
+    minimumDeposit: 1000,
+
+    maximumDeposit: 10000000,
+
+    methods: [],
+
+    paymentMethods: [],
+
+    total: 0,
+  });
+
+
+// ============================================================
+// DEFAULT STATISTICS
+// ============================================================
+
+const createDefaultStatistics =
+  (): PaymentStatistics => ({
+    totalMethods: 0,
+
+    activeMethods: 0,
+
+    inactiveMethods: 0,
+
+    depositsEnabled: true,
+
+    minimumDeposit: 1000,
+
+    maximumDeposit: 10000000,
+  });
+
+
+// ============================================================
 // COMPONENT
-// =====================================================
+// ============================================================
 
 export default function PaymentSettingsPage() {
-  // ===================================================
-  // AUTH
-  // ===================================================
 
-  const [token, setToken] = useState("");
+  // ==========================================================
+  // AUTH
+  // ==========================================================
+
+  const [token, setToken] =
+    useState<string>("");
+
+
+  // ==========================================================
+  // ADMIN NAME
+  // ==========================================================
 
   const [adminName, setAdminName] =
-    useState("Administrator");
+    useState<string>("Administrator");
 
-  // ===================================================
-  // SETTINGS
-  // ===================================================
+
+  // ==========================================================
+  // MAIN SETTINGS
+  // ==========================================================
 
   const [settings, setSettings] =
-    useState<DepositSettings>({
-      depositsEnabled: true,
+    useState<DepositSettings>(
+      createDefaultSettings()
+    );
 
-      minimumDeposit: 1000,
 
-      maximumDeposit: 10000000,
-
-      methods: [],
-
-      paymentMethods: [],
-
-      total: 0,
-    });
-
-  // ===================================================
-  // NEW PAYMENT METHOD
-  // ===================================================
+  // ==========================================================
+  // NEW / EDIT PAYMENT METHOD
+  // ==========================================================
 
   const [newMethod, setNewMethod] =
     useState<DepositPaymentMethod>(
       createEmptyMethod()
     );
 
-  // ===================================================
+
+  // ==========================================================
   // STATISTICS
-  // ===================================================
+  // ==========================================================
 
   const [statistics, setStatistics] =
-    useState<PaymentStatistics>({
-      totalMethods: 0,
+    useState<PaymentStatistics>(
+      createDefaultStatistics()
+    );
 
-      activeMethods: 0,
 
-      inactiveMethods: 0,
-
-      depositsEnabled: true,
-
-      minimumDeposit: 1000,
-
-      maximumDeposit: 10000000,
-    });
-
-  // ===================================================
+  // ==========================================================
   // UI STATES
-  // ===================================================
+  // ==========================================================
 
   const [loading, setLoading] =
-    useState(true);
+    useState<boolean>(true);
 
   const [refreshing, setRefreshing] =
-    useState(false);
+    useState<boolean>(false);
 
   const [saving, setSaving] =
-    useState(false);
+    useState<boolean>(false);
+
+
+  // ==========================================================
+  // MESSAGE
+  // ==========================================================
 
   const [message, setMessage] =
-    useState("");
+    useState<string>("");
 
   const [messageType, setMessageType] =
-    useState<"success" | "error">("success");
+    useState<"success" | "error">(
+      "success"
+    );
+
+
+  // ==========================================================
+  // ERROR
+  // ==========================================================
 
   const [error, setError] =
-    useState("");
+    useState<string>("");
 
-  // ===================================================
+
+  // ==========================================================
   // SEARCH
-  // ===================================================
+  // ==========================================================
 
   const [search, setSearch] =
-    useState("");
+    useState<string>("");
 
-  // ===================================================
-  // EDITING
-  // ===================================================
+
+  // ==========================================================
+  // EDIT INDEX
+  // ==========================================================
 
   const [editingIndex, setEditingIndex] =
     useState<number | null>(null);
 
-  // ===================================================
-  // FORM VISIBILITY
-  // ===================================================
+
+  // ==========================================================
+  // ADD FORM
+  // ==========================================================
 
   const [showAddForm, setShowAddForm] =
-    useState(false);
+    useState<boolean>(false);
 
-  // ===================================================
+
+  // ==========================================================
   // TOKEN LOAD
-  // ===================================================
+  // ==========================================================
 
   useEffect(() => {
     try {
       const savedToken =
-        localStorage.getItem("token")?.trim() || "";
+        localStorage
+          .getItem("token")
+          ?.trim() || "";
 
       if (!savedToken) {
-        window.location.href = "/login";
+        window.location.href =
+          "/login";
+
         return;
       }
 
       setToken(savedToken);
-    } catch (err) {
-      console.error("TOKEN LOAD ERROR:", err);
 
-      window.location.href = "/login";
+    } catch (err) {
+      console.error(
+        "PAYMENT SETTINGS TOKEN ERROR:",
+        err
+      );
+
+      window.location.href =
+        "/login";
     }
   }, []);
 
-  // ===================================================
-  // REQUEST HEADERS
-  // ===================================================
+
+  // ==========================================================
+  // ADMIN REQUEST HEADERS
+  // ==========================================================
 
   const adminHeaders = useMemo(
     () => ({
@@ -311,42 +396,60 @@ export default function PaymentSettingsPage() {
         ? `Bearer ${token}`
         : "",
 
-      "Content-Type": "application/json",
+      "Content-Type":
+        "application/json",
     }),
     [token]
   );
 
-  // ===================================================
-  // FORMAT DATE
-  // ===================================================
 
-  const formatDate = (date?: string) => {
+  // ==========================================================
+  // FORMAT DATE
+  // ==========================================================
+
+  const formatDate = (
+    date?: string
+  ): string => {
     if (!date) {
       return "--";
     }
 
-    const parsed = new Date(date);
+    const parsed =
+      new Date(date);
 
-    if (Number.isNaN(parsed.getTime())) {
+    if (
+      Number.isNaN(
+        parsed.getTime()
+      )
+    ) {
       return "--";
     }
 
-    return parsed.toLocaleString("en-GB", {
-      dateStyle: "medium",
-
-      timeStyle: "short",
-    });
+    return parsed.toLocaleString(
+      "en-GB",
+      {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }
+    );
   };
 
-  // ===================================================
-  // COPY TEXT
-  // ===================================================
 
-  const copyText = async (value: string) => {
-    const text = String(value || "").trim();
+  // ==========================================================
+  // COPY TEXT
+  // ==========================================================
+
+  const copyText = async (
+    value: string
+  ) => {
+    const text =
+      String(value || "")
+        .trim();
 
     if (!text) {
-      setMessage("Nothing to copy.");
+      setMessage(
+        "Nothing to copy."
+      );
 
       setMessageType("error");
 
@@ -354,52 +457,83 @@ export default function PaymentSettingsPage() {
     }
 
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard
+        .writeText(text);
 
-      setMessage("Copied successfully.");
+      setMessage(
+        "Copied successfully."
+      );
 
-      setMessageType("success");
+      setMessageType(
+        "success"
+      );
+
     } catch (err) {
-      console.error("COPY ERROR:", err);
+      console.error(
+        "COPY ERROR:",
+        err
+      );
 
-      setMessage("Unable to copy.");
+      setMessage(
+        "Unable to copy."
+      );
 
-      setMessageType("error");
+      setMessageType(
+        "error"
+      );
     }
   };
 
-  // ===================================================
-  // NORMALIZE BACKEND METHOD
-  // ===================================================
+
+    // ============================================================
+  // PART 2/8
+  // BACKEND NORMALIZATION + LOAD SYSTEM
+  // ============================================================
+
+
+  // ============================================================
+  // NORMALIZE BACKEND PAYMENT METHOD
+  // ============================================================
 
   const normalizeBackendMethod = (
     method: BackendPaymentMethod
   ): DepositPaymentMethod => {
+
     const backendMethod =
-      String(method.method || "")
+      String(method?.method || "")
         .trim()
         .toUpperCase();
 
     const displayTitle =
       String(
-        method.title ||
-          method.method ||
+        method?.title ||
+          method?.method ||
           ""
       ).trim();
+
+    // ----------------------------------------------------------
+    // BINANCE / CRYPTO
+    // ----------------------------------------------------------
 
     const accountNumber =
       backendMethod === "BINANCE"
         ? String(
-            method.walletAddress ||
-              method.accountNumber ||
+            method?.walletAddress ||
+              method?.accountNumber ||
               ""
           ).trim()
         : String(
-            method.accountNumber || ""
+            method?.accountNumber ||
+              ""
           ).trim();
 
+
+    // ----------------------------------------------------------
+    // RETURN FRONTEND FORMAT
+    // ----------------------------------------------------------
+
     return {
-      _id: method._id,
+      _id: method?._id,
 
       type:
         backendMethod === "BANK"
@@ -412,130 +546,187 @@ export default function PaymentSettingsPage() {
           ? "Binance USDT"
           : displayTitle,
 
-      accountName: String(
-        method.accountTitle || ""
-      ).trim(),
+      accountName:
+        String(
+          method?.accountTitle ||
+            ""
+        ).trim(),
 
       accountNumber,
 
-      qrCode: String(
-        method.qrImage || ""
-      ).trim(),
+      qrCode:
+        String(
+          method?.qrImage ||
+            ""
+        ).trim(),
 
       instructions: "",
 
-      enabled: method.enabled === true,
+      enabled:
+        method?.enabled === true,
 
-      method: backendMethod,
+      method:
+        backendMethod,
 
-      title: displayTitle,
+      title:
+        displayTitle,
 
-      iban: String(
-        method.iban || ""
-      ).trim(),
+      iban:
+        String(
+          method?.iban ||
+            ""
+        ).trim(),
 
-      walletAddress: String(
-        method.walletAddress || ""
-      ).trim(),
+      walletAddress:
+        String(
+          method?.walletAddress ||
+            ""
+        ).trim(),
 
-      network: String(
-        method.network || ""
-      ).trim(),
+      network:
+        String(
+          method?.network ||
+            ""
+        ).trim(),
     };
   };
 
-  // ===================================================
+
+  // ============================================================
   // NORMALIZE FRONTEND METHOD
-  // ===================================================
+  // ============================================================
 
   const normalizeMethod = (
     method: Partial<DepositPaymentMethod> = {}
   ): DepositPaymentMethod => {
+
     return {
-      _id: method._id,
+      _id:
+        method._id,
 
-      type: String(
-        method.type ?? ""
-      ).trim(),
+      type:
+        String(
+          method.type ??
+            ""
+        ).trim(),
 
-      accountName: String(
-        method.accountName ?? ""
-      ).trim(),
+      accountName:
+        String(
+          method.accountName ??
+            ""
+        ).trim(),
 
-      accountNumber: String(
-        method.accountNumber ?? ""
-      ).trim(),
+      accountNumber:
+        String(
+          method.accountNumber ??
+            ""
+        ).trim(),
 
-      qrCode: String(
-        method.qrCode ?? ""
-      ).trim(),
+      qrCode:
+        String(
+          method.qrCode ??
+            ""
+        ).trim(),
 
-      instructions: String(
-        method.instructions ?? ""
-      ).trim(),
+      instructions:
+        String(
+          method.instructions ??
+            ""
+        ).trim(),
 
       enabled:
         method.enabled !== false,
 
-      method: String(
-        method.method ?? ""
-      )
-        .trim()
-        .toUpperCase(),
+      method:
+        String(
+          method.method ??
+            ""
+        )
+          .trim()
+          .toUpperCase(),
 
-      title: String(
-        method.title ?? ""
-      ).trim(),
+      title:
+        String(
+          method.title ??
+            ""
+        ).trim(),
 
-      iban: String(
-        method.iban ?? ""
-      ).trim(),
+      iban:
+        String(
+          method.iban ??
+            ""
+        ).trim(),
 
-      walletAddress: String(
-        method.walletAddress ?? ""
-      ).trim(),
+      walletAddress:
+        String(
+          method.walletAddress ??
+            ""
+        ).trim(),
 
-      network: String(
-        method.network ?? ""
-      ).trim(),
+      network:
+        String(
+          method.network ??
+            ""
+        ).trim(),
     };
   };
 
-  // ===================================================
-  // NORMALIZE SETTINGS
-  // ===================================================
+
+  // ============================================================
+  // NORMALIZE COMPLETE SETTINGS
+  // ============================================================
 
   const normalizeSettings = (
     data: any
   ): DepositSettings => {
+
+    // ----------------------------------------------------------
+    // API CAN RETURN:
+    //
+    // {
+    //   settings: {...}
+    // }
+    //
+    // OR DIRECT SETTINGS
+    // ----------------------------------------------------------
+
     const source =
       data?.settings &&
       typeof data.settings === "object"
         ? data.settings
         : data || {};
 
-    // -------------------------------------------------
-    // V18 DEPOSIT METHODS
-    // -------------------------------------------------
 
-    const backendMethods: BackendPaymentMethod[] =
+    // ----------------------------------------------------------
+    // V18 PAYMENT SETTINGS
+    //
+    // Backend field:
+    // depositMethods
+    // ----------------------------------------------------------
+
+    const backendMethods:
+      BackendPaymentMethod[] =
       Array.isArray(
         source.depositMethods
       )
         ? source.depositMethods
         : [];
 
+
+    // ----------------------------------------------------------
+    // CONVERT BACKEND -> FRONTEND
+    // ----------------------------------------------------------
+
     const methods =
       backendMethods
         .filter(
           (method) =>
             method &&
-            typeof method === "object"
+            typeof method ===
+              "object"
         )
         .map(
-          (
-            method
-          ) =>
+          (method) =>
             normalizeBackendMethod(
               method
             )
@@ -545,9 +736,10 @@ export default function PaymentSettingsPage() {
             method.type.length > 0
         );
 
-    // -------------------------------------------------
-    // DEPOSIT LIMITS
-    // -------------------------------------------------
+
+    // ----------------------------------------------------------
+    // MINIMUM DEPOSIT
+    // ----------------------------------------------------------
 
     const minimumDepositValue =
       Number(
@@ -562,6 +754,11 @@ export default function PaymentSettingsPage() {
         ? minimumDepositValue
         : 1000;
 
+
+    // ----------------------------------------------------------
+    // MAXIMUM DEPOSIT
+    // ----------------------------------------------------------
+
     const maximumDepositValue =
       Number(
         source.maximumDeposit
@@ -575,9 +772,10 @@ export default function PaymentSettingsPage() {
         ? maximumDepositValue
         : 10000000;
 
-    // -------------------------------------------------
-    // RETURN
-    // -------------------------------------------------
+
+    // ----------------------------------------------------------
+    // RETURN CLEAN STATE
+    // ----------------------------------------------------------
 
     return {
       depositsEnabled:
@@ -593,7 +791,8 @@ export default function PaymentSettingsPage() {
         ...methods,
       ],
 
-      total: methods.length,
+      total:
+        methods.length,
 
       updatedAt:
         typeof source.updatedAt ===
@@ -603,19 +802,30 @@ export default function PaymentSettingsPage() {
     };
   };
 
-  // ===================================================
-  // LOAD V18 PAYMENT SETTINGS
-  // GET /api/payment-settings/admin/all
-  // ===================================================
+
+  // ============================================================
+  // LOAD PAYMENT SETTINGS
+  //
+  // GET
+  // /api/payment-settings/admin/all
+  // ============================================================
 
   const loadPaymentSettings =
     async () => {
+
       if (!token) {
         return;
       }
 
+
       try {
+
         setError("");
+
+
+        // ------------------------------------------------------
+        // REQUEST
+        // ------------------------------------------------------
 
         const response =
           await fetch(
@@ -623,37 +833,48 @@ export default function PaymentSettingsPage() {
             {
               method: "GET",
 
-              headers: adminHeaders,
+              headers:
+                adminHeaders,
 
-              cache: "no-store",
+              cache:
+                "no-store",
             }
           );
 
-        // ---------------------------------------------
+
+        // ------------------------------------------------------
         // SAFE JSON
-        // ---------------------------------------------
+        // ------------------------------------------------------
 
         let data: any = {};
 
         try {
+
           data =
             await response.json();
+
         } catch {
+
           data = {};
+
         }
+
 
         console.log(
           "V18 ADMIN PAYMENT SETTINGS:",
           data
         );
 
-        // ---------------------------------------------
-        // AUTH EXPIRED
-        // ---------------------------------------------
+
+        // ------------------------------------------------------
+        // TOKEN EXPIRED
+        // ------------------------------------------------------
 
         if (
-          response.status === 401
+          response.status ===
+          401
         ) {
+
           localStorage.removeItem(
             "token"
           );
@@ -666,68 +887,82 @@ export default function PaymentSettingsPage() {
           return;
         }
 
-        // ---------------------------------------------
-        // ADMIN ACCESS
-        // ---------------------------------------------
+
+        // ------------------------------------------------------
+        // ADMIN ACCESS DENIED
+        // ------------------------------------------------------
 
         if (
-          response.status === 403
+          response.status ===
+          403
         ) {
+
           throw new Error(
             data?.message ||
               "Admin access required."
           );
         }
 
-        // ---------------------------------------------
+
+        // ------------------------------------------------------
         // HTTP ERROR
-        // ---------------------------------------------
+        // ------------------------------------------------------
 
         if (!response.ok) {
+
           throw new Error(
             data?.message ||
               `Request failed with status ${response.status}.`
           );
         }
 
-        // ---------------------------------------------
+
+        // ------------------------------------------------------
         // API ERROR
-        // ---------------------------------------------
+        // ------------------------------------------------------
 
         if (
           data &&
           data.success === false
         ) {
+
           throw new Error(
-            data.message ||
+            data?.message ||
               "Unable to load payment settings."
           );
         }
 
-        // ---------------------------------------------
+
+        // ------------------------------------------------------
         // NORMALIZE
-        // ---------------------------------------------
+        // ------------------------------------------------------
 
         const normalized =
-          normalizeSettings(data);
+          normalizeSettings(
+            data
+          );
 
-        // ---------------------------------------------
-        // UPDATE SETTINGS
-        // ---------------------------------------------
+
+        // ------------------------------------------------------
+        // UPDATE MAIN STATE
+        // ------------------------------------------------------
 
         setSettings(
           normalized
         );
 
-        // ---------------------------------------------
-        // STATISTICS
-        // ---------------------------------------------
+
+        // ------------------------------------------------------
+        // CALCULATE STATISTICS
+        // ------------------------------------------------------
 
         const activeMethods =
           normalized.methods.filter(
             (method) =>
-              method.enabled === true
+              method.enabled ===
+              true
           ).length;
+
 
         const inactiveMethods =
           Math.max(
@@ -735,6 +970,11 @@ export default function PaymentSettingsPage() {
             normalized.methods.length -
               activeMethods
           );
+
+
+        // ------------------------------------------------------
+        // UPDATE STATISTICS
+        // ------------------------------------------------------
 
         setStatistics({
           totalMethods:
@@ -754,12 +994,22 @@ export default function PaymentSettingsPage() {
             normalized.maximumDeposit,
         });
 
+
+        // ------------------------------------------------------
+        // CLEAR ERROR
+        // ------------------------------------------------------
+
         setError("");
-      } catch (err: any) {
+
+      } catch (
+        err: any
+      ) {
+
         console.error(
           "LOAD PAYMENT SETTINGS ERROR:",
           err
         );
+
 
         setError(
           err?.message ||
@@ -768,168 +1018,218 @@ export default function PaymentSettingsPage() {
       }
     };
 
-  // ===================================================
+
+  // ============================================================
   // INITIAL LOAD
-  // ===================================================
+  // ============================================================
 
   useEffect(() => {
+
     if (!token) {
       return;
     }
 
-    let mounted = true;
+
+    let mounted =
+      true;
+
 
     const initialize =
       async () => {
+
         try {
+
           if (mounted) {
             setLoading(true);
           }
 
+
           await loadPaymentSettings();
+
         } catch (err) {
+
           console.error(
             "INITIAL PAYMENT SETTINGS ERROR:",
             err
           );
+
         } finally {
+
           if (mounted) {
             setLoading(false);
           }
+
         }
       };
 
+
     initialize();
+
 
     return () => {
       mounted = false;
     };
+
   }, [token]);
 
-  // ===================================================
-  // REFRESH
-  // ===================================================
+
+  // ============================================================
+  // REFRESH PAYMENT SETTINGS
+  // ============================================================
 
   const refreshPaymentSettings =
     async () => {
+
       if (!token) {
+
         setMessage(
           "Please login again."
         );
 
-        setMessageType("error");
+        setMessageType(
+          "error"
+        );
 
         return;
       }
 
+
       try {
+
         setRefreshing(true);
 
         setError("");
 
+
         await loadPaymentSettings();
 
+
         setMessage(
-          "Payment settings refreshed."
+          "Payment settings refreshed successfully."
         );
 
-        setMessageType("success");
-      } catch (err: any) {
+        setMessageType(
+          "success"
+        );
+
+      } catch (
+        err: any
+      ) {
+
         console.error(
           "REFRESH PAYMENT SETTINGS ERROR:",
           err
         );
+
 
         setMessage(
           err?.message ||
             "Unable to refresh payment settings."
         );
 
-        setMessageType("error");
+        setMessageType(
+          "error"
+        );
+
       } finally {
+
         setRefreshing(false);
+
       }
     };
 
-  // ===================================================
+
+  // ============================================================
   // AUTO CLEAR MESSAGE
-  // ===================================================
+  // ============================================================
 
   useEffect(() => {
+
     if (!message) {
       return;
     }
 
+
     const timer =
-      window.setTimeout(() => {
-        setMessage("");
-      }, 4000);
+      window.setTimeout(
+        () => {
+          setMessage("");
+        },
+        4000
+      );
+
 
     return () => {
-      window.clearTimeout(timer);
+      window.clearTimeout(
+        timer
+      );
     };
+
   }, [message]);
 
-  // ===================================================
-  // UPDATE NEW METHOD
-  // ===================================================
+
+  // ============================================================
+  // UPDATE NEW PAYMENT METHOD
+  // ============================================================
 
   const updateNewMethod = (
-    field: keyof DepositPaymentMethod,
-    value: string | boolean
+    field:
+      keyof DepositPaymentMethod,
+    value:
+      string | boolean
   ) => {
-    setNewMethod((prev) => ({
-      ...prev,
 
-      [field]: value,
-    }));
+    setNewMethod(
+      (previous) => ({
+        ...previous,
+
+        [field]:
+          value,
+      })
+    );
   };
+
+
   // =====================================================
+// PART 3/8 — PAYMENT METHOD MANAGEMENT
+// =====================================================
+
+// =====================================================
 // ADD / UPDATE PAYMENT METHOD
 // =====================================================
 
 const addPaymentMethod = () => {
+  // ---------------------------------------------------
+  // NORMALIZE FORM DATA
+  // ---------------------------------------------------
+
   const method = normalizeMethod(newMethod);
 
+  const type = method.type.trim();
+  const accountName = method.accountName.trim();
+  const accountNumber = method.accountNumber.trim();
+
   // ---------------------------------------------------
-  // VALIDATE METHOD NAME
+  // BASIC VALIDATION
   // ---------------------------------------------------
 
-  if (!method.type) {
-    setMessage(
-      "Payment method name is required."
-    );
-
+  if (!type) {
+    setMessage("Payment method name is required.");
     setMessageType("error");
-
     return;
   }
 
-  // ---------------------------------------------------
-  // VALIDATE ACCOUNT NAME
-  // ---------------------------------------------------
-
-  if (!method.accountName) {
-    setMessage(
-      "Account name is required."
-    );
-
+  if (!accountName) {
+    setMessage("Account name / title is required.");
     setMessageType("error");
-
     return;
   }
 
-  // ---------------------------------------------------
-  // VALIDATE ACCOUNT NUMBER
-  // ---------------------------------------------------
-
-  if (!method.accountNumber) {
+  if (!accountNumber && !method.walletAddress) {
     setMessage(
-      "Account number / wallet address is required."
+      "Account number or wallet address is required."
     );
-
     setMessageType("error");
-
     return;
   }
 
@@ -937,83 +1237,65 @@ const addPaymentMethod = () => {
   // NORMALIZE METHOD NAME
   // ---------------------------------------------------
 
-  const normalizedType =
-    method.type
-      .toLowerCase()
-      .trim();
+  const normalizedType = type
+    .toLowerCase()
+    .trim();
 
   // ---------------------------------------------------
   // DUPLICATE CHECK
   // ---------------------------------------------------
 
-  const duplicate =
-    settings.methods.some(
-      (item, index) => {
-        if (
-          editingIndex !== null &&
-          index === editingIndex
-        ) {
-          return false;
-        }
-
-        return (
-          String(
-            item.type || ""
-          )
-            .toLowerCase()
-            .trim() ===
-          normalizedType
-        );
+  const duplicate = settings.methods.some(
+    (item, index) => {
+      if (
+        editingIndex !== null &&
+        index === editingIndex
+      ) {
+        return false;
       }
-    );
+
+      return (
+        String(item.type || "")
+          .toLowerCase()
+          .trim() === normalizedType
+      );
+    }
+  );
 
   if (duplicate) {
     setMessage(
       "This payment method already exists."
     );
-
     setMessageType("error");
-
     return;
   }
 
   // ---------------------------------------------------
-  // UPDATE EXISTING
+  // UPDATE EXISTING METHOD
   // ---------------------------------------------------
 
   if (editingIndex !== null) {
     setSettings((prev) => {
       if (
         editingIndex < 0 ||
-        editingIndex >=
-          prev.methods.length
+        editingIndex >= prev.methods.length
       ) {
         return prev;
       }
 
-      const methods = [
-        ...prev.methods,
-      ];
+      const methods = [...prev.methods];
 
       methods[editingIndex] = {
         ...method,
-
         _id:
           method._id ||
-          prev.methods[
-            editingIndex
-          ]?._id,
+          prev.methods[editingIndex]?._id,
       };
 
       return {
         ...prev,
-
         methods,
-
-        paymentMethods: [
-          ...methods,
-        ],
-
+        paymentMethods: [...methods],
         total: methods.length,
       };
     });
@@ -1021,12 +1303,11 @@ const addPaymentMethod = () => {
     setMessage(
       "Payment method updated locally. Click Save Payment Methods."
     );
-
     setMessageType("success");
   }
 
   // ---------------------------------------------------
-  // ADD NEW
+  // ADD NEW METHOD
   // ---------------------------------------------------
 
   else {
@@ -1038,13 +1319,8 @@ const addPaymentMethod = () => {
 
       return {
         ...prev,
-
         methods,
-
-        paymentMethods: [
-          ...methods,
-        ],
-
+        paymentMethods: [...methods],
         total: methods.length,
       };
     });
@@ -1052,7 +1328,6 @@ const addPaymentMethod = () => {
     setMessage(
       "Payment method added. Click Save Payment Methods."
     );
-
     setMessageType("success");
   }
 
@@ -1060,12 +1335,8 @@ const addPaymentMethod = () => {
   // RESET FORM
   // ---------------------------------------------------
 
-  setNewMethod(
-    createEmptyMethod()
-  );
-
+  setNewMethod(createEmptyMethod());
   setEditingIndex(null);
-
   setShowAddForm(false);
 };
 
@@ -1083,8 +1354,7 @@ const editPaymentMethod = (
     return;
   }
 
-  const method =
-    settings.methods[index];
+  const method = settings.methods[index];
 
   if (!method) {
     return;
@@ -1095,19 +1365,17 @@ const editPaymentMethod = (
   });
 
   setEditingIndex(index);
-
   setShowAddForm(true);
-
   setMessage("");
+  setMessageType("success");
 
   // ---------------------------------------------------
-  // SCROLL TO TOP
+  // SCROLL TO FORM
   // ---------------------------------------------------
 
   window.setTimeout(() => {
     window.scrollTo({
       top: 0,
-
       behavior: "smooth",
     });
   }, 50);
@@ -1118,15 +1386,11 @@ const editPaymentMethod = (
 // =====================================================
 
 const cancelEdit = () => {
-  setNewMethod(
-    createEmptyMethod()
-  );
-
+  setNewMethod(createEmptyMethod());
   setEditingIndex(null);
-
   setShowAddForm(false);
-
   setMessage("");
+  setMessageType("success");
 };
 
 // =====================================================
@@ -1143,57 +1407,44 @@ const deletePaymentMethod = (
     return;
   }
 
-  const method =
-    settings.methods[index];
+  const method = settings.methods[index];
 
   if (!method) {
     return;
   }
 
   const methodName =
-    method.type ||
-    "this payment method";
+    method.type || "this payment method";
 
-  const confirmed =
-    window.confirm(
-      `Delete "${methodName}" payment method?`
-    );
+  const confirmed = window.confirm(
+    `Delete "${methodName}" payment method?`
+  );
 
   if (!confirmed) {
     return;
   }
 
   setSettings((prev) => {
-    const methods =
-      prev.methods.filter(
-        (_, itemIndex) =>
-          itemIndex !== index
-      );
+    const methods = prev.methods.filter(
+      (_, itemIndex) =>
+        itemIndex !== index
+    );
 
     return {
       ...prev,
-
       methods,
-
-      paymentMethods: [
-        ...methods,
-      ],
-
+      paymentMethods: [...methods],
       total: methods.length,
     };
   });
 
   // ---------------------------------------------------
-  // EDITING STATE
+  // FIX EDIT INDEX AFTER DELETE
   // ---------------------------------------------------
 
   if (editingIndex === index) {
-    setNewMethod(
-      createEmptyMethod()
-    );
-
+    setNewMethod(createEmptyMethod());
     setEditingIndex(null);
-
     setShowAddForm(false);
   } else if (
     editingIndex !== null &&
@@ -1207,7 +1458,6 @@ const deletePaymentMethod = (
   setMessage(
     "Payment method removed locally. Click Save Payment Methods."
   );
-
   setMessageType("success");
 };
 
@@ -1218,41 +1468,31 @@ const deletePaymentMethod = (
 const togglePaymentMethod = (
   index: number
 ) => {
+  if (
+    index < 0 ||
+    index >= settings.methods.length
+  ) {
+    return;
+  }
+
   setSettings((prev) => {
-    if (
-      index < 0 ||
-      index >= prev.methods.length
-    ) {
-      return prev;
-    }
-
-    const methods =
-      prev.methods.map(
-        (method, itemIndex) => {
-          if (
-            itemIndex !== index
-          ) {
-            return method;
-          }
-
-          return {
-            ...method,
-
-            enabled:
-              !method.enabled,
-          };
+    const methods = prev.methods.map(
+      (method, itemIndex) => {
+        if (itemIndex !== index) {
+          return method;
         }
-      );
+
+        return {
+          ...method,
+          enabled: !method.enabled,
+        };
+      }
+    );
 
     return {
       ...prev,
-
       methods,
-
-      paymentMethods: [
-        ...methods,
-      ],
-
+      paymentMethods: [...methods],
       total: methods.length,
     };
   });
@@ -1260,7 +1500,6 @@ const togglePaymentMethod = (
   setMessage(
     "Payment method status changed locally. Click Save Payment Methods."
   );
-
   setMessageType("success");
 };
 
@@ -1271,7 +1510,6 @@ const togglePaymentMethod = (
 const toggleDeposits = () => {
   setSettings((prev) => ({
     ...prev,
-
     depositsEnabled:
       !prev.depositsEnabled,
   }));
@@ -1279,7 +1517,6 @@ const toggleDeposits = () => {
   setMessage(
     "Deposit status changed locally."
   );
-
   setMessageType("success");
 };
 
@@ -1291,35 +1528,33 @@ const updateDepositLimit = (
   field:
     | "minimumDeposit"
     | "maximumDeposit",
-
   value: string
 ) => {
-  if (
-    value.trim() === ""
-  ) {
+  // ---------------------------------------------------
+  // EMPTY VALUE
+  // ---------------------------------------------------
+
+  if (value.trim() === "") {
     setSettings((prev) => ({
       ...prev,
-
       [field]: 0,
     }));
 
     return;
   }
 
-  const numericValue =
-    Number(value);
+  // ---------------------------------------------------
+  // NUMERIC VALUE
+  // ---------------------------------------------------
 
-  if (
-    !Number.isFinite(
-      numericValue
-    )
-  ) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
     return;
   }
 
   setSettings((prev) => ({
     ...prev,
-
     [field]: Math.max(
       0,
       numericValue
@@ -1328,26 +1563,24 @@ const updateDepositLimit = (
 };
 
 // =====================================================
-// CONVERT FRONTEND METHOD → V18 METHOD
+// CONVERT FRONTEND METHOD → BACKEND V18 METHOD
 // =====================================================
 
 const convertToV18Method = (
   item: DepositPaymentMethod
 ): BackendPaymentMethod => {
-  const displayType =
-    String(
-      item.type || ""
-    )
-      .trim()
-      .toUpperCase();
+  const displayType = String(
+    item.type || ""
+  )
+    .trim()
+    .toUpperCase();
 
   // ---------------------------------------------------
-  // BANK
+  // BANK TRANSFER
   // ---------------------------------------------------
 
   if (
-    displayType ===
-      "BANK TRANSFER" ||
+    displayType === "BANK TRANSFER" ||
     displayType === "BANK"
   ) {
     return {
@@ -1371,11 +1604,9 @@ const convertToV18Method = (
       iban:
         item.iban || "",
 
-      walletAddress:
-        "",
+      walletAddress: "",
 
-      network:
-        "",
+      network: "",
 
       qrImage:
         item.qrCode || "",
@@ -1387,10 +1618,8 @@ const convertToV18Method = (
   // ---------------------------------------------------
 
   if (
-    displayType ===
-      "JAZZ CASH" ||
-    displayType ===
-      "JAZZCASH"
+    displayType === "JAZZ CASH" ||
+    displayType === "JAZZCASH"
   ) {
     return {
       _id: item._id,
@@ -1410,14 +1639,11 @@ const convertToV18Method = (
       accountNumber:
         item.accountNumber || "",
 
-      iban:
-        "",
+      iban: "",
 
-      walletAddress:
-        "",
+      walletAddress: "",
 
-      network:
-        "",
+      network: "",
 
       qrImage:
         item.qrCode || "",
@@ -1429,10 +1655,8 @@ const convertToV18Method = (
   // ---------------------------------------------------
 
   if (
-    displayType ===
-      "EASY PAISA" ||
-    displayType ===
-      "EASYPAISA"
+    displayType === "EASY PAISA" ||
+    displayType === "EASYPAISA"
   ) {
     return {
       _id: item._id,
@@ -1452,14 +1676,11 @@ const convertToV18Method = (
       accountNumber:
         item.accountNumber || "",
 
-      iban:
-        "",
+      iban: "",
 
-      walletAddress:
-        "",
+      walletAddress: "",
 
-      network:
-        "",
+      network: "",
 
       qrImage:
         item.qrCode || "",
@@ -1471,13 +1692,15 @@ const convertToV18Method = (
   // ---------------------------------------------------
 
   if (
-    displayType.includes(
-      "BINANCE"
-    ) ||
-    displayType.includes(
-      "USDT"
-    )
+    displayType === "BINANCE" ||
+    displayType === "BINANCE USDT" ||
+    displayType === "USDT"
   ) {
+    const walletAddress =
+      item.walletAddress ||
+      item.accountNumber ||
+      "";
+
     return {
       _id: item._id,
 
@@ -1494,19 +1717,14 @@ const convertToV18Method = (
         item.accountName || "",
 
       accountNumber:
-        "",
+        walletAddress,
 
-      iban:
-        "",
+      iban: "",
 
-      walletAddress:
-        item.walletAddress ||
-        item.accountNumber ||
-        "",
+      walletAddress,
 
       network:
-        item.network ||
-        "TRC20",
+        item.network || "",
 
       qrImage:
         item.qrCode || "",
@@ -1514,22 +1732,26 @@ const convertToV18Method = (
   }
 
   // ---------------------------------------------------
-  // GENERIC METHOD
+  // GENERIC PAYMENT METHOD
   // ---------------------------------------------------
+
+  const genericMethod =
+    displayType
+      .replace(/[^A-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 50);
 
   return {
     _id: item._id,
 
     method:
-      displayType.replace(
-        /[^A-Z0-9_]/g,
-        "_"
-      ),
+      genericMethod ||
+      "OTHER",
 
     title:
       item.title ||
       item.type ||
-      displayType,
+      "Payment Method",
 
     enabled:
       item.enabled !== false,
@@ -1555,1033 +1777,877 @@ const convertToV18Method = (
 };
 
 // =====================================================
-// VALIDATE PAYMENT METHODS
+// VALIDATE PAYMENT METHODS BEFORE SAVE
 // =====================================================
 
 const validatePaymentMethods = (
   methods: DepositPaymentMethod[]
-) => {
-  // ---------------------------------------------------
-  // MAX METHODS
-  // ---------------------------------------------------
-
-  if (methods.length > 20) {
-    return "Maximum 20 payment methods are allowed.";
+): string | null => {
+  if (!Array.isArray(methods)) {
+    return "Payment methods data is invalid.";
   }
 
-  // ---------------------------------------------------
-  // REQUIRED FIELDS
-  // ---------------------------------------------------
+  const seen = new Set<string>();
 
-  for (const method of methods) {
-    if (!method.type.trim()) {
-      return "Every payment method must have a name.";
+  for (let index = 0; index < methods.length; index++) {
+    const item = methods[index];
+
+    const type = String(
+      item.type || ""
+    ).trim();
+
+    const accountName = String(
+      item.accountName || ""
+    ).trim();
+
+    const accountNumber = String(
+      item.accountNumber || ""
+    ).trim();
+
+    const walletAddress = String(
+      item.walletAddress || ""
+    ).trim();
+
+    if (!type) {
+      return `Payment method #${index + 1} name is required.`;
     }
 
-    if (!method.accountName.trim()) {
-      return `Account name is required for "${method.type}".`;
+    if (!accountName) {
+      return `Account title is required for "${type}".`;
     }
-
-    if (!method.accountNumber.trim()) {
-      return `Account number / wallet address is required for "${method.type}".`;
-    }
-  }
-
-  // ---------------------------------------------------
-  // DUPLICATE CHECK
-  // ---------------------------------------------------
-
-  const methodNames =
-    new Set<string>();
-
-  for (const method of methods) {
-    const normalized =
-      method.type
-        .trim()
-        .toLowerCase();
 
     if (
-      methodNames.has(
-        normalized
-      )
+      !accountNumber &&
+      !walletAddress
     ) {
-      return `Duplicate payment method: "${method.type}".`;
+      return `Account number or wallet address is required for "${type}".`;
     }
 
-    methodNames.add(
-      normalized
-    );
+    const duplicateKey = type
+      .toLowerCase()
+      .trim();
+
+    if (seen.has(duplicateKey)) {
+      return `Duplicate payment method "${type}".`;
+    }
+
+    seen.add(duplicateKey);
   }
 
   return null;
 };
 
 // =====================================================
+// PART 4/8 — BACKEND SAVE SYSTEM
+// =====================================================
+
+// =====================================================
+// SAFE RESPONSE JSON
+// =====================================================
+
+const readResponseJSON = async (
+  response: Response
+): Promise<any> => {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+
+// =====================================================
+// HANDLE AUTH FAILURE
+// =====================================================
+
+const handleAuthFailure = (
+  response: Response
+): boolean => {
+  if (response.status === 401) {
+    localStorage.removeItem("token");
+
+    setToken("");
+
+    window.location.href = "/login";
+
+    return true;
+  }
+
+  return false;
+};
+
+// =====================================================
 // SAVE PAYMENT METHODS
-// V18
 // PATCH /api/payment-settings/admin/deposit
 // =====================================================
 
-const savePaymentMethods =
-  async () => {
-    if (!token) {
-      setMessage(
-        "Please login again."
-      );
+const savePaymentMethods = async () => {
+  if (!token) {
+    setMessage(
+      "Admin authentication token is missing."
+    );
 
-      setMessageType("error");
+    setMessageType("error");
 
-      return;
-    }
+    return;
+  }
 
-    // -------------------------------------------------
-    // NORMALIZE
-    // -------------------------------------------------
+  // ---------------------------------------------------
+  // VALIDATE CURRENT METHODS
+  // ---------------------------------------------------
 
-    const methods =
+  const validationError =
+    validatePaymentMethods(
       settings.methods
-        .map((method) =>
-          normalizeMethod(
-            method
-          )
-        )
-        .filter(
-          (method) =>
-            method.type.length > 0
-        );
+    );
+
+  if (validationError) {
+    setMessage(validationError);
+
+    setMessageType("error");
+
+    return;
+  }
+
+  // ---------------------------------------------------
+  // CONVERT FRONTEND → BACKEND V18
+  // ---------------------------------------------------
+
+  const depositMethods =
+    settings.methods.map(
+      convertToV18Method
+    );
+
+  try {
+    setSaving(true);
+
+    setMessage("");
+
+    setError("");
 
     // -------------------------------------------------
-    // VALIDATE
+    // SAVE TO PAYMENT SETTINGS API
     // -------------------------------------------------
 
-    const validationError =
-      validatePaymentMethods(
-        methods
-      );
+    const response = await fetch(
+      `${API}/api/payment-settings/admin/deposit`,
+      {
+        method: "PATCH",
 
-    if (validationError) {
-      setMessage(
-        validationError
-      );
+        headers: adminHeaders,
 
-      setMessageType("error");
+        body: JSON.stringify({
+          depositMethods,
+        }),
+      }
+    );
 
+    // -------------------------------------------------
+    // AUTH FAILURE
+    // -------------------------------------------------
+
+    if (handleAuthFailure(response)) {
       return;
     }
 
     // -------------------------------------------------
-    // CONVERT TO V18
+    // READ BACKEND RESPONSE
     // -------------------------------------------------
 
-    const depositMethods =
-      methods.map(
-        (method) =>
-          convertToV18Method(
-            method
-          )
+    const data =
+      await readResponseJSON(
+        response
       );
 
-    try {
-      setSaving(true);
+    // -------------------------------------------------
+    // FORBIDDEN
+    // -------------------------------------------------
 
-      setError("");
-
-      // -----------------------------------------------
-      // V18 ADMIN ENDPOINT
-      // -----------------------------------------------
-
-      const response =
-        await fetch(
-          `${API}/api/payment-settings/admin/deposit`,
-          {
-            method: "PATCH",
-
-            headers:
-              adminHeaders,
-
-            body: JSON.stringify({
-              depositMethods,
-            }),
-
-            cache: "no-store",
-          }
-        );
-
-      // -----------------------------------------------
-      // SAFE JSON
-      // -----------------------------------------------
-
-      let data: any = {};
-
-      try {
-        data =
-          await response.json();
-      } catch {
-        data = {};
-      }
-
-      console.log(
-        "V18 ADMIN PAYMENT SAVE:",
-        data
+    if (response.status === 403) {
+      throw new Error(
+        data?.message ||
+          "Admin access required."
       );
+    }
 
-      // -----------------------------------------------
-      // AUTH EXPIRED
-      // -----------------------------------------------
+    // -------------------------------------------------
+    // BACKEND ERROR
+    // -------------------------------------------------
 
-      if (
-        response.status === 401
-      ) {
-        localStorage.removeItem(
-          "token"
-        );
+    if (!response.ok) {
+      throw new Error(
+        data?.message ||
+          data?.error ||
+          `Unable to save payment methods (${response.status}).`
+      );
+    }
 
-        setToken("");
+    if (data?.success === false) {
+      throw new Error(
+        data?.message ||
+          "Payment methods could not be saved."
+      );
+    }
 
-        window.location.href =
-          "/login";
+    // -------------------------------------------------
+    // IMPORTANT:
+    // RELOAD FROM DATABASE AFTER SAVE
+    // -------------------------------------------------
 
-        return;
-      }
+    await loadPaymentSettings();
 
-      // -----------------------------------------------
-      // ADMIN ACCESS
-      // -----------------------------------------------
+    // -------------------------------------------------
+    // SUCCESS
+    // -------------------------------------------------
 
-      if (
-        response.status === 403
-      ) {
-        throw new Error(
-          data?.message ||
-            "Admin access required."
-        );
-      }
-
-      // -----------------------------------------------
-      // HTTP ERROR
-      // -----------------------------------------------
-
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-            `Failed to save payment methods. HTTP ${response.status}.`
-        );
-      }
-
-      // -----------------------------------------------
-      // API ERROR
-      // -----------------------------------------------
-
-      if (
-        data &&
-        data.success === false
-      ) {
-        throw new Error(
-          data?.message ||
-            "Failed to save payment methods."
-        );
-      }
-
-      // -----------------------------------------------
-      // SUCCESS
-      // -----------------------------------------------
-
-      setMessage(
+    setMessage(
+      data?.message ||
         "Payment methods saved successfully."
-      );
-
-      setMessageType(
-        "success"
-      );
-
-      // -----------------------------------------------
-      // RELOAD FROM MONGODB
-      // -----------------------------------------------
-
-      await loadPaymentSettings();
-    } catch (err: any) {
-      console.error(
-        "SAVE PAYMENT METHODS ERROR:",
-        err
-      );
-
-      const errorMessage =
-        err?.message ||
-        "Unable to save payment methods.";
-
-      setError(
-        errorMessage
-      );
-
-      setMessage(
-        errorMessage
-      );
-
-      setMessageType(
-        "error"
-      );
-    } finally {
-      setSaving(false);
-    }
-  };  // =====================================================
-  // SAVE GENERAL DEPOSIT SETTINGS
-  //
-  // NOTE:
-  // Payment methods are NOT saved here.
-  // Payment methods use:
-  // PATCH /api/payment-settings/admin/deposit
-  //
-  // General limits still use:
-  // PATCH /api/deposit/settings
-  // =====================================================
-
-  const saveDepositSettings = async () => {
-    if (!token) {
-      setMessage("Please login again.");
-      setMessageType("error");
-      return;
-    }
-
-    // ---------------------------------------------------
-    // NORMALIZE VALUES
-    // ---------------------------------------------------
-
-    const minimumDeposit = Number(
-      settings.minimumDeposit
     );
 
-    const maximumDeposit = Number(
-      settings.maximumDeposit
+    setMessageType("success");
+  } catch (saveError) {
+    console.error(
+      "SAVE PAYMENT METHODS ERROR:",
+      saveError
     );
 
-    // ---------------------------------------------------
-    // VALIDATE NUMBERS
-    // ---------------------------------------------------
+    const errorMessage =
+      saveError instanceof Error
+        ? saveError.message
+        : "Unable to save payment methods.";
 
-    if (
-      !Number.isFinite(
-        minimumDeposit
-      ) ||
-      !Number.isFinite(
-        maximumDeposit
-      )
-    ) {
-      setMessage(
-        "Deposit limits must contain valid numbers."
-      );
+    setError(errorMessage);
 
-      setMessageType("error");
+    setMessage(errorMessage);
 
-      return;
-    }
+    setMessageType("error");
+  } finally {
+    setSaving(false);
+  }
+};
 
-    // ---------------------------------------------------
-    // POSITIVE VALIDATION
-    // ---------------------------------------------------
+// =====================================================
+// VALIDATE GENERAL DEPOSIT SETTINGS
+// =====================================================
 
-    if (
-      minimumDeposit <= 0 ||
-      maximumDeposit <= 0
-    ) {
-      setMessage(
-        "Deposit limits must be greater than zero."
-      );
+const validateDepositSettings = ():
+  | string
+  | null => {
+  const minimumDeposit =
+    Number(settings.minimumDeposit);
 
-      setMessageType("error");
+  const maximumDeposit =
+    Number(settings.maximumDeposit);
 
-      return;
-    }
+  // ---------------------------------------------------
+  // MINIMUM VALIDATION
+  // ---------------------------------------------------
 
-    // ---------------------------------------------------
-    // MIN / MAX VALIDATION
-    // ---------------------------------------------------
+  if (
+    !Number.isFinite(
+      minimumDeposit
+    ) ||
+    minimumDeposit <= 0
+  ) {
+    return "Minimum deposit must be greater than 0.";
+  }
 
-    if (
-      minimumDeposit >
+  // ---------------------------------------------------
+  // MAXIMUM VALIDATION
+  // ---------------------------------------------------
+
+  if (
+    !Number.isFinite(
       maximumDeposit
-    ) {
-      setMessage(
-        "Minimum deposit cannot be greater than maximum deposit."
-      );
+    ) ||
+    maximumDeposit <= 0
+  ) {
+    return "Maximum deposit must be greater than 0.";
+  }
 
-      setMessageType("error");
+  // ---------------------------------------------------
+  // RANGE VALIDATION
+  // ---------------------------------------------------
 
+  if (
+    minimumDeposit >
+    maximumDeposit
+  ) {
+    return "Minimum deposit cannot be greater than maximum deposit.";
+  }
+
+  return null;
+};
+
+// =====================================================
+// SAVE GENERAL DEPOSIT SETTINGS
+// PATCH /api/deposit/settings
+// =====================================================
+
+const saveDepositSettings = async () => {
+  if (!token) {
+    setMessage(
+      "Admin authentication token is missing."
+    );
+
+    setMessageType("error");
+
+    return;
+  }
+
+  // ---------------------------------------------------
+  // VALIDATE LIMITS
+  // ---------------------------------------------------
+
+  const validationError =
+    validateDepositSettings();
+
+  if (validationError) {
+    setMessage(validationError);
+
+    setMessageType("error");
+
+    return;
+  }
+
+  try {
+    setSaving(true);
+
+    setMessage("");
+
+    setError("");
+
+    // -------------------------------------------------
+    // REQUEST PAYLOAD
+    // -------------------------------------------------
+
+    const payload = {
+      depositsEnabled:
+        Boolean(
+          settings.depositsEnabled
+        ),
+
+      minimumDeposit:
+        Number(
+          settings.minimumDeposit
+        ),
+
+      maximumDeposit:
+        Number(
+          settings.maximumDeposit
+        ),
+    };
+
+    // -------------------------------------------------
+    // SAVE GENERAL SETTINGS
+    // -------------------------------------------------
+
+    const response = await fetch(
+      `${API}/api/deposit/settings`,
+      {
+        method: "PATCH",
+
+        headers: adminHeaders,
+
+        body: JSON.stringify(
+          payload
+        ),
+      }
+    );
+
+    // -------------------------------------------------
+    // AUTH FAILURE
+    // -------------------------------------------------
+
+    if (handleAuthFailure(response)) {
       return;
     }
 
-    try {
-      setSaving(true);
-      setError("");
+    // -------------------------------------------------
+    // READ RESPONSE
+    // -------------------------------------------------
 
-      const response =
-        await fetch(
-          `${API}/api/deposit/settings`,
-          {
-            method: "PATCH",
-
-            headers: adminHeaders,
-
-            body: JSON.stringify({
-              depositsEnabled:
-                Boolean(
-                  settings.depositsEnabled
-                ),
-
-              minimumDeposit,
-
-              maximumDeposit,
-            }),
-
-            cache: "no-store",
-          }
-        );
-
-      // -------------------------------------------------
-      // SAFE JSON
-      // -------------------------------------------------
-
-      let data: any = {};
-
-      try {
-        data =
-          await response.json();
-      } catch {
-        data = {};
-      }
-
-      console.log(
-        "SAVE GENERAL DEPOSIT SETTINGS:",
-        data
+    const data =
+      await readResponseJSON(
+        response
       );
 
-      // -------------------------------------------------
-      // AUTH
-      // -------------------------------------------------
+    // -------------------------------------------------
+    // FORBIDDEN
+    // -------------------------------------------------
 
-      if (
-        response.status === 401
-      ) {
-        localStorage.removeItem(
-          "token"
-        );
+    if (response.status === 403) {
+      throw new Error(
+        data?.message ||
+          "Admin access required."
+      );
+    }
 
-        setToken("");
+    // -------------------------------------------------
+    // BACKEND ERROR
+    // -------------------------------------------------
 
-        window.location.href =
-          "/login";
+    if (!response.ok) {
+      throw new Error(
+        data?.message ||
+          data?.error ||
+          `Unable to save deposit settings (${response.status}).`
+      );
+    }
 
-        return;
-      }
+    if (data?.success === false) {
+      throw new Error(
+        data?.message ||
+          "Deposit settings could not be saved."
+      );
+    }
 
-      // -------------------------------------------------
-      // ADMIN
-      // -------------------------------------------------
+    // -------------------------------------------------
+    // UPDATE LOCAL STATE FROM RESPONSE
+    // -------------------------------------------------
 
-      if (
-        response.status === 403
-      ) {
-        throw new Error(
-          data?.message ||
-            "Admin access required."
-        );
-      }
+    const responseSettings =
+      data?.settings ||
+      data?.data ||
+      null;
 
-      // -------------------------------------------------
-      // HTTP ERROR
-      // -------------------------------------------------
-
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-            `Failed to save deposit settings. HTTP ${response.status}.`
-        );
-      }
-
-      // -------------------------------------------------
-      // API ERROR
-      // -------------------------------------------------
-
-      if (
-        data &&
-        data.success === false
-      ) {
-        throw new Error(
-          data?.message ||
-            "Failed to save deposit settings."
-        );
-      }
-
-      // -------------------------------------------------
-      // UPDATE LOCAL STATE
-      // -------------------------------------------------
-
+    if (responseSettings) {
       setSettings((prev) => ({
         ...prev,
 
         depositsEnabled:
-          Boolean(
-            data?.settings
-              ?.depositsEnabled ??
-              prev.depositsEnabled
-          ),
+          typeof responseSettings
+            .depositsEnabled ===
+          "boolean"
+            ? responseSettings
+                .depositsEnabled
+            : prev.depositsEnabled,
 
         minimumDeposit:
-          Number(
-            data?.settings
-              ?.minimumDeposit ??
-              minimumDeposit
-          ),
+          Number.isFinite(
+            Number(
+              responseSettings
+                .minimumDeposit
+            )
+          )
+            ? Number(
+                responseSettings
+                  .minimumDeposit
+              )
+            : prev.minimumDeposit,
 
         maximumDeposit:
-          Number(
-            data?.settings
-              ?.maximumDeposit ??
-              maximumDeposit
-          ),
-
-        updatedAt:
-          data?.settings
-            ?.updatedAt ||
-          new Date().toISOString(),
+          Number.isFinite(
+            Number(
+              responseSettings
+                .maximumDeposit
+            )
+          )
+            ? Number(
+                responseSettings
+                  .maximumDeposit
+              )
+            : prev.maximumDeposit,
       }));
+    }
 
-      // -------------------------------------------------
-      // UPDATE STATISTICS
-      // -------------------------------------------------
+    // -------------------------------------------------
+    // SUCCESS
+    // -------------------------------------------------
 
-      setStatistics((prev) => ({
-        ...prev,
-
-        depositsEnabled:
-          Boolean(
-            data?.settings
-              ?.depositsEnabled ??
-              settings.depositsEnabled
-          ),
-
-        minimumDeposit:
-          Number(
-            data?.settings
-              ?.minimumDeposit ??
-              minimumDeposit
-          ),
-
-        maximumDeposit:
-          Number(
-            data?.settings
-              ?.maximumDeposit ??
-              maximumDeposit
-          ),
-      }));
-
-      setMessage(
+    setMessage(
+      data?.message ||
         "Deposit settings saved successfully."
+    );
+
+    setMessageType("success");
+  } catch (saveError) {
+    console.error(
+      "SAVE DEPOSIT SETTINGS ERROR:",
+      saveError
+    );
+
+    const errorMessage =
+      saveError instanceof Error
+        ? saveError.message
+        : "Unable to save deposit settings.";
+
+    setError(errorMessage);
+
+    setMessage(errorMessage);
+
+    setMessageType("error");
+  } finally {
+    setSaving(false);
+  }
+};
+
+// =====================================================
+// SAVE EVERYTHING
+// PAYMENT METHODS + GENERAL DEPOSIT SETTINGS
+// LOCAL + PRODUCTION SAFE
+// =====================================================
+
+const saveAllPaymentSettings = async () => {
+
+  // ---------------------------------------------------
+  // AUTH CHECK
+  // ---------------------------------------------------
+
+  if (!token) {
+    setMessage(
+      "Admin authentication token is missing."
+    );
+
+    setMessageType("error");
+
+    return;
+  }
+
+  // ---------------------------------------------------
+  // VALIDATE PAYMENT METHODS
+  // ---------------------------------------------------
+
+  const methodValidation =
+    validatePaymentMethods(
+      settings.methods
+    );
+
+  if (methodValidation) {
+    setError(methodValidation);
+
+    setMessage(
+      methodValidation
+    );
+
+    setMessageType("error");
+
+    return;
+  }
+
+  // ---------------------------------------------------
+  // VALIDATE DEPOSIT SETTINGS
+  // ---------------------------------------------------
+
+  const depositValidation =
+    validateDepositSettings();
+
+  if (depositValidation) {
+    setError(depositValidation);
+
+    setMessage(
+      depositValidation
+    );
+
+    setMessageType("error");
+
+    return;
+  }
+
+  // ---------------------------------------------------
+  // BUILD V18 PAYMENT METHODS
+  // ---------------------------------------------------
+
+  const depositMethods =
+    settings.methods.map(
+      convertToV18Method
+    );
+
+  try {
+
+    setSaving(true);
+
+    setMessage("");
+
+    setError("");
+
+    // =================================================
+    // STEP 1 — SAVE PAYMENT METHODS
+    // =================================================
+
+    const methodsResponse =
+      await fetch(
+        `${API}/api/payment-settings/admin/deposit`,
+        {
+          method: "PATCH",
+
+          headers: {
+            ...adminHeaders,
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            depositMethods,
+          }),
+
+          cache: "no-store",
+        }
       );
 
-      setMessageType(
-        "success"
-      );
-
-      // -------------------------------------------------
-      // REFRESH SERVER STATE
-      // -------------------------------------------------
-
-      await loadPaymentSettings();
-    } catch (err: any) {
-      console.error(
-        "SAVE DEPOSIT SETTINGS ERROR:",
-        err
-      );
-
-      const errorMessage =
-        err?.message ||
-        "Unable to save deposit settings.";
-
-      setError(
-        errorMessage
-      );
-
-      setMessage(
-        errorMessage
-      );
-
-      setMessageType(
-        "error"
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // =====================================================
-  // SAVE EVERYTHING
-  //
-  // FINAL V18 FLOW
-  //
-  // 1. Save payment methods
-  // 2. Save general deposit settings
-  // 3. Reload MongoDB state
-  // =====================================================
-
-  const saveAllSettings = async () => {
-    if (!token) {
-      setMessage(
-        "Please login again."
-      );
-
-      setMessageType(
-        "error"
-      );
-
-      return;
-    }
-
-    // ---------------------------------------------------
-    // VALIDATE DEPOSIT LIMITS
-    // ---------------------------------------------------
-
-    const minimumDeposit =
-      Number(
-        settings.minimumDeposit
-      );
-
-    const maximumDeposit =
-      Number(
-        settings.maximumDeposit
-      );
+    // -------------------------------------------------
+    // AUTH FAILURE
+    // -------------------------------------------------
 
     if (
-      !Number.isFinite(
-        minimumDeposit
-      ) ||
-      !Number.isFinite(
-        maximumDeposit
+      handleAuthFailure(
+        methodsResponse
       )
     ) {
-      setMessage(
-        "Deposit limits must contain valid numbers."
-      );
-
-      setMessageType(
-        "error"
-      );
-
       return;
     }
+
+    // -------------------------------------------------
+    // READ RESPONSE
+    // -------------------------------------------------
+
+    const methodsData =
+      await readResponseJSON(
+        methodsResponse
+      );
+
+    // -------------------------------------------------
+    // ADMIN ACCESS
+    // -------------------------------------------------
 
     if (
-      minimumDeposit <= 0 ||
-      maximumDeposit <= 0
+      methodsResponse.status === 403
     ) {
-      setMessage(
-        "Deposit limits must be greater than zero."
+      throw new Error(
+        methodsData?.message ||
+        "Admin access required."
       );
-
-      setMessageType(
-        "error"
-      );
-
-      return;
     }
+
+    // -------------------------------------------------
+    // SAVE ERROR
+    // -------------------------------------------------
 
     if (
-      minimumDeposit >
-      maximumDeposit
+      !methodsResponse.ok ||
+      methodsData?.success === false
     ) {
-      setMessage(
-        "Minimum deposit cannot be greater than maximum deposit."
+      throw new Error(
+        methodsData?.message ||
+        methodsData?.error ||
+        `Payment methods save failed (${methodsResponse.status}).`
+      );
+    }
+
+    // =================================================
+    // STEP 2 — SAVE GENERAL DEPOSIT SETTINGS
+    // =================================================
+
+    const depositResponse =
+      await fetch(
+        `${API}/api/deposit/settings`,
+        {
+          method: "PATCH",
+
+          headers: {
+            ...adminHeaders,
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            depositsEnabled:
+              Boolean(
+                settings.depositsEnabled
+              ),
+
+            minimumDeposit:
+              Number(
+                settings.minimumDeposit
+              ),
+
+            maximumDeposit:
+              Number(
+                settings.maximumDeposit
+              ),
+          }),
+
+          cache: "no-store",
+        }
       );
 
-      setMessageType(
-        "error"
-      );
+    // -------------------------------------------------
+    // AUTH FAILURE
+    // -------------------------------------------------
 
+    if (
+      handleAuthFailure(
+        depositResponse
+      )
+    ) {
       return;
     }
 
-    // ---------------------------------------------------
-    // NORMALIZE PAYMENT METHODS
-    // ---------------------------------------------------
+    // -------------------------------------------------
+    // READ RESPONSE
+    // -------------------------------------------------
 
-    const methods =
-      settings.methods
-        .map((method) =>
-          normalizeMethod(
-            method
+    const depositData =
+      await readResponseJSON(
+        depositResponse
+      );
+
+    // -------------------------------------------------
+    // ADMIN ACCESS
+    // -------------------------------------------------
+
+    if (
+      depositResponse.status === 403
+    ) {
+      throw new Error(
+        depositData?.message ||
+        "Admin access required."
+      );
+    }
+
+    // -------------------------------------------------
+    // SAVE ERROR
+    // -------------------------------------------------
+
+    if (
+      !depositResponse.ok ||
+      depositData?.success === false
+    ) {
+      throw new Error(
+        depositData?.message ||
+        depositData?.error ||
+        `Deposit settings save failed (${depositResponse.status}).`
+      );
+    }
+
+    // =================================================
+    // STEP 3 — RELOAD FROM DATABASE
+    // =================================================
+
+    await loadPaymentSettings();
+
+    // =================================================
+    // SUCCESS
+    // =================================================
+
+    setError("");
+
+    setMessage(
+      "All payment settings saved successfully."
+    );
+
+    setMessageType(
+      "success"
+    );
+
+  } catch (saveError) {
+
+    // =================================================
+    // ERROR HANDLING
+    // =================================================
+
+    console.error(
+      "SAVE ALL PAYMENT SETTINGS ERROR:",
+      saveError
+    );
+
+    const errorMessage =
+      saveError instanceof Error
+        ? saveError.message
+        : "Unable to save payment settings.";
+
+    setError(
+      errorMessage
+    );
+
+    setMessage(
+      errorMessage
+    );
+
+    setMessageType(
+      "error"
+    );
+
+  } finally {
+
+    // =================================================
+    // STOP SAVING
+    // =================================================
+
+    setSaving(false);
+  }
+};
+
+  // =====================================================
+  // PART 5/8 — MAIN UI / HEADER / STATISTICS
+  // =====================================================
+
+  // =====================================================
+  // SEARCHED PAYMENT METHODS
+  // =====================================================
+
+  const filteredMethods = useMemo(() => {
+    const keyword = search
+      .trim()
+      .toLowerCase();
+
+    if (!keyword) {
+      return settings.methods.map(
+        (method, index) => ({
+          method,
+          originalIndex: index,
+        })
+      );
+    }
+
+    return settings.methods
+      .map((method, index) => ({
+        method,
+        originalIndex: index,
+      }))
+      .filter(({ method }) => {
+        const searchable = [
+          method.type,
+          method.accountName,
+          method.accountNumber,
+          method.instructions,
+          method.method,
+          method.title,
+          method.iban,
+          method.walletAddress,
+          method.network,
+        ]
+          .map((value) =>
+            String(value || "")
           )
-        )
-        .filter(
-          (method) =>
-            method.type.length > 0
-        );
-
-    // ---------------------------------------------------
-    // VALIDATE METHODS
-    // ---------------------------------------------------
-
-    const validationError =
-      validatePaymentMethods(
-        methods
-      );
-
-    if (validationError) {
-      setMessage(
-        validationError
-      );
-
-      setMessageType(
-        "error"
-      );
-
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      setError("");
-
-      // =================================================
-      // STEP 1
-      // SAVE PAYMENT METHODS
-      // =================================================
-
-      const depositMethods =
-        methods.map(
-          (method) =>
-            convertToV18Method(
-              method
-            )
-        );
-
-      const methodsResponse =
-        await fetch(
-          `${API}/api/payment-settings/admin/deposit`,
-          {
-            method: "PATCH",
-
-            headers:
-              adminHeaders,
-
-            body: JSON.stringify({
-              depositMethods,
-            }),
-
-            cache: "no-store",
-          }
-        );
-
-      // -------------------------------------------------
-      // SAFE JSON
-      // -------------------------------------------------
-
-      let methodsData: any = {};
-
-      try {
-        methodsData =
-          await methodsResponse.json();
-      } catch {
-        methodsData = {};
-      }
-
-      console.log(
-        "SAVE ALL - V18 PAYMENT METHODS:",
-        methodsData
-      );
-
-      // -------------------------------------------------
-      // AUTH
-      // -------------------------------------------------
-
-      if (
-        methodsResponse.status ===
-        401
-      ) {
-        localStorage.removeItem(
-          "token"
-        );
-
-        setToken("");
-
-        window.location.href =
-          "/login";
-
-        return;
-      }
-
-      // -------------------------------------------------
-      // ADMIN
-      // -------------------------------------------------
-
-      if (
-        methodsResponse.status ===
-        403
-      ) {
-        throw new Error(
-          methodsData?.message ||
-            "Admin access required."
-        );
-      }
-
-      // -------------------------------------------------
-      // ERROR
-      // -------------------------------------------------
-
-      if (
-        !methodsResponse.ok
-      ) {
-        throw new Error(
-          methodsData?.message ||
-            `Failed to save payment methods. HTTP ${methodsResponse.status}.`
-        );
-      }
-
-      if (
-        methodsData &&
-        methodsData.success === false
-      ) {
-        throw new Error(
-          methodsData?.message ||
-            "Failed to save payment methods."
-        );
-      }
-
-      // =================================================
-      // STEP 2
-      // SAVE GENERAL SETTINGS
-      // =================================================
-
-      const settingsResponse =
-        await fetch(
-          `${API}/api/deposit/settings`,
-          {
-            method: "PATCH",
-
-            headers:
-              adminHeaders,
-
-            body: JSON.stringify({
-              depositsEnabled:
-                Boolean(
-                  settings.depositsEnabled
-                ),
-
-              minimumDeposit,
-
-              maximumDeposit,
-            }),
-
-            cache: "no-store",
-          }
-        );
-
-      // -------------------------------------------------
-      // SAFE JSON
-      // -------------------------------------------------
-
-      let settingsData: any = {};
-
-      try {
-        settingsData =
-          await settingsResponse.json();
-      } catch {
-        settingsData = {};
-      }
-
-      console.log(
-        "SAVE ALL - GENERAL SETTINGS:",
-        settingsData
-      );
-
-      // -------------------------------------------------
-      // AUTH
-      // -------------------------------------------------
-
-      if (
-        settingsResponse.status ===
-        401
-      ) {
-        localStorage.removeItem(
-          "token"
-        );
-
-        setToken("");
-
-        window.location.href =
-          "/login";
-
-        return;
-      }
-
-      // -------------------------------------------------
-      // ADMIN
-      // -------------------------------------------------
-
-      if (
-        settingsResponse.status ===
-        403
-      ) {
-        throw new Error(
-          settingsData?.message ||
-            "Admin access required."
-        );
-      }
-
-      // -------------------------------------------------
-      // ERROR
-      // -------------------------------------------------
-
-      if (
-        !settingsResponse.ok
-      ) {
-        throw new Error(
-          settingsData?.message ||
-            `Failed to save deposit settings. HTTP ${settingsResponse.status}.`
-        );
-      }
-
-      if (
-        settingsData &&
-        settingsData.success === false
-      ) {
-        throw new Error(
-          settingsData?.message ||
-            "Failed to save deposit settings."
-        );
-      }
-
-      // =================================================
-      // STEP 3
-      // RELOAD FROM MONGODB
-      // =================================================
-
-      await loadPaymentSettings();
-
-      // =================================================
-      // SUCCESS
-      // =================================================
-
-      setMessage(
-        "All payment settings saved successfully."
-      );
-
-      setMessageType(
-        "success"
-      );
-    } catch (err: any) {
-      console.error(
-        "SAVE ALL SETTINGS ERROR:",
-        err
-      );
-
-      const errorMessage =
-        err?.message ||
-        "Unable to save payment settings.";
-
-      setError(
-        errorMessage
-      );
-
-      setMessage(
-        errorMessage
-      );
-
-      setMessageType(
-        "error"
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // =====================================================
-  // SEARCHED METHODS
-  // =====================================================
-
-  const filteredMethods =
-    useMemo(() => {
-      const keyword =
-        search
-          .trim()
+          .join(" ")
           .toLowerCase();
 
-      if (!keyword) {
-        return settings.methods.map(
-          (method, index) => ({
-            method,
-            originalIndex: index,
-          })
+        return searchable.includes(
+          keyword
         );
-      }
-
-      return settings.methods
-        .map(
-          (method, index) => ({
-            method,
-            originalIndex: index,
-          })
-        )
-        .filter(
-          ({
-            method,
-          }) => {
-            const searchable = [
-              method.type,
-
-              method.accountName,
-
-              method.accountNumber,
-
-              method.instructions,
-
-              method.method,
-
-              method.title,
-
-              method.iban,
-
-              method.walletAddress,
-
-              method.network,
-            ]
-              .map(
-                (value) =>
-                  String(
-                    value || ""
-                  )
-              )
-              .join(" ")
-              .toLowerCase();
-
-            return searchable.includes(
-              keyword
-            );
-          }
-        );
-    }, [
-      settings.methods,
-      search,
-    ]);
+      });
+  }, [
+    settings.methods,
+    search,
+  ]);
 
   // =====================================================
   // LAST UPDATED
   // =====================================================
 
-  const lastUpdatedLabel =
-    useMemo(() => {
-      if (!settings.updatedAt) {
-        return "Never Updated";
-      }
+  const lastUpdatedLabel = useMemo(() => {
+    if (!settings.updatedAt) {
+      return "Never Updated";
+    }
 
-      return formatDate(
-        settings.updatedAt
-      );
-    }, [
-      settings.updatedAt,
-    ]);
+    return formatDate(
+      settings.updatedAt
+    );
+  }, [
+    settings.updatedAt,
+  ]);
 
   // =====================================================
-  // LOADING STATE
+  // LOADING SCREEN
   // =====================================================
 
   if (loading) {
@@ -2602,17 +2668,16 @@ const savePaymentMethods =
   }
 
   // =====================================================
-  // PAGE
+  // MAIN PAGE
   // =====================================================
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-6 lg:p-8">
-
-      {/* =================================================
-          HEADER
-      ================================================= */}
-
       <div className="max-w-7xl mx-auto">
+
+        {/* =================================================
+            PAGE HEADER
+        ================================================= */}
 
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
 
@@ -2641,6 +2706,8 @@ const savePaymentMethods =
 
           <div className="flex flex-wrap gap-3">
 
+            {/* REFRESH */}
+
             <button
               type="button"
               onClick={
@@ -2650,7 +2717,7 @@ const savePaymentMethods =
                 refreshing ||
                 saving
               }
-              className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-700 hover:border-yellow-500 transition disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-700 hover:border-yellow-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw
                 size={18}
@@ -2664,13 +2731,15 @@ const savePaymentMethods =
               Refresh
             </button>
 
+            {/* SAVE ALL */}
+
             <button
               type="button"
               onClick={
-                saveAllSettings
+                saveAllPaymentSettings
               }
               disabled={saving}
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-yellow-500 text-black font-bold hover:bg-yellow-400 transition disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-yellow-500 text-black font-bold hover:bg-yellow-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save size={18} />
 
@@ -2680,31 +2749,24 @@ const savePaymentMethods =
             </button>
 
           </div>
-
         </div>
 
         {/* =================================================
-            MESSAGES
+            SUCCESS / ERROR MESSAGE
         ================================================= */}
 
         {message && (
           <div
             className={`mb-6 rounded-xl border p-4 flex items-center gap-3 ${
-              messageType ===
-              "success"
+              messageType === "success"
                 ? "bg-green-500/10 border-green-500/30 text-green-400"
                 : "bg-red-500/10 border-red-500/30 text-red-400"
             }`}
           >
-            {messageType ===
-            "success" ? (
-              <CheckCircle
-                size={20}
-              />
+            {messageType === "success" ? (
+              <CheckCircle size={20} />
             ) : (
-              <XCircle
-                size={20}
-              />
+              <XCircle size={20} />
             )}
 
             <span className="font-medium">
@@ -2713,10 +2775,6 @@ const savePaymentMethods =
           </div>
         )}
 
-        {/* =================================================
-            ERROR
-        ================================================= */}
-
         {error && (
           <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-400">
             {error}
@@ -2724,22 +2782,23 @@ const savePaymentMethods =
         )}
 
         {/* =================================================
-            STATISTICS
+            STATISTICS CARDS
         ================================================= */}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
 
+          {/* TOTAL */}
+
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
             <div className="flex items-center justify-between">
+
               <div>
                 <p className="text-gray-500 text-sm">
                   Total Methods
                 </p>
 
                 <p className="text-2xl font-black mt-1">
-                  {
-                    statistics.totalMethods
-                  }
+                  {statistics.totalMethods}
                 </p>
               </div>
 
@@ -2750,17 +2809,18 @@ const savePaymentMethods =
             </div>
           </div>
 
+          {/* ACTIVE */}
+
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
             <div className="flex items-center justify-between">
+
               <div>
                 <p className="text-gray-500 text-sm">
                   Active
                 </p>
 
                 <p className="text-2xl font-black text-green-400 mt-1">
-                  {
-                    statistics.activeMethods
-                  }
+                  {statistics.activeMethods}
                 </p>
               </div>
 
@@ -2771,17 +2831,18 @@ const savePaymentMethods =
             </div>
           </div>
 
+          {/* INACTIVE */}
+
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
             <div className="flex items-center justify-between">
+
               <div>
                 <p className="text-gray-500 text-sm">
                   Inactive
                 </p>
 
                 <p className="text-2xl font-black text-red-400 mt-1">
-                  {
-                    statistics.inactiveMethods
-                  }
+                  {statistics.inactiveMethods}
                 </p>
               </div>
 
@@ -2792,8 +2853,11 @@ const savePaymentMethods =
             </div>
           </div>
 
+          {/* DEPOSITS STATUS */}
+
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
             <div className="flex items-center justify-between">
+
               <div>
                 <p className="text-gray-500 text-sm">
                   Deposits
@@ -2801,19 +2865,23 @@ const savePaymentMethods =
 
                 <p
                   className={`text-2xl font-black mt-1 ${
-                    statistics.depositsEnabled
+                    settings.depositsEnabled
                       ? "text-green-400"
                       : "text-red-400"
                   }`}
                 >
-                  {statistics.depositsEnabled
+                  {settings.depositsEnabled
                     ? "ON"
                     : "OFF"}
                 </p>
               </div>
 
-              <Wallet
-                className="text-yellow-400"
+              <Power
+                className={
+                  settings.depositsEnabled
+                    ? "text-green-400"
+                    : "text-red-400"
+                }
                 size={28}
               />
             </div>
@@ -2822,7 +2890,191 @@ const savePaymentMethods =
         </div>
 
         {/* =================================================
-            SEARCH
+            GENERAL DEPOSIT SETTINGS
+        ================================================= */}
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 md:p-6 mb-8">
+
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+
+            <div>
+              <h2 className="text-xl font-bold">
+                General Deposit Settings
+              </h2>
+
+              <p className="text-gray-500 text-sm mt-1">
+                Control deposit availability and limits.
+              </p>
+            </div>
+
+            {/* DEPOSIT TOGGLE */}
+
+            <button
+              type="button"
+              onClick={
+                toggleDeposits
+              }
+              disabled={saving}
+              className={`inline-flex items-center gap-3 px-4 py-3 rounded-xl border transition ${
+                settings.depositsEnabled
+                  ? "bg-green-500/10 border-green-500/30 text-green-400"
+                  : "bg-red-500/10 border-red-500/30 text-red-400"
+              } disabled:opacity-50`}
+            >
+              <Power size={18} />
+
+              <span className="font-bold">
+                {settings.depositsEnabled
+                  ? "Deposits Enabled"
+                  : "Deposits Disabled"}
+              </span>
+            </button>
+
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+            {/* MINIMUM */}
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-300 mb-2">
+                Minimum Deposit
+              </label>
+
+              <div className="relative">
+                <DollarSign
+                  size={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                />
+
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={
+                    settings.minimumDeposit
+                  }
+                  onChange={(e) =>
+                    updateDepositLimit(
+                      "minimumDeposit",
+                      e.target.value
+                    )
+                  }
+                  className="w-full bg-black border border-zinc-700 rounded-xl py-3 pl-10 pr-4 text-white outline-none focus:border-yellow-500 transition"
+                  placeholder="Minimum deposit"
+                />
+              </div>
+            </div>
+
+            {/* MAXIMUM */}
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-300 mb-2">
+                Maximum Deposit
+              </label>
+
+              <div className="relative">
+                <DollarSign
+                  size={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                />
+
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={
+                    settings.maximumDeposit
+                  }
+                  onChange={(e) =>
+                    updateDepositLimit(
+                      "maximumDeposit",
+                      e.target.value
+                    )
+                  }
+                  className="w-full bg-black border border-zinc-700 rounded-xl py-3 pl-10 pr-4 text-white outline-none focus:border-yellow-500 transition"
+                  placeholder="Maximum deposit"
+                />
+              </div>
+            </div>
+
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6 pt-5 border-t border-zinc-800">
+
+            <div className="text-sm text-gray-500">
+              Last updated:{" "}
+              <span className="text-gray-300">
+                {lastUpdatedLabel}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                saveDepositSettings
+              }
+              disabled={saving}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-zinc-800 border border-zinc-700 hover:border-yellow-500 transition font-semibold disabled:opacity-50"
+            >
+              <Save size={18} />
+
+              {saving
+                ? "Saving..."
+                : "Save Deposit Settings"}
+            </button>
+
+          </div>
+
+        </div>
+
+        {/* =================================================
+            PAYMENT METHODS SECTION HEADER
+        ================================================= */}
+
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
+
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold">
+              Payment Methods
+            </h2>
+
+            <p className="text-gray-500 text-sm mt-1">
+              Add and manage the payment methods users can use for deposits.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setNewMethod(
+                createEmptyMethod()
+              );
+
+              setEditingIndex(null);
+
+              setShowAddForm(true);
+
+              setMessage("");
+
+              window.setTimeout(() => {
+                window.scrollTo({
+                  top: 0,
+                  behavior: "smooth",
+                });
+              }, 50);
+            }}
+            disabled={saving}
+            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-yellow-500 text-black font-bold hover:bg-yellow-400 transition disabled:opacity-50"
+          >
+            <Plus size={18} />
+
+            Add Payment Method
+          </button>
+
+        </div>
+                {/* =================================================
+            SEARCH PAYMENT METHODS
         ================================================= */}
 
         <div className="mb-6">
@@ -2843,7 +3095,7 @@ const savePaymentMethods =
                 )
               }
               placeholder="Search payment methods..."
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-12 pr-4 py-4 text-white outline-none focus:border-yellow-500"
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-12 pr-4 py-4 text-white outline-none focus:border-yellow-500 transition"
             />
 
           </div>
@@ -2851,14 +3103,19 @@ const savePaymentMethods =
         </div>
 
         {/* =================================================
-            PAYMENT METHODS
+            PAYMENT METHODS CONTAINER
         ================================================= */}
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
 
+          {/* =================================================
+              SECTION HEADER
+          ================================================= */}
+
           <div className="p-5 border-b border-zinc-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
             <div>
+
               <h2 className="text-xl font-bold">
                 Payment Methods
               </h2>
@@ -2867,6 +3124,7 @@ const savePaymentMethods =
                 Last updated:{" "}
                 {lastUpdatedLabel}
               </p>
+
             </div>
 
             <button
@@ -2876,28 +3134,21 @@ const savePaymentMethods =
                   createEmptyMethod()
                 );
 
-                setEditingIndex(
-                  null
-                );
+                setEditingIndex(null);
 
-                setShowAddForm(
-                  true
-                );
+                setShowAddForm(true);
 
-                window.setTimeout(
-                  () => {
-                    window.scrollTo(
-                      {
-                        top: 0,
-                        behavior:
-                          "smooth",
-                      }
-                    );
-                  },
-                  50
-                );
+                setMessage("");
+
+                window.setTimeout(() => {
+                  window.scrollTo({
+                    top: 0,
+                    behavior: "smooth",
+                  });
+                }, 50);
               }}
-              className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 hover:bg-green-500 font-bold transition"
+              disabled={saving}
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 hover:bg-green-500 font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus size={18} />
 
@@ -2905,9 +3156,8 @@ const savePaymentMethods =
             </button>
 
           </div>
-
-          {/* =================================================
-              ADD / EDIT FORM
+                    {/* =================================================
+              ADD / EDIT PAYMENT METHOD FORM
           ================================================= */}
 
           {showAddForm && (
@@ -2916,18 +3166,15 @@ const savePaymentMethods =
               <div className="flex items-center justify-between mb-5">
 
                 <h3 className="text-lg font-bold">
-                  {editingIndex !==
-                  null
+                  {editingIndex !== null
                     ? "Edit Payment Method"
                     : "Add Payment Method"}
                 </h3>
 
                 <button
                   type="button"
-                  onClick={
-                    cancelEdit
-                  }
-                  className="text-gray-400 hover:text-white"
+                  onClick={cancelEdit}
+                  className="text-gray-400 hover:text-white transition"
                 >
                   Cancel
                 </button>
@@ -2936,7 +3183,7 @@ const savePaymentMethods =
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                {/* METHOD */}
+                {/* PAYMENT METHOD */}
 
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">
@@ -2945,9 +3192,7 @@ const savePaymentMethods =
 
                   <input
                     type="text"
-                    value={
-                      newMethod.type
-                    }
+                    value={newMethod.type}
                     onChange={(e) =>
                       updateNewMethod(
                         "type",
@@ -2955,7 +3200,7 @@ const savePaymentMethods =
                       )
                     }
                     placeholder="Bank Transfer / JazzCash / EasyPaisa / Binance USDT"
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 transition"
                   />
                 </div>
 
@@ -2968,9 +3213,7 @@ const savePaymentMethods =
 
                   <input
                     type="text"
-                    value={
-                      newMethod.accountName
-                    }
+                    value={newMethod.accountName}
                     onChange={(e) =>
                       updateNewMethod(
                         "accountName",
@@ -2978,11 +3221,11 @@ const savePaymentMethods =
                       )
                     }
                     placeholder="Account holder name"
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 transition"
                   />
                 </div>
 
-                {/* ACCOUNT / WALLET */}
+                {/* ACCOUNT NUMBER / WALLET */}
 
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">
@@ -3001,7 +3244,7 @@ const savePaymentMethods =
                       )
                     }
                     placeholder="Account number or wallet address"
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 transition"
                   />
                 </div>
 
@@ -3015,8 +3258,7 @@ const savePaymentMethods =
                   <input
                     type="text"
                     value={
-                      newMethod.iban ||
-                      ""
+                      newMethod.iban || ""
                     }
                     onChange={(e) =>
                       updateNewMethod(
@@ -3025,7 +3267,7 @@ const savePaymentMethods =
                       )
                     }
                     placeholder="Optional IBAN"
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 transition"
                   />
                 </div>
 
@@ -3039,8 +3281,7 @@ const savePaymentMethods =
                   <input
                     type="text"
                     value={
-                      newMethod.network ||
-                      ""
+                      newMethod.network || ""
                     }
                     onChange={(e) =>
                       updateNewMethod(
@@ -3049,11 +3290,11 @@ const savePaymentMethods =
                       )
                     }
                     placeholder="TRC20 / ERC20 / BEP20"
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 transition"
                   />
                 </div>
 
-                {/* QR */}
+                {/* QR IMAGE */}
 
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">
@@ -3063,7 +3304,7 @@ const savePaymentMethods =
                   <input
                     type="text"
                     value={
-                      newMethod.qrCode
+                      newMethod.qrCode || ""
                     }
                     onChange={(e) =>
                       updateNewMethod(
@@ -3072,7 +3313,7 @@ const savePaymentMethods =
                       )
                     }
                     placeholder="https://..."
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 transition"
                   />
                 </div>
 
@@ -3088,7 +3329,8 @@ const savePaymentMethods =
 
                 <textarea
                   value={
-                    newMethod.instructions
+                    newMethod.instructions ||
+                    ""
                   }
                   onChange={(e) =>
                     updateNewMethod(
@@ -3098,12 +3340,12 @@ const savePaymentMethods =
                   }
                   placeholder="Optional payment instructions"
                   rows={3}
-                  className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 resize-none"
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 resize-none transition"
                 />
 
               </div>
 
-              {/* ENABLED */}
+              {/* ENABLE / DISABLE */}
 
               <div className="mt-4 flex items-center gap-3">
 
@@ -3147,23 +3389,19 @@ const savePaymentMethods =
                   onClick={
                     addPaymentMethod
                   }
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-yellow-500 text-black font-bold hover:bg-yellow-400 transition"
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-yellow-500 text-black font-bold hover:bg-yellow-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <CheckCircle
-                    size={18}
-                  />
+                  <CheckCircle size={18} />
 
-                  {editingIndex !==
-                  null
+                  {editingIndex !== null
                     ? "Update Method"
                     : "Add Method"}
                 </button>
 
                 <button
                   type="button"
-                  onClick={
-                    cancelEdit
-                  }
+                  onClick={cancelEdit}
                   className="px-5 py-3 rounded-xl bg-zinc-800 text-white hover:bg-zinc-700 transition"
                 >
                   Cancel
@@ -3175,13 +3413,14 @@ const savePaymentMethods =
           )}
 
           {/* =================================================
-              METHODS LIST
+              PAYMENT METHODS LIST
           ================================================= */}
 
           <div className="divide-y divide-zinc-800">
 
-            {filteredMethods.length ===
-              0 && (
+            {/* EMPTY STATE */}
+
+            {filteredMethods.length === 0 && (
               <div className="p-10 text-center">
 
                 <CreditCard
@@ -3193,8 +3432,16 @@ const savePaymentMethods =
                   No payment methods found.
                 </p>
 
+                {search.trim() && (
+                  <p className="text-gray-600 text-sm mt-2">
+                    Try another search term.
+                  </p>
+                )}
+
               </div>
             )}
+
+            {/* METHODS */}
 
             {filteredMethods.map(
               ({
@@ -3211,11 +3458,11 @@ const savePaymentMethods =
 
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
 
-                    {/* METHOD INFO */}
+                    {/* METHOD INFORMATION */}
 
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-4 min-w-0">
 
-                      <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                      <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20 shrink-0">
 
                         <CreditCard
                           size={24}
@@ -3224,14 +3471,12 @@ const savePaymentMethods =
 
                       </div>
 
-                      <div>
+                      <div className="min-w-0">
 
                         <div className="flex flex-wrap items-center gap-2">
 
-                          <h3 className="font-bold text-lg">
-                            {
-                              method.type
-                            }
+                          <h3 className="font-bold text-lg break-words">
+                            {method.type}
                           </h3>
 
                           <span
@@ -3249,32 +3494,30 @@ const savePaymentMethods =
                         </div>
 
                         <p className="text-gray-500 text-sm mt-1">
-                          {
-                            method.accountName
-                          }
+                          {method.accountName}
                         </p>
 
                         <p className="text-green-400 font-mono text-sm mt-2 break-all">
-                          {
-                            method.accountNumber
-                          }
+                          {method.accountNumber ||
+                            method.walletAddress ||
+                            "—"}
                         </p>
 
                         {method.iban && (
                           <p className="text-cyan-400 font-mono text-xs mt-2 break-all">
-                            IBAN:{" "}
-                            {
-                              method.iban
-                            }
+                            IBAN: {method.iban}
                           </p>
                         )}
 
                         {method.network && (
                           <p className="text-yellow-400 text-xs mt-2">
-                            Network:{" "}
-                            {
-                              method.network
-                            }
+                            Network: {method.network}
+                          </p>
+                        )}
+
+                        {method.instructions && (
+                          <p className="text-gray-500 text-xs mt-2 max-w-2xl whitespace-pre-wrap">
+                            {method.instructions}
                           </p>
                         )}
 
@@ -3284,7 +3527,9 @@ const savePaymentMethods =
 
                     {/* ACTIONS */}
 
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 shrink-0">
+
+                      {/* TOGGLE */}
 
                       <button
                         type="button"
@@ -3293,20 +3538,21 @@ const savePaymentMethods =
                             originalIndex
                           )
                         }
+                        disabled={saving}
                         className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition ${
                           method.enabled
                             ? "bg-green-500/10 text-green-400 border border-green-500/20"
                             : "bg-zinc-800 text-gray-300 border border-zinc-700"
-                        }`}
+                        } disabled:opacity-50`}
                       >
-                        <Power
-                          size={17}
-                        />
+                        <Power size={17} />
 
                         {method.enabled
                           ? "ON"
                           : "OFF"}
                       </button>
+
+                      {/* EDIT */}
 
                       <button
                         type="button"
@@ -3315,14 +3561,15 @@ const savePaymentMethods =
                             originalIndex
                           )
                         }
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition"
+                        disabled={saving}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition disabled:opacity-50"
                       >
-                        <Settings
-                          size={17}
-                        />
+                        <Settings size={17} />
 
                         Edit
                       </button>
+
+                      {/* DELETE */}
 
                       <button
                         type="button"
@@ -3331,11 +3578,10 @@ const savePaymentMethods =
                             originalIndex
                           )
                         }
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition"
+                        disabled={saving}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition disabled:opacity-50"
                       >
-                        <Trash2
-                          size={17}
-                        />
+                        <Trash2 size={17} />
 
                         Delete
                       </button>
@@ -3344,20 +3590,19 @@ const savePaymentMethods =
 
                   </div>
 
-                  {/* QR */}
+                  {/* QR PREVIEW */}
 
                   {method.qrCode && (
                     <div className="mt-5 flex items-center gap-4">
 
                       <img
-                        src={
-                          method.qrCode
-                        }
+                        src={method.qrCode}
                         alt={`${method.type} QR`}
                         className="w-24 h-24 object-contain rounded-xl bg-white p-2 border border-zinc-700"
                       />
 
                       <div>
+
                         <p className="text-sm text-gray-400">
                           QR Code
                         </p>
@@ -3365,12 +3610,13 @@ const savePaymentMethods =
                         <p className="text-xs text-gray-600 mt-1">
                           Payment QR configured
                         </p>
+
                       </div>
 
                     </div>
                   )}
 
-                  {/* COPY */}
+                  {/* COPY BUTTONS */}
 
                   <div className="mt-4 flex flex-wrap gap-2">
 
@@ -3378,14 +3624,20 @@ const savePaymentMethods =
                       type="button"
                       onClick={() =>
                         copyText(
-                          method.accountNumber
+                          method.accountNumber ||
+                            method.walletAddress ||
+                            ""
                         )
                       }
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800 text-gray-300 hover:text-white transition text-sm"
+                      disabled={
+                        !(
+                          method.accountNumber ||
+                          method.walletAddress
+                        )
+                      }
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800 text-gray-300 hover:text-white transition text-sm disabled:opacity-40"
                     >
-                      <Copy
-                        size={15}
-                      />
+                      <Copy size={15} />
 
                       Copy Account
                     </button>
@@ -3395,17 +3647,31 @@ const savePaymentMethods =
                         type="button"
                         onClick={() =>
                           copyText(
-                            method.iban ||
+                            method.iban || ""
+                          )
+                        }
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800 text-gray-300 hover:text-white transition text-sm"
+                      >
+                        <Copy size={15} />
+
+                        Copy IBAN
+                      </button>
+                    )}
+
+                    {method.walletAddress && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          copyText(
+                            method.walletAddress ||
                               ""
                           )
                         }
                         className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800 text-gray-300 hover:text-white transition text-sm"
                       >
-                        <Copy
-                          size={15}
-                        />
+                        <Copy size={15} />
 
-                        Copy IBAN
+                        Copy Wallet
                       </button>
                     )}
 
@@ -3416,188 +3682,72 @@ const savePaymentMethods =
             )}
 
           </div>
-
-          {/* =================================================
-              SAVE BAR
+                    {/* =================================================
+              FINAL SAVE BAR
           ================================================= */}
 
-          <div className="p-5 border-t border-zinc-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="mt-6 p-5 rounded-2xl border border-yellow-500/20 bg-yellow-500/5">
 
-            <div>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
 
-              <p className="font-bold">
-                {settings.methods.length}{" "}
-                payment method
-                {settings.methods.length ===
-                1
-                  ? ""
-                  : "s"}
-              </p>
-
-              <p className="text-sm text-gray-500">
-                Changes are local until saved.
-              </p>
-
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-
-              <button
-                type="button"
-                onClick={
-                  savePaymentMethods
-                }
-                disabled={saving}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-green-600 hover:bg-green-500 font-bold transition disabled:opacity-50"
-              >
-                <Save size={18} />
-
-                {saving
-                  ? "Saving..."
-                  : "Save Payment Methods"}
-              </button>
-
-              <button
-                type="button"
-                onClick={
-                  saveDepositSettings
-                }
-                disabled={saving}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold transition disabled:opacity-50"
-              >
-                <DollarSign
-                  size={18}
-                />
-
-                Save Deposit Limits
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* =================================================
-            DEPOSIT CONTROL
-        ================================================= */}
-
-        <div className="mt-8 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-
-            <div className="flex items-center gap-4">
-
-              <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-                <Wallet
-                  size={25}
-                  className="text-yellow-400"
-                />
-              </div>
+              {/* SAVE INFORMATION */}
 
               <div>
 
-                <h2 className="font-bold text-lg">
-                  Deposit System
-                </h2>
+                <div className="flex items-center gap-2">
 
-                <p className="text-sm text-gray-500">
-                  Enable or disable deposits globally.
+                  <Shield
+                    size={18}
+                    className="text-yellow-400"
+                  />
+
+                  <h3 className="font-bold text-white">
+                    Save Payment Settings
+                  </h3>
+
+                </div>
+
+                <p className="text-sm text-gray-500 mt-1">
+                  Save all payment methods and deposit
+                  settings to the GoldTrade V18 backend.
                 </p>
+
+                {settings.updatedAt && (
+                  <p className="text-xs text-gray-600 mt-2">
+                    Last updated:{" "}
+                    {new Date(settings.updatedAt).toLocaleString()}
+                  </p>
+                )}
 
               </div>
 
-            </div>
+              {/* SAVE BUTTON */}
 
-            <button
-              type="button"
-              onClick={
-                toggleDeposits
-              }
-              className={`relative w-16 h-8 rounded-full transition ${
-                settings.depositsEnabled
-                  ? "bg-green-500"
-                  : "bg-red-500"
-              }`}
-            >
-              <span
-                className={`absolute top-1 w-6 h-6 bg-white rounded-full transition ${
-                  settings.depositsEnabled
-                    ? "left-9"
-                    : "left-1"
-                }`}
-              />
-            </button>
+              <button
+                type="button"
+                onClick={saveAllPaymentSettings}
+                disabled={saving}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-yellow-500 text-black font-extrabold hover:bg-yellow-400 transition disabled:opacity-50 disabled:cursor-not-allowed min-w-[190px]"
+              >
 
-          </div>
+                {saving ? (
+                  <>
+                    <RefreshCw
+                      size={18}
+                      className="animate-spin"
+                    />
 
-        </div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} />
 
-        {/* =================================================
-            DEPOSIT LIMITS
-        ================================================= */}
+                    Save All Settings
+                  </>
+                )}
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-
-            <label className="block text-sm text-gray-400 mb-2">
-              Minimum Deposit
-            </label>
-
-            <div className="relative">
-
-              <DollarSign
-                size={18}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
-              />
-
-              <input
-                type="number"
-                min="0"
-                value={
-                  settings.minimumDeposit
-                }
-                onChange={(e) =>
-                  updateDepositLimit(
-                    "minimumDeposit",
-                    e.target.value
-                  )
-                }
-                className="w-full bg-black border border-zinc-700 rounded-xl pl-11 pr-4 py-3 text-white outline-none focus:border-yellow-500"
-              />
-
-            </div>
-
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-
-            <label className="block text-sm text-gray-400 mb-2">
-              Maximum Deposit
-            </label>
-
-            <div className="relative">
-
-              <Coins
-                size={18}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
-              />
-
-              <input
-                type="number"
-                min="0"
-                value={
-                  settings.maximumDeposit
-                }
-                onChange={(e) =>
-                  updateDepositLimit(
-                    "maximumDeposit",
-                    e.target.value
-                  )
-                }
-                className="w-full bg-black border border-zinc-700 rounded-xl pl-11 pr-4 py-3 text-white outline-none focus:border-yellow-500"
-              />
+              </button>
 
             </div>
 
@@ -3605,38 +3755,21 @@ const savePaymentMethods =
 
         </div>
 
-        {/* =================================================
-            SECURITY
-        ================================================= */}
+      </div>
 
-        <div className="mt-8 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+      {/* =====================================================
+          PAGE FOOTER
+      ===================================================== */}
 
-          <div className="flex items-start gap-4">
+      <div className="mt-6 text-center text-xs text-gray-600">
 
-            <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20">
-              <Shield
-                size={24}
-                className="text-green-400"
-              />
-            </div>
+        <p>
+          GoldTrade V18 Payment Settings
+        </p>
 
-            <div>
-
-              <h3 className="font-bold">
-                V18 Payment Settings
-              </h3>
-
-              <p className="text-sm text-gray-500 mt-1">
-                Payment methods are stored through the
-                V18 payment-settings API and loaded
-                directly from MongoDB.
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
+        <p className="mt-1">
+          Admin-only configuration panel
+        </p>
 
       </div>
 

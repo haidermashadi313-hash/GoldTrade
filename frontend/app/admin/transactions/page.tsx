@@ -1,27 +1,26 @@
-"use client";
+
+  "use client";
 
 // =====================================================
 // GoldTrade V18 Enterprise
 // ADMIN TRANSACTIONS MANAGER
-// PART 1/6
-// Production Version
+// UPPER PORTION — PART 1/3
 // =====================================================
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   ArrowDownCircle,
   ArrowUpCircle,
   Wallet,
-  DollarSign,
   Coins,
   Search,
   RefreshCw,
-  Filter,
-  Calendar,
-  Shield,
   History,
-  User,
   CheckCircle,
   Clock,
   XCircle,
@@ -34,34 +33,64 @@ import {
 // =====================================================
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL ||  "https://goldtrade-2.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://goldtrade-2.onrender.com";
 
 // =====================================================
 // TYPES
 // =====================================================
+
+type UITransactionType =
+  | "Deposit"
+  | "Withdraw"
+  | "Credit"
+  | "Debit";
 
 interface TransactionItem {
   _id: string;
 
   username: string;
 
-  walletType: "PKR" | "GOLD" | "USDT";
+  walletType:
+    | "PKR"
+    | "GOLD"
+    | "USDT";
 
   transactionType:
-    | "Deposit"
-    | "Withdraw"
-    | "Credit"
-    | "Debit";
+    | UITransactionType
+    | string;
 
   amount: number;
 
-  status?: "Pending" | "Approved" | "Rejected";
+  status?:
+    | "Pending"
+    | "Approved"
+    | "Rejected"
+    | "Failed"
+    | "Completed"
+    | string;
 
   transactionId?: string;
+
+  referenceId?: string;
 
   note?: string;
 
   admin?: string;
+
+  adminUsername?: string;
+
+  transactionMode?:
+    | "CREDIT"
+    | "DEBIT"
+    | "RELEASE"
+    | string;
+
+  paymentMethod?: string;
+
+  balanceBefore?: number;
+
+  balanceAfter?: number;
 
   createdAt: string;
 }
@@ -70,13 +99,17 @@ interface TransactionStatistics {
   totalTransactions: number;
 
   totalDeposits: number;
+
   totalWithdraws: number;
 
   totalCredits: number;
+
   totalDebits: number;
 
   totalPKR: number;
+
   totalGold: number;
+
   totalUSDT: number;
 }
 
@@ -90,7 +123,8 @@ export default function AdminTransactionsPage() {
   // AUTH
   // ===================================================
 
-  const [token, setToken] = useState("");
+  const [token, setToken] =
+    useState("");
 
   const [adminName, setAdminName] =
     useState("Administrator");
@@ -105,13 +139,10 @@ export default function AdminTransactionsPage() {
   const [statistics, setStatistics] =
     useState<TransactionStatistics>({
       totalTransactions: 0,
-
       totalDeposits: 0,
       totalWithdraws: 0,
-
       totalCredits: 0,
       totalDebits: 0,
-
       totalPKR: 0,
       totalGold: 0,
       totalUSDT: 0,
@@ -121,50 +152,64 @@ export default function AdminTransactionsPage() {
   // UI STATES
   // ===================================================
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
 
   const [refreshing, setRefreshing] =
     useState(false);
 
-  const [message, setMessage] = useState("");
+  const [message, setMessage] =
+    useState("");
 
-  const [messageType, setMessageType] = useState<
-    "success" | "error"
-  >("success");
-
-  const [error, setError] = useState("");
+  const [error, setError] =
+    useState("");
 
   // ===================================================
   // SEARCH
   // ===================================================
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] =
+    useState("");
 
   // ===================================================
   // FILTERS
   // ===================================================
 
-  const [walletFilter, setWalletFilter] = useState<
-    "ALL" | "PKR" | "GOLD" | "USDT"
-  >("ALL");
+  const [walletFilter, setWalletFilter] =
+    useState<
+      "ALL" | "PKR" | "GOLD" | "USDT"
+    >("ALL");
 
-  const [typeFilter, setTypeFilter] = useState<
-    "ALL" | "Deposit" | "Withdraw" | "Credit" | "Debit"
-  >("ALL");
+  const [typeFilter, setTypeFilter] =
+    useState<
+      | "ALL"
+      | "Deposit"
+      | "Withdraw"
+      | "Credit"
+      | "Debit"
+    >("ALL");
 
-  const [statusFilter, setStatusFilter] = useState<
-    "ALL" | "Pending" | "Approved" | "Rejected"
-  >("ALL");
+  const [statusFilter, setStatusFilter] =
+    useState<
+      | "ALL"
+      | "Pending"
+      | "Approved"
+      | "Rejected"
+      | "Failed"
+    >("ALL");
 
   // ===================================================
   // TOKEN LOAD
   // ===================================================
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
+    const savedToken =
+      localStorage.getItem("token");
 
     if (!savedToken) {
-      window.location.href = "/login";
+      window.location.href =
+        "/login";
+
       return;
     }
 
@@ -177,247 +222,1044 @@ export default function AdminTransactionsPage() {
 
   const adminHeaders = useMemo(
     () => ({
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+      Authorization:
+        `Bearer ${token}`,
+
+      "Content-Type":
+        "application/json",
     }),
     [token]
   );
 
   // ===================================================
-  // FORMATTERS
+  // FORMAT MONEY
   // ===================================================
 
-  const formatMoney = (value: number = 0) =>
-    Number(value).toLocaleString("en-PK", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+  const formatMoney = (
+    value: number = 0
+  ) => {
+    const safeValue =
+      Number(value);
 
-  const formatDate = (date?: string) => {
-    if (!date) return "--";
-
-    return new Date(date).toLocaleString("en-GB", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+    return (
+      Number.isFinite(safeValue)
+        ? safeValue
+        : 0
+    ).toLocaleString(
+      "en-PK",
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 6,
+      }
+    );
   };
 
   // ===================================================
-  // FILTERED TRANSACTIONS
+  // FORMAT DATE
   // ===================================================
 
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter((transaction) => {
+  const formatDate = (
+    date?: string
+  ) => {
+    if (!date) {
+      return "--";
+    }
 
-      const searchMatch =
-        transaction.username
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        (transaction.transactionId || "")
-          .toLowerCase()
-          .includes(search.toLowerCase());
+    const parsed =
+      new Date(date);
 
-      const walletMatch =
-        walletFilter === "ALL" ||
-        transaction.walletType === walletFilter;
+    if (
+      Number.isNaN(
+        parsed.getTime()
+      )
+    ) {
+      return "--";
+    }
 
-      const typeMatch =
-        typeFilter === "ALL" ||
-        transaction.transactionType === typeFilter;
+    return parsed.toLocaleString(
+      "en-GB",
+      {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }
+    );
+  };
 
-      const statusMatch =
-        statusFilter === "ALL" ||
-        (transaction.status || "Approved") === statusFilter;
+  // ===================================================
+  // NORMALIZE TRANSACTION TYPE
+  // ===================================================
 
-      return (
-        searchMatch &&
-        walletMatch &&
-        typeMatch &&
-        statusMatch
-      );
-    });
-  }, [
-    transactions,
-    search,
-    walletFilter,
-    typeFilter,
-    statusFilter,
-  ]);
-    // ===================================================
+  const normalizeTransactionType = (
+    transaction: any
+  ): UITransactionType => {
+
+    const rawType =
+      String(
+        transaction?.transactionType ||
+          ""
+      )
+        .trim()
+        .toUpperCase();
+
+    const mode =
+      String(
+        transaction?.transactionMode ||
+          ""
+      )
+        .trim()
+        .toUpperCase();
+
+    // =================================================
+    // DEPOSIT
+    // =================================================
+
+    if (
+      rawType.startsWith(
+        "DEPOSIT"
+      )
+    ) {
+      return "Deposit";
+    }
+
+    // =================================================
+    // WITHDRAW
+    // =================================================
+
+    if (
+      rawType.startsWith(
+        "WITHDRAW"
+      )
+    ) {
+      return "Withdraw";
+    }
+
+    // =================================================
+    // CREDIT
+    // =================================================
+
+    if (
+      mode === "CREDIT" ||
+      rawType === "ADMIN_CREDIT" ||
+      rawType === "CREDIT"
+    ) {
+      return "Credit";
+    }
+
+    // =================================================
+    // DEBIT
+    // =================================================
+
+    if (
+      mode === "DEBIT" ||
+      rawType === "ADMIN_DEBIT" ||
+      rawType === "DEBIT"
+    ) {
+      return "Debit";
+    }
+
+    // =================================================
+    // DEFAULT
+    // =================================================
+
+    return "Debit";
+  };
+
+  // ===================================================
+  // NORMALIZE STATUS
+  // ===================================================
+
+  const normalizeStatus = (
+    value: any
+  ): string => {
+
+    const status =
+      String(value || "")
+        .trim()
+        .toUpperCase();
+
+    if (
+      status === "COMPLETED" ||
+      status === "SUCCESS" ||
+      status === "APPROVED"
+    ) {
+      return "Approved";
+    }
+
+    if (
+      status === "PENDING"
+    ) {
+      return "Pending";
+    }
+
+    if (
+      status === "REJECTED"
+    ) {
+      return "Rejected";
+    }
+
+    if (
+      status === "FAILED"
+    ) {
+      return "Failed";
+    }
+
+    return (
+      String(value || "")
+        .trim() ||
+      "Pending"
+    );
+  };
+
+  // ===================================================
+  // NORMALIZE TRANSACTION
+  // ===================================================
+
+  const normalizeTransaction = (
+    item: any
+  ): TransactionItem => {
+
+    const rawAmount =
+      Number(item?.amount || 0);
+
+    return {
+      ...item,
+
+      _id: String(
+        item?._id ||
+          item?.id ||
+          ""
+      ),
+
+      username: String(
+        item?.username ||
+          ""
+      ),
+
+      walletType:
+        String(
+          item?.walletType ||
+            "PKR"
+        )
+          .trim()
+          .toUpperCase() as
+          | "PKR"
+          | "GOLD"
+          | "USDT",
+
+      transactionType:
+        normalizeTransactionType(
+          item
+        ),
+
+      amount:
+        Number.isFinite(
+          rawAmount
+        )
+          ? rawAmount
+          : 0,
+
+      status:
+        normalizeStatus(
+          item?.status
+        ),
+
+      transactionId:
+        item?.transactionId
+          ? String(
+              item.transactionId
+            )
+          : undefined,
+
+      referenceId:
+        item?.referenceId
+          ? String(
+              item.referenceId
+            )
+          : undefined,
+
+      note:
+        item?.note
+          ? String(item.note)
+          : undefined,
+
+      admin:
+        item?.admin
+          ? String(item.admin)
+          : undefined,
+
+      adminUsername:
+        item?.adminUsername
+          ? String(
+              item.adminUsername
+            )
+          : undefined,
+
+      transactionMode:
+        item?.transactionMode
+          ? String(
+              item.transactionMode
+            ).toUpperCase()
+          : undefined,
+
+      paymentMethod:
+        item?.paymentMethod
+          ? String(
+              item.paymentMethod
+            )
+          : undefined,
+
+      balanceBefore:
+        Number.isFinite(
+          Number(
+            item?.balanceBefore
+          )
+        )
+          ? Number(
+              item.balanceBefore
+            )
+          : undefined,
+
+      balanceAfter:
+        Number.isFinite(
+          Number(
+            item?.balanceAfter
+          )
+        )
+          ? Number(
+              item.balanceAfter
+            )
+          : undefined,
+
+      createdAt:
+        item?.createdAt ||
+        new Date().toISOString(),
+    };
+  };
+
+   // ===================================================
   // LOAD TRANSACTIONS DASHBOARD
   // ===================================================
 
-  const loadTransactionsDashboard = async () => {
-    if (!token) return;
+  const loadTransactionsDashboard =
+    async () => {
 
-    try {
-      setLoading(true);
-      setRefreshing(false);
-      setError("");
+      if (!token) return;
 
-      const [transactionsRes, statisticsRes] = await Promise.all([
-        fetch(`${API}/api/admin/transactions`, {
-          headers: adminHeaders,
-          cache: "no-store",
-        }),
+      try {
+        setLoading(true);
+        setRefreshing(false);
+        setError("");
 
-        fetch(`${API}/api/admin/transactions/statistics`, {
-          headers: adminHeaders,
-          cache: "no-store",
-        }),
-      ]);
+        // =================================================
+        // API REQUESTS
+        // =================================================
 
-      const transactionsData = await transactionsRes.json();
-      const statisticsData = await statisticsRes.json();
+        const [
+          transactionsRes,
+          statisticsRes,
+        ] = await Promise.all([
 
-      console.log("TRANSACTIONS API:", transactionsData);
-      console.log("TRANSACTION STATISTICS API:", statisticsData);
+          // ===============================================
+          // ADMIN TRANSACTIONS
+          // ===============================================
 
-      // TRANSACTIONS
-      if (transactionsRes.ok && transactionsData.success) {
-        setTransactions(transactionsData.transactions || []);
-      } else {
-        setTransactions([]);
-        setError(
-          transactionsData.message || "Unable to load transactions."
+          fetch(
+            `${API}/api/transactions/admin`,
+            {
+              method: "GET",
+              headers:
+                adminHeaders,
+              cache:
+                "no-store",
+            }
+          ),
+
+          // ===============================================
+          // ADMIN TRANSACTION STATS
+          // ===============================================
+
+          fetch(
+            `${API}/api/transactions/admin/stats`,
+            {
+              method: "GET",
+              headers:
+                adminHeaders,
+              cache:
+                "no-store",
+            }
+          ),
+        ]);
+
+        // =================================================
+        // SAFE JSON PARSING
+        // =================================================
+
+        let transactionsData: any =
+          null;
+
+        let statisticsData: any =
+          null;
+
+        try {
+          transactionsData =
+            await transactionsRes.json();
+        } catch {
+          transactionsData = null;
+        }
+
+        try {
+          statisticsData =
+            await statisticsRes.json();
+        } catch {
+          statisticsData = null;
+        }
+
+        console.log(
+          "TRANSACTIONS API:",
+          transactionsData
         );
+
+        console.log(
+          "TRANSACTION STATISTICS API:",
+          statisticsData
+        );
+
+        // =================================================
+        // TRANSACTIONS
+        // =================================================
+
+        let normalizedTransactions:
+          TransactionItem[] = [];
+
+        if (
+          transactionsRes.ok &&
+          transactionsData?.success
+        ) {
+
+          const rawTransactions =
+            Array.isArray(
+              transactionsData?.transactions
+            )
+              ? transactionsData.transactions
+              : [];
+
+          normalizedTransactions =
+            rawTransactions.map(
+              normalizeTransaction
+            );
+
+          setTransactions(
+            normalizedTransactions
+          );
+
+        } else {
+
+          setTransactions([]);
+
+          setError(
+            transactionsData?.message ||
+              "Unable to load transactions."
+          );
+        }
+
+        // =================================================
+        // STATISTICS
+        // =================================================
+
+        if (
+          statisticsRes.ok &&
+          statisticsData?.success
+        ) {
+
+          const overview =
+            statisticsData?.overview ||
+            {};
+
+          const walletSummary =
+            statisticsData?.walletSummary ||
+            {};
+
+          // ===============================================
+          // CALCULATE TYPE COUNTS FROM ACTUAL TRANSACTIONS
+          // ===============================================
+
+          const deposits =
+            normalizedTransactions.filter(
+              (transaction) =>
+                transaction.transactionType ===
+                "Deposit"
+            ).length;
+
+          const withdraws =
+            normalizedTransactions.filter(
+              (transaction) =>
+                transaction.transactionType ===
+                "Withdraw"
+            ).length;
+
+          const credits =
+            normalizedTransactions.filter(
+              (transaction) =>
+                transaction.transactionType ===
+                "Credit"
+            ).length;
+
+          const debits =
+            normalizedTransactions.filter(
+              (transaction) =>
+                transaction.transactionType ===
+                "Debit"
+            ).length;
+
+          // ===============================================
+          // WALLET TOTALS
+          // ===============================================
+
+          const totalPKR =
+            Number(
+              walletSummary?.PKR?.amount ||
+                0
+            );
+
+          const totalGold =
+            Number(
+              walletSummary?.GOLD?.amount ||
+                0
+            );
+
+          const totalUSDT =
+            Number(
+              walletSummary?.USDT?.amount ||
+                0
+            );
+
+          // ===============================================
+          // FINAL STATISTICS
+          // ===============================================
+
+          setStatistics({
+            totalTransactions:
+              Number(
+                overview?.totalTransactions ||
+                  transactionsData?.pagination
+                    ?.totalTransactions ||
+                  normalizedTransactions.length ||
+                  0
+              ),
+
+            totalDeposits:
+              deposits,
+
+            totalWithdraws:
+              withdraws,
+
+            totalCredits:
+              credits,
+
+            totalDebits:
+              debits,
+
+            totalPKR:
+              Number.isFinite(
+                totalPKR
+              )
+                ? totalPKR
+                : 0,
+
+            totalGold:
+              Number.isFinite(
+                totalGold
+              )
+                ? totalGold
+                : 0,
+
+            totalUSDT:
+              Number.isFinite(
+                totalUSDT
+              )
+                ? totalUSDT
+                : 0,
+          });
+
+        } else {
+
+          setStatistics({
+            totalTransactions:
+              normalizedTransactions.length,
+
+            totalDeposits: 0,
+            totalWithdraws: 0,
+            totalCredits: 0,
+            totalDebits: 0,
+            totalPKR: 0,
+            totalGold: 0,
+            totalUSDT: 0,
+          });
+        }
+
+      } catch (err: any) {
+
+        console.error(
+          "LOAD TRANSACTIONS ERROR:",
+          err
+        );
+
+        setTransactions([]);
+
+        setError(
+          err?.message ||
+            "Unable to load transactions dashboard."
+        );
+
+      } finally {
+
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      // STATISTICS
-      if (statisticsRes.ok && statisticsData.success) {
-        setStatistics(statisticsData.statistics);
-      } else {
-        setStatistics({
-          totalTransactions: 0,
-          totalDeposits: 0,
-          totalWithdraws: 0,
-          totalCredits: 0,
-          totalDebits: 0,
-          totalPKR: 0,
-          totalGold: 0,
-          totalUSDT: 0,
-        });
-      }
-
-    } catch (err: any) {
-      console.error("LOAD TRANSACTIONS ERROR:", err);
-
-      setTransactions([]);
-      setError(
-        err.message || "Unable to load transactions dashboard."
-      );
-
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+    };
 
   // ===================================================
-  // REFRESH TRANSACTIONS
+  // REFRESH
   // ===================================================
 
-  const refreshTransactions = async () => {
-    setRefreshing(true);
-    await loadTransactionsDashboard();
-  };
+  const refreshTransactions =
+    async () => {
+
+      setRefreshing(true);
+
+      await loadTransactionsDashboard();
+    };
 
   // ===================================================
   // ADMIN AUTH CHECK
   // ===================================================
 
-  const checkAdminAuth = async () => {
+  useEffect(() => {
+
     if (!token) return;
 
-    try {
-      const response = await fetch(`${API}/api/admin/auth/check`, {
-        headers: adminHeaders,
-        cache: "no-store",
-      });
+    const checkAdmin =
+      async () => {
 
-      const data = await response.json();
+        try {
 
-      console.log("ADMIN AUTH:", data);
+          const response =
+            await fetch(
+              `${API}/api/auth/check`,
+              {
+                method: "GET",
 
-      if (!response.ok || !data.success) {
-        localStorage.removeItem("token");
-        window.location.href = "/login";
-        return;
-      }
+                headers:
+                  adminHeaders,
 
-      setAdminName(data.user?.username || "Administrator");
+                cache:
+                  "no-store",
+              }
+            );
 
-    } catch (error) {
-      console.error("ADMIN AUTH ERROR:", error);
-    }
-  };
+          // =============================================
+          // SAFE JSON
+          // =============================================
+
+          let data: any = null;
+
+          try {
+            data =
+              await response.json();
+          } catch {
+            data = null;
+          }
+
+          console.log(
+            "ADMIN AUTH RESPONSE:",
+            data
+          );
+
+          // =============================================
+          // AUTH FAILED
+          // =============================================
+
+          if (
+            !response.ok ||
+            !data?.success
+          ) {
+
+            console.warn(
+              "Admin authentication check failed."
+            );
+
+            localStorage.removeItem(
+              "token"
+            );
+
+            window.location.href =
+              "/login";
+
+            return;
+          }
+
+          // =============================================
+          // USER
+          // =============================================
+
+          const user =
+            data?.user;
+
+          // =============================================
+          // ADMIN ROLE
+          // =============================================
+
+          if (
+            !user ||
+            String(
+              user.role || ""
+            ).toLowerCase() !==
+              "admin"
+          ) {
+
+            console.warn(
+              "Admin access denied."
+            );
+
+            localStorage.removeItem(
+              "token"
+            );
+
+            window.location.href =
+              "/login";
+
+            return;
+          }
+
+          // =============================================
+          // ADMIN NAME
+          // =============================================
+
+          setAdminName(
+            user.username ||
+              "Administrator"
+          );
+
+        } catch (err) {
+
+          console.error(
+            "ADMIN AUTH CHECK ERROR:",
+            err
+          );
+        }
+      };
+
+    checkAdmin();
+
+  }, [
+    token,
+    adminHeaders,
+  ]);
 
   // ===================================================
   // INITIAL LOAD
   // ===================================================
 
   useEffect(() => {
+
     if (!token) return;
 
-    checkAdminAuth();
     loadTransactionsDashboard();
+
   }, [token]);
-
+    
   // ===================================================
-  // AUTO CLEAR MESSAGE
-  // ===================================================
-
-  useEffect(() => {
-    if (!message) return;
-
-    const timer = setTimeout(() => {
-      setMessage("");
-    }, 4000);
-
-    return () => clearTimeout(timer);
-  }, [message]);
-    // ===================================================
-  // STATUS BADGE COLOR
+  // FILTERED TRANSACTIONS
   // ===================================================
 
-  const getStatusClass = (status?: string) => {
-    switch ((status || "").toUpperCase()) {
-      case "APPROVED":
-        return "text-green-400 bg-green-500/10 border border-green-500/30";
+  const filteredTransactions =
+    useMemo(() => {
 
-      case "PENDING":
-        return "text-yellow-400 bg-yellow-500/10 border border-yellow-500/30";
+      const query =
+        search
+          .trim()
+          .toLowerCase();
 
-      case "REJECTED":
-        return "text-red-400 bg-red-500/10 border border-red-500/30";
+      return transactions.filter(
+        (transaction) => {
+
+          // =============================================
+          // SEARCH
+          // =============================================
+
+          const matchesSearch =
+            !query ||
+
+            String(
+              transaction.username ||
+                ""
+            )
+              .toLowerCase()
+              .includes(query) ||
+
+            String(
+              transaction.transactionId ||
+                ""
+            )
+              .toLowerCase()
+              .includes(query) ||
+
+            String(
+              transaction.referenceId ||
+                ""
+            )
+              .toLowerCase()
+              .includes(query);
+
+          if (!matchesSearch) {
+            return false;
+          }
+
+          // =============================================
+          // WALLET FILTER
+          // =============================================
+
+          if (
+            walletFilter !== "ALL" &&
+            transaction.walletType !==
+              walletFilter
+          ) {
+            return false;
+          }
+
+          // =============================================
+          // TYPE FILTER
+          // =============================================
+
+          if (
+            typeFilter !== "ALL" &&
+            transaction.transactionType !==
+              typeFilter
+          ) {
+            return false;
+          }
+
+          // =============================================
+          // STATUS FILTER
+          // =============================================
+
+          if (
+            statusFilter !== "ALL" &&
+            transaction.status !==
+              statusFilter
+          ) {
+            return false;
+          }
+
+          return true;
+        }
+      );
+
+    }, [
+      transactions,
+      search,
+      walletFilter,
+      typeFilter,
+      statusFilter,
+    ]);
+
+  // ===================================================
+  // FILTER RESET
+  // ===================================================
+
+  const clearFilters = () => {
+
+    setSearch("");
+
+    setWalletFilter(
+      "ALL"
+    );
+
+    setTypeFilter(
+      "ALL"
+    );
+
+    setStatusFilter(
+      "ALL"
+    );
+  };
+
+  // ===================================================
+  // FILTERED SUMMARY
+  // ===================================================
+
+  const filteredSummary =
+    useMemo(() => {
+
+      let deposits = 0;
+      let withdrawals = 0;
+      let credits = 0;
+      let debits = 0;
+
+      let pending = 0;
+      let approved = 0;
+      let rejected = 0;
+
+      filteredTransactions.forEach(
+        (transaction) => {
+
+          const type =
+            transaction.transactionType;
+
+          const status =
+            transaction.status;
+
+          // ===========================================
+          // TYPES
+          // ===========================================
+
+          if (
+            type === "Deposit"
+          ) {
+            deposits++;
+          }
+
+          if (
+            type === "Withdraw"
+          ) {
+            withdrawals++;
+          }
+
+          if (
+            type === "Credit"
+          ) {
+            credits++;
+          }
+
+          if (
+            type === "Debit"
+          ) {
+            debits++;
+          }
+
+          // ===========================================
+          // STATUS
+          // ===========================================
+
+          if (
+            status === "Pending"
+          ) {
+            pending++;
+          }
+
+          if (
+            status === "Approved" ||
+            status === "Completed"
+          ) {
+            approved++;
+          }
+
+          if (
+            status === "Rejected" ||
+            status === "Failed"
+          ) {
+            rejected++;
+          }
+        }
+      );
+
+      return {
+        total:
+          filteredTransactions.length,
+
+        deposits,
+
+        withdrawals,
+
+        credits,
+
+        debits,
+
+        pending,
+
+        approved,
+
+        rejected,
+      };
+
+    }, [
+      filteredTransactions,
+    ]);
+
+  // ===================================================
+  // STATUS CLASS
+  // ===================================================
+
+  const getStatusClass = (
+    status: string
+  ) => {
+
+    switch (status) {
+
+      case "Approved":
+      case "Completed":
+        return (
+          "bg-green-500/10 " +
+          "text-green-400 " +
+          "border-green-500/20"
+        );
+
+      case "Pending":
+        return (
+          "bg-yellow-500/10 " +
+          "text-yellow-400 " +
+          "border-yellow-500/20"
+        );
+
+      case "Rejected":
+      case "Failed":
+        return (
+          "bg-red-500/10 " +
+          "text-red-400 " +
+          "border-red-500/20"
+        );
 
       default:
-        return "text-gray-300 bg-gray-700/20 border border-gray-600/30";
+        return (
+          "bg-gray-500/10 " +
+          "text-gray-400 " +
+          "border-gray-500/20"
+        );
     }
   };
 
   // ===================================================
-  // TRANSACTION TYPE COLOR
+  // TRANSACTION CLASS
   // ===================================================
 
   const getTransactionClass = (
-    type: TransactionItem["transactionType"]
+    type: string
   ) => {
+
     switch (type) {
+
       case "Deposit":
-        return "text-green-400 bg-green-500/10 border border-green-500/30";
+        return "text-green-400";
 
       case "Withdraw":
-        return "text-red-400 bg-red-500/10 border border-red-500/30";
+        return "text-red-400";
 
       case "Credit":
-        return "text-cyan-400 bg-cyan-500/10 border border-cyan-500/30";
+        return "text-blue-400";
 
       case "Debit":
-        return "text-orange-400 bg-orange-500/10 border border-orange-500/30";
+        return "text-orange-400";
+
+      case "Buy Gold":
+      case "Sell Gold":
+        return "text-yellow-400";
+
+      case "Buy USDT":
+      case "Sell USDT":
+        return "text-cyan-400";
 
       default:
-        return "text-gray-300 bg-gray-700/20 border border-gray-600/30";
+        return "text-gray-400";
     }
   };
 
@@ -425,19 +1267,25 @@ export default function AdminTransactionsPage() {
   // WALLET COLOR
   // ===================================================
 
-  const getWalletColor = (wallet: string) => {
-    switch (wallet.toUpperCase()) {
+  const getWalletColor = (
+    walletType: string
+  ) => {
+
+    switch (
+      walletType.toUpperCase()
+    ) {
+
       case "PKR":
         return "text-green-400";
-
-      case "GOLD":
-        return "text-yellow-400";
 
       case "USDT":
         return "text-cyan-400";
 
+      case "GOLD":
+        return "text-yellow-400";
+
       default:
-        return "text-gray-300";
+        return "text-gray-400";
     }
   };
 
@@ -446,9 +1294,11 @@ export default function AdminTransactionsPage() {
   // ===================================================
 
   const getTransactionIcon = (
-    type: TransactionItem["transactionType"]
+    type: string
   ) => {
+
     switch (type) {
+
       case "Deposit":
         return ArrowDownCircle;
 
@@ -467,965 +1317,1514 @@ export default function AdminTransactionsPage() {
   };
 
   // ===================================================
-  // FILTERED SUMMARY
+  // FILTERED STATISTICS
   // ===================================================
 
-  const filteredStatistics = useMemo(() => {
-    return filteredTransactions.reduce(
-      (summary, transaction) => {
-        const amount = Number(transaction.amount || 0);
+  const filteredStatistics =
+    useMemo(() => {
 
-        summary.totalAmount += amount;
+      const total =
+        filteredTransactions.length;
 
-        switch (transaction.transactionType) {
-          case "Deposit":
-            summary.deposits++;
-            break;
+      const completed =
+        filteredTransactions.filter(
+          (transaction) =>
+            transaction.status ===
+              "Completed" ||
+            transaction.status ===
+              "Approved"
+        ).length;
 
-          case "Withdraw":
-            summary.withdraws++;
-            break;
+      const pending =
+        filteredTransactions.filter(
+          (transaction) =>
+            transaction.status ===
+            "Pending"
+        ).length;
 
-          case "Credit":
-            summary.credits++;
-            break;
+      const rejected =
+        filteredTransactions.filter(
+          (transaction) =>
+            transaction.status ===
+              "Rejected" ||
+            transaction.status ===
+              "Failed"
+        ).length;
 
-          case "Debit":
-            summary.debits++;
-            break;
-        }
+      return {
+        total,
 
-        switch (transaction.walletType) {
-          case "PKR":
-            summary.pkr += amount;
-            break;
+        completed,
 
-          case "GOLD":
-            summary.gold += amount;
-            break;
+        pending,
 
-          case "USDT":
-            summary.usdt += amount;
-            break;
-        }
+        rejected,
 
-        return summary;
-      },
-      {
-        deposits: 0,
-        withdraws: 0,
-        credits: 0,
-        debits: 0,
-        totalAmount: 0,
+        deposits:
+          filteredSummary.deposits,
 
-        pkr: 0,
-        gold: 0,
-        usdt: 0,
-      }
-    );
-  }, [filteredTransactions]);
+        withdraws:
+          filteredSummary.withdrawals,
+
+        credits:
+          filteredSummary.credits,
+
+        debits:
+          filteredSummary.debits,
+      };
+
+    }, [
+      filteredTransactions,
+      filteredSummary,
+    ]);
 
   // ===================================================
   // RECENT TRANSACTIONS
   // ===================================================
 
-  const recentTransactions = useMemo(() => {
-    return [...transactions]
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() -
-          new Date(a.createdAt).getTime()
-      )
-      .slice(0, 10);
-  }, [transactions]);
+  const recentTransactions =
+    useMemo(() => {
+
+      return [
+        ...transactions,
+      ]
+        .sort(
+          (a, b) =>
+            new Date(
+              b.createdAt
+            ).getTime() -
+            new Date(
+              a.createdAt
+            ).getTime()
+        )
+        .slice(0, 5);
+
+    }, [
+      transactions,
+    ]);
 
   // ===================================================
-  // TRANSACTION COUNTS
+  // COUNTS
   // ===================================================
 
-  const pendingCount = useMemo(() => {
-    return transactions.filter(
-      (item) => item.status === "Pending"
+  const pendingCount =
+    transactions.filter(
+      (transaction) =>
+        transaction.status ===
+        "Pending"
     ).length;
-  }, [transactions]);
 
-  const approvedCount = useMemo(() => {
-    return transactions.filter(
-      (item) => item.status === "Approved"
+  const approvedCount =
+    transactions.filter(
+      (transaction) =>
+        transaction.status ===
+          "Approved" ||
+        transaction.status ===
+          "Completed"
     ).length;
-  }, [transactions]);
 
-  const rejectedCount = useMemo(() => {
-    return transactions.filter(
-      (item) => item.status === "Rejected"
+  const rejectedCount =
+    transactions.filter(
+      (transaction) =>
+        transaction.status ===
+          "Rejected" ||
+        transaction.status ===
+          "Failed"
     ).length;
-  }, [transactions]);
 
   // ===================================================
-  // CLEAR FILTERS
+  // AUTO CLEAR MESSAGE
   // ===================================================
 
-  const clearFilters = () => {
-    setSearch("");
-    setWalletFilter("ALL");
-    setTypeFilter("ALL");
-    setStatusFilter("ALL");
-  };
-    // =====================================================
-  // PAGE UI START
-  // =====================================================
+  useEffect(() => {
 
-  return (
-    <div className="min-h-screen bg-[#0B1120] text-white p-6">
+    if (!message) return;
 
-      {/* ========================================== */}
-      {/* HEADER */}
-      {/* ========================================== */}
+    const timer =
+      setTimeout(() => {
+        setMessage("");
+      }, 5000);
 
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 mb-8">
+    return () =>
+      clearTimeout(timer);
+
+  }, [message]);
+
+  // ===================================================
+  // AUTO CLEAR ERROR
+  // ===================================================
+
+  useEffect(() => {
+
+    if (!error) return;
+
+    const timer =
+      setTimeout(() => {
+        setError("");
+      }, 8000);
+
+    return () =>
+      clearTimeout(timer);
+
+  }, [error]);
+
+// ===================================================
+// PAGE UI
+// ===================================================
+
+return (
+  <main className="min-h-screen bg-black text-white">
+
+    {/* =================================================
+        PAGE CONTAINER
+    ================================================= */}
+
+    <div className="mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
+
+      {/* =================================================
+          PAGE HEADER
+      ================================================= */}
+
+      <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
         <div>
-          <h1 className="text-3xl font-bold text-yellow-400">
-            GoldTrade V18 • Enterprise Transaction Manager
-          </h1>
 
-          <p className="text-gray-400 mt-2">
-            View and manage Deposit, Withdraw, Credit and Debit transactions.
-          </p>
+          <div className="flex items-center gap-3">
 
-          <p className="text-gray-500 text-sm mt-1">
-            Logged in as{" "}
-            <span className="text-green-400 font-semibold">
-              {adminName}
-            </span>
-          </p>
-        </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-yellow-500/20 bg-yellow-500/10">
 
-        <button
-          onClick={refreshTransactions}
-          disabled={refreshing}
-          className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 text-black font-semibold px-5 py-3 rounded-xl transition"
-        >
-          <RefreshCw
-            size={18}
-            className={refreshing ? "animate-spin" : ""}
-          />
+              <History
+                size={23}
+                className="text-yellow-400"
+              />
 
-          {refreshing ? "Refreshing..." : "Refresh Transactions"}
-        </button>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* SUCCESS / ERROR MESSAGE */}
-      {/* ========================================== */}
-
-      {message && (
-        <div
-          className={`mb-6 rounded-xl px-4 py-3 border ${
-            messageType === "success"
-              ? "bg-green-600/20 border-green-500 text-green-300"
-              : "bg-red-600/20 border-red-500 text-red-300"
-          }`}
-        >
-          {message}
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-6 rounded-xl px-4 py-3 border border-red-600 bg-red-600/10 text-red-300">
-          {error}
-        </div>
-      )}
-
-      {/* ========================================== */}
-      {/* MAIN STATISTICS CARDS */}
-      {/* ========================================== */}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
-
-        {/* TOTAL */}
-
-        <div className="rounded-2xl bg-[#111827] border border-blue-600/30 p-5">
-
-          <div className="flex justify-between items-center mb-3">
-            <History className="text-blue-400" size={28} />
-            <span className="text-xs text-blue-400 font-semibold">
-              TOTAL
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            All Transactions
-          </p>
-
-          <h2 className="text-3xl font-bold text-blue-400 mt-2">
-            {statistics.totalTransactions}
-          </h2>
-
-        </div>
-
-        {/* DEPOSITS */}
-
-        <div className="rounded-2xl bg-[#111827] border border-green-600/30 p-5">
-
-          <div className="flex justify-between items-center mb-3">
-            <ArrowDownCircle className="text-green-400" size={28} />
-            <span className="text-xs text-green-400 font-semibold">
-              DEPOSITS
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Deposit Transactions
-          </p>
-
-          <h2 className="text-3xl font-bold text-green-400 mt-2">
-            {statistics.totalDeposits}
-          </h2>
-
-        </div>
-
-        {/* WITHDRAWS */}
-
-        <div className="rounded-2xl bg-[#111827] border border-red-600/30 p-5">
-
-          <div className="flex justify-between items-center mb-3">
-            <ArrowUpCircle className="text-red-400" size={28} />
-            <span className="text-xs text-red-400 font-semibold">
-              WITHDRAWS
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Withdraw Transactions
-          </p>
-
-          <h2 className="text-3xl font-bold text-red-400 mt-2">
-            {statistics.totalWithdraws}
-          </h2>
-
-        </div>
-
-        {/* WALLET */}
-
-        <div className="rounded-2xl bg-[#111827] border border-purple-600/30 p-5">
-
-          <div className="flex justify-between items-center mb-3">
-            <Wallet className="text-purple-400" size={28} />
-            <span className="text-xs text-purple-400 font-semibold">
-              WALLET
-            </span>
-          </div>
-
-          <p className="text-gray-400 text-sm">
-            Credit + Debit Transactions
-          </p>
-
-          <h2 className="text-3xl font-bold text-purple-400 mt-2">
-            {statistics.totalCredits + statistics.totalDebits}
-          </h2>
-
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* WALLET SUMMARY CARDS */}
-      {/* ========================================== */}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-
-        <div className="rounded-2xl bg-[#111827] border border-green-600/20 p-5">
-
-          <div className="flex justify-between items-center mb-2">
-            <DollarSign className="text-green-400" size={24} />
-            <span className="text-green-400 text-xs font-semibold">
-              PKR
-            </span>
-          </div>
-
-          <h3 className="text-2xl font-bold text-green-400">
-            PKR {formatMoney(statistics.totalPKR)}
-          </h3>
-
-          <p className="text-gray-400 text-sm mt-2">
-            Total PKR Transactions
-          </p>
-
-        </div>
-
-        <div className="rounded-2xl bg-[#111827] border border-yellow-600/20 p-5">
-
-          <div className="flex justify-between items-center mb-2">
-            <Coins className="text-yellow-400" size={24} />
-            <span className="text-yellow-400 text-xs font-semibold">
-              GOLD
-            </span>
-          </div>
-
-          <h3 className="text-2xl font-bold text-yellow-400">
-            {statistics.totalGold.toFixed(3)} Gold
-          </h3>
-
-          <p className="text-gray-400 text-sm mt-2">
-            Total Gold Transactions
-          </p>
-
-        </div>
-
-        <div className="rounded-2xl bg-[#111827] border border-cyan-600/20 p-5">
-
-          <div className="flex justify-between items-center mb-2">
-            <Wallet className="text-cyan-400" size={24} />
-            <span className="text-cyan-400 text-xs font-semibold">
-              USDT
-            </span>
-          </div>
-
-          <h3 className="text-2xl font-bold text-cyan-400">
-            {statistics.totalUSDT.toFixed(2)} USDT
-          </h3>
-
-          <p className="text-gray-400 text-sm mt-2">
-            Total USDT Transactions
-          </p>
-
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* STATUS SUMMARY */}
-      {/* ========================================== */}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-
-        <div className="rounded-xl bg-yellow-500/10 border border-yellow-500/30 p-4">
-
-          <div className="flex items-center justify-between">
-
-            <div>
-              <p className="text-yellow-400 text-sm">Pending</p>
-
-              <h3 className="text-2xl font-bold text-yellow-300">
-                {pendingCount}
-              </h3>
             </div>
 
-            <Clock className="text-yellow-400" size={28} />
-
-          </div>
-
-        </div>
-
-        <div className="rounded-xl bg-green-500/10 border border-green-500/30 p-4">
-
-          <div className="flex items-center justify-between">
-
             <div>
-              <p className="text-green-400 text-sm">Approved</p>
 
-              <h3 className="text-2xl font-bold text-green-300">
-                {approvedCount}
-              </h3>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                Transaction Management
+              </h1>
+
+              <p className="mt-1 text-sm text-gray-400">
+                Monitor and manage all platform transactions
+              </p>
+
             </div>
 
-            <CheckCircle className="text-green-400" size={28} />
-
           </div>
 
         </div>
 
-        <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-4">
+        {/* =================================================
+            HEADER ACTIONS
+        ================================================= */}
 
-          <div className="flex items-center justify-between">
-
-            <div>
-              <p className="text-red-400 text-sm">Rejected</p>
-
-              <h3 className="text-2xl font-bold text-red-300">
-                {rejectedCount}
-              </h3>
-            </div>
-
-            <XCircle className="text-red-400" size={28} />
-
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* SEARCH + FILTERS */}
-      {/* ========================================== */}
-
-      <div className="rounded-2xl bg-[#111827] border border-gray-700 p-5 mb-8">
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-
-          {/* SEARCH */}
-
-          <div className="relative lg:col-span-2">
-
-            <Search
-              size={20}
-              className="absolute left-4 top-3.5 text-gray-500"
-            />
-
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search username or transaction ID..."
-              className="w-full bg-[#1F2937] border border-gray-600 rounded-xl py-3 pl-12 pr-4 outline-none focus:border-yellow-500 transition"
-            />
-
-          </div>
-
-          {/* WALLET FILTER */}
-
-          <select
-            value={walletFilter}
-            onChange={(e) =>
-              setWalletFilter(
-                e.target.value as "ALL" | "PKR" | "GOLD" | "USDT"
-              )
-            }
-            className="bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
-          >
-            <option value="ALL">All Wallets</option>
-            <option value="PKR">PKR</option>
-            <option value="GOLD">GOLD</option>
-            <option value="USDT">USDT</option>
-          </select>
-
-          {/* TYPE FILTER */}
-
-          <select
-            value={typeFilter}
-            onChange={(e) =>
-              setTypeFilter(
-                e.target.value as
-                  | "ALL"
-                  | "Deposit"
-                  | "Withdraw"
-                  | "Credit"
-                  | "Debit"
-              )
-            }
-            className="bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
-          >
-            <option value="ALL">All Types</option>
-            <option value="Deposit">Deposit</option>
-            <option value="Withdraw">Withdraw</option>
-            <option value="Credit">Credit</option>
-            <option value="Debit">Debit</option>
-          </select>
-
-        </div>
-
-        {/* STATUS FILTER */}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-
-          <select
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(
-                e.target.value as
-                  | "ALL"
-                  | "Pending"
-                  | "Approved"
-                  | "Rejected"
-              )
-            }
-            className="bg-[#1F2937] border border-gray-600 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
-          >
-            <option value="ALL">All Status</option>
-            <option value="Pending">Pending</option>
-            <option value="Approved">Approved</option>
-            <option value="Rejected">Rejected</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
 
           <button
-            onClick={clearFilters}
-            className="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 rounded-xl py-3 transition"
+            type="button"
+            onClick={refreshTransactions}
+            disabled={
+              loading ||
+              refreshing
+            }
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition hover:border-yellow-500/30 hover:bg-yellow-500/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Filter size={18} />
-            Clear Filters
+
+            <RefreshCw
+              size={17}
+              className={
+                loading ||
+                refreshing
+                  ? "animate-spin"
+                  : ""
+              }
+            />
+
+            {loading ||
+            refreshing
+              ? "Refreshing..."
+              : "Refresh"}
+
           </button>
 
         </div>
 
       </div>
 
-      {/* ========================================== */}
-      {/* TRANSACTIONS TABLE */}
-      {/* ========================================== */}
+      {/* =================================================
+          SUCCESS MESSAGE
+      ================================================= */}
 
-      <div className="rounded-2xl border border-gray-700 bg-[#111827] overflow-hidden">
+      {message && (
 
-        <div className="px-6 py-5 border-b border-gray-700 flex justify-between items-center">
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm text-green-300">
 
-          <h2 className="text-xl font-bold text-yellow-400">
-            Transactions ({filteredTransactions.length})
-          </h2>
+          <CheckCircle
+            size={18}
+            className="mt-0.5 shrink-0 text-green-400"
+          />
 
-          <History className="text-yellow-400" />
+          <span>
+            {message}
+          </span>
 
         </div>
+
+      )}
+
+      {/* =================================================
+          ERROR MESSAGE
+      ================================================= */}
+
+      {error && (
+
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+
+          <XCircle
+            size={18}
+            className="mt-0.5 shrink-0 text-red-400"
+          />
+
+          <span>
+            {error}
+          </span>
+
+        </div>
+
+      )}
+
+      {/* =================================================
+          STATISTICS SECTION
+      ================================================= */}
+
+      <section className="mb-8">
+
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
+          <div>
+
+            <h2 className="text-lg font-semibold text-white">
+              Transaction Overview
+            </h2>
+
+            <p className="text-sm text-gray-500">
+              Current transaction activity and status summary
+            </p>
+
+          </div>
+
+          <div className="text-xs text-gray-500">
+            {adminName
+              ? `Admin: ${adminName}`
+              : "Administrator"}
+          </div>
+
+        </div>
+
+        {/* =================================================
+            STATISTICS GRID
+        ================================================= */}
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+          {/* TOTAL */}
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+
+            <div className="flex items-start justify-between gap-4">
+
+              <div>
+
+                <p className="text-sm text-gray-400">
+                  Total Transactions
+                </p>
+
+                <p className="mt-2 text-2xl font-bold text-white">
+                  {filteredTransactions.length.toLocaleString()}
+                </p>
+
+              </div>
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-500/10">
+
+                <History
+                  size={19}
+                  className="text-yellow-400"
+                />
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* COMPLETED */}
+
+          <div className="rounded-2xl border border-green-500/10 bg-green-500/[0.03] p-5">
+
+            <div className="flex items-start justify-between gap-4">
+
+              <div>
+
+                <p className="text-sm text-gray-400">
+                  Completed
+                </p>
+
+                <p className="mt-2 text-2xl font-bold text-green-400">
+                  {approvedCount.toLocaleString()}
+                </p>
+
+              </div>
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/10">
+
+                <CheckCircle
+                  size={19}
+                  className="text-green-400"
+                />
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* PENDING */}
+
+          <div className="rounded-2xl border border-yellow-500/10 bg-yellow-500/[0.03] p-5">
+
+            <div className="flex items-start justify-between gap-4">
+
+              <div>
+
+                <p className="text-sm text-gray-400">
+                  Pending
+                </p>
+
+                <p className="mt-2 text-2xl font-bold text-yellow-400">
+                  {pendingCount.toLocaleString()}
+                </p>
+
+              </div>
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-500/10">
+
+                <Clock
+                  size={19}
+                  className="text-yellow-400"
+                />
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* REJECTED */}
+
+          <div className="rounded-2xl border border-red-500/10 bg-red-500/[0.03] p-5">
+
+            <div className="flex items-start justify-between gap-4">
+
+              <div>
+
+                <p className="text-sm text-gray-400">
+                  Rejected / Failed
+                </p>
+
+                <p className="mt-2 text-2xl font-bold text-red-400">
+                  {rejectedCount.toLocaleString()}
+                </p>
+
+              </div>
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10">
+
+                <XCircle
+                  size={19}
+                  className="text-red-400"
+                />
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* =================================================
+          WALLET TOTALS
+      ================================================= */}
+
+      <section className="mb-8">
+
+        <div className="mb-4">
+
+          <h2 className="text-lg font-semibold text-white">
+            Wallet Summary
+          </h2>
+
+          <p className="text-sm text-gray-500">
+            Transaction totals grouped by wallet
+          </p>
+
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+
+          {/* PKR */}
+
+          <div className="rounded-2xl border border-green-500/10 bg-white/[0.03] p-5">
+
+            <div className="flex items-center gap-3">
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/10">
+
+                <Wallet
+                  size={19}
+                  className="text-green-400"
+                />
+
+              </div>
+
+              <div>
+
+                <p className="text-sm text-gray-400">
+                  PKR Wallet
+                </p>
+
+                <p className="mt-1 text-lg font-semibold text-green-400">
+
+                  {formatMoney(
+                    Number(
+                      statistics?.totalPKR ??
+                      0
+                    )
+                  )}{" "}
+                  PKR
+
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* USDT */}
+
+          <div className="rounded-2xl border border-cyan-500/10 bg-white/[0.03] p-5">
+
+            <div className="flex items-center gap-3">
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10">
+
+                <Coins
+                  size={19}
+                  className="text-cyan-400"
+                />
+
+              </div>
+
+              <div>
+
+                <p className="text-sm text-gray-400">
+                  USDT Wallet
+                </p>
+
+                <p className="mt-1 text-lg font-semibold text-cyan-400">
+
+                  {formatMoney(
+                    Number(
+                      statistics?.totalUSDT ??
+                      0
+                    )
+                  )}{" "}
+                  USDT
+
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* GOLD */}
+
+          <div className="rounded-2xl border border-yellow-500/10 bg-white/[0.03] p-5">
+
+            <div className="flex items-center gap-3">
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-500/10">
+
+                <Coins
+                  size={19}
+                  className="text-yellow-400"
+                />
+
+              </div>
+
+              <div>
+
+                <p className="text-sm text-gray-400">
+                  Gold Wallet
+                </p>
+
+                <p className="mt-1 text-lg font-semibold text-yellow-400">
+
+                  {formatMoney(
+                    Number(
+                      statistics?.totalGold ??
+                      0
+                    )
+                  )}{" "}
+                  GOLD
+
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+            {/* =================================================
+          FILTERS SECTION
+      ================================================= */}
+
+      <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+
+        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
+          <div>
+
+            <h2 className="text-lg font-semibold text-white">
+              Transaction Filters
+            </h2>
+
+            <p className="text-sm text-gray-500">
+              Search and filter transaction records
+            </p>
+
+          </div>
+
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-gray-300 transition hover:border-yellow-500/30 hover:bg-yellow-500/10 hover:text-yellow-300"
+          >
+
+            <XCircle size={15} />
+
+            Clear Filters
+
+          </button>
+
+        </div>
+
+        {/* =================================================
+            SEARCH
+        ================================================= */}
+
+        <div className="mb-5">
+
+          <label
+            htmlFor="transaction-search"
+            className="mb-2 block text-xs font-medium uppercase tracking-wide text-gray-500"
+          >
+            Search
+          </label>
+
+          <div className="relative">
+
+            <Search
+              size={17}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+            />
+
+            <input
+              id="transaction-search"
+              type="text"
+              value={search}
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
+              placeholder="Search username, transaction ID or reference ID..."
+              className="w-full rounded-xl border border-white/10 bg-black/30 py-3 pl-10 pr-4 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-yellow-500/40"
+            />
+
+          </div>
+
+        </div>
+
+        {/* =================================================
+            FILTER GRID
+        ================================================= */}
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+
+          {/* WALLET */}
+
+          <div>
+
+            <label
+              htmlFor="wallet-filter"
+              className="mb-2 block text-xs font-medium uppercase tracking-wide text-gray-500"
+            >
+              Wallet
+            </label>
+
+            <select
+              id="wallet-filter"
+              value={walletFilter}
+              onChange={(e) =>
+                setWalletFilter(
+                  e.target.value as
+                    | "ALL"
+                    | "PKR"
+                    | "GOLD"
+                    | "USDT"
+                )
+              }
+              className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-white outline-none transition focus:border-yellow-500/40"
+            >
+
+              <option value="ALL">
+                All Wallets
+              </option>
+
+              <option value="PKR">
+                PKR
+              </option>
+
+              <option value="USDT">
+                USDT
+              </option>
+
+              <option value="GOLD">
+                GOLD
+              </option>
+
+            </select>
+
+          </div>
+
+          {/* TYPE */}
+
+          <div>
+
+            <label
+              htmlFor="type-filter"
+              className="mb-2 block text-xs font-medium uppercase tracking-wide text-gray-500"
+            >
+              Transaction Type
+            </label>
+
+            <select
+              id="type-filter"
+              value={typeFilter}
+              onChange={(e) =>
+                setTypeFilter(
+                  e.target.value as
+                    | "ALL"
+                    | "Deposit"
+                    | "Withdraw"
+                    | "Credit"
+                    | "Debit"
+                )
+              }
+              className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-white outline-none transition focus:border-yellow-500/40"
+            >
+
+              <option value="ALL">
+                All Types
+              </option>
+
+              <option value="Deposit">
+                Deposit
+              </option>
+
+              <option value="Withdraw">
+                Withdraw
+              </option>
+
+              <option value="Credit">
+                Credit
+              </option>
+
+              <option value="Debit">
+                Debit
+              </option>
+
+            </select>
+
+          </div>
+
+          {/* STATUS */}
+
+          <div>
+
+            <label
+              htmlFor="status-filter"
+              className="mb-2 block text-xs font-medium uppercase tracking-wide text-gray-500"
+            >
+              Status
+            </label>
+
+            <select
+              id="status-filter"
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(
+                  e.target.value as
+                    | "ALL"
+                    | "Pending"
+                    | "Approved"
+                    | "Rejected"
+                    | "Failed"
+                )
+              }
+              className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-white outline-none transition focus:border-yellow-500/40"
+            >
+
+              <option value="ALL">
+                All Statuses
+              </option>
+
+              <option value="Pending">
+                Pending
+              </option>
+
+              <option value="Approved">
+                Approved
+              </option>
+
+              <option value="Rejected">
+                Rejected
+              </option>
+
+            </select>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* =================================================
+          FILTER SUMMARY
+      ================================================= */}
+
+      <section className="mb-8">
+
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
+          <div>
+
+            <h2 className="text-lg font-semibold text-white">
+              Filtered Results
+            </h2>
+
+            <p className="text-sm text-gray-500">
+              Summary of transactions matching the current filters
+            </p>
+
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-300">
+
+            Showing{" "}
+
+            <span className="font-semibold text-white">
+              {filteredTransactions.length}
+            </span>{" "}
+
+            transactions
+
+          </div>
+
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+
+          {/* TOTAL */}
+
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+
+            <p className="text-xs text-gray-500">
+              Total
+            </p>
+
+            <p className="mt-1 text-xl font-bold text-white">
+              {filteredTransactions.length}
+            </p>
+
+          </div>
+
+          {/* DEPOSITS */}
+
+          <div className="rounded-xl border border-green-500/10 bg-green-500/[0.03] p-4">
+
+            <p className="text-xs text-gray-500">
+              Deposits
+            </p>
+
+            <p className="mt-1 text-xl font-bold text-green-400">
+              {filteredStatistics.deposits}
+            </p>
+
+          </div>
+
+          {/* WITHDRAWALS */}
+
+          <div className="rounded-xl border border-red-500/10 bg-red-500/[0.03] p-4">
+
+            <p className="text-xs text-gray-500">
+              Withdrawals
+            </p>
+
+            <p className="mt-1 text-xl font-bold text-red-400">
+              {filteredStatistics.withdraws}
+            </p>
+
+          </div>
+
+          {/* CREDITS */}
+
+          <div className="rounded-xl border border-blue-500/10 bg-blue-500/[0.03] p-4">
+
+            <p className="text-xs text-gray-500">
+              Credits
+            </p>
+
+            <p className="mt-1 text-xl font-bold text-blue-400">
+              {filteredStatistics.credits}
+            </p>
+
+          </div>
+
+          {/* DEBITS */}
+
+          <div className="rounded-xl border border-orange-500/10 bg-orange-500/[0.03] p-4">
+
+            <p className="text-xs text-gray-500">
+              Debits
+            </p>
+
+            <p className="mt-1 text-xl font-bold text-orange-400">
+              {filteredStatistics.debits}
+            </p>
+
+          </div>
+
+          {/* PENDING */}
+
+          <div className="rounded-xl border border-yellow-500/10 bg-yellow-500/[0.03] p-4">
+
+            <p className="text-xs text-gray-500">
+              Pending
+            </p>
+
+            <p className="mt-1 text-xl font-bold text-yellow-400">
+              {pendingCount}
+            </p>
+
+          </div>
+
+          {/* APPROVED */}
+
+          <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/[0.03] p-4">
+
+            <p className="text-xs text-gray-500">
+              Approved
+            </p>
+
+            <p className="mt-1 text-xl font-bold text-emerald-400">
+              {approvedCount}
+            </p>
+
+          </div>
+
+          {/* REJECTED */}
+
+          <div className="rounded-xl border border-red-500/10 bg-red-500/[0.03] p-4">
+
+            <p className="text-xs text-gray-500">
+              Rejected
+            </p>
+
+            <p className="mt-1 text-xl font-bold text-red-400">
+              {rejectedCount}
+            </p>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* =================================================
+          TRANSACTIONS TABLE
+      ================================================= */}
+
+      <section className="mb-8 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+
+        <div className="flex flex-col gap-3 border-b border-white/10 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+
+          <div>
+
+            <h2 className="text-lg font-semibold text-white">
+              All Transactions
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Complete transaction records
+            </p>
+
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+
+            <span>
+              Total:
+            </span>
+
+            <span className="font-semibold text-gray-300">
+              {transactions.length}
+            </span>
+
+          </div>
+
+        </div>
+
+        {/* =================================================
+            TABLE WRAPPER
+        ================================================= */}
 
         <div className="overflow-x-auto">
 
-          <table className="w-full min-w-[1400px]">
+          {loading ? (
 
-            <thead className="bg-[#1F2937] text-gray-300 text-sm">
+            <div className="flex min-h-[300px] items-center justify-center px-6 py-12">
 
-              <tr>
+              <div className="flex flex-col items-center gap-4">
 
-                <th className="text-left px-5 py-4">User</th>
+                <RefreshCw
+                  size={28}
+                  className="animate-spin text-yellow-400"
+                />
 
-                <th className="text-center">Wallet</th>
+                <p className="text-sm text-gray-500">
+                  Loading transactions...
+                </p>
 
-                <th className="text-center">Type</th>
+              </div>
 
-                <th className="text-center">Amount</th>
+            </div>
 
-                <th className="text-center">Status</th>
+          ) : filteredTransactions.length === 0 ? (
 
-                <th className="text-center">Transaction ID</th>
+            <div className="flex min-h-[300px] items-center justify-center px-6 py-12">
 
-                <th className="text-center">Admin Note</th>
+              <div className="flex max-w-md flex-col items-center text-center">
 
-                <th className="text-center">Date</th>
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white/5">
 
-              </tr>
+                  <Search
+                    size={24}
+                    className="text-gray-500"
+                  />
 
-            </thead>
+                </div>
 
-            <tbody>
-                            {loading ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="py-12 text-center text-gray-400"
-                  >
-                    Loading transactions...
-                  </td>
-                </tr>
+                <h3 className="text-base font-semibold text-white">
+                  No Transactions Found
+                </h3>
 
-              ) : filteredTransactions.length === 0 ? (
+                <p className="mt-2 text-sm text-gray-500">
+                  No transaction records match the current search or filters.
+                </p>
 
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="py-12 text-center text-red-300"
-                  >
-                    No transactions found.
-                  </td>
-                </tr>
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="mt-5 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-300 transition hover:border-yellow-500/30 hover:bg-yellow-500/10 hover:text-yellow-300"
+                >
+                  Clear Filters
+                </button>
 
-              ) : (
+              </div>
 
-                filteredTransactions.map((transaction) => {
-
-                  const TransactionIcon = getTransactionIcon(
-                    transaction.transactionType
-                  );
-
-                  return (
-                    <tr
-                      key={transaction._id}
-                      className="border-b border-gray-800 hover:bg-[#1B2435] transition"
-                    >
-
-                      {/* USER */}
-
-                      <td className="px-5 py-4">
-
-                        <div className="flex items-center gap-3">
-
-                          <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                            <User
-                              size={18}
-                              className="text-yellow-400"
-                            />
-                          </div>
-
-                          <div>
-                            <p className="font-semibold text-white">
-                              {transaction.username}
-                            </p>
-
-                            <p className="text-xs text-gray-500">
-                              {transaction.admin || "System"}
-                            </p>
-                          </div>
-
-                        </div>
-
-                      </td>
-
-                      {/* WALLET */}
-
-                      <td className="text-center">
-
-                        <span
-                          className={`font-semibold ${getWalletColor(
-                            transaction.walletType
-                          )}`}
-                        >
-                          {transaction.walletType}
-                        </span>
-
-                      </td>
-
-                      {/* TRANSACTION TYPE */}
-
-                      <td className="text-center">
-
-                        <span
-                          className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${getTransactionClass(
-                            transaction.transactionType
-                          )}`}
-                        >
-                          <TransactionIcon size={14} />
-
-                          {transaction.transactionType}
-                        </span>
-
-                      </td>
-
-                      {/* AMOUNT */}
-
-                      <td className="text-center font-semibold">
-
-                        {transaction.transactionType === "Withdraw" ||
-                        transaction.transactionType === "Debit" ? (
-
-                          <span className="text-red-400">
-                            -{" "}
-                            {transaction.walletType === "PKR"
-                              ? `PKR ${formatMoney(transaction.amount)}`
-                              : transaction.walletType === "GOLD"
-                              ? `${Number(transaction.amount).toFixed(3)} Gold`
-                              : `${Number(transaction.amount).toFixed(2)} USDT`}
-                          </span>
-
-                        ) : (
-
-                          <span className="text-green-400">
-                            +{" "}
-                            {transaction.walletType === "PKR"
-                              ? `PKR ${formatMoney(transaction.amount)}`
-                              : transaction.walletType === "GOLD"
-                              ? `${Number(transaction.amount).toFixed(3)} Gold`
-                              : `${Number(transaction.amount).toFixed(2)} USDT`}
-                          </span>
-
-                        )}
-
-                      </td>
-
-                      {/* STATUS */}
-
-                      <td className="text-center">
-
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusClass(
-                            transaction.status || "Approved"
-                          )}`}
-                        >
-                          {transaction.status || "Approved"}
-                        </span>
-
-                      </td>
-
-                      {/* TRANSACTION ID */}
-
-                      <td className="text-center text-sm text-gray-300">
-
-                        {transaction.transactionId ? (
-                          <span className="font-mono text-xs text-cyan-400">
-                            {transaction.transactionId}
-                          </span>
-                        ) : (
-                          <span className="text-gray-500">—</span>
-                        )}
-
-                      </td>
-
-                      {/* ADMIN NOTE */}
-
-                      <td className="text-center text-sm text-gray-300 max-w-[220px] truncate">
-
-                        {transaction.note ? (
-                          transaction.note
-                        ) : (
-                          <span className="text-gray-500">No Note</span>
-                        )}
-
-                      </td>
-
-                      {/* DATE */}
-
-                      <td className="text-center text-gray-400 text-sm">
-
-                        <div className="flex flex-col items-center gap-1">
-
-                          <Calendar
-                            size={14}
-                            className="text-gray-500"
-                          />
-
-                          {formatDate(transaction.createdAt)}
-
-                        </div>
-
-                      </td>
-
-                    </tr>
-                  );
-
-                })
-
-              )}
-
-            </tbody>
-                      </table>
-        </div>
-      </div>
-
-      {/* ========================================== */}
-      {/* RECENT TRANSACTION SUMMARY */}
-      {/* ========================================== */}
-
-      <div className="rounded-2xl border border-gray-700 bg-[#111827] overflow-hidden mt-10 mb-10">
-
-        <div className="px-6 py-5 border-b border-gray-700 flex justify-between items-center">
-
-          <h2 className="text-xl font-bold text-purple-400">
-            Recent Transactions Summary
-          </h2>
-
-          <History className="text-purple-400" />
-
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 p-6">
-
-          <div className="bg-[#1F2937] rounded-xl p-5 border border-green-600/20">
-            <ArrowDownCircle className="text-green-400 mb-3" size={28} />
-            <p className="text-gray-400 text-sm">Deposits (Filtered)</p>
-            <h3 className="text-2xl font-bold text-green-400 mt-2">
-              {filteredStatistics.deposits}
-            </h3>
-          </div>
-
-          <div className="bg-[#1F2937] rounded-xl p-5 border border-red-600/20">
-            <ArrowUpCircle className="text-red-400 mb-3" size={28} />
-            <p className="text-gray-400 text-sm">Withdraws (Filtered)</p>
-            <h3 className="text-2xl font-bold text-red-400 mt-2">
-              {filteredStatistics.withdraws}
-            </h3>
-          </div>
-
-          <div className="bg-[#1F2937] rounded-xl p-5 border border-cyan-600/20">
-            <DollarSign className="text-cyan-400 mb-3" size={28} />
-            <p className="text-gray-400 text-sm">Credits (Filtered)</p>
-            <h3 className="text-2xl font-bold text-cyan-400 mt-2">
-              {filteredStatistics.credits}
-            </h3>
-          </div>
-
-          <div className="bg-[#1F2937] rounded-xl p-5 border border-orange-600/20">
-            <Wallet className="text-orange-400 mb-3" size={28} />
-            <p className="text-gray-400 text-sm">Debits (Filtered)</p>
-            <h3 className="text-2xl font-bold text-orange-400 mt-2">
-              {filteredStatistics.debits}
-            </h3>
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* ========================================== */}
-      {/* RECENT TRANSACTIONS LIST */}
-      {/* ========================================== */}
-
-      <div className="rounded-2xl border border-gray-700 bg-[#111827] overflow-hidden mb-10">
-
-        <div className="px-6 py-5 border-b border-gray-700 flex justify-between items-center">
-
-          <h2 className="text-xl font-bold text-yellow-400">
-            Latest 10 Transactions
-          </h2>
-
-          <Clock className="text-yellow-400" />
-
-        </div>
-
-        <div className="divide-y divide-gray-800">
-
-          {recentTransactions.length === 0 ? (
-
-            <div className="py-12 text-center text-gray-400">
-              No recent transactions available.
             </div>
 
           ) : (
 
-            recentTransactions.map((item) => {
+            <table className="min-w-[1200px] w-full text-left">
 
-              const Icon = getTransactionIcon(item.transactionType);
+              <thead>
 
-              return (
-                <div
-                  key={item._id}
-                  className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-6 py-4 hover:bg-[#1B2435] transition"
-                >
+                <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-gray-500">
 
-                  <div className="flex items-center gap-4">
+                  <th className="px-5 py-4 font-medium">
+                    Transaction
+                  </th>
 
-                    <div className="w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                      <Icon size={22} className="text-yellow-400" />
-                    </div>
+                  <th className="px-5 py-4 font-medium">
+                    User
+                  </th>
 
-                    <div>
-                      <p className="font-semibold text-white">
-                        {item.username}
-                      </p>
+                  <th className="px-5 py-4 font-medium">
+                    Type
+                  </th>
 
-                      <p className="text-gray-500 text-sm">
-                        {item.transactionType} • {item.walletType}
-                      </p>
-                    </div>
+                  <th className="px-5 py-4 font-medium">
+                    Wallet
+                  </th>
 
-                  </div>
+                  <th className="px-5 py-4 font-medium">
+                    Amount
+                  </th>
 
-                  <div className="flex flex-wrap items-center gap-3">
+                  <th className="px-5 py-4 font-medium">
+                    Status
+                  </th>
 
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${getTransactionClass(
-                        item.transactionType
-                      )}`}
-                    >
-                      {item.transactionType}
-                    </span>
+                  <th className="px-5 py-4 font-medium">
+                    Date
+                  </th>
 
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusClass(
-                        item.status || "Approved"
-                      )}`}
-                    >
-                      {item.status || "Approved"}
-                    </span>
+                  <th className="px-5 py-4 text-right font-medium">
+                    Action
+                  </th>
 
-                    <span
-                      className={`font-semibold ${getWalletColor(
-                        item.walletType
-                      )}`}
-                    >
-                      {item.walletType === "PKR"
-                        ? `PKR ${formatMoney(item.amount)}`
-                        : item.walletType === "GOLD"
-                        ? `${Number(item.amount).toFixed(3)} Gold`
-                        : `${Number(item.amount).toFixed(2)} USDT`}
-                    </span>
+                </tr>
 
-                    <span className="text-gray-400 text-sm">
-                      {formatDate(item.createdAt)}
-                    </span>
+              </thead>
 
-                  </div>
+              <tbody className="divide-y divide-white/5">
 
-                </div>
-              );
-            })
+                {filteredTransactions.map(
+                  (transaction) => {
+
+                    const TransactionIcon =
+                      getTransactionIcon(
+                        transaction.transactionType
+                      );
+
+                    return (
+
+                      <tr
+                        key={
+                          transaction._id ||
+                          transaction.transactionId ||
+                          `${transaction.username}-${transaction.createdAt}`
+                        }
+                        className="transition hover:bg-white/[0.025]"
+                      >
+
+                        {/* =================================
+                            TRANSACTION
+                        ================================= */}
+
+                        <td className="px-5 py-4">
+
+                          <div className="flex items-center gap-3">
+
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5">
+
+                              <TransactionIcon
+                                size={17}
+                                className="text-gray-400"
+                              />
+
+                            </div>
+
+                            <div className="min-w-0">
+
+                              <p className="truncate text-sm font-medium text-white">
+
+                                {transaction.transactionId ||
+                                  transaction._id ||
+                                  "—"}
+
+                              </p>
+
+                              <p className="mt-1 truncate text-xs text-gray-500">
+
+                                {transaction.referenceId ||
+                                  "No reference"}
+
+                              </p>
+
+                            </div>
+
+                          </div>
+
+                        </td>
+
+                        {/* =================================
+                            USER
+                        ================================= */}
+
+                        <td className="px-5 py-4">
+
+                          <div className="min-w-[140px]">
+
+                            <p className="text-sm font-medium text-white">
+
+                              {transaction.username ||
+                                "Unknown"}
+
+                            </p>
+
+                          </div>
+
+                        </td>
+
+                        {/* =================================
+                            TYPE
+                        ================================= */}
+
+                        <td className="px-5 py-4">
+
+                          <span
+                            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${getTransactionClass(
+                              transaction.transactionType
+                            )}`}
+                          >
+
+                            {transaction.transactionType}
+
+                          </span>
+
+                        </td>
+
+                        {/* =================================
+                            WALLET
+                        ================================= */}
+
+                        <td className="px-5 py-4">
+
+                          <span
+                            className={`text-sm font-semibold ${getWalletColor(
+                              transaction.walletType
+                            )}`}
+                          >
+
+                            {transaction.walletType ||
+                              "—"}
+
+                          </span>
+
+                        </td>
+
+                        {/* =================================
+                            AMOUNT
+                        ================================= */}
+
+                        <td className="px-5 py-4">
+
+                          <div className="min-w-[120px]">
+
+                            <p
+                              className={`text-sm font-semibold ${
+                                transaction.transactionMode ===
+                                "DEBIT"
+                                  ? "text-red-400"
+                                  : transaction.transactionMode ===
+                                    "CREDIT"
+                                  ? "text-green-400"
+                                  : "text-white"
+                              }`}
+                            >
+
+                              {transaction.transactionMode ===
+                              "DEBIT"
+                                ? "-"
+                                : transaction.transactionMode ===
+                                  "CREDIT"
+                                ? "+"
+                                : ""}
+
+                              {formatMoney(
+                                Number(
+                                  transaction.amount ||
+                                  0
+                                )
+                              )}
+
+                            </p>
+
+                            {transaction.transactionMode && (
+
+                              <p className="mt-1 text-[11px] uppercase tracking-wide text-gray-600">
+                                {transaction.transactionMode}
+                              </p>
+
+                            )}
+
+                          </div>
+
+                        </td>
+
+                        {/* =================================
+                            STATUS
+                        ================================= */}
+
+                        <td className="px-5 py-4">
+
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusClass(
+                              transaction.status ||
+                                "Unknown"
+                            )}`}
+                          >
+
+                            {transaction.status ||
+                              "Unknown"}
+
+                          </span>
+
+                        </td>
+
+                        {/* =================================
+                            DATE
+                        ================================= */}
+
+                        <td className="px-5 py-4">
+
+                          <div className="min-w-[145px]">
+
+                            <p className="text-sm text-gray-300">
+
+                              {formatDate(
+                                transaction.createdAt
+                              )}
+
+                            </p>
+
+                            {transaction.paymentMethod && (
+
+                              <p className="mt-1 truncate text-xs text-gray-600">
+                                {transaction.paymentMethod}
+                              </p>
+
+                            )}
+
+                          </div>
+
+                        </td>
+
+                        {/* =================================
+                            ACTION
+                        ================================= */}
+
+                        <td className="px-5 py-4 text-right">
+
+                          <button
+                            type="button"
+                            disabled={
+                              !transaction._id
+                            }
+                            onClick={() => {
+
+                              if (
+                                transaction._id
+                              ) {
+
+                                window.location.href =
+                                  `/admin/transactions/${transaction._id}`;
+
+                              }
+
+                            }}
+                            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-gray-300 transition hover:border-yellow-500/30 hover:bg-yellow-500/10 hover:text-yellow-300 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+
+                            <History
+                              size={15}
+                            />
+
+                            View
+
+                          </button>
+
+                        </td>
+
+                      </tr>
+
+                    );
+
+                  }
+                )}
+
+              </tbody>
+
+            </table>
 
           )}
 
         </div>
 
-      </div>
+      </section>
 
-      {/* ========================================== */}
-      {/* LOADING OVERLAY */}
-      {/* ========================================== */}
+            {/* =================================================
+          RECENT TRANSACTIONS
+      ================================================= */}
 
-      {loading && (
-        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center">
+      {recentTransactions.length > 0 && (
 
-          <div className="bg-[#111827] border border-yellow-500/30 rounded-2xl px-8 py-6 flex flex-col items-center gap-4 shadow-2xl">
+        <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
 
-            <RefreshCw
-              size={36}
-              className="animate-spin text-yellow-400"
+          <div className="mb-4 flex items-center gap-2">
+
+            <History
+              size={20}
+              className="text-yellow-400"
             />
 
-            <h3 className="text-xl font-bold text-yellow-400">
-              GoldTrade V18 Enterprise
-            </h3>
+            <div>
 
-            <p className="text-gray-300">
-              Loading Transactions...
-            </p>
+              <h2 className="text-lg font-semibold text-white">
+                Recent Activity
+              </h2>
+
+              <p className="text-sm text-gray-500">
+                Latest transaction activity
+              </p>
+
+            </div>
 
           </div>
 
-        </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+
+            {recentTransactions
+              .slice(0, 5)
+              .map(
+                (transaction) => (
+
+                  <div
+                    key={`recent-${transaction._id}`}
+                    className="rounded-xl border border-white/10 bg-black/40 p-4"
+                  >
+
+                    {/* =====================================
+                        TOP ROW
+                    ===================================== */}
+
+                    <div className="flex items-center justify-between">
+
+                      <span
+                        className={`text-sm font-semibold ${getWalletColor(
+                          transaction.walletType
+                        )}`}
+                      >
+                        {transaction.walletType}
+                      </span>
+
+                      <span className="text-xs text-gray-600">
+                        {formatDate(
+                          transaction.createdAt
+                        )}
+                      </span>
+
+                    </div>
+
+                    {/* =====================================
+                        USER
+                    ===================================== */}
+
+                    <p className="mt-3 truncate font-semibold text-white">
+                      {transaction.username ||
+                        "--"}
+                    </p>
+
+                    {/* =====================================
+                        TYPE + AMOUNT
+                    ===================================== */}
+
+                    <div className="mt-2 flex items-center justify-between gap-3">
+
+                      <span
+                        className={`text-xs ${getTransactionClass(
+                          transaction.transactionType
+                        )} border-none bg-transparent`}
+                      >
+                        {transaction.transactionType}
+                      </span>
+
+                      <span
+                        className={`font-bold ${
+                          transaction.transactionMode ===
+                          "DEBIT"
+                            ? "text-red-400"
+                            : transaction.transactionMode ===
+                              "CREDIT"
+                            ? "text-green-400"
+                            : "text-gray-200"
+                        }`}
+                      >
+
+                        {transaction.transactionMode ===
+                        "DEBIT"
+                          ? "-"
+                          : transaction.transactionMode ===
+                            "CREDIT"
+                          ? "+"
+                          : ""}
+
+                        {formatMoney(
+                          Number(
+                            transaction.amount ||
+                            0
+                          )
+                        )}
+
+                      </span>
+
+                    </div>
+
+                    {/* =====================================
+                        STATUS
+                    ===================================== */}
+
+                    <div className="mt-3">
+
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-medium ${getStatusClass(
+                          transaction.status ||
+                            "Unknown"
+                        )}`}
+                      >
+                        {transaction.status ||
+                          "Unknown"}
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                )
+              )}
+
+          </div>
+
+        </section>
+
       )}
 
-      {/* ========================================== */}
-      {/* FOOTER */}
-      {/* ========================================== */}
-
-      <footer className="mt-12 border-t border-gray-800 pt-6">
-
-        <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
-
-          <div>
-
-            <h3 className="text-yellow-400 font-bold text-lg">
-              GoldTrade V18 Enterprise
-            </h3>
-
-            <p className="text-gray-500 text-sm">
-              Enterprise Transaction Management Module
-            </p>
-
-          </div>
-
-          <div className="flex flex-wrap gap-5 text-sm text-gray-400">
-
-            <div className="flex items-center gap-2">
-              <Shield size={16} className="text-green-400" />
-              Secure Admin Transactions
-            </div>
-
-            <div className="flex items-center gap-2">
-              <History size={16} className="text-purple-400" />
-              Deposit + Withdraw + Wallet History
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Wallet size={16} className="text-cyan-400" />
-              PKR • GOLD • USDT Supported
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Calendar size={16} className="text-yellow-400" />
-              Version 18 Production
-            </div>
-
-          </div>
-
-        </div>
-
-      </footer>
-
     </div>
-  );
+
+  </main>
+);
 }

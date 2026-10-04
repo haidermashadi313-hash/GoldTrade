@@ -355,7 +355,9 @@ export default function ProfilePage() {
     profile.WalletBalance,
     profile.goldBalance,
     profile.UsdtBalance,
-  ]);// =====================================================
+  ]);
+  
+  // =====================================================
 // GoldTrade V17 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 3/10
@@ -622,11 +624,10 @@ export default function ProfilePage() {
 
         </div>
 
-        {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GoldTrade V17 ENTERPRISE
-// FILE: frontend/app/profile/page.tsx
-// SECTION 4/10
-// EDIT PROFILE FORM + PROFILE PHOTO UPLOAD
+        {/* ================= NEXT SECTION STARTS HERE ================= */}
+        
+// GoldTrade V18 ENTERPRISE
+
 // =====================================================
 
         {/* ================= EDIT PROFILE ================= */}
@@ -1468,12 +1469,9 @@ export default function ProfilePage() {
 
         </div>
 
-        {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GoldTrade V17 ENTERPRISE
-// FILE: frontend/app/profile/page.tsx
-// SECTION 7/10
-// KYC DOCUMENTS + BANK DETAILS + NOMINEE INFORMATION
-// =====================================================
+        {
+        
+/* ================= NEXT SECTION STARTS HERE ================= */}
 
         {/* ================= KYC DOCUMENTS ================= */}
 

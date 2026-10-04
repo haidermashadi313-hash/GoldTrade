@@ -3365,7 +3365,7 @@ const DepositFormSection = () => (
 
           <p className="text-gray-400 pt-1">
             Your deposit request will remain pending until
-            Admin verifies the payment.
+            system verifies the payment.
           </p>
         </div>
       </div>
@@ -3783,13 +3783,12 @@ const SubmitDepositSection = () => (
             </p>
 
             <p className="mt-1">
-              Admin will manually verify your payment
-              before approving or rejecting the request.
+              The system will automatically verify your payment.
             </p>
 
             <p className="mt-1 text-gray-500">
               Wallet credit is processed according to the
-              backend approval process.
+              system approval process.
             </p>
           </div>
         </div>
@@ -4247,11 +4246,11 @@ const DepositActivityInfo = () => (
           </li>
 
           <li>
-            • Admin will manually verify and Approve or Reject the request.
+            • The system will automatically verify
           </li>
 
           <li>
-            • Wallet credit occurs after approval according to the backend approval process.
+            • Wallet credit occurs after approval according to the system approval process.
           </li>
 
         </ul>
@@ -4712,7 +4711,7 @@ const DepositStatusLegend = () => (
           </p>
 
           <p className="text-gray-400 text-sm">
-            Waiting for Admin verification.
+            Waiting for system verification.
           </p>
         </div>
       </div>
@@ -4730,7 +4729,7 @@ const DepositStatusLegend = () => (
           </p>
 
           <p className="text-gray-400 text-sm">
-            Admin approved the deposit and the
+            After approval, the deposit and the
             corresponding wallet credit is processed.
           </p>
         </div>
@@ -4749,7 +4748,7 @@ const DepositStatusLegend = () => (
           </p>
 
           <p className="text-gray-400 text-sm">
-            Admin rejected the deposit request.
+            The system rejected the deposit request.
           </p>
         </div>
       </div>
@@ -4910,7 +4909,7 @@ const DepositFooter = () => (
           <Wallet size={18} />
 
           <span>
-            PKR Wallet Credit After Admin Approval
+            PKR Wallet Credit After Approval
           </span>
         </div>
 
@@ -4918,7 +4917,7 @@ const DepositFooter = () => (
           <CheckCircle size={18} />
 
           <span>
-            Manual Payment Verification
+             Payment Verification
           </span>
         </div>
 
@@ -5070,53 +5069,6 @@ return (
     </div>
   </main>
 );
-
-
-return (
-  <main className="min-h-screen bg-[#0B1120] text-white">
-
-    <LoadingOverlay />
-
-    <SuccessToast />
-
-    <ErrorToast />
-
-    <div className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
-
-      <DepositHeader />
-
-      <WalletSummaryCard />
-
-      <MessageAlerts />
-
-      <PaymentMethodsSection />
-
-      <SelectedPaymentDetails />
-
-      <QRPaymentCard />
-
-      <DepositFormSection />
-
-      <ReceiptUploadSection />
-
-      <SubmitDepositSection />
-
-      <DepositStatisticsSection />
-
-      <DepositActivityInfo />
-
-      <DepositStatusLegend />
-
-      <DepositHistorySection />
-
-      <DepositFooter />
-
-    </div>
-  </main>
-);
 }
 
 
-// =====================================================
-// PAGE COMPLETE
-// =====================================================
