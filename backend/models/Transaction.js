@@ -44,43 +44,91 @@ const transactionSchema = new mongoose.Schema(
       type: String,
       required: true,
       uppercase: true,
-      enum: ["PKR", "GOLD", "USDT"],
+      enum: [
+        "PKR",
+        "GOLD",
+        "USDT",
+      ],
       index: true,
     },
+
+    // ==================================================
+    // TRANSACTION TYPE
+    // ==================================================
 
     transactionType: {
       type: String,
       required: true,
       uppercase: true,
+
       enum: [
+        // ----------------------------------------------
+        // DEPOSIT
+        // ----------------------------------------------
+
         "DEPOSIT_REQUEST",
         "DEPOSIT_APPROVED",
         "DEPOSIT_REJECTED",
 
+        // ----------------------------------------------
+        // WITHDRAW
+        // ----------------------------------------------
+        // WITHDRAW is used by the current
+        // withdrawRoutes.js approval/rejection logic.
+
+        "WITHDRAW",
         "WITHDRAW_REQUEST",
         "WITHDRAW_APPROVED",
         "WITHDRAW_REJECTED",
+        "WITHDRAW_CANCELLED",
+
+        // ----------------------------------------------
+        // GOLD
+        // ----------------------------------------------
 
         "BUY_GOLD",
         "SELL_GOLD",
 
+        // ----------------------------------------------
+        // USDT
+        // ----------------------------------------------
+
         "BUY_USDT",
         "SELL_USDT",
+
+        // ----------------------------------------------
+        // ADMIN
+        // ----------------------------------------------
 
         "ADMIN_CREDIT",
         "ADMIN_DEBIT",
 
+        // ----------------------------------------------
+        // TRANSFERS
+        // ----------------------------------------------
+
         "PKR_TRANSFER",
         "USDT_TRANSFER",
       ],
+
       index: true,
     },
+
+    // ==================================================
+    // TRANSACTION MODE
+    // ==================================================
 
     transactionMode: {
       type: String,
       required: true,
       uppercase: true,
-      enum: ["CREDIT", "DEBIT"],
+
+      enum: [
+        "CREDIT",
+        "DEBIT",
+        "RELEASE",
+      ],
+
       index: true,
     },
 
@@ -120,10 +168,54 @@ const transactionSchema = new mongoose.Schema(
     // ==================================================
     // STATUS
     // ==================================================
+    //
+    // IMPORTANT:
+    //
+    // Existing system already uses:
+    // Pending
+    // Completed
+    // Rejected
+    // Failed
+    //
+    // Current withdrawRoutes.js also uses:
+    // APPROVED
+    // REJECTED
+    // CANCELLED
+    //
+    // Both formats are kept for compatibility.
+    // ==================================================
 
     status: {
       type: String,
-      enum: ["Pending", "Completed", "Rejected", "Failed"],
+
+      enum: [
+        // ----------------------------------------------
+        // EXISTING / LEGACY VALUES
+        // ----------------------------------------------
+
+        "Pending",
+        "Completed",
+        "Rejected",
+        "Failed",
+
+        // ----------------------------------------------
+        // CURRENT WITHDRAW VALUES
+        // ----------------------------------------------
+
+        "APPROVED",
+        "REJECTED",
+        "CANCELLED",
+
+        // ----------------------------------------------
+        // CURRENT UPPERCASE PENDING/SUCCESS/FAILED
+        // Compatibility with newer ledger operations.
+        // ----------------------------------------------
+
+        "PENDING",
+        "SUCCESS",
+        "FAILED",
+      ],
+
       default: "Completed",
       index: true,
     },
@@ -185,9 +277,13 @@ const transactionSchema = new mongoose.Schema(
       default: "",
     },
 
+    // ==================================================
+    // EXTRA METADATA
+    // ==================================================
+
     metadata: {
       type: mongoose.Schema.Types.Mixed,
-      default: {},
+      default: () => ({}),
     },
   },
   {
@@ -196,68 +292,154 @@ const transactionSchema = new mongoose.Schema(
     versionKey: false,
   }
 );
-// ======================================================
-// GoldTrade V18 Enterprise Backend
-// Transaction.js — PART 2/2 FINAL
-// Indexes + Middleware + JSON Cleanup + Safe Export
-// ======================================================
 
 // ======================================================
-// COMPOSITE INDEXES (Performance Optimized)
-// NOTE:
-// Do NOT create indexes already defined with index:true
+// COMPOSITE INDEXES
 // ======================================================
 
-transactionSchema.index({ userId: 1, createdAt: -1 });
-transactionSchema.index({ walletType: 1, createdAt: -1 });
-transactionSchema.index({ transactionType: 1, createdAt: -1 });
-transactionSchema.index({ status: 1, createdAt: -1 });
+transactionSchema.index({
+  userId: 1,
+  createdAt: -1,
+});
 
+transactionSchema.index({
+  walletType: 1,
+  createdAt: -1,
+});
+
+transactionSchema.index({
+  transactionType: 1,
+  createdAt: -1,
+});
+
+transactionSchema.index({
+  status: 1,
+  createdAt: -1,
+});
 // ======================================================
 // PRE SAVE MIDDLEWARE
 // ======================================================
 
-transactionSchema.pre("save", function (next) {
-  this.amount = Number(this.amount || 0);
-  this.balanceBefore = Number(this.balanceBefore || 0);
-  this.balanceAfter = Number(this.balanceAfter || 0);
-  this.fee = Number(this.fee || 0);
+transactionSchema.pre(
+  "save",
+  function (next) {
+    // ==================================================
+    // NORMALIZE NUMERIC VALUES
+    // ==================================================
 
-  // Auto calculate net amount
-  this.netAmount = this.amount - this.fee;
+    this.amount =
+      Number(this.amount || 0);
 
-  // Normalize values
-  if (this.walletType) {
-    this.walletType = this.walletType.toUpperCase();
+    this.balanceBefore =
+      Number(this.balanceBefore || 0);
+
+    this.balanceAfter =
+      Number(this.balanceAfter || 0);
+
+    this.fee =
+      Number(this.fee || 0);
+
+    // ==================================================
+    // AUTO CALCULATE NET AMOUNT
+    // ==================================================
+
+    this.netAmount =
+      this.amount - this.fee;
+
+    // ==================================================
+    // NORMALIZE WALLET TYPE
+    // ==================================================
+
+    if (this.walletType) {
+      this.walletType =
+        String(
+          this.walletType
+        ).toUpperCase();
+    }
+
+    // ==================================================
+    // NORMALIZE TRANSACTION MODE
+    // ==================================================
+
+    if (this.transactionMode) {
+      this.transactionMode =
+        String(
+          this.transactionMode
+        ).toUpperCase();
+    }
+
+    // ==================================================
+    // NORMALIZE TRANSACTION TYPE
+    // ==================================================
+
+    if (this.transactionType) {
+      this.transactionType =
+        String(
+          this.transactionType
+        ).toUpperCase();
+    }
+
+    // ==================================================
+    // NORMALIZE STATUS
+    // ==================================================
+    //
+    // Do NOT force status to uppercase here because
+    // existing legacy transactions use:
+    //
+    // "Pending"
+    // "Completed"
+    // "Rejected"
+    // "Failed"
+    //
+    // Current withdraw routes can use:
+    //
+    // "APPROVED"
+    // "REJECTED"
+    // "CANCELLED"
+    //
+    // Therefore the original value is preserved.
+    // ==================================================
+
+    if (this.status) {
+      this.status =
+        String(
+          this.status
+        ).trim();
+    }
+
+    // ==================================================
+    // CONTINUE
+    // ==================================================
+
+    next();
   }
-
-  if (this.transactionMode) {
-    this.transactionMode = this.transactionMode.toUpperCase();
-  }
-
-  if (this.transactionType) {
-    this.transactionType = this.transactionType.toUpperCase();
-  }
-
-  next();
-});
+);
 
 // ======================================================
 // JSON RESPONSE CLEANUP
 // ======================================================
 
-transactionSchema.set("toJSON", {
-  virtuals: true,
-  transform(doc, ret) {
-    delete ret.__v;
-    return ret;
-  },
-});
+transactionSchema.set(
+  "toJSON",
+  {
+    virtuals: true,
+
+    transform(doc, ret) {
+      delete ret.__v;
+
+      return ret;
+    },
+  }
+);
 
 // ======================================================
-// SAFE EXPORT (Render + Nodemon + PM2 Safe)
+// SAFE EXPORT
+// Render + Nodemon + PM2 Safe
 // ======================================================
 
 module.exports =
   mongoose.models.Transaction ||
-  mongoose.model("Transaction", transactionSchema);
+  mongoose.model(
+    "Transaction",
+    transactionSchema
+  );

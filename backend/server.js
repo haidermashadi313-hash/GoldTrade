@@ -278,9 +278,12 @@ const usdtRoutes = require("./routes/usdtRoutes");
 
 // ---------------- ADMIN ----------------
 const adminRoutes = require("./routes/adminRoutes");
-const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
+const adminDashboardRoutes =
+  require("./routes/adminDashboardRoutes");
+
 // ---------------- PAYMENT SETTINGS ----------------
-const paymentSettingsRoutes = require("./routes/paymentSettingsRoutes");
+const paymentSettingsRoutes =
+  require("./routes/paymentSettingsRoutes");
 
 // ======================================================
 // API ROUTES
@@ -288,40 +291,92 @@ const paymentSettingsRoutes = require("./routes/paymentSettingsRoutes");
 // ======================================================
 
 // ---------- AUTH ----------
-app.use("/api/auth", authRoutes);
+app.use(
+  "/api/auth",
+  authRoutes
+);
 
 // ---------- USER ----------
-app.use("/api/user", userRoutes);
+app.use(
+  "/api/user",
+  userRoutes
+);
 
 // ---------- WALLET ----------
-app.use("/api/wallet", walletRoutes);
-// ---------- DEPOSIT ----------
-app.use("/api/deposit", depositRoutes);
+app.use(
+  "/api/wallet",
+  walletRoutes
+);
 
-// ---------- WITHDRAW (User + Admin) ----------
-app.use("/api/withdraw", withdrawRoutes);
-app.use("/api/gold/admin/withdraws", withdrawRoutes);
+// ---------- DEPOSIT ----------
+app.use(
+  "/api/deposit",
+  depositRoutes
+);
+
+// ---------- WITHDRAW (USER + ADMIN) ----------
+app.use(
+  "/api/withdraw",
+  withdrawRoutes
+);
+
+app.use(
+  "/api/gold/admin/withdraws",
+  withdrawRoutes
+);
 
 // ---------- GOLD ----------
-app.use("/api/gold", goldRoutes);
+app.use(
+  "/api/gold",
+  goldRoutes
+);
 
 // ---------- MARKET ----------
-app.use("/api/market", marketRoutes);
+app.use(
+  "/api/market",
+  marketRoutes
+);
 
 // ---------- TRANSACTIONS ----------
-app.use("/api/transactions", transactionRoutes);
+app.use(
+  "/api/transactions",
+  transactionRoutes
+);
 
 // ---------- USDT ----------
-app.use("/api/usdt", usdtRoutes);
+app.use(
+  "/api/usdt",
+  usdtRoutes
+);
+
+// ======================================================
+// ADMIN USERS
+// Used by:
+// frontend/app/admin/users/page.tsx
+// ======================================================
+
+app.use(
+  "/api/admin/users",
+  userRoutes
+);
 
 // ---------- ADMIN DASHBOARD ----------
-app.use("/api/admin/dashboard", adminDashboardRoutes);
+app.use(
+  "/api/admin/dashboard",
+  adminDashboardRoutes
+);
 
 // ---------- OTHER ADMIN ----------
-app.use("/api/admin", adminRoutes);
+app.use(
+  "/api/admin",
+  adminRoutes
+);
 
 // ---------- PAYMENT SETTINGS ----------
-app.use("/api/payment-settings", paymentSettingsRoutes);
+app.use(
+  "/api/payment-settings",
+  paymentSettingsRoutes
+);
 
 // ======================================================
 // API ROUTES LIST (Debug Only)

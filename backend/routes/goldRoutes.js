@@ -16,6 +16,7 @@ const router = express.Router();
 
 const User = require("../models/User");
 const Wallet = require("../models/Wallet");
+const WalletHistory = require("../models/WalletHistory");
 const GoldTrade = require("../models/GoldTrade");
 const Transaction = require("../models/Transaction");
 const Settings = require("../models/Settings");
@@ -41,6 +42,41 @@ const DEFAULT_SETTINGS = {
 };
 
 // ======================================================
+// BOOLEAN HELPER
+// ======================================================
+
+const toBoolean = (value, fallback = false) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+
+    if (
+      ["true", "1", "yes", "on", "enabled"].includes(
+        normalized
+      )
+    ) {
+      return true;
+    }
+
+    if (
+      ["false", "0", "no", "off", "disabled"].includes(
+        normalized
+      )
+    ) {
+      return false;
+    }
+  }
+
+  return fallback;
+};
+// ======================================================
 // GET SETTINGS OR CREATE DEFAULT
 // ======================================================
 
@@ -54,7 +90,6 @@ const getGoldSettings = async () => {
 
   return settings;
 };
-
 // ======================================================
 // HEALTH CHECK
 // GET /api/gold/health
@@ -69,7 +104,6 @@ router.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
-
 // ======================================================
 // API STATUS
 // GET /api/gold/status
@@ -83,10 +117,8 @@ router.get("/status", async (req, res) => {
       success: true,
       module: "Gold Trading API",
       version: "18.0.0 Enterprise",
-
       tradingEnabled: settings.goldTradingEnabled,
       marketStatus: settings.marketStatus,
-
       serverTime: new Date().toISOString(),
     });
   } catch (error) {
@@ -98,7 +130,6 @@ router.get("/status", async (req, res) => {
     });
   }
 });
-
 // ======================================================
 // LIVE GOLD PRICE
 // GET /api/gold/price
@@ -116,7 +147,9 @@ router.get("/price", async (req, res) => {
       sellPrice: Number(settings.sellGoldPrice),
 
       goldPriceUSD: Number(settings.goldPriceUSD),
+
       usdToPkr: Number(settings.usdToPkr),
+      UsdtoPkr: Number(settings.usdToPkr),
 
       tradingEnabled: Boolean(settings.goldTradingEnabled),
       marketStatus: settings.marketStatus,
@@ -141,7 +174,6 @@ router.get("/price", async (req, res) => {
     });
   }
 });
-
 // ======================================================
 // GET CURRENT USER WALLET FOR GOLD MODULE
 // GET /api/gold/wallet
@@ -234,7 +266,9 @@ router.post("/buy", verifyToken, async (req, res) => {
       });
     }
 
-    const wallet = await Wallet.findOne({ userId: user._id });
+    const wallet = await Wallet.findOne({
+      userId: user._id,
+    });
 
     if (!wallet) {
       return res.status(404).json({
@@ -264,7 +298,9 @@ router.post("/buy", verifyToken, async (req, res) => {
     }
 
     const buyPrice = Number(settings.buyGoldPrice);
-    const totalAmount = Number((goldQty * buyPrice).toFixed(2));
+    const totalAmount = Number(
+      (goldQty * buyPrice).toFixed(2)
+    );
 
     // ------------------------------------------
     // Balance Check
@@ -314,6 +350,8 @@ router.post("/buy", verifyToken, async (req, res) => {
       username: user.username,
 
       tradeType: "BUY",
+      status: "COMPLETED",
+
       quantity: goldQty,
       remainingQuantity: goldQty,
 
@@ -392,7 +430,6 @@ router.post("/buy", verifyToken, async (req, res) => {
         usdtBalance: wallet.usdtBalance,
       },
     });
-
   } catch (error) {
     console.error("BUY GOLD ERROR:", error);
 
@@ -447,7 +484,9 @@ router.post("/sell", verifyToken, async (req, res) => {
       });
     }
 
-    const wallet = await Wallet.findOne({ userId: user._id });
+    const wallet = await Wallet.findOne({
+      userId: user._id,
+    });
 
     if (!wallet) {
       return res.status(404).json({
@@ -490,7 +529,10 @@ router.post("/sell", verifyToken, async (req, res) => {
     }
 
     const sellPrice = Number(settings.sellGoldPrice);
-    const totalAmount = Number((goldQty * sellPrice).toFixed(2));
+
+    const totalAmount = Number(
+      (goldQty * sellPrice).toFixed(2)
+    );
 
     // ==================================================
     // CALCULATE PROFIT / LOSS (FIFO)
@@ -507,13 +549,20 @@ router.post("/sell", verifyToken, async (req, res) => {
     let investedAmount = 0;
 
     for (const trade of buyTrades) {
-      if (remainingToSell <= 0) break;
+      if (remainingToSell <= 0) {
+        break;
+      }
 
       const availableQty = trade.remainingQuantity;
 
-      if (availableQty <= 0) continue;
+      if (availableQty <= 0) {
+        continue;
+      }
 
-      const sellQty = Math.min(availableQty, remainingToSell);
+      const sellQty = Math.min(
+        availableQty,
+        remainingToSell
+      );
 
       investedAmount += sellQty * trade.buyPrice;
 
@@ -525,11 +574,15 @@ router.post("/sell", verifyToken, async (req, res) => {
       remainingToSell -= sellQty;
     }
 
-    const profitLoss = Number((totalAmount - investedAmount).toFixed(2));
+    const profitLoss = Number(
+      (totalAmount - investedAmount).toFixed(2)
+    );
 
     const profitLossPercent =
       investedAmount > 0
-        ? Number(((profitLoss / investedAmount) * 100).toFixed(2))
+        ? Number(
+            ((profitLoss / investedAmount) * 100).toFixed(2)
+          )
         : 0;
 
     // ==================================================
@@ -549,7 +602,9 @@ router.post("/sell", verifyToken, async (req, res) => {
     wallet.lastTradeAt = new Date();
 
     wallet.portfolioValue = Number(
-      (wallet.goldBalance * settings.buyGoldPrice).toFixed(2)
+      (
+        wallet.goldBalance * settings.buyGoldPrice
+      ).toFixed(2)
     );
 
     wallet.liveProfit += profitLoss;
@@ -571,6 +626,7 @@ router.post("/sell", verifyToken, async (req, res) => {
       username: user.username,
 
       tradeType: "SELL",
+      status: "COMPLETED",
 
       quantity: goldQty,
       soldQuantity: goldQty,
@@ -660,7 +716,6 @@ router.post("/sell", verifyToken, async (req, res) => {
         liveProfit: wallet.liveProfit,
       },
     });
-
   } catch (error) {
     console.error("SELL GOLD ERROR:", error);
 
@@ -700,7 +755,9 @@ router.get("/portfolio", verifyToken, async (req, res) => {
       });
     }
 
-    const wallet = await Wallet.findOne({ userId: user._id }).lean();
+    const wallet = await Wallet.findOne({
+      userId: user._id,
+    }).lean();
 
     if (!wallet) {
       return res.status(404).json({
@@ -711,7 +768,7 @@ router.get("/portfolio", verifyToken, async (req, res) => {
 
     const settings = await getGoldSettings();
 
-    // Active BUY trades only
+    // Active BUY trades only.
     const holdings = await GoldTrade.find({
       userId: user._id,
       tradeType: "BUY",
@@ -721,44 +778,171 @@ router.get("/portfolio", verifyToken, async (req, res) => {
       .sort({ createdAt: 1 })
       .lean();
 
+    // Recent transactions for the Gold Portfolio UI.
+    const recentTrades = await GoldTrade.find({
+      userId: user._id,
+    })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
     let totalGold = 0;
     let investedAmount = 0;
 
     const positions = holdings.map((trade) => {
-      const qty = Number(trade.remainingQuantity || 0);
+      const qty = Number(
+        trade.remainingQuantity || 0
+      );
+
+      const buyPrice = Number(
+        trade.buyPrice || 0
+      );
+
+      const currentPrice = Number(
+        settings.sellGoldPrice || 0
+      );
 
       totalGold += qty;
-      investedAmount += qty * Number(trade.buyPrice);
+      investedAmount += qty * buyPrice;
 
-      const currentValue = qty * Number(settings.sellGoldPrice);
-      const pnl = currentValue - qty * Number(trade.buyPrice);
+      const currentValue =
+        qty * currentPrice;
+
+      const pnl =
+        currentValue -
+        qty * buyPrice;
 
       return {
         tradeId: trade._id,
         quantity: qty,
-        buyPrice: trade.buyPrice,
-        currentPrice: settings.sellGoldPrice,
-        investedAmount: Number((qty * trade.buyPrice).toFixed(2)),
-        currentValue: Number(currentValue.toFixed(2)),
-        profitLoss: Number(pnl.toFixed(2)),
+        buyPrice,
+        currentPrice,
+
+        investedAmount: Number(
+          (qty * buyPrice).toFixed(2)
+        ),
+
+        currentValue: Number(
+          currentValue.toFixed(2)
+        ),
+
+        profitLoss: Number(
+          pnl.toFixed(2)
+        ),
+
         createdAt: trade.createdAt,
       };
     });
 
     const currentValue = Number(
-      (totalGold * settings.sellGoldPrice).toFixed(2)
+      (
+        totalGold *
+        Number(settings.sellGoldPrice || 0)
+      ).toFixed(2)
     );
 
-    const totalProfitLoss = Number(
-      (currentValue - investedAmount).toFixed(2)
+    const unrealizedProfitLoss = Number(
+      (
+        currentValue -
+        investedAmount
+      ).toFixed(2)
     );
 
     const totalProfitPercent =
       investedAmount > 0
         ? Number(
-            ((totalProfitLoss / investedAmount) * 100).toFixed(2)
+            (
+              (unrealizedProfitLoss /
+                investedAmount) *
+              100
+            ).toFixed(2)
           )
         : 0;
+
+    const totalGoldBought = Number(
+      wallet.totalGoldPurchased ??
+        recentTrades
+          .filter(
+            (trade) =>
+              trade.tradeType === "BUY"
+          )
+          .reduce(
+            (sum, trade) =>
+              sum +
+              Number(
+                trade.quantity || 0
+              ),
+            0
+          )
+    );
+
+    const totalGoldSold = Number(
+      wallet.totalGoldSold ??
+        recentTrades
+          .filter(
+            (trade) =>
+              trade.tradeType === "SELL"
+          )
+          .reduce(
+            (sum, trade) =>
+              sum +
+              Number(
+                trade.quantity || 0
+              ),
+            0
+          )
+    );
+
+    const averageBuyPrice =
+      totalGold > 0
+        ? Number(
+            (
+              investedAmount /
+              totalGold
+            ).toFixed(2)
+          )
+        : 0;
+
+    const transactions =
+      recentTrades.map((trade) => {
+        const isSell =
+          trade.tradeType === "SELL";
+
+        return {
+          _id: trade._id,
+
+          tradeType: String(
+            trade.tradeType || ""
+          ).toLowerCase(),
+
+          grams: Number(
+            trade.quantity || 0
+          ),
+
+          pricePerGram: Number(
+            (
+              isSell
+                ? trade.sellPrice
+                : trade.buyPrice
+            ) || 0
+          ),
+
+          totalPkr: Number(
+            trade.totalAmount || 0
+          ),
+
+          profitLoss: Number(
+            trade.profitLoss || 0
+          ),
+
+          status:
+            trade.status ||
+            "COMPLETED",
+
+          createdAt:
+            trade.createdAt,
+        };
+      });
 
     return res.status(200).json({
       success: true,
@@ -766,27 +950,81 @@ router.get("/portfolio", verifyToken, async (req, res) => {
       portfolio: {
         username: user.username,
 
-        goldBalance: wallet.goldBalance,
-        totalGold: Number(totalGold.toFixed(4)),
+        // Existing Gold API fields.
+        goldBalance: Number(
+          wallet.goldBalance || 0
+        ),
 
-        buyPrice: settings.buyGoldPrice,
-        sellPrice: settings.sellGoldPrice,
+        totalGold: Number(
+          totalGold.toFixed(4)
+        ),
 
-        investedAmount: Number(investedAmount.toFixed(2)),
+        buyPrice: Number(
+          settings.buyGoldPrice || 0
+        ),
+
+        sellPrice: Number(
+          settings.sellGoldPrice || 0
+        ),
+
+        investedAmount: Number(
+          investedAmount.toFixed(2)
+        ),
+
         currentValue,
 
-        profitLoss: totalProfitLoss,
-        profitLossPercent: totalProfitPercent,
+        profitLoss:
+          unrealizedProfitLoss,
 
-        totalPositions: positions.length,
+        profitLossPercent:
+          totalProfitPercent,
+
+        totalPositions:
+          positions.length,
+
         positions,
 
-        updatedAt: new Date().toISOString(),
+        // Frontend GoldPortfolio
+        // compatibility fields.
+        WalletBalance: Number(
+          wallet.pkrBalance || 0
+        ),
+
+        averagebuyPrice:
+          averageBuyPrice,
+
+        currentsellPrice: Number(
+          settings.sellGoldPrice || 0
+        ),
+
+        totalInvested: Number(
+          investedAmount.toFixed(2)
+        ),
+
+        liveProfitLoss:
+          unrealizedProfitLoss,
+
+        totalProfitLoss: Number(
+          wallet.liveProfit || 0
+        ),
+
+        totalGoldbuy:
+          totalGoldBought,
+
+        totalGoldsell:
+          totalGoldSold,
+
+        transactions,
+
+        updatedAt:
+          new Date().toISOString(),
       },
     });
-
   } catch (error) {
-    console.error("GET GOLD PORTFOLIO ERROR:", error);
+    console.error(
+      "GET GOLD PORTFOLIO ERROR:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -805,107 +1043,158 @@ router.get("/portfolio", verifyToken, async (req, res) => {
 // Admin or Same User
 // ======================================================
 
-router.get("/portfolio/:username", verifyToken, async (req, res) => {
-  try {
-    const username = req.params.username.trim().toLowerCase();
+router.get(
+  "/portfolio/:username",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const username =
+        req.params.username
+          .trim()
+          .toLowerCase();
 
-    if (
-      req.user.role !== "admin" &&
-      req.user.username.toLowerCase() !== username
-    ) {
-      return res.status(403).json({
+      if (
+        req.user.role !== "admin" &&
+        req.user.username.toLowerCase() !==
+          username
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied.",
+        });
+      }
+
+      const user = await User.findOne({
+        username,
+      })
+        .select("_id username email role")
+        .lean();
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      const wallet =
+        await Wallet.findOne({
+          userId: user._id,
+        }).lean();
+
+      if (!wallet) {
+        return res.status(404).json({
+          success: false,
+          message: "Wallet not found.",
+        });
+      }
+
+      const settings =
+        await getGoldSettings();
+
+      const holdings =
+        await GoldTrade.find({
+          userId: user._id,
+          tradeType: "BUY",
+          remainingQuantity: {
+            $gt: 0,
+          },
+          status: "COMPLETED",
+        }).lean();
+
+      let totalGold = 0;
+      let investedAmount = 0;
+
+      holdings.forEach((trade) => {
+        totalGold += Number(
+          trade.remainingQuantity || 0
+        );
+
+        investedAmount +=
+          Number(
+            trade.remainingQuantity || 0
+          ) *
+          Number(
+            trade.buyPrice || 0
+          );
+      });
+
+      const currentValue =
+        Number(
+          (
+            totalGold *
+            settings.sellGoldPrice
+          ).toFixed(2)
+        );
+
+      const profitLoss =
+        Number(
+          (
+            currentValue -
+            investedAmount
+          ).toFixed(2)
+        );
+
+      const profitLossPercent =
+        investedAmount > 0
+          ? Number(
+              (
+                (profitLoss /
+                  investedAmount) *
+                100
+              ).toFixed(2)
+            )
+          : 0;
+
+      return res.status(200).json({
+        success: true,
+
+        portfolio: {
+          username: user.username,
+          email: user.email,
+          role: user.role,
+
+          goldBalance:
+            wallet.goldBalance,
+
+          totalGold: Number(
+            totalGold.toFixed(4)
+          ),
+
+          investedAmount: Number(
+            investedAmount.toFixed(2)
+          ),
+
+          currentValue,
+
+          profitLoss,
+          profitLossPercent,
+
+          totalPositions:
+            holdings.length,
+
+          updatedAt:
+            wallet.updatedAt,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "GET USER GOLD PORTFOLIO ERROR:",
+        error
+      );
+
+      return res.status(500).json({
         success: false,
-        message: "Access denied.",
+        message:
+          "Unable to load user portfolio.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
       });
     }
-
-    const user = await User.findOne({ username })
-      .select("_id username email role")
-      .lean();
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    const wallet = await Wallet.findOne({ userId: user._id }).lean();
-
-    if (!wallet) {
-      return res.status(404).json({
-        success: false,
-        message: "Wallet not found.",
-      });
-    }
-
-    const settings = await getGoldSettings();
-
-    const holdings = await GoldTrade.find({
-      userId: user._id,
-      tradeType: "BUY",
-      remainingQuantity: { $gt: 0 },
-      status: "COMPLETED",
-    }).lean();
-
-    let totalGold = 0;
-    let investedAmount = 0;
-
-    holdings.forEach((trade) => {
-      totalGold += Number(trade.remainingQuantity || 0);
-      investedAmount +=
-        Number(trade.remainingQuantity || 0) * Number(trade.buyPrice);
-    });
-
-    const currentValue = Number(
-      (totalGold * settings.sellGoldPrice).toFixed(2)
-    );
-
-    const profitLoss = Number(
-      (currentValue - investedAmount).toFixed(2)
-    );
-
-    const profitLossPercent =
-      investedAmount > 0
-        ? Number(((profitLoss / investedAmount) * 100).toFixed(2))
-        : 0;
-
-    return res.status(200).json({
-      success: true,
-
-      portfolio: {
-        username: user.username,
-        email: user.email,
-        role: user.role,
-
-        goldBalance: wallet.goldBalance,
-        totalGold: Number(totalGold.toFixed(4)),
-
-        investedAmount: Number(investedAmount.toFixed(2)),
-        currentValue,
-
-        profitLoss,
-        profitLossPercent,
-
-        totalPositions: holdings.length,
-
-        updatedAt: wallet.updatedAt,
-      },
-    });
-
-  } catch (error) {
-    console.error("GET USER GOLD PORTFOLIO ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load user portfolio.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
+);
 // ======================================================
 // GoldTrade V18 Enterprise Backend
 // goldRoutes.js — PART 5/8
@@ -919,67 +1208,234 @@ router.get("/portfolio/:username", verifyToken, async (req, res) => {
 // Used by frontend/app/gold/history/page.tsx
 // ======================================================
 
-router.get("/history", verifyToken, async (req, res) => {
-  try {
-    const page = Math.max(Number(req.query.page) || 1, 1);
-    const limit = Math.min(Number(req.query.limit) || 20, 100);
-    const skip = (page - 1) * limit;
+router.get(
+  "/history",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const page = Math.max(
+        Number(req.query.page) || 1,
+        1
+      );
 
-    const total = await GoldTrade.countDocuments({
-      userId: req.user.id,
-    });
+      const limit = Math.min(
+        Number(req.query.limit) || 20,
+        100
+      );
 
-    const trades = await GoldTrade.find({
-      userId: req.user.id,
-    })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+      const skip =
+        (page - 1) * limit;
 
-    const history = trades.map((trade) => ({
-      id: trade._id,
-      tradeType: trade.tradeType,
-      status: trade.status,
+      const total =
+        await GoldTrade.countDocuments({
+          userId: req.user.id,
+        });
 
-      quantity: Number(trade.quantity || 0),
-      remainingQuantity: Number(trade.remainingQuantity || 0),
+      const trades =
+        await GoldTrade.find({
+          userId: req.user.id,
+        })
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean();
 
-      buyPrice: Number(trade.buyPrice || 0),
-      sellPrice: Number(trade.sellPrice || 0),
-      marketGoldPrice: Number(trade.marketGoldPrice || 0),
+      const history =
+        trades.map((trade) => ({
+          id: trade._id,
+          _id: trade._id,
 
-      totalAmount: Number(trade.totalAmount || 0),
-      investedAmount: Number(trade.investedAmount || 0),
+          tradeType:
+            String(
+              trade.tradeType || ""
+            ).toLowerCase(),
 
-      profitLoss: Number(trade.profitLoss || 0),
-      profitLossPercent: Number(trade.profitLossPercent || 0),
+          status: trade.status,
 
-      note: trade.note || "",
-      createdAt: trade.createdAt,
-    }));
+          quantity: Number(
+            trade.quantity || 0
+          ),
 
-    return res.status(200).json({
-      success: true,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-      history,
-    });
+          grams: Number(
+            trade.quantity || 0
+          ),
 
-  } catch (error) {
-    console.error("GET GOLD HISTORY ERROR:", error);
+          remainingQuantity:
+            Number(
+              trade.remainingQuantity ||
+                0
+            ),
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load gold history.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+          buyPrice: Number(
+            trade.buyPrice || 0
+          ),
+
+          sellPrice: Number(
+            trade.sellPrice || 0
+          ),
+
+          pricePerGram: Number(
+            (
+              trade.tradeType ===
+              "SELL"
+                ? trade.sellPrice
+                : trade.buyPrice
+            ) || 0
+          ),
+
+          marketGoldPrice:
+            Number(
+              trade.marketGoldPrice ||
+                0
+            ),
+
+          totalAmount: Number(
+            trade.totalAmount || 0
+          ),
+
+          totalPkr: Number(
+            trade.totalAmount || 0
+          ),
+
+          investedAmount:
+            Number(
+              trade.investedAmount ||
+                0
+            ),
+
+          profitLoss: Number(
+            trade.profitLoss || 0
+          ),
+
+          profitLossPercent:
+            Number(
+              trade.profitLossPercent ||
+                0
+            ),
+
+          note: trade.note || "",
+
+          createdAt:
+            trade.createdAt,
+        }));
+
+      return res.status(200).json({
+        success: true,
+        total,
+        page,
+        totalPages:
+          Math.ceil(
+            total / limit
+          ),
+        history,
+      });
+    } catch (error) {
+      console.error(
+        "GET GOLD HISTORY ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load gold history.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
+
+// ======================================================
+// SEARCH GOLD HISTORY
+// GET /api/gold/history/search
+// Filters: tradeType, status, fromDate, toDate
+//
+// IMPORTANT:
+// This route is intentionally BEFORE
+// /history/:username so "search" is not
+// interpreted as a username.
+// ======================================================
+
+router.get(
+  "/history/search",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const {
+        tradeType,
+        status,
+        fromDate,
+        toDate,
+      } = req.query;
+
+      const query = {
+        userId: req.user.id,
+      };
+
+      if (tradeType) {
+        query.tradeType =
+          String(tradeType).toUpperCase();
+      }
+
+      if (status) {
+        query.status =
+          String(status).toUpperCase();
+      }
+
+      if (fromDate || toDate) {
+        query.createdAt = {};
+
+        if (fromDate) {
+          query.createdAt.$gte =
+            new Date(fromDate);
+        }
+
+        if (toDate) {
+          query.createdAt.$lte =
+            new Date(toDate);
+        }
+      }
+
+      const history =
+        await GoldTrade.find(query)
+          .sort({ createdAt: -1 })
+          .limit(200)
+          .lean();
+
+      return res.status(200).json({
+        success: true,
+        total: history.length,
+
+        filters: {
+          tradeType,
+          status,
+          fromDate,
+          toDate,
+        },
+
+        history,
+      });
+    } catch (error) {
+      console.error(
+        "SEARCH GOLD HISTORY ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to search gold history.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
+  }
+);
 
 // ======================================================
 // GET GOLD HISTORY BY USERNAME
@@ -987,69 +1443,97 @@ router.get("/history", verifyToken, async (req, res) => {
 // Admin or Same User
 // ======================================================
 
-router.get("/history/:username", verifyToken, async (req, res) => {
-  try {
-    const username = req.params.username.trim().toLowerCase();
+router.get(
+  "/history/:username",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const username =
+        req.params.username
+          .trim()
+          .toLowerCase();
 
-    if (
-      req.user.role !== "admin" &&
-      req.user.username.toLowerCase() !== username
-    ) {
-      return res.status(403).json({
+      if (
+        req.user.role !== "admin" &&
+        req.user.username.toLowerCase() !==
+          username
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied.",
+        });
+      }
+
+      const user =
+        await User.findOne({
+          username,
+        })
+          .select("_id username")
+          .lean();
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      const page = Math.max(
+        Number(req.query.page) || 1,
+        1
+      );
+
+      const limit = Math.min(
+        Number(req.query.limit) || 50,
+        100
+      );
+
+      const skip =
+        (page - 1) * limit;
+
+      const total =
+        await GoldTrade.countDocuments({
+          userId: user._id,
+        });
+
+      const history =
+        await GoldTrade.find({
+          userId: user._id,
+        })
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean();
+
+      return res.status(200).json({
+        success: true,
+        username: user.username,
+        total,
+        page,
+        totalPages:
+          Math.ceil(
+            total / limit
+          ),
+        history,
+      });
+    } catch (error) {
+      console.error(
+        "GET USER GOLD HISTORY ERROR:",
+        error
+      );
+
+      return res.status(500).json({
         success: false,
-        message: "Access denied.",
+        message:
+          "Unable to load user gold history.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
       });
     }
-
-    const user = await User.findOne({ username })
-      .select("_id username")
-      .lean();
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
-
-    const page = Math.max(Number(req.query.page) || 1, 1);
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const skip = (page - 1) * limit;
-
-    const total = await GoldTrade.countDocuments({
-      userId: user._id,
-    });
-
-    const history = await GoldTrade.find({
-      userId: user._id,
-    })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
-
-    return res.status(200).json({
-      success: true,
-      username: user.username,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-      history,
-    });
-
-  } catch (error) {
-    console.error("GET USER GOLD HISTORY ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load user gold history.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
+);
 
 // ======================================================
 // GET RECENT GOLD TRADES
@@ -1057,99 +1541,42 @@ router.get("/history/:username", verifyToken, async (req, res) => {
 // Dashboard Recent Activity
 // ======================================================
 
-router.get("/recent", verifyToken, async (req, res) => {
-  try {
-    const trades = await GoldTrade.find({
-      userId: req.user.id,
-    })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
+router.get(
+  "/recent",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const trades =
+        await GoldTrade.find({
+          userId: req.user.id,
+        })
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .lean();
 
-    return res.status(200).json({
-      success: true,
-      total: trades.length,
-      trades,
-    });
+      return res.status(200).json({
+        success: true,
+        total: trades.length,
+        trades,
+      });
+    } catch (error) {
+      console.error(
+        "GET RECENT GOLD TRADES ERROR:",
+        error
+      );
 
-  } catch (error) {
-    console.error("GET RECENT GOLD TRADES ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load recent trades.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load recent trades.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
-
-// ======================================================
-// SEARCH GOLD HISTORY
-// GET /api/gold/history/search
-// Filters: tradeType, status, fromDate, toDate
-// ======================================================
-
-router.get("/history/search", verifyToken, async (req, res) => {
-  try {
-    const { tradeType, status, fromDate, toDate } = req.query;
-
-    const query = {
-      userId: req.user.id,
-    };
-
-    if (tradeType) {
-      query.tradeType = tradeType.toUpperCase();
-    }
-
-    if (status) {
-      query.status = status.toUpperCase();
-    }
-
-    if (fromDate || toDate) {
-      query.createdAt = {};
-
-      if (fromDate) {
-        query.createdAt.$gte = new Date(fromDate);
-      }
-
-      if (toDate) {
-        query.createdAt.$lte = new Date(toDate);
-      }
-    }
-
-    const history = await GoldTrade.find(query)
-      .sort({ createdAt: -1 })
-      .limit(200)
-      .lean();
-
-    return res.status(200).json({
-      success: true,
-      total: history.length,
-      filters: {
-        tradeType,
-        status,
-        fromDate,
-        toDate,
-      },
-      history,
-    });
-
-  } catch (error) {
-    console.error("SEARCH GOLD HISTORY ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to search gold history.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
-  }
-});
+);
 // ======================================================
 // GoldTrade V18 Enterprise Backend
 // goldRoutes.js — PART 6/8
@@ -1163,36 +1590,65 @@ router.get("/history/search", verifyToken, async (req, res) => {
 // Used by Admin Dashboard
 // ======================================================
 
-router.get("/settings", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const settings = await getGoldSettings();
+router.get(
+  "/settings",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const settings =
+        await getGoldSettings();
 
-    return res.status(200).json({
-      success: true,
-      settings: {
-        buyGoldPrice: Number(settings.buyGoldPrice),
-        sellGoldPrice: Number(settings.sellGoldPrice),
-        goldPriceUSD: Number(settings.goldPriceUSD),
-        usdToPkr: Number(settings.usdToPkr),
-        goldTradingEnabled: Boolean(settings.goldTradingEnabled),
-        marketStatus: settings.marketStatus,
-        updatedAt: settings.updatedAt,
-      },
-    });
+      return res.status(200).json({
+        success: true,
 
-  } catch (error) {
-    console.error("GET GOLD SETTINGS ERROR:", error);
+        settings: {
+          buyGoldPrice: Number(
+            settings.buyGoldPrice
+          ),
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load gold settings.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+          sellGoldPrice: Number(
+            settings.sellGoldPrice
+          ),
+
+          goldPriceUSD: Number(
+            settings.goldPriceUSD
+          ),
+
+          usdToPkr: Number(
+            settings.usdToPkr
+          ),
+
+          goldTradingEnabled:
+            Boolean(
+              settings.goldTradingEnabled
+            ),
+
+          marketStatus:
+            settings.marketStatus,
+
+          updatedAt:
+            settings.updatedAt,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "GET GOLD SETTINGS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load gold settings.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
 
 // ======================================================
 // UPDATE GOLD SETTINGS
@@ -1200,165 +1656,269 @@ router.get("/settings", verifyToken, isAdmin, async (req, res) => {
 // Used by Admin Dashboard
 // ======================================================
 
-router.patch("/settings", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const settings = await getGoldSettings();
+router.put(
+  "/settings",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const settings =
+        await getGoldSettings();
 
-    const {
-      buyGoldPrice,
-      sellGoldPrice,
-      goldPriceUSD,
-      usdToPkr,
-      goldTradingEnabled,
-      marketStatus,
-    } = req.body;
+      const {
+        buyGoldPrice,
+        sellGoldPrice,
+        goldPriceUSD,
+        usdToPkr,
+        goldTradingEnabled,
+        marketStatus,
+      } = req.body;
 
-    if (buyGoldPrice !== undefined) {
-      settings.buyGoldPrice = Number(buyGoldPrice);
-    }
-
-    if (sellGoldPrice !== undefined) {
-      settings.sellGoldPrice = Number(sellGoldPrice);
-    }
-
-    if (goldPriceUSD !== undefined) {
-      settings.goldPriceUSD = Number(goldPriceUSD);
-    }
-
-    if (usdToPkr !== undefined) {
-      settings.usdToPkr = Number(usdToPkr);
-    }
-
-    if (goldTradingEnabled !== undefined) {
-      settings.goldTradingEnabled = Boolean(goldTradingEnabled);
-    }
-
-    if (marketStatus !== undefined) {
-      const allowed = ["OPEN", "CLOSED", "MAINTENANCE"];
-
-      if (!allowed.includes(String(marketStatus).toUpperCase())) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid market status.",
-        });
+      if (
+        buyGoldPrice !== undefined
+      ) {
+        settings.buyGoldPrice =
+          Number(buyGoldPrice);
       }
 
-      settings.marketStatus = String(marketStatus).toUpperCase();
+      if (
+        sellGoldPrice !== undefined
+      ) {
+        settings.sellGoldPrice =
+          Number(sellGoldPrice);
+      }
+
+      if (
+        goldPriceUSD !== undefined
+      ) {
+        settings.goldPriceUSD =
+          Number(goldPriceUSD);
+      }
+
+      if (
+        usdToPkr !== undefined
+      ) {
+        settings.usdToPkr =
+          Number(usdToPkr);
+      }
+
+      if (
+        goldTradingEnabled !==
+        undefined
+      ) {
+        settings.goldTradingEnabled =
+          toBoolean(
+            goldTradingEnabled,
+            settings.goldTradingEnabled
+          );
+      }
+
+      if (
+        marketStatus !== undefined
+      ) {
+        const allowed = [
+          "OPEN",
+          "CLOSED",
+          "MAINTENANCE",
+        ];
+
+        if (
+          !allowed.includes(
+            String(
+              marketStatus
+            ).toUpperCase()
+          )
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid market status.",
+          });
+        }
+
+        settings.marketStatus =
+          String(
+            marketStatus
+          ).toUpperCase();
+      }
+
+      await settings.save();
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Gold settings updated successfully.",
+
+        settings: {
+          buyGoldPrice:
+            settings.buyGoldPrice,
+
+          sellGoldPrice:
+            settings.sellGoldPrice,
+
+          goldPriceUSD:
+            settings.goldPriceUSD,
+
+          usdToPkr:
+            settings.usdToPkr,
+
+          goldTradingEnabled:
+            settings.goldTradingEnabled,
+
+          marketStatus:
+            settings.marketStatus,
+
+          updatedAt:
+            settings.updatedAt,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "UPDATE GOLD SETTINGS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to update gold settings.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
     }
-
-    await settings.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Gold settings updated successfully.",
-
-      settings: {
-        buyGoldPrice: settings.buyGoldPrice,
-        sellGoldPrice: settings.sellGoldPrice,
-        goldPriceUSD: settings.goldPriceUSD,
-        usdToPkr: settings.usdToPkr,
-        goldTradingEnabled: settings.goldTradingEnabled,
-        marketStatus: settings.marketStatus,
-        updatedAt: settings.updatedAt,
-      },
-    });
-
-  } catch (error) {
-    console.error("UPDATE GOLD SETTINGS ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to update gold settings.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
+);
 
 // ======================================================
 // MARKET STATUS TOGGLE
 // PATCH /api/gold/market
 // ======================================================
 
-router.patch("/market", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const { marketStatus } = req.body;
+router.patch(
+  "/market",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const { marketStatus } =
+        req.body;
 
-    const allowed = ["OPEN", "CLOSED", "MAINTENANCE"];
+      const allowed = [
+        "OPEN",
+        "CLOSED",
+        "MAINTENANCE",
+      ];
 
-    if (!allowed.includes(String(marketStatus).toUpperCase())) {
-      return res.status(400).json({
+      if (
+        !allowed.includes(
+          String(
+            marketStatus
+          ).toUpperCase()
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid market status.",
+        });
+      }
+
+      const settings =
+        await getGoldSettings();
+
+      settings.marketStatus =
+        String(
+          marketStatus
+        ).toUpperCase();
+
+      await settings.save();
+
+      return res.status(200).json({
+        success: true,
+
+        message: `Market status changed to ${settings.marketStatus}.`,
+
+        marketStatus:
+          settings.marketStatus,
+      });
+    } catch (error) {
+      console.error(
+        "MARKET STATUS UPDATE ERROR:",
+        error
+      );
+
+      return res.status(500).json({
         success: false,
-        message: "Invalid market status.",
+        message:
+          "Unable to update market status.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
       });
     }
-
-    const settings = await getGoldSettings();
-
-    settings.marketStatus = String(marketStatus).toUpperCase();
-
-    await settings.save();
-
-    return res.status(200).json({
-      success: true,
-      message: `Market status changed to ${settings.marketStatus}.`,
-      marketStatus: settings.marketStatus,
-    });
-
-  } catch (error) {
-    console.error("MARKET STATUS UPDATE ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to update market status.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
+);
 
 // ======================================================
 // GOLD TRADING ENABLE / DISABLE
 // PATCH /api/gold/trading
 // ======================================================
 
-router.patch("/trading", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const { enabled } = req.body;
+router.patch(
+  "/trading",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const { enabled } = req.body;
 
-    const settings = await getGoldSettings();
+      const settings =
+        await getGoldSettings();
 
-    settings.goldTradingEnabled = Boolean(enabled);
+      settings.goldTradingEnabled =
+        toBoolean(
+          enabled,
+          settings.goldTradingEnabled
+        );
 
-    await settings.save();
+      await settings.save();
 
-    return res.status(200).json({
-      success: true,
-      message: settings.goldTradingEnabled
-        ? "Gold trading enabled."
-        : "Gold trading disabled.",
+      return res.status(200).json({
+        success: true,
 
-      tradingEnabled: settings.goldTradingEnabled,
-      marketStatus: settings.marketStatus,
-    });
+        message:
+          settings.goldTradingEnabled
+            ? "Gold trading enabled."
+            : "Gold trading disabled.",
 
-  } catch (error) {
-    console.error("GOLD TRADING TOGGLE ERROR:", error);
+        tradingEnabled:
+          settings.goldTradingEnabled,
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to update trading status.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+        marketStatus:
+          settings.marketStatus,
+      });
+    } catch (error) {
+      console.error(
+        "GOLD TRADING TOGGLE ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to update trading status.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
+
 // ======================================================
 // GoldTrade V18 Enterprise Backend
 // goldRoutes.js — PART 7/8
@@ -1372,182 +1932,297 @@ router.patch("/trading", verifyToken, isAdmin, async (req, res) => {
 // Used by frontend/app/admin/gold/page.tsx
 // ======================================================
 
-router.get("/admin/dashboard", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const settings = await getGoldSettings();
+router.get(
+  "/admin/dashboard",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const settings =
+        await getGoldSettings();
 
-    const [
-      totalTrades,
-      totalBuyTrades,
-      totalSellTrades,
-      completedTrades,
-      pendingTrades,
-      totalUsers,
-      walletStats,
-      recentTrades,
-    ] = await Promise.all([
-      GoldTrade.countDocuments(),
-      GoldTrade.countDocuments({ tradeType: "BUY" }),
-      GoldTrade.countDocuments({ tradeType: "SELL" }),
-      GoldTrade.countDocuments({ status: "COMPLETED" }),
-      GoldTrade.countDocuments({ status: "PENDING" }),
-      User.countDocuments({ role: "user" }),
-      Wallet.aggregate([
-        {
-          $group: {
-            _id: null,
-            totalPKR: { $sum: "$pkrBalance" },
-            totalGold: { $sum: "$goldBalance" },
-            totalUSDT: { $sum: "$usdtBalance" },
-            totalPortfolio: { $sum: "$portfolioValue" },
-            totalLiveProfit: { $sum: "$liveProfit" },
-          },
-        },
-      ]),
-      GoldTrade.find()
-        .sort({ createdAt: -1 })
-        .limit(10)
-        .select(
-          "username tradeType quantity buyPrice sellPrice totalAmount profitLoss createdAt"
-        )
-        .lean(),
-    ]);
-
-    const walletSummary = walletStats[0] || {
-      totalPKR: 0,
-      totalGold: 0,
-      totalUSDT: 0,
-      totalPortfolio: 0,
-      totalLiveProfit: 0,
-    };
-
-    return res.status(200).json({
-      success: true,
-
-      dashboard: {
-        market: {
-          buyGoldPrice: settings.buyGoldPrice,
-          sellGoldPrice: settings.sellGoldPrice,
-          goldPriceUSD: settings.goldPriceUSD,
-          usdToPkr: settings.usdToPkr,
-          tradingEnabled: settings.goldTradingEnabled,
-          marketStatus: settings.marketStatus,
-        },
-
-        statistics: {
-          totalUsers,
-          totalTrades,
-          totalBuyTrades,
-          totalSellTrades,
-          completedTrades,
-          pendingTrades,
-        },
-
-        wallet: {
-          totalPKR: Number(walletSummary.totalPKR.toFixed(2)),
-          totalGold: Number(walletSummary.totalGold.toFixed(4)),
-          totalUSDT: Number(walletSummary.totalUSDT.toFixed(2)),
-          totalPortfolio: Number(walletSummary.totalPortfolio.toFixed(2)),
-          totalLiveProfit: Number(walletSummary.totalLiveProfit.toFixed(2)),
-        },
-
+      const [
+        totalTrades,
+        totalBuyTrades,
+        totalSellTrades,
+        completedTrades,
+        pendingTrades,
+        totalUsers,
+        walletStats,
         recentTrades,
-        updatedAt: new Date().toISOString(),
-      },
-    });
+      ] = await Promise.all([
+        GoldTrade.countDocuments(),
 
-  } catch (error) {
-    console.error("ADMIN GOLD DASHBOARD ERROR:", error);
+        GoldTrade.countDocuments({
+          tradeType: "BUY",
+        }),
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load admin dashboard.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+        GoldTrade.countDocuments({
+          tradeType: "SELL",
+        }),
+
+        GoldTrade.countDocuments({
+          status: "COMPLETED",
+        }),
+
+        GoldTrade.countDocuments({
+          status: "PENDING",
+        }),
+
+        User.countDocuments({
+          role: "user",
+        }),
+
+        Wallet.aggregate([
+          {
+            $group: {
+              _id: null,
+
+              totalPKR: {
+                $sum: "$pkrBalance",
+              },
+
+              totalGold: {
+                $sum: "$goldBalance",
+              },
+
+              totalUSDT: {
+                $sum: "$usdtBalance",
+              },
+
+              totalPortfolio: {
+                $sum: "$portfolioValue",
+              },
+
+              totalLiveProfit: {
+                $sum: "$liveProfit",
+              },
+            },
+          },
+        ]),
+
+        GoldTrade.find()
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .select(
+            "username tradeType quantity buyPrice sellPrice totalAmount profitLoss createdAt"
+          )
+          .lean(),
+      ]);
+
+      const walletSummary =
+        walletStats[0] || {
+          totalPKR: 0,
+          totalGold: 0,
+          totalUSDT: 0,
+          totalPortfolio: 0,
+          totalLiveProfit: 0,
+        };
+
+      return res.status(200).json({
+        success: true,
+
+        dashboard: {
+          market: {
+            buyGoldPrice:
+              settings.buyGoldPrice,
+
+            sellGoldPrice:
+              settings.sellGoldPrice,
+
+            goldPriceUSD:
+              settings.goldPriceUSD,
+
+            usdToPkr:
+              settings.usdToPkr,
+
+            tradingEnabled:
+              settings.goldTradingEnabled,
+
+            marketStatus:
+              settings.marketStatus,
+          },
+
+          statistics: {
+            totalUsers,
+            totalTrades,
+            totalBuyTrades,
+            totalSellTrades,
+            completedTrades,
+            pendingTrades,
+          },
+
+          wallet: {
+            totalPKR:
+              Number(
+                walletSummary.totalPKR
+              ).toFixed(2) *
+                1,
+
+            totalGold:
+              Number(
+                walletSummary.totalGold
+              ).toFixed(4) *
+                1,
+
+            totalUSDT:
+              Number(
+                walletSummary.totalUSDT
+              ).toFixed(2) *
+                1,
+
+            totalPortfolio:
+              Number(
+                walletSummary.totalPortfolio
+              ).toFixed(2) *
+                1,
+
+            totalLiveProfit:
+              Number(
+                walletSummary.totalLiveProfit
+              ).toFixed(2) *
+                1,
+          },
+                    recentTrades,
+
+          updatedAt:
+            new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      console.error(
+        "ADMIN GOLD DASHBOARD ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load admin dashboard.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
 
 // ======================================================
 // TOP GOLD TRADERS
 // GET /api/gold/admin/top-traders
 // ======================================================
 
-router.get("/admin/top-traders", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const traders = await Wallet.aggregate([
-      {
-        $project: {
-          username: 1,
-          goldBalance: 1,
-          portfolioValue: 1,
-          liveProfit: 1,
-        },
-      },
-      { $sort: { goldBalance: -1 } },
-      { $limit: 20 },
-    ]);
+router.get(
+  "/admin/top-traders",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const traders =
+        await Wallet.aggregate([
+          {
+            $project: {
+              username: 1,
+              goldBalance: 1,
+              portfolioValue: 1,
+              liveProfit: 1,
+            },
+          },
+          {
+            $sort: {
+              goldBalance: -1,
+            },
+          },
+          {
+            $limit: 20,
+          },
+        ]);
 
-    return res.status(200).json({
-      success: true,
-      total: traders.length,
-      traders,
-    });
+      return res.status(200).json({
+        success: true,
+        total: traders.length,
+        traders,
+      });
+    } catch (error) {
+      console.error(
+        "TOP TRADERS ERROR:",
+        error
+      );
 
-  } catch (error) {
-    console.error("TOP TRADERS ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load top traders.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load top traders.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
 
 // ======================================================
 // GOLD ANALYTICS
 // GET /api/gold/admin/analytics
 // ======================================================
 
-router.get("/admin/analytics", verifyToken, isAdmin, async (req, res) => {
-  try {
-    const analytics = await GoldTrade.aggregate([
-      {
-        $group: {
-          _id: "$tradeType",
-          totalQuantity: { $sum: "$quantity" },
-          totalAmount: { $sum: "$totalAmount" },
-          totalProfit: { $sum: "$profitLoss" },
-          trades: { $sum: 1 },
-        },
-      },
-    ]);
+router.get(
+  "/admin/analytics",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const analytics =
+        await GoldTrade.aggregate([
+          {
+            $group: {
+              _id: "$tradeType",
 
-    return res.status(200).json({
-      success: true,
-      analytics,
-      generatedAt: new Date().toISOString(),
-    });
+              totalQuantity: {
+                $sum: "$quantity",
+              },
 
-  } catch (error) {
-    console.error("GOLD ANALYTICS ERROR:", error);
+              totalAmount: {
+                $sum: "$totalAmount",
+              },
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load analytics.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+              totalProfit: {
+                $sum: "$profitLoss",
+              },
+
+              trades: {
+                $sum: 1,
+              },
+            },
+          },
+        ]);
+
+      return res.status(200).json({
+        success: true,
+        analytics,
+        generatedAt:
+          new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(
+        "GOLD ANALYTICS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load analytics.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
 
 // ======================================================
 // USER GOLD SUMMARY
@@ -1560,70 +2235,134 @@ router.get(
   isAdmin,
   async (req, res) => {
     try {
-      const username = req.params.username.toLowerCase();
+      const username =
+        req.params.username
+          .trim()
+          .toLowerCase();
 
-      const user = await User.findOne({ username })
-        .select("_id username email role")
-        .lean();
+      const user =
+        await User.findOne({
+          username,
+        })
+          .select(
+            "_id username email role"
+          )
+          .lean();
 
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found.",
+          message:
+            "User not found.",
         });
       }
 
-      const wallet = await Wallet.findOne({ userId: user._id }).lean();
+      const wallet =
+        await Wallet.findOne({
+          userId: user._id,
+        }).lean();
 
-      const trades = await GoldTrade.find({ userId: user._id })
-        .sort({ createdAt: -1 })
-        .lean();
+      const trades =
+        await GoldTrade.find({
+          userId: user._id,
+        })
+          .sort({ createdAt: -1 })
+          .lean();
 
-      const totalBuyQuantity = trades
-        .filter((t) => t.tradeType === "BUY")
-        .reduce((sum, t) => sum + Number(t.quantity || 0), 0);
+      const totalBuyQuantity =
+        trades
+          .filter(
+            (t) =>
+              t.tradeType === "BUY"
+          )
+          .reduce(
+            (sum, t) =>
+              sum +
+              Number(
+                t.quantity || 0
+              ),
+            0
+          );
 
-      const totalSellQuantity = trades
-        .filter((t) => t.tradeType === "SELL")
-        .reduce((sum, t) => sum + Number(t.quantity || 0), 0);
+      const totalSellQuantity =
+        trades
+          .filter(
+            (t) =>
+              t.tradeType === "SELL"
+          )
+          .reduce(
+            (sum, t) =>
+              sum +
+              Number(
+                t.quantity || 0
+              ),
+            0
+          );
 
-      const totalProfit = trades.reduce(
-        (sum, t) => sum + Number(t.profitLoss || 0),
-        0
-      );
+      const totalProfit =
+        trades.reduce(
+          (sum, t) =>
+            sum +
+            Number(
+              t.profitLoss || 0
+            ),
+          0
+        );
 
       return res.status(200).json({
         success: true,
 
         summary: {
-          username: user.username,
-          email: user.email,
+          username:
+            user.username,
+
+          email:
+            user.email,
 
           wallet: {
-            pkrBalance: wallet?.pkrBalance || 0,
-            goldBalance: wallet?.goldBalance || 0,
-            usdtBalance: wallet?.usdtBalance || 0,
-            portfolioValue: wallet?.portfolioValue || 0,
-            liveProfit: wallet?.liveProfit || 0,
+            pkrBalance:
+              wallet?.pkrBalance || 0,
+
+            goldBalance:
+              wallet?.goldBalance || 0,
+
+            usdtBalance:
+              wallet?.usdtBalance || 0,
+
+            portfolioValue:
+              wallet?.portfolioValue ||
+              0,
+
+            liveProfit:
+              wallet?.liveProfit ||
+              0,
           },
 
           trading: {
-            totalTrades: trades.length,
+            totalTrades:
+              trades.length,
+
             totalBuyQuantity,
+
             totalSellQuantity,
+
             totalProfit,
           },
 
-          recentTrades: trades.slice(0, 5),
+          recentTrades:
+            trades.slice(0, 5),
         },
       });
-
     } catch (error) {
-      console.error("USER GOLD SUMMARY ERROR:", error);
+      console.error(
+        "USER GOLD SUMMARY ERROR:",
+        error
+      );
 
       return res.status(500).json({
         success: false,
-        message: "Unable to load user summary.",
+        message:
+          "Unable to load user summary.",
         error:
           process.env.NODE_ENV === "production"
             ? undefined
@@ -1632,12 +2371,6 @@ router.get(
     }
   }
 );
-// ======================================================
-// GoldTrade V18 Enterprise Backend
-// goldRoutes.js — PART 8A/8
-// Admin Trade Management + Portfolio Refresh APIs
-// Production Ready (Render + PM2 + MongoDB Atlas)
-// ======================================================
 
 // ======================================================
 // ADMIN CANCEL GOLD TRADE
@@ -1650,41 +2383,60 @@ router.patch(
   isAdmin,
   async (req, res) => {
     try {
-      const trade = await GoldTrade.findById(req.params.tradeId);
+      const trade =
+        await GoldTrade.findById(
+          req.params.tradeId
+        );
 
       if (!trade) {
         return res.status(404).json({
           success: false,
-          message: "Trade not found.",
+          message:
+            "Trade not found.",
         });
       }
 
-      if (trade.status === "CANCELLED") {
+      if (
+        trade.status ===
+        "CANCELLED"
+      ) {
         return res.status(400).json({
           success: false,
-          message: "Trade already cancelled.",
+          message:
+            "Trade already cancelled.",
         });
       }
 
-      trade.status = "CANCELLED";
-      trade.note = `Cancelled by ${req.user.username}`;
-      trade.adminId = req.user.id;
-      trade.adminUsername = req.user.username;
+      trade.status =
+        "CANCELLED";
+
+      trade.note =
+        `Cancelled by ${req.user.username}`;
+
+      trade.adminId =
+        req.user.id;
+
+      trade.adminUsername =
+        req.user.username;
 
       await trade.save();
 
       return res.status(200).json({
         success: true,
-        message: "Trade cancelled successfully.",
+        message:
+          "Trade cancelled successfully.",
         trade,
       });
-
     } catch (error) {
-      console.error("CANCEL GOLD TRADE ERROR:", error);
+      console.error(
+        "CANCEL GOLD TRADE ERROR:",
+        error
+      );
 
       return res.status(500).json({
         success: false,
-        message: "Unable to cancel trade.",
+        message:
+          "Unable to cancel trade.",
         error:
           process.env.NODE_ENV === "production"
             ? undefined
@@ -1705,35 +2457,48 @@ router.patch(
   isAdmin,
   async (req, res) => {
     try {
-      const { note } = req.body;
+      const { note } =
+        req.body;
 
-      const trade = await GoldTrade.findById(req.params.tradeId);
+      const trade =
+        await GoldTrade.findById(
+          req.params.tradeId
+        );
 
       if (!trade) {
         return res.status(404).json({
           success: false,
-          message: "Trade not found.",
+          message:
+            "Trade not found.",
         });
       }
 
       trade.note = note || "";
-      trade.adminId = req.user.id;
-      trade.adminUsername = req.user.username;
+
+      trade.adminId =
+        req.user.id;
+
+      trade.adminUsername =
+        req.user.username;
 
       await trade.save();
 
       return res.status(200).json({
         success: true,
-        message: "Trade note updated successfully.",
+        message:
+          "Trade note updated successfully.",
         trade,
       });
-
     } catch (error) {
-      console.error("UPDATE GOLD TRADE NOTE ERROR:", error);
+      console.error(
+        "UPDATE GOLD TRADE NOTE ERROR:",
+        error
+      );
 
       return res.status(500).json({
         success: false,
-        message: "Unable to update trade note.",
+        message:
+          "Unable to update trade note.",
         error:
           process.env.NODE_ENV === "production"
             ? undefined
@@ -1748,126 +2513,185 @@ router.patch(
 // GET /api/gold/refresh
 // ======================================================
 
-router.get("/refresh", verifyToken, async (req, res) => {
-  try {
-    const wallet = await Wallet.findOne({
-      userId: req.user.id,
-    }).lean();
+router.get(
+  "/refresh",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const wallet =
+        await Wallet.findOne({
+          userId: req.user.id,
+        }).lean();
 
-    if (!wallet) {
-      return res.status(404).json({
+      if (!wallet) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Wallet not found.",
+        });
+      }
+
+      const settings =
+        await getGoldSettings();
+
+      const portfolioValue =
+        Number(
+          (
+            wallet.goldBalance *
+            settings.sellGoldPrice
+          ).toFixed(2)
+        );
+
+      return res.status(200).json({
+        success: true,
+
+        wallet: {
+          pkrBalance:
+            wallet.pkrBalance,
+
+          goldBalance:
+            wallet.goldBalance,
+
+          usdtBalance:
+            wallet.usdtBalance,
+
+          portfolioValue,
+
+          liveProfit:
+            wallet.liveProfit,
+        },
+
+        market: {
+          buyPrice:
+            settings.buyGoldPrice,
+
+          sellPrice:
+            settings.sellGoldPrice,
+
+          marketStatus:
+            settings.marketStatus,
+        },
+
+        refreshedAt:
+          new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(
+        "REFRESH GOLD PORTFOLIO ERROR:",
+        error
+      );
+
+      return res.status(500).json({
         success: false,
-        message: "Wallet not found.",
+        message:
+          "Unable to refresh portfolio.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
       });
     }
-
-    const settings = await getGoldSettings();
-
-    const portfolioValue = Number(
-      (wallet.goldBalance * settings.sellGoldPrice).toFixed(2)
-    );
-
-    return res.status(200).json({
-      success: true,
-
-      wallet: {
-        pkrBalance: wallet.pkrBalance,
-        goldBalance: wallet.goldBalance,
-        usdtBalance: wallet.usdtBalance,
-        portfolioValue,
-        liveProfit: wallet.liveProfit,
-      },
-
-      market: {
-        buyPrice: settings.buyGoldPrice,
-        sellPrice: settings.sellGoldPrice,
-        marketStatus: settings.marketStatus,
-      },
-
-      refreshedAt: new Date().toISOString(),
-    });
-
-  } catch (error) {
-    console.error("REFRESH GOLD PORTFOLIO ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to refresh portfolio.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
+);
 
 // ======================================================
 // USER GOLD STATISTICS
 // GET /api/gold/stats
 // ======================================================
 
-router.get("/stats", verifyToken, async (req, res) => {
-  try {
-    const trades = await GoldTrade.find({
-      userId: req.user.id,
-      status: "COMPLETED",
-    }).lean();
+router.get(
+  "/stats",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const trades =
+        await GoldTrade.find({
+          userId: req.user.id,
+          status: "COMPLETED",
+        }).lean();
 
-    const totalBuyTrades = trades.filter(
-      (t) => t.tradeType === "BUY"
-    ).length;
+      const totalBuyTrades =
+        trades.filter(
+          (t) =>
+            t.tradeType === "BUY"
+        ).length;
 
-    const totalSellTrades = trades.filter(
-      (t) => t.tradeType === "SELL"
-    ).length;
+      const totalSellTrades =
+        trades.filter(
+          (t) =>
+            t.tradeType === "SELL"
+        ).length;
 
-    const totalProfit = trades.reduce(
-      (sum, t) => sum + Number(t.profitLoss || 0),
-      0
-    );
+      const totalProfit =
+        trades.reduce(
+          (sum, t) =>
+            sum +
+            Number(
+              t.profitLoss || 0
+            ),
+          0
+        );
 
-    const totalInvested = trades.reduce(
-      (sum, t) => sum + Number(t.investedAmount || 0),
-      0
-    );
+      const totalInvested =
+        trades.reduce(
+          (sum, t) =>
+            sum +
+            Number(
+              t.investedAmount || 0
+            ),
+          0
+        );
 
-    return res.status(200).json({
-      success: true,
+      return res.status(200).json({
+        success: true,
 
-      stats: {
-        totalTrades: trades.length,
-        totalBuyTrades,
-        totalSellTrades,
+        stats: {
+          totalTrades:
+            trades.length,
 
-        totalInvested: Number(totalInvested.toFixed(2)),
-        totalProfit: Number(totalProfit.toFixed(2)),
+          totalBuyTrades,
 
-        averageProfit:
-          trades.length > 0
-            ? Number((totalProfit / trades.length).toFixed(2))
-            : 0,
-      },
-    });
+          totalSellTrades,
 
-  } catch (error) {
-    console.error("GET GOLD STATS ERROR:", error);
+          totalInvested:
+            Number(
+              totalInvested.toFixed(2)
+            ),
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to load gold statistics.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+          totalProfit:
+            Number(
+              totalProfit.toFixed(2)
+            ),
+
+          averageProfit:
+            trades.length > 0
+              ? Number(
+                  (
+                    totalProfit /
+                    trades.length
+                  ).toFixed(2)
+                )
+              : 0,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "GET GOLD STATS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load gold statistics.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
-// ======================================================
-// GoldTrade V18 Enterprise Backend
-// goldRoutes.js — PART 8B/8 FINAL
-// Diagnostics + Admin APIs + Router Export
-// Production Ready (Render + PM2 + MongoDB Atlas)
-// ======================================================
+);
 
 // ======================================================
 // GOLD DIAGNOSTICS
@@ -1875,54 +2699,88 @@ router.get("/stats", verifyToken, async (req, res) => {
 // Used for Backend Testing
 // ======================================================
 
-router.get("/debug", verifyToken, async (req, res) => {
-  try {
-    const [wallet, totalTrades, totalTransactions] = await Promise.all([
-      Wallet.findOne({ userId: req.user.id }).lean(),
-      GoldTrade.countDocuments({ userId: req.user.id }),
-      Transaction.countDocuments({ userId: req.user.id }),
-    ]);
-
-    return res.status(200).json({
-      success: true,
-      module: "Gold API V18 Enterprise",
-
-      diagnostics: {
-        userId: req.user.id,
-        username: req.user.username,
-
-        walletExists: !!wallet,
-
-        wallet: wallet
-          ? {
-              pkrBalance: wallet.pkrBalance,
-              goldBalance: wallet.goldBalance,
-              usdtBalance: wallet.usdtBalance,
-              portfolioValue: wallet.portfolioValue,
-              liveProfit: wallet.liveProfit,
-            }
-          : null,
-
-        totalGoldTrades: totalTrades,
+router.get(
+  "/debug",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const [
+        wallet,
+        totalTrades,
         totalTransactions,
-      },
+      ] = await Promise.all([
+        Wallet.findOne({
+          userId: req.user.id,
+        }).lean(),
 
-      serverTime: new Date().toISOString(),
-    });
+        GoldTrade.countDocuments({
+          userId: req.user.id,
+        }),
 
-  } catch (error) {
-    console.error("GOLD DEBUG ERROR:", error);
+        Transaction.countDocuments({
+          userId: req.user.id,
+        }),
+      ]);
 
-    return res.status(500).json({
-      success: false,
-      message: "Diagnostics failed.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
+      return res.status(200).json({
+        success: true,
+        module:
+          "Gold API V18 Enterprise",
+
+        diagnostics: {
+          userId:
+            req.user.id,
+
+          username:
+            req.user.username,
+
+          walletExists:
+            !!wallet,
+
+          wallet: wallet
+            ? {
+                pkrBalance:
+                  wallet.pkrBalance,
+
+                goldBalance:
+                  wallet.goldBalance,
+
+                usdtBalance:
+                  wallet.usdtBalance,
+
+                portfolioValue:
+                  wallet.portfolioValue,
+
+                liveProfit:
+                  wallet.liveProfit,
+              }
+            : null,
+
+          totalTrades,
+          totalTransactions,
+        },
+
+        checkedAt:
+          new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(
+        "GOLD DEBUG ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Diagnostics failed.",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
   }
-});
+);
 
 // ======================================================
 // ADMIN REFRESH USER PORTFOLIO
@@ -1935,35 +2793,49 @@ router.get(
   isAdmin,
   async (req, res) => {
     try {
-      const username = req.params.username.trim().toLowerCase();
+      const username =
+        req.params.username
+          .trim()
+          .toLowerCase();
 
-      const user = await User.findOne({ username })
-        .select("_id username")
-        .lean();
+      const user =
+        await User.findOne({
+          username,
+        })
+          .select("_id username")
+          .lean();
 
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found.",
+          message:
+            "User not found.",
         });
       }
 
-      const wallet = await Wallet.findOne({
-        userId: user._id,
-      }).lean();
+      const wallet =
+        await Wallet.findOne({
+          userId: user._id,
+        }).lean();
 
       if (!wallet) {
         return res.status(404).json({
           success: false,
-          message: "Wallet not found.",
+          message:
+            "Wallet not found.",
         });
       }
 
-      const settings = await getGoldSettings();
+      const settings =
+        await getGoldSettings();
 
-      const portfolioValue = Number(
-        (wallet.goldBalance * settings.sellGoldPrice).toFixed(2)
-      );
+      const portfolioValue =
+        Number(
+          (
+            wallet.goldBalance *
+            settings.sellGoldPrice
+          ).toFixed(2)
+        );
 
       return res.status(200).json({
         success: true,
@@ -1971,22 +2843,34 @@ router.get(
         username,
 
         wallet: {
-          pkrBalance: wallet.pkrBalance,
-          goldBalance: wallet.goldBalance,
-          usdtBalance: wallet.usdtBalance,
+          pkrBalance:
+            wallet.pkrBalance,
+
+          goldBalance:
+            wallet.goldBalance,
+
+          usdtBalance:
+            wallet.usdtBalance,
+
           portfolioValue,
-          liveProfit: wallet.liveProfit,
+
+          liveProfit:
+            wallet.liveProfit,
         },
 
-        refreshedAt: new Date().toISOString(),
+        refreshedAt:
+          new Date().toISOString(),
       });
-
     } catch (error) {
-      console.error("ADMIN REFRESH PORTFOLIO ERROR:", error);
+      console.error(
+        "ADMIN REFRESH PORTFOLIO ERROR:",
+        error
+      );
 
       return res.status(500).json({
         success: false,
-        message: "Unable to refresh user portfolio.",
+        message:
+          "Unable to refresh user portfolio.",
         error:
           process.env.NODE_ENV === "production"
             ? undefined
@@ -2005,7 +2889,8 @@ router.get(
 router.get("/routes", (req, res) => {
   return res.status(200).json({
     success: true,
-    module: "GoldTrade V18 Enterprise",
+    module:
+      "GoldTrade V18 Enterprise",
     version: "18.0.0",
 
     routes: [
@@ -2021,8 +2906,8 @@ router.get("/routes", (req, res) => {
       "GET /api/gold/portfolio/:username",
 
       "GET /api/gold/history",
-      "GET /api/gold/history/:username",
       "GET /api/gold/history/search",
+      "GET /api/gold/history/:username",
       "GET /api/gold/recent",
 
       "GET /api/gold/settings",
@@ -2044,7 +2929,8 @@ router.get("/routes", (req, res) => {
       "GET /api/gold/debug",
     ],
 
-    timestamp: new Date().toISOString(),
+    timestamp:
+      new Date().toISOString(),
   });
 });
 

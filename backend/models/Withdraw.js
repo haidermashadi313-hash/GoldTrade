@@ -163,7 +163,8 @@ const WithdrawSchema = new mongoose.Schema(
       trim: true,
       maxlength: 500,
     },
-        // ==================================================
+
+    // ==================================================
     // WALLET SNAPSHOT
     // ==================================================
 
@@ -172,10 +173,12 @@ const WithdrawSchema = new mongoose.Schema(
         type: Number,
         default: 0,
       },
+
       usdtBalance: {
         type: Number,
         default: 0,
       },
+
       goldBalance: {
         type: Number,
         default: 0,
@@ -187,10 +190,12 @@ const WithdrawSchema = new mongoose.Schema(
         type: Number,
         default: 0,
       },
+
       usdtBalance: {
         type: Number,
         default: 0,
       },
+
       goldBalance: {
         type: Number,
         default: 0,
@@ -261,10 +266,24 @@ const WithdrawSchema = new mongoose.Schema(
 // INDEXES (MongoDB Optimized)
 // ======================================================
 
-WithdrawSchema.index({ username: 1, createdAt: -1 });
-WithdrawSchema.index({ walletType: 1, createdAt: -1 });
-WithdrawSchema.index({ status: 1, createdAt: -1 });
-WithdrawSchema.index({ referenceId: 1 });
+WithdrawSchema.index({
+  username: 1,
+  createdAt: -1,
+});
+
+WithdrawSchema.index({
+  walletType: 1,
+  createdAt: -1,
+});
+
+WithdrawSchema.index({
+  status: 1,
+  createdAt: -1,
+});
+
+WithdrawSchema.index({
+  referenceId: 1,
+});
 
 // ======================================================
 // PRE-SAVE MIDDLEWARE

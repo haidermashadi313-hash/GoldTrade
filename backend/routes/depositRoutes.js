@@ -1,23 +1,44 @@
 "use strict";
 
+// ======================================================
+// GoldTrade V18 Enterprise
+// depositRoutes.js
+// PART 1/3 — IMPORTS + HELPERS
+// ======================================================
+
 const express = require("express");
-const router = express.Router();
 const mongoose = require("mongoose");
 const multer = require("multer");
+
+const router = express.Router();
 
 // ======================================================
 // MODELS
 // ======================================================
 
-const Deposit = require("../models/Deposit");
-const Wallet = require("../models/Wallet");
-const User = require("../models/User");
-const WalletHistory = require("../models/WalletHistory");
-const Transaction = require("../models/Transaction");
-const Settings = require("../models/Settings");
+const Deposit =
+  require("../models/Deposit");
+
+const Wallet =
+  require("../models/Wallet");
+
+const User =
+  require("../models/User");
+
+const WalletHistory =
+  require("../models/WalletHistory");
+
+const Transaction =
+  require("../models/Transaction");
+
+const Settings =
+  require("../models/Settings");
+
+const PaymentSettings =
+  require("../models/PaymentSettings");
 
 // ======================================================
-// MIDDLEWARE
+// AUTH MIDDLEWARE
 // ======================================================
 
 const {
@@ -26,26 +47,37 @@ const {
 } = require("../middleware/auth");
 
 // ======================================================
-// MULTER - DEPOSIT RECEIPT UPLOAD
+// MULTER
+// Deposit receipt upload
 // ======================================================
 
 const upload = multer({
   storage: multer.memoryStorage(),
 
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5 MB
+    fileSize:
+      5 * 1024 * 1024,
   },
 
-  fileFilter: (req, file, cb) => {
-    const allowedMimeTypes = new Set([
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/webp",
-      "application/pdf",
-    ]);
+  fileFilter: (
+    req,
+    file,
+    cb
+  ) => {
+    const allowedTypes =
+      new Set([
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+        "application/pdf",
+      ]);
 
-    if (!allowedMimeTypes.has(file.mimetype)) {
+    if (
+      !allowedTypes.has(
+        file.mimetype
+      )
+    ) {
       return cb(
         new Error(
           "Invalid receipt file. Only JPG, PNG, WEBP and PDF files are allowed."
@@ -53,7 +85,10 @@ const upload = multer({
       );
     }
 
-    return cb(null, true);
+    return cb(
+      null,
+      true
+    );
   },
 });
 
@@ -61,376 +96,613 @@ const upload = multer({
 // DEFAULT DEPOSIT SETTINGS
 // ======================================================
 
-const DEFAULT_DEPOSIT_SETTINGS = Object.freeze({
-  depositsEnabled: true,
+const DEFAULT_DEPOSIT_SETTINGS =
+  Object.freeze({
+    depositsEnabled: true,
 
-  minimumDeposit: 1000,
+    minimumDeposit: 1000,
 
-  maximumDeposit: 10000000,
+    maximumDeposit: 10000000,
 
-  depositPaymentMethods: [],
-});
+    depositPaymentMethods: [],
+  });
 
 // ======================================================
-// NORMALIZE PAYMENT METHODS
+// SAFE NUMBER
 // ======================================================
 
-const normalizeDepositPaymentMethods = (methods) => {
-  if (!Array.isArray(methods)) {
-    return [];
+const toSafeNumber = (
+  value,
+  fallback = 0
+) => {
+  const number =
+    Number(value);
+
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
+    return fallback;
   }
 
-  return methods
-    .map((method) => {
-      if (!method || typeof method !== "object") {
-        return null;
-      }
-
-      const type = String(method.type || "")
-        .trim()
-        .toUpperCase();
-
-      if (!type) {
-        return null;
-      }
-
-      const accountName = String(
-        method.accountName ?? ""
-      ).trim();
-
-      const accountNumber = String(
-        method.accountNumber ?? ""
-      ).trim();
-
-      const qrCode = String(
-        method.qrCode ?? ""
-      ).trim();
-
-      const instructions = String(
-        method.instructions ?? ""
-      ).trim();
-
-      return {
-        type,
-        accountName,
-        accountNumber,
-        qrCode,
-        instructions,
-        enabled: method.enabled !== false,
-      };
-    })
-    .filter(Boolean);
+  return number;
 };
 
 // ======================================================
-// NORMALIZE DEPOSIT SETTINGS
+// SAFE STRING
 // ======================================================
 
-const normalizeDepositSettings = (settings) => {
-  if (!settings || typeof settings !== "object") {
-    return {
-      ...DEFAULT_DEPOSIT_SETTINGS,
-      depositPaymentMethods: [],
-    };
+const cleanString = (
+  value,
+  fallback = ""
+) => {
+  if (
+    value === undefined ||
+    value === null
+  ) {
+    return fallback;
   }
 
-  const minimumDeposit = Number(
-    settings.minimumDeposit
-  );
+  return String(
+    value
+  ).trim();
+};
 
-  const maximumDeposit = Number(
-    settings.maximumDeposit
-  );
+// ======================================================
+// BOOLEAN NORMALIZER
+// ======================================================
 
-  let normalizedMinimum =
-    Number.isFinite(minimumDeposit) &&
-    minimumDeposit >= 0
-      ? minimumDeposit
-      : DEFAULT_DEPOSIT_SETTINGS.minimumDeposit;
-
-  let normalizedMaximum =
-    Number.isFinite(maximumDeposit) &&
-    maximumDeposit > 0
-      ? maximumDeposit
-      : DEFAULT_DEPOSIT_SETTINGS.maximumDeposit;
-
-  // ----------------------------------------------------
-  // SAFETY CHECK
-  // ----------------------------------------------------
-
-  if (normalizedMinimum > normalizedMaximum) {
-    normalizedMinimum =
-      DEFAULT_DEPOSIT_SETTINGS.minimumDeposit;
-
-    normalizedMaximum =
-      DEFAULT_DEPOSIT_SETTINGS.maximumDeposit;
+const toBoolean = (
+  value,
+  fallback = true
+) => {
+  if (
+    value === undefined ||
+    value === null
+  ) {
+    return fallback;
   }
+
+  if (
+    typeof value ===
+    "boolean"
+  ) {
+    return value;
+  }
+
+  if (
+    typeof value ===
+    "string"
+  ) {
+    const normalized =
+      value
+        .trim()
+        .toLowerCase();
+
+    if (
+      normalized ===
+      "true"
+    ) {
+      return true;
+    }
+
+    if (
+      normalized ===
+      "false"
+    ) {
+      return false;
+    }
+  }
+
+  return Boolean(
+    value
+  );
+};
+
+// ======================================================
+// PAYMENT METHOD NORMALIZER
+//
+// Supports:
+// type / accountName / qrCode
+//
+// AND:
+// method / title / accountTitle / qrImage
+// ======================================================
+
+const normalizeDepositPaymentMethods =
+  (
+    methods
+  ) => {
+    if (
+      !Array.isArray(
+        methods
+      )
+    ) {
+      return [];
+    }
+
+    return methods
+      .map(
+        (item) => {
+          if (
+            !item ||
+            typeof item !==
+              "object"
+          ) {
+            return null;
+          }
+
+          const rawType =
+            item.type ??
+            item.method ??
+            item.title ??
+            "";
+
+          const type =
+            cleanString(
+              rawType
+            ).toUpperCase();
+
+          if (!type) {
+            return null;
+          }
+
+          const accountName =
+            cleanString(
+              item.accountName ??
+                item.accountTitle ??
+                ""
+            );
+
+          const accountNumber =
+            cleanString(
+              item.accountNumber ??
+                ""
+            );
+
+          const walletAddress =
+            cleanString(
+              item.walletAddress ??
+                ""
+            );
+
+          const iban =
+            cleanString(
+              item.iban ??
+                ""
+            );
+
+          const network =
+            cleanString(
+              item.network ??
+                ""
+            );
+
+          const qrCode =
+            cleanString(
+              item.qrCode ??
+                item.qrImage ??
+                ""
+            );
+
+          const instructions =
+            cleanString(
+              item.instructions ??
+                ""
+            );
+
+          const enabled =
+            item.enabled !==
+            false;
+
+          return {
+            type,
+
+            accountName,
+
+            accountNumber,
+
+            walletAddress,
+
+            iban,
+
+            network,
+
+            qrCode,
+
+            instructions,
+
+            enabled,
+          };
+        }
+      )
+      .filter(Boolean)
+      .slice(0, 20);
+  };
+
+// ======================================================
+// PAYMENT METHOD RESPONSE NORMALIZER
+// ======================================================
+
+const formatPaymentMethod = (
+  method
+) => {
+  if (
+    !method ||
+    typeof method !==
+      "object"
+  ) {
+    return null;
+  }
+
+  const type =
+    cleanString(
+      method.type ??
+        method.method ??
+        ""
+    ).toUpperCase();
 
   return {
-    depositsEnabled:
-      settings.depositsEnabled !== false,
+    _id:
+      method._id ??
+      null,
 
-    minimumDeposit:
-      normalizedMinimum,
+    type,
 
-    maximumDeposit:
-      normalizedMaximum,
+    method:
+      method.method ||
+      type,
 
-    depositPaymentMethods:
-      normalizeDepositPaymentMethods(
-        settings.depositPaymentMethods
-      ),
+    title:
+      method.title ||
+      type,
+
+    accountName:
+      method.accountName ||
+      method.accountTitle ||
+      "",
+
+    accountTitle:
+      method.accountTitle ||
+      method.accountName ||
+      "",
+
+    accountNumber:
+      method.accountNumber ||
+      "",
+
+    walletAddress:
+      method.walletAddress ||
+      "",
+
+    iban:
+      method.iban ||
+      "",
+
+    network:
+      method.network ||
+      "",
+
+    qrCode:
+      method.qrCode ||
+      method.qrImage ||
+      "",
+
+    qrImage:
+      method.qrImage ||
+      method.qrCode ||
+      "",
+
+    instructions:
+      method.instructions ||
+      "",
+
+    enabled:
+      method.enabled !==
+      false,
   };
 };
 
 // ======================================================
-// GET / CREATE DEPOSIT SETTINGS
+// NORMALIZE SETTINGS RESPONSE
 // ======================================================
 
-const getDepositSettings = async () => {
-  // ----------------------------------------------------
-  // FIND EXISTING SETTINGS
-  // ----------------------------------------------------
-
-  let settings = await Settings.findOne();
-
-  // ----------------------------------------------------
-  // CREATE SETTINGS IF NOT EXISTS
-  // ----------------------------------------------------
-
-  if (!settings) {
-    settings = await Settings.create({
-      depositsEnabled:
-        DEFAULT_DEPOSIT_SETTINGS.depositsEnabled,
-
-      minimumDeposit:
-        DEFAULT_DEPOSIT_SETTINGS.minimumDeposit,
-
-      maximumDeposit:
-        DEFAULT_DEPOSIT_SETTINGS.maximumDeposit,
-
-      depositPaymentMethods:
-        normalizeDepositPaymentMethods(
-          DEFAULT_DEPOSIT_SETTINGS.depositPaymentMethods
-        ),
-    });
-
-    console.log(
-      "🟢 Default Deposit Settings Created"
+const formatDepositSettings = (
+  settings
+) => {
+  const minimumDeposit =
+    toSafeNumber(
+      settings?.minimumDeposit,
+      DEFAULT_DEPOSIT_SETTINGS.minimumDeposit
     );
 
-    return settings;
-  }
+  const maximumDeposit =
+    toSafeNumber(
+      settings?.maximumDeposit,
+      DEFAULT_DEPOSIT_SETTINGS.maximumDeposit
+    );
 
-  // ----------------------------------------------------
-  // TRACK CHANGES
-  // ----------------------------------------------------
-
-  let changed = false;
-
-  // ----------------------------------------------------
-  // ENSURE depositsEnabled
-  // ----------------------------------------------------
-
-  if (
-    typeof settings.depositsEnabled !==
-    "boolean"
-  ) {
-    settings.depositsEnabled =
-      DEFAULT_DEPOSIT_SETTINGS.depositsEnabled;
-
-    changed = true;
-  }
-
-  // ----------------------------------------------------
-  // ENSURE minimumDeposit
-  // ----------------------------------------------------
-
-  const currentMinimumDeposit = Number(
-    settings.minimumDeposit
-  );
-
-  if (
-    !Number.isFinite(currentMinimumDeposit) ||
-    currentMinimumDeposit < 0
-  ) {
-    settings.minimumDeposit =
-      DEFAULT_DEPOSIT_SETTINGS.minimumDeposit;
-
-    changed = true;
-  } else if (
-    settings.minimumDeposit !==
-    currentMinimumDeposit
-  ) {
-    settings.minimumDeposit =
-      currentMinimumDeposit;
-
-    changed = true;
-  }
-
-  // ----------------------------------------------------
-  // ENSURE maximumDeposit
-  // ----------------------------------------------------
-
-  const currentMaximumDeposit = Number(
-    settings.maximumDeposit
-  );
-
-  if (
-    !Number.isFinite(currentMaximumDeposit) ||
-    currentMaximumDeposit <= 0
-  ) {
-    settings.maximumDeposit =
-      DEFAULT_DEPOSIT_SETTINGS.maximumDeposit;
-
-    changed = true;
-  } else if (
-    settings.maximumDeposit !==
-    currentMaximumDeposit
-  ) {
-    settings.maximumDeposit =
-      currentMaximumDeposit;
-
-    changed = true;
-  }
-
-  // ----------------------------------------------------
-  // NORMALIZE PAYMENT METHODS
-  // ----------------------------------------------------
-
-  const existingMethods =
+  const rawMethods =
     Array.isArray(
-      settings.depositPaymentMethods
+      settings?.depositPaymentMethods
     )
       ? settings.depositPaymentMethods
       : [];
 
-  const normalizedMethods =
-    normalizeDepositPaymentMethods(
-      existingMethods
-    );
+  const methods =
+    rawMethods
+      .map(
+        formatPaymentMethod
+      )
+      .filter(Boolean);
 
-  // ----------------------------------------------------
-  // CHECK PAYMENT METHODS CHANGES
-  // ----------------------------------------------------
+  return {
+    depositsEnabled:
+      settings?.depositsEnabled !==
+      false,
 
-  if (
-    JSON.stringify(normalizedMethods) !==
-    JSON.stringify(existingMethods)
-  ) {
-    settings.depositPaymentMethods =
-      normalizedMethods;
+    minimumDeposit,
 
-    changed = true;
-  }
+    maximumDeposit,
 
-  // ----------------------------------------------------
-  // ENSURE MINIMUM <= MAXIMUM
-  // ----------------------------------------------------
+    methods,
 
-  const finalMinimumDeposit = Number(
-    settings.minimumDeposit
-  );
+    paymentMethods:
+      methods,
 
-  const finalMaximumDeposit = Number(
-    settings.maximumDeposit
-  );
+    depositPaymentMethods:
+      methods,
 
-  if (
-    finalMinimumDeposit >
-    finalMaximumDeposit
-  ) {
-    settings.minimumDeposit =
-      DEFAULT_DEPOSIT_SETTINGS.minimumDeposit;
-
-    settings.maximumDeposit =
-      DEFAULT_DEPOSIT_SETTINGS.maximumDeposit;
-
-    changed = true;
-  }
-
-  // ----------------------------------------------------
-  // SAVE ONLY WHEN CHANGED
-  // ----------------------------------------------------
-
-  if (changed) {
-    await settings.save();
-  }
-
-  // ----------------------------------------------------
-  // RETURN SETTINGS
-  // ----------------------------------------------------
-
-  return settings;
+    updatedAt:
+      settings?.updatedAt ||
+      null,
+  };
 };
+// ======================================================
+// GET OR CREATE DEPOSIT SETTINGS
+// ======================================================
+
+const getDepositSettings =
+  async () => {
+    let settings =
+      await Settings.findOne();
+
+    // --------------------------------------------------
+    // CREATE DEFAULT SETTINGS
+    // --------------------------------------------------
+
+    if (!settings) {
+      settings =
+        await Settings.create({
+          depositsEnabled:
+            DEFAULT_DEPOSIT_SETTINGS.depositsEnabled,
+
+          minimumDeposit:
+            DEFAULT_DEPOSIT_SETTINGS.minimumDeposit,
+
+          maximumDeposit:
+            DEFAULT_DEPOSIT_SETTINGS.maximumDeposit,
+
+          depositPaymentMethods:
+            [],
+        });
+
+      console.log(
+        "🟢 Default deposit settings created."
+      );
+
+      return settings;
+    }
+
+    let changed = false;
+
+    // --------------------------------------------------
+    // depositsEnabled
+    // --------------------------------------------------
+
+    if (
+      typeof settings.depositsEnabled !==
+      "boolean"
+    ) {
+      settings.depositsEnabled =
+        DEFAULT_DEPOSIT_SETTINGS.depositsEnabled;
+
+      changed = true;
+    }
+
+    // --------------------------------------------------
+    // minimumDeposit
+    // --------------------------------------------------
+
+    const minimumDeposit =
+      toSafeNumber(
+        settings.minimumDeposit,
+        DEFAULT_DEPOSIT_SETTINGS.minimumDeposit
+      );
+
+    if (
+      minimumDeposit < 0
+    ) {
+      settings.minimumDeposit =
+        DEFAULT_DEPOSIT_SETTINGS.minimumDeposit;
+
+      changed = true;
+    } else if (
+      settings.minimumDeposit !==
+      minimumDeposit
+    ) {
+      settings.minimumDeposit =
+        minimumDeposit;
+
+      changed = true;
+    }
+
+    // --------------------------------------------------
+    // maximumDeposit
+    // --------------------------------------------------
+
+    const maximumDeposit =
+      toSafeNumber(
+        settings.maximumDeposit,
+        DEFAULT_DEPOSIT_SETTINGS.maximumDeposit
+      );
+
+    if (
+      maximumDeposit <= 0
+    ) {
+      settings.maximumDeposit =
+        DEFAULT_DEPOSIT_SETTINGS.maximumDeposit;
+
+      changed = true;
+    } else if (
+      settings.maximumDeposit !==
+      maximumDeposit
+    ) {
+      settings.maximumDeposit =
+        maximumDeposit;
+
+      changed = true;
+    }
+
+    // --------------------------------------------------
+    // Fix minimum > maximum
+    // --------------------------------------------------
+
+    if (
+      Number(
+        settings.minimumDeposit
+      ) >
+      Number(
+        settings.maximumDeposit
+      )
+    ) {
+      settings.minimumDeposit =
+        DEFAULT_DEPOSIT_SETTINGS.minimumDeposit;
+
+      settings.maximumDeposit =
+        DEFAULT_DEPOSIT_SETTINGS.maximumDeposit;
+
+      changed = true;
+    }
+
+    // --------------------------------------------------
+    // Normalize legacy payment methods
+    // --------------------------------------------------
+
+    const existingMethods =
+      Array.isArray(
+        settings.depositPaymentMethods
+      )
+        ? settings.depositPaymentMethods
+        : [];
+
+    const normalizedMethods =
+      normalizeDepositPaymentMethods(
+        existingMethods
+      );
+
+    if (
+      JSON.stringify(
+        existingMethods
+      ) !==
+      JSON.stringify(
+        normalizedMethods
+      )
+    ) {
+      settings.depositPaymentMethods =
+        normalizedMethods;
+
+      changed = true;
+    }
+
+    // --------------------------------------------------
+    // Save only when required
+    // --------------------------------------------------
+
+    if (changed) {
+      await settings.save();
+    }
+
+    return settings;
+  };
 
 // ======================================================
-// GET USER WALLET
+// WALLET HELPER
 // ======================================================
 
-const getWallet = async (userId, username) => {
+const getWallet = async (
+  userId,
+  username = ""
+) => {
   if (!userId) {
     throw new Error(
-      "User ID is required to load wallet."
+      "User ID is required."
     );
   }
 
-  // ----------------------------------------------------
-  // FIND EXISTING WALLET
-  // ----------------------------------------------------
-
-  let wallet = await Wallet.findOne({
-    userId,
-  });
-
-  // ----------------------------------------------------
-  // CREATE WALLET IF NOT EXISTS
-  // ----------------------------------------------------
-
-  if (!wallet) {
-    wallet = await Wallet.create({
+  let wallet =
+    await Wallet.findOne({
       userId,
-
-      username: String(
-        username || ""
-      ).trim(),
-
-      balance: 0,
-
-      pkrBalance: 0,
-      usdtBalance: 0,
-      goldBalance: 0,
-
-      lockedPkr: 0,
-      lockedUsdt: 0,
-      lockedGold: 0,
-
-      portfolioValue: 0,
-
-      liveProfit: 0,
-      liveProfitPercent: 0,
-
-      totalDeposit: 0,
-      totalWithdraw: 0,
-
-      totalPkrDeposit: 0,
-      totalPkrWithdraw: 0,
-
-      totalGoldPurchased: 0,
-      totalGoldSold: 0,
-
-      totalUsdtDeposited: 0,
-      totalUsdtWithdrawn: 0,
-
-      status: "Active",
-
-      isVerified: true,
-
-      isFrozen: false,
     });
 
+  if (!wallet) {
+    wallet =
+      await Wallet.create({
+        userId,
+
+        username:
+          cleanString(
+            username
+          ),
+
+        balance: 0,
+
+        pkrBalance: 0,
+
+        usdtBalance: 0,
+
+        goldBalance: 0,
+
+        lockedPkr: 0,
+
+        lockedUsdt: 0,
+
+        lockedGold: 0,
+
+        portfolioValue: 0,
+
+        liveProfit: 0,
+
+        liveProfitPercent: 0,
+
+        totalDeposit: 0,
+
+        totalWithdraw: 0,
+
+        totalPkrDeposit: 0,
+
+        totalPkrWithdraw: 0,
+
+        totalGoldPurchased: 0,
+
+        totalGoldSold: 0,
+
+        totalUsdtDeposited: 0,
+
+        totalUsdtWithdrawn: 0,
+
+        status: "Active",
+
+        isVerified: true,
+
+        isFrozen: false,
+      });
+
     console.log(
-      `🟢 Wallet created for ${username || userId}`
+      `🟢 Wallet created for ${
+        username || userId
+      }`
     );
   }
 
@@ -438,7 +710,104 @@ const getWallet = async (userId, username) => {
 };
 
 // ======================================================
-// HEALTH CHECK
+// V18 PAYMENT METHODS
+//
+// SOURCE OF TRUTH:
+// PaymentSettings.depositMethods[]
+//
+// IMPORTANT:
+// This helper MUST exist before any route
+// that calls getV18DepositMethods().
+// ======================================================
+
+const getV18DepositMethods =
+  async () => {
+    const paymentSettings =
+      await PaymentSettings
+        .findOne()
+        .lean();
+
+    if (
+      !paymentSettings
+    ) {
+      return [];
+    }
+
+    const methods =
+      Array.isArray(
+        paymentSettings.depositMethods
+      )
+        ? paymentSettings.depositMethods
+        : [];
+
+    return methods
+      .filter(
+        (method) =>
+          method &&
+          method.enabled === true
+      )
+      .map(
+        (method) => ({
+          _id:
+            method._id ||
+            `${method.method}_${paymentSettings._id}`,
+
+          type:
+            method.method ||
+            "",
+
+          method:
+            method.method ||
+            "",
+
+          title:
+            method.title ||
+            method.method ||
+            "",
+
+          accountName:
+            method.accountTitle ||
+            "",
+
+          accountTitle:
+            method.accountTitle ||
+            "",
+
+          accountNumber:
+            method.accountNumber ||
+            "",
+
+          walletAddress:
+            method.walletAddress ||
+            "",
+
+          iban:
+            method.iban ||
+            "",
+
+          network:
+            method.network ||
+            "",
+
+          qrCode:
+            method.qrImage ||
+            "",
+
+          qrImage:
+            method.qrImage ||
+            "",
+
+          instructions:
+            method.instructions ||
+            "",
+
+          enabled: true,
+        })
+      );
+  };
+
+// ======================================================
+// HEALTH
 // GET /api/deposit/health
 // ======================================================
 
@@ -449,7 +818,7 @@ router.get(
       success: true,
 
       module:
-        "GoldTrade V18 Deposit API",
+        "GoldTrade V18 Enterprise Deposit API",
 
       version:
         "18.0.0",
@@ -462,9 +831,8 @@ router.get(
     });
   }
 );
-
 // ======================================================
-// API STATUS
+// STATUS
 // GET /api/deposit/status
 // ======================================================
 
@@ -475,30 +843,27 @@ router.get(
       const settings =
         await getDepositSettings();
 
-      const normalizedSettings =
-        normalizeDepositSettings(
-          settings
-        );
-
       const methods =
-        normalizedSettings
-          .depositPaymentMethods
-          .filter(
-            (method) =>
-              method.enabled !== false
-          );
+        await getV18DepositMethods();
 
       return res.status(200).json({
         success: true,
 
         depositsEnabled:
-          normalizedSettings.depositsEnabled,
+          settings.depositsEnabled !==
+          false,
 
         minimumDeposit:
-          normalizedSettings.minimumDeposit,
+          toSafeNumber(
+            settings.minimumDeposit,
+            DEFAULT_DEPOSIT_SETTINGS.minimumDeposit
+          ),
 
         maximumDeposit:
-          normalizedSettings.maximumDeposit,
+          toSafeNumber(
+            settings.maximumDeposit,
+            DEFAULT_DEPOSIT_SETTINGS.maximumDeposit
+          ),
 
         paymentMethodsCount:
           methods.length,
@@ -508,7 +873,7 @@ router.get(
       });
     } catch (error) {
       console.error(
-        "❌ DEPOSIT STATUS ERROR:",
+        "DEPOSIT STATUS ERROR:",
         error
       );
 
@@ -518,20 +883,18 @@ router.get(
         message:
           "Unable to load deposit status.",
 
-        ...(process.env.NODE_ENV !==
-        "production"
-          ? {
-              error:
-                error.message,
-            }
-          : {}),
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
       });
     }
   }
 );
 
 // ======================================================
-// GET DEPOSIT PAYMENT SETTINGS
+// GET DEPOSIT SETTINGS
 // GET /api/deposit/settings
 //
 // USER + ADMIN
@@ -545,52 +908,40 @@ router.get(
       const settings =
         await getDepositSettings();
 
-      const normalizedSettings =
-        normalizeDepositSettings(
+      const formatted =
+        formatDepositSettings(
           settings
         );
 
-      // ------------------------------------------------
-      // ONLY ACTIVE METHODS FOR USER
-      // ------------------------------------------------
-
       const methods =
-        normalizedSettings
-          .depositPaymentMethods
-          .filter(
-            (method) =>
-              method.enabled !== false
-          );
+        await getV18DepositMethods();
 
       return res.status(200).json({
         success: true,
 
         settings: {
-          depositsEnabled:
-            normalizedSettings.depositsEnabled,
-
-          minimumDeposit:
-            normalizedSettings.minimumDeposit,
-
-          maximumDeposit:
-            normalizedSettings.maximumDeposit,
+          ...formatted,
 
           methods,
-        },
 
-        // ------------------------------------------------
-        // TOP-LEVEL METHODS
-        // FRONTEND COMPATIBILITY
-        // ------------------------------------------------
+          paymentMethods:
+            methods,
+        },
 
         methods,
 
+        paymentMethods:
+          methods,
+
         total:
           methods.length,
+
+        generatedAt:
+          new Date().toISOString(),
       });
     } catch (error) {
       console.error(
-        "❌ GET DEPOSIT SETTINGS ERROR:",
+        "GET DEPOSIT SETTINGS ERROR:",
         error
       );
 
@@ -600,21 +951,425 @@ router.get(
         message:
           "Unable to load deposit settings.",
 
-        ...(process.env.NODE_ENV !==
-        "production"
-          ? {
-              error:
-                error.message,
-            }
-          : {}),
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
       });
     }
   }
 );
 
 // ======================================================
-// ADMIN UPDATE DEPOSIT PAYMENT METHODS
+// GET DEPOSIT PAYMENT SETTINGS
+// GET /api/deposit/payment-settings
+//
+// USER + ADMIN
+//
+// Used by:
+// frontend/app/deposit/page.tsx
+//
+// V18 SOURCE OF TRUTH:
+// PaymentSettings.depositMethods[]
+// ======================================================
+
+router.get(
+  "/payment-settings",
+  async (req, res) => {
+    try {
+      // ------------------------------------------------
+      // GENERAL DEPOSIT SETTINGS
+      // ------------------------------------------------
+
+      const settings =
+        await getDepositSettings();
+
+      // ------------------------------------------------
+      // V18 PAYMENT METHODS
+      // ------------------------------------------------
+
+      const methods =
+        await getV18DepositMethods();
+
+      // ------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+
+        methods,
+
+        paymentMethods:
+          methods,
+
+        total:
+          methods.length,
+
+        depositsEnabled:
+          settings.depositsEnabled !==
+          false,
+
+        minimumDeposit:
+          toSafeNumber(
+            settings.minimumDeposit,
+            DEFAULT_DEPOSIT_SETTINGS.minimumDeposit
+          ),
+
+        maximumDeposit:
+          toSafeNumber(
+            settings.maximumDeposit,
+            DEFAULT_DEPOSIT_SETTINGS.maximumDeposit
+          ),
+
+        generatedAt:
+          new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(
+        "GET DEPOSIT PAYMENT SETTINGS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load payment settings.",
+
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
+  }
+);
+
+
+// ======================================================
+// PATCH DEPOSIT SETTINGS
+//
+// PATCH /api/deposit/settings
+//
+// Used by:
+// Admin Payment Settings
+//
+// Body:
+// {
+//   depositsEnabled: true,
+//   minimumDeposit: 1000,
+//   maximumDeposit: 10000000
+// }
+// ======================================================
+
+router.patch(
+  "/settings",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const body =
+        req.body || {};
+
+      // --------------------------------------------------
+      // GET CURRENT SETTINGS
+      // --------------------------------------------------
+
+      const settings =
+        await getDepositSettings();
+
+      // --------------------------------------------------
+      // DEPOSITS ENABLED
+      // --------------------------------------------------
+
+      if (
+        body.depositsEnabled !==
+        undefined
+      ) {
+        settings.depositsEnabled =
+          toBoolean(
+            body.depositsEnabled,
+            settings.depositsEnabled !== false
+          );
+      }
+
+      // --------------------------------------------------
+      // MINIMUM DEPOSIT
+      // --------------------------------------------------
+
+      if (
+        body.minimumDeposit !==
+        undefined
+      ) {
+        const minimum =
+          Number(
+            body.minimumDeposit
+          );
+
+        if (
+          !Number.isFinite(
+            minimum
+          ) ||
+          minimum <= 0
+        ) {
+          return res.status(400).json({
+            success: false,
+
+            message:
+              "Minimum deposit must be a valid number greater than 0.",
+          });
+        }
+
+        settings.minimumDeposit =
+          minimum;
+      }
+
+      // --------------------------------------------------
+      // MAXIMUM DEPOSIT
+      // --------------------------------------------------
+
+      if (
+        body.maximumDeposit !==
+        undefined
+      ) {
+        const maximum =
+          Number(
+            body.maximumDeposit
+          );
+
+        if (
+          !Number.isFinite(
+            maximum
+          ) ||
+          maximum <= 0
+        ) {
+          return res.status(400).json({
+            success: false,
+
+            message:
+              "Maximum deposit must be a valid number greater than 0.",
+          });
+        }
+
+        settings.maximumDeposit =
+          maximum;
+      }
+
+      // --------------------------------------------------
+      // FINAL VALIDATION
+      // --------------------------------------------------
+
+      const finalMinimum =
+        Number(
+          settings.minimumDeposit
+        );
+
+      const finalMaximum =
+        Number(
+          settings.maximumDeposit
+        );
+
+      if (
+        !Number.isFinite(
+          finalMinimum
+        ) ||
+        !Number.isFinite(
+          finalMaximum
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+
+          message:
+            "Deposit limits must be valid numbers.",
+        });
+      }
+
+      if (
+        finalMinimum <= 0
+      ) {
+        return res.status(400).json({
+          success: false,
+
+          message:
+            "Minimum deposit must be greater than 0.",
+        });
+      }
+
+      if (
+        finalMaximum <= 0
+      ) {
+        return res.status(400).json({
+          success: false,
+
+          message:
+            "Maximum deposit must be greater than 0.",
+        });
+      }
+
+      if (
+        finalMinimum >
+        finalMaximum
+      ) {
+        return res.status(400).json({
+          success: false,
+
+          message:
+            "Minimum deposit cannot be greater than maximum deposit.",
+        });
+      }
+
+      // --------------------------------------------------
+      // SAVE
+      // --------------------------------------------------
+
+      settings.minimumDeposit =
+        finalMinimum;
+
+      settings.maximumDeposit =
+        finalMaximum;
+
+      await settings.save();
+
+      // --------------------------------------------------
+      // GENERAL FORMATTED SETTINGS
+      // --------------------------------------------------
+
+      const formatted =
+        formatDepositSettings(
+          settings
+        );
+
+      
+      // --------------------------------------------------
+      // RESPONSE
+      // --------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Deposit settings updated successfully.",
+
+        settings: {
+          ...formatted,
+
+          methods,
+
+          paymentMethods:
+            methods,
+        },
+
+        methods,
+
+        paymentMethods:
+          methods,
+
+        total:
+          methods.length,
+
+        updatedAt:
+          settings.updatedAt ||
+          new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(
+        "PATCH DEPOSIT SETTINGS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to update deposit settings.",
+
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
+  }
+);
+
+// ======================================================
+// GET PAYMENT METHODS
+// GET /api/deposit/settings/payment-methods
+//
+// USER + ADMIN
+//
+// V18 SOURCE OF TRUTH:
+// PaymentSettings.depositMethods[]
+// ======================================================
+
+router.get(
+  "/settings/payment-methods",
+  verifyToken,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // V18 PAYMENT SETTINGS
+      // ==================================================
+
+      const methods =
+        await getV18DepositMethods();
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+
+        methods,
+
+        paymentMethods:
+          methods,
+
+        total:
+          methods.length,
+
+        generatedAt:
+          new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(
+        "GET PAYMENT METHODS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load payment methods.",
+
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
+  }
+);
+
+// ======================================================
+// PATCH PAYMENT METHODS
+//
 // PATCH /api/deposit/settings/payment-methods
+//
+// Body:
+// {
+//   methods: []
+// }
+//
+// V18 SOURCE OF TRUTH:
+// PaymentSettings.depositMethods[]
 // ======================================================
 
 router.patch(
@@ -623,14 +1378,18 @@ router.patch(
   isAdmin,
   async (req, res) => {
     try {
-      const methods =
+      // ==================================================
+      // REQUEST METHODS
+      // ==================================================
+
+      const incoming =
         req.body?.methods;
 
-      // ------------------------------------------------
-      // VALIDATE ARRAY
-      // ------------------------------------------------
-
-      if (!Array.isArray(methods)) {
+      if (
+        !Array.isArray(
+          incoming
+        )
+      ) {
         return res.status(400).json({
           success: false,
 
@@ -639,11 +1398,14 @@ router.patch(
         });
       }
 
-      // ------------------------------------------------
+      // ==================================================
       // MAXIMUM METHODS
-      // ------------------------------------------------
+      // ==================================================
 
-      if (methods.length > 20) {
+      if (
+        incoming.length >
+        20
+      ) {
         return res.status(400).json({
           success: false,
 
@@ -652,22 +1414,22 @@ router.patch(
         });
       }
 
-      // ------------------------------------------------
+      // ==================================================
       // NORMALIZE METHODS
-      // ------------------------------------------------
+      // ==================================================
 
-      const normalizedMethods =
+      const methods =
         normalizeDepositPaymentMethods(
-          methods
+          incoming
         );
 
-      // ------------------------------------------------
-      // VALIDATE NORMALIZED RESULT
-      // ------------------------------------------------
+      // ==================================================
+      // VALIDATION
+      // ==================================================
 
       if (
-        normalizedMethods.length !==
-        methods.length
+        methods.length !==
+        incoming.length
       ) {
         return res.status(400).json({
           success: false,
@@ -677,55 +1439,47 @@ router.patch(
         });
       }
 
-      // ------------------------------------------------
-      // DUPLICATE PAYMENT METHOD CHECK
-      // ------------------------------------------------
+      // ==================================================
+      // LOAD V18 PAYMENT SETTINGS
+      // ==================================================
 
-      const methodTypes =
-        normalizedMethods.map(
-          (method) =>
-            method.type
-        );
+      let paymentSettings =
+        await PaymentSettings.findOne();
 
-      const uniqueMethodTypes =
-        new Set(methodTypes);
+      // ==================================================
+      // CREATE SETTINGS IF MISSING
+      // ==================================================
 
-      if (
-        uniqueMethodTypes.size !==
-        methodTypes.length
-      ) {
-        return res.status(400).json({
-          success: false,
-
-          message:
-            "Duplicate payment method types are not allowed.",
-        });
+      if (!paymentSettings) {
+        paymentSettings =
+          new PaymentSettings();
       }
 
-      // ------------------------------------------------
-      // GET SETTINGS
-      // ------------------------------------------------
+      // ==================================================
+      // V18 SOURCE OF TRUTH
+      // ==================================================
 
-      const settings =
-        await getDepositSettings();
+      paymentSettings.depositMethods =
+        methods;
 
-      // ------------------------------------------------
-      // UPDATE METHODS
-      // ------------------------------------------------
+      // ==================================================
+      // SAVE
+      // ==================================================
 
-      settings.depositPaymentMethods =
-        normalizedMethods;
+      await paymentSettings.save();
 
-      await settings.save();
+      // ==================================================
+      // FORMAT RESPONSE
+      // ==================================================
 
-      // ------------------------------------------------
-      // RESPONSE SETTINGS
-      // ------------------------------------------------
-
-      const normalizedSettings =
-        normalizeDepositSettings(
-          settings
+      const formatted =
+        methods.map(
+          formatPaymentMethod
         );
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
 
       return res.status(200).json({
         success: true,
@@ -733,33 +1487,22 @@ router.patch(
         message:
           "Deposit payment methods updated successfully.",
 
-        settings: {
-          depositsEnabled:
-            normalizedSettings.depositsEnabled,
-
-          minimumDeposit:
-            normalizedSettings.minimumDeposit,
-
-          maximumDeposit:
-            normalizedSettings.maximumDeposit,
-
-          methods:
-            normalizedMethods,
-        },
-
-        // ------------------------------------------------
-        // FRONTEND COMPATIBILITY
-        // ------------------------------------------------
-
         methods:
-          normalizedMethods,
+          formatted,
+
+        paymentMethods:
+          formatted,
 
         total:
-          normalizedMethods.length,
+          formatted.length,
+
+        updatedAt:
+          paymentSettings.updatedAt ||
+          new Date().toISOString(),
       });
     } catch (error) {
       console.error(
-        "❌ UPDATE DEPOSIT PAYMENT METHODS ERROR:",
+        "PATCH PAYMENT METHODS ERROR:",
         error
       );
 
@@ -767,23 +1510,25 @@ router.patch(
         success: false,
 
         message:
-          "Unable to update deposit payment methods.",
+          "Unable to update payment methods.",
 
-        ...(process.env.NODE_ENV !==
-        "production"
-          ? {
-              error:
-                error.message,
-            }
-          : {}),
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
       });
     }
   }
 );
+
 // ======================================================
-// CREATE DEPOSIT
-// POST /api/deposit/create
+// GoldTrade V18 Enterprise
+// depositRoutes.js
+// PART 2/6
+// CREATE DEPOSIT REQUEST
 // ======================================================
+
 
 router.post(
   "/create",
@@ -794,136 +1539,89 @@ router.post(
 
     try {
       // ==================================================
-      // USER
+      // GET USER
       // ==================================================
 
-      const user = await User.findById(
-        req.user.id
-      )
-        .select(
-          "_id username fullName email"
+      const user =
+        await User.findById(
+          req.user.id
         )
-        .lean();
+          .select(
+            "_id username fullName email"
+          )
+          .lean();
 
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found.",
+          message:
+            "User not found.",
         });
       }
 
       // ==================================================
-      // NORMALIZE FRONTEND INPUT
+      // NORMALIZE INPUT
       // ==================================================
 
-      const walletType = String(
-        req.body?.walletType || "PKR"
-      )
-        .trim()
-        .toUpperCase();
+      const walletType =
+        cleanString(
+          req.body?.walletType ||
+            "PKR"
+        ).toUpperCase();
 
-      const paymentMethod = String(
-        req.body?.paymentMethod ||
-          req.body?.method ||
-          ""
-      )
-        .trim()
-        .toUpperCase();
+      const paymentMethod =
+        cleanString(
+          req.body?.paymentMethod ||
+            req.body?.method ||
+            ""
+        ).toUpperCase();
 
       const rawAmount =
         req.body?.amount ??
         req.body?.requestAmount;
 
-      const depositAmount = Number(
-        rawAmount
-      );
+      const depositAmount =
+        Number(rawAmount);
 
-      const senderName = String(
-        req.body?.senderName || ""
-      ).trim();
+      const senderName =
+        cleanString(
+          req.body?.senderName
+        );
 
-      const senderAccount = String(
-        req.body?.senderAccount || ""
-      ).trim();
+      const senderAccount =
+        cleanString(
+          req.body?.senderAccount
+        );
 
-      const receiverAccount = String(
-        req.body?.receiverAccount || ""
-      ).trim();
+      const receiverAccount =
+        cleanString(
+          req.body?.receiverAccount
+        );
 
-      const transactionId = String(
-        req.body?.transactionId || ""
-      ).trim();
+      const transactionId =
+        cleanString(
+          req.body?.transactionId
+        );
 
-      const referenceId = String(
-        req.body?.referenceId || ""
-      ).trim();
+      const referenceId =
+        cleanString(
+          req.body?.referenceId
+        );
 
-      const network = String(
-        req.body?.network || ""
-      ).trim();
+      const network =
+        cleanString(
+          req.body?.network
+        );
 
-      const note = String(
-        req.body?.note ||
-          req.body?.depositNote ||
-          ""
-      )
-        .trim()
-        .slice(0, 1000);
-
-      // ==================================================
-      // RECEIPT
-      // ==================================================
-      //
-      // multer.memoryStorage() keeps the uploaded file
-      // in req.file.buffer.
-      //
-      // This route does NOT pretend that a filename exists.
-      // ==================================================
-
-      const receiptImage = String(
-        req.body?.receiptImage || ""
-      ).trim();
-
-      const receiptUploaded =
-        Boolean(req.file) ||
-        Boolean(receiptImage);
+      const note =
+        cleanString(
+          req.body?.note ||
+            req.body?.depositNote
+        );
 
       // ==================================================
-      // BASIC VALIDATION
+      // WALLET TYPE VALIDATION
       // ==================================================
-
-      if (
-        !Number.isFinite(depositAmount) ||
-        depositAmount <= 0
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Please enter a valid deposit amount.",
-        });
-      }
-
-      // --------------------------------------------------
-      // Prevent Infinity / NaN / unsafe precision
-      // --------------------------------------------------
-
-      if (
-        !Number.isSafeInteger(
-          Math.round(
-            depositAmount * 100
-          )
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid deposit amount.",
-        });
-      }
-
-      // --------------------------------------------------
-      // Wallet type
-      // --------------------------------------------------
 
       if (
         !["PKR", "USDT"].includes(
@@ -937,9 +1635,47 @@ router.post(
         });
       }
 
+      // ==================================================
+      // AMOUNT VALIDATION
+      // ==================================================
+
+      if (
+        !Number.isFinite(
+          depositAmount
+        ) ||
+        depositAmount <= 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Please enter a valid deposit amount.",
+        });
+      }
+
       // --------------------------------------------------
-      // Payment method
+      // Maximum precision:
+      // 2 decimal places
       // --------------------------------------------------
+
+      const roundedAmount =
+        Math.round(
+          depositAmount * 100
+        ) / 100;
+
+      if (
+        roundedAmount !==
+        depositAmount
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Deposit amount can have maximum 2 decimal places.",
+        });
+      }
+
+      // ==================================================
+      // PAYMENT METHOD VALIDATION
+      // ==================================================
 
       if (!paymentMethod) {
         return res.status(400).json({
@@ -950,23 +1686,41 @@ router.post(
       }
 
       // ==================================================
+      // TRANSACTION ID VALIDATION
+      // ==================================================
+
+      if (!transactionId) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Transaction ID is required.",
+        });
+      }
+
+      if (
+        transactionId.length >
+        150
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Transaction ID is too long.",
+        });
+      }
+
+      // ==================================================
       // DEPOSIT SETTINGS
       // ==================================================
 
       const settings =
         await getDepositSettings();
 
-      const normalizedSettings =
-        normalizeDepositSettings(
-          settings
-        );
-
-      // --------------------------------------------------
-      // DEPOSITS ENABLED
-      // --------------------------------------------------
+      // ==================================================
+      // CHECK DEPOSITS ENABLED
+      // ==================================================
 
       if (
-        normalizedSettings.depositsEnabled ===
+        settings.depositsEnabled ===
         false
       ) {
         return res.status(403).json({
@@ -976,31 +1730,28 @@ router.post(
         });
       }
 
-      const minimumDeposit =
-        Number(
-          normalizedSettings.minimumDeposit
-        );
-
-      const maximumDeposit =
-        Number(
-          normalizedSettings.maximumDeposit
-        );
-
       // ==================================================
       // MINIMUM DEPOSIT
       // ==================================================
+
+      const minimumDeposit =
+        Number(
+          settings.minimumDeposit
+        );
 
       if (
         Number.isFinite(
           minimumDeposit
         ) &&
         minimumDeposit > 0 &&
-        depositAmount < minimumDeposit
+        depositAmount <
+          minimumDeposit
       ) {
         return res.status(400).json({
           success: false,
           message:
             `Minimum deposit is ${minimumDeposit}.`,
+          minimumDeposit,
         });
       }
 
@@ -1008,35 +1759,37 @@ router.post(
       // MAXIMUM DEPOSIT
       // ==================================================
 
+      const maximumDeposit =
+        Number(
+          settings.maximumDeposit
+        );
+
       if (
         Number.isFinite(
           maximumDeposit
         ) &&
         maximumDeposit > 0 &&
-        depositAmount > maximumDeposit
+        depositAmount >
+          maximumDeposit
       ) {
         return res.status(400).json({
           success: false,
           message:
             `Maximum deposit is ${maximumDeposit}.`,
+          maximumDeposit,
         });
       }
 
       // ==================================================
-      // PAYMENT METHOD VALIDATION
+      // PAYMENT METHODS
       // ==================================================
 
       const configuredMethods =
-        normalizedSettings
-          .depositPaymentMethods
-          .filter(
-            (method) =>
-              method &&
-              method.enabled !== false
-          );
+        await getV18DepositMethods();
 
       if (
-        configuredMethods.length === 0
+        configuredMethods.length ===
+        0
       ) {
         return res.status(503).json({
           success: false,
@@ -1044,6 +1797,10 @@ router.post(
             "No payment method is currently available. Please contact support.",
         });
       }
+
+      // ==================================================
+      // FIND SELECTED METHOD
+      // ==================================================
 
       const selectedMethod =
         configuredMethods.find(
@@ -1065,7 +1822,7 @@ router.post(
       }
 
       // ==================================================
-      // WALLET
+      // GET WALLET
       // ==================================================
 
       const wallet =
@@ -1075,7 +1832,7 @@ router.post(
         );
 
       // ==================================================
-      // FROZEN WALLET
+      // CHECK WALLET STATUS
       // ==================================================
 
       if (
@@ -1091,169 +1848,197 @@ router.post(
       // ==================================================
       // WALLET BEFORE SNAPSHOT
       //
-      // IMPORTANT:
-      // Pending deposit does NOT change balance.
+      // NO BALANCE CREDIT HERE
       // ==================================================
 
       const walletBefore = {
         pkrBalance:
-          Number(
-            wallet.pkrBalance || 0
+          toSafeNumber(
+            wallet.pkrBalance,
+            0
           ),
 
         usdtBalance:
-          Number(
-            wallet.usdtBalance || 0
+          toSafeNumber(
+            wallet.usdtBalance,
+            0
           ),
 
         goldBalance:
-          Number(
-            wallet.goldBalance || 0
+          toSafeNumber(
+            wallet.goldBalance,
+            0
           ),
 
         lockedPkr:
-          Number(
-            wallet.lockedPkr || 0
+          toSafeNumber(
+            wallet.lockedPkr,
+            0
           ),
 
         lockedUsdt:
-          Number(
-            wallet.lockedUsdt || 0
+          toSafeNumber(
+            wallet.lockedUsdt,
+            0
           ),
 
         lockedGold:
-          Number(
-            wallet.lockedGold || 0
+          toSafeNumber(
+            wallet.lockedGold,
+            0
           ),
       };
 
       // ==================================================
-      // DUPLICATE TRANSACTION ID
+      // PREVENT DUPLICATE TRANSACTION
+      //
+      // Same user's same transaction ID cannot be
+      // submitted again while an existing record exists.
       // ==================================================
 
-      if (transactionId) {
-        const escapedTransactionId =
-          transactionId.replace(
-            /[.*+?^${}()|[\]\\]/g,
-            "\\$&"
-          );
-
-        const existingDeposit =
-          await Deposit.findOne({
-            userId: user._id,
-
-            transactionId: {
-              $regex:
-                `^${escapedTransactionId}$`,
-              $options: "i",
-            },
-
-            status: {
-              $in: [
-                "PENDING",
-                "Pending",
-                "pending",
-                "APPROVED",
-                "Approved",
-                "approved",
-              ],
-            },
-          })
-            .select(
-              "_id status amount walletType"
-            )
-            .lean();
-
-        if (existingDeposit) {
-          return res.status(409).json({
-            success: false,
-
-            message:
-              "This transaction ID has already been submitted.",
-
-            deposit: {
-              id:
-                existingDeposit._id,
-
-              _id:
-                existingDeposit._id,
-
-              status:
-                existingDeposit.status,
-
-              amount:
-                Number(
-                  existingDeposit.amount ||
-                    0
-                ),
-
-              walletType:
-                existingDeposit.walletType,
-            },
-          });
-        }
-      }
-
-      // ==================================================
-      // CREATE PENDING DEPOSIT
-      // ==================================================
-
-      const deposit =
-        await Deposit.create({
+      const existingTransaction =
+        await Deposit.findOne({
           userId:
             user._id,
 
-          username:
-            user.username,
+          transactionId,
+        })
+          .select(
+            "_id status amount walletType transactionId"
+          )
+          .lean();
 
-          fullName:
-            user.fullName || "",
+      if (existingTransaction) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "A deposit with this transaction ID already exists.",
 
-          email:
-            user.email || "",
+          deposit: {
+            id:
+              existingTransaction._id,
 
+            _id:
+              existingTransaction._id,
+
+            status:
+              existingTransaction.status,
+
+            amount:
+              Number(
+                existingTransaction.amount
+              ),
+
+            walletType:
+              existingTransaction.walletType,
+
+            transactionId:
+              existingTransaction.transactionId,
+          },
+        });
+      }
+
+      // ==================================================
+      // RECEIPT
+      //
+      // If frontend sends receiptImage directly,
+      // preserve it.
+      //
+      // If multipart file is uploaded, convert it into
+      // a data URL so no invalid multer filename is stored.
+      // ==================================================
+
+      let receiptImage =
+        cleanString(
+          req.body?.receiptImage
+        );
+
+      if (
+        !receiptImage &&
+        req.file &&
+        req.file.buffer
+      ) {
+        const mimeType =
+          req.file.mimetype ||
+          "application/octet-stream";
+
+        const base64 =
+          req.file.buffer.toString(
+            "base64"
+          );
+
+        receiptImage =
+          `data:${mimeType};base64,${base64}`;
+      }
+
+      const receiptUploaded =
+        Boolean(
+          receiptImage
+        );
+
+      // ==================================================
+      // CREATE DEPOSIT
+      // ==================================================
+
+      const depositData = {
+        userId:
+          user._id,
+
+        username:
+          user.username,
+
+        fullName:
+          user.fullName || "",
+
+        email:
+          user.email || "",
+
+        walletType,
+
+        amount:
+          depositAmount,
+
+        currency:
           walletType,
 
-          amount:
-            depositAmount,
+        network,
 
-          currency:
-            walletType,
+        paymentMethod,
 
-          network,
+        senderName,
 
-          paymentMethod:
-            selectedMethod.type,
+        senderAccount,
 
-          senderName,
+        receiverAccount,
 
-          senderAccount,
+        transactionId,
 
-          receiverAccount,
+        referenceId,
 
-          transactionId,
+        receiptImage,
 
-          referenceId,
+        receiptUploaded,
 
-          receiptImage,
+        walletBefore,
 
-          receiptUploaded,
+        note,
 
-          walletBefore,
+        status:
+          "Pending",
 
-          note,
+        ipAddress:
+          req.ip || "",
 
-          status:
-            "Pending",
+        device:
+          req.headers[
+            "user-agent"
+          ] || "",
+      };
 
-          ipAddress:
-            req.ip || "",
-
-          device:
-            req.headers[
-              "user-agent"
-            ] || "",
-        });
+      const deposit =
+        await Deposit.create(
+          depositData
+        );
 
       createdDepositId =
         deposit._id;
@@ -1261,101 +2046,128 @@ router.post(
       // ==================================================
       // WALLET HISTORY
       //
-      // REQUEST ONLY.
-      // NO BALANCE CREDIT.
+      // REQUEST ONLY
+      //
+      // IMPORTANT:
+      // balanceBefore === balanceAfter
+      // because wallet is NOT credited yet.
       // ==================================================
 
-      await WalletHistory.create({
-        userId:
-          user._id,
+      try {
+        await WalletHistory.create({
+          userId:
+            user._id,
 
-        username:
-          user.username,
+          username:
+            user.username,
 
-        walletType,
+          walletType,
 
-        type:
-          "DEPOSIT_REQUEST",
+          type:
+            "DEPOSIT_REQUEST",
 
-        transactionType:
-          "DEPOSIT_REQUEST",
+          transactionType:
+            "DEPOSIT_REQUEST",
 
-        transactionMode:
-          "CREDIT",
+          transactionMode:
+            "CREDIT",
 
-        amount:
-          depositAmount,
+          amount:
+            depositAmount,
 
-        balanceBefore:
-          walletType === "PKR"
-            ? walletBefore.pkrBalance
-            : walletBefore.usdtBalance,
+          balanceBefore:
+            walletType === "PKR"
+              ? walletBefore.pkrBalance
+              : walletBefore.usdtBalance,
 
-        balanceAfter:
-          walletType === "PKR"
-            ? walletBefore.pkrBalance
-            : walletBefore.usdtBalance,
+          balanceAfter:
+            walletType === "PKR"
+              ? walletBefore.pkrBalance
+              : walletBefore.usdtBalance,
 
-        referenceId:
-          deposit._id.toString(),
+          status:
+            "Pending",
 
-        status:
-          "Pending",
+          paymentMethod,
 
-        note:
-          `Deposit request submitted (${walletType})`,
-      });
+          referenceId:
+            deposit._id.toString(),
+
+          note:
+            `Deposit request submitted (${walletType})`,
+        });
+      } catch (historyError) {
+        // ------------------------------------------------
+        // History failure must not silently break the
+        // deposit record. Log it for backend debugging.
+        // ------------------------------------------------
+
+        console.error(
+          "DEPOSIT WALLET HISTORY ERROR:",
+          historyError
+        );
+      }
 
       // ==================================================
       // TRANSACTION LEDGER
       //
-      // Balance remains unchanged.
-      // Actual credit occurs on approval.
+      // Balance is unchanged until admin approval.
       // ==================================================
 
-      await Transaction.create({
-        userId:
-          user._id,
+      try {
+        await Transaction.create({
+          userId:
+            user._id,
 
-        username:
-          user.username,
+          username:
+            user.username,
 
-        walletType,
+          walletType,
 
-        transactionType:
-          "DEPOSIT_REQUEST",
+          transactionType:
+            "DEPOSIT_REQUEST",
 
-        transactionMode:
-          "CREDIT",
+          transactionMode:
+            "CREDIT",
 
-        amount:
-          depositAmount,
+          amount:
+            depositAmount,
 
-        balanceBefore:
-          walletType === "PKR"
-            ? walletBefore.pkrBalance
-            : walletBefore.usdtBalance,
+          balanceBefore:
+            walletType === "PKR"
+              ? walletBefore.pkrBalance
+              : walletBefore.usdtBalance,
 
-        balanceAfter:
-          walletType === "PKR"
-            ? walletBefore.pkrBalance
-            : walletBefore.usdtBalance,
+          balanceAfter:
+            walletType === "PKR"
+              ? walletBefore.pkrBalance
+              : walletBefore.usdtBalance,
 
-        status:
-          "Pending",
+          status:
+            "Pending",
 
-        paymentMethod:
-          selectedMethod.type,
+          paymentMethod,
 
-        referenceId:
-          deposit._id.toString(),
+          referenceId:
+            deposit._id.toString(),
 
-        note:
-          `Deposit request submitted (${walletType})`,
-      });
+          note:
+            `Deposit request submitted (${walletType})`,
+        });
+      } catch (transactionError) {
+        // ------------------------------------------------
+        // Do not destroy an otherwise valid deposit
+        // request because of an optional ledger error.
+        // ------------------------------------------------
+
+        console.error(
+          "DEPOSIT TRANSACTION LEDGER ERROR:",
+          transactionError
+        );
+      }
 
       // ==================================================
-      // SUCCESS
+      // SUCCESS RESPONSE
       // ==================================================
 
       return res.status(201).json({
@@ -1371,19 +2183,25 @@ router.post(
           _id:
             deposit._id,
 
+          userId:
+            deposit.userId,
+
+          username:
+            deposit.username,
+
           walletType:
             deposit.walletType,
 
           amount:
             Number(
-              deposit.amount || 0
+              deposit.amount
             ),
 
           currency:
             deposit.currency,
 
-          status:
-            deposit.status,
+          network:
+            deposit.network,
 
           paymentMethod:
             deposit.paymentMethod,
@@ -1400,8 +2218,17 @@ router.post(
           receiptUploaded:
             deposit.receiptUploaded,
 
+          status:
+            deposit.status,
+
+          note:
+            deposit.note,
+
           createdAt:
             deposit.createdAt,
+
+          updatedAt:
+            deposit.updatedAt,
         },
 
         wallet: {
@@ -1414,39 +2241,26 @@ router.post(
           goldBalance:
             walletBefore.goldBalance,
         },
+
+        settings: {
+          minimumDeposit,
+
+          maximumDeposit,
+        },
       });
     } catch (error) {
       console.error(
-        "CREATE DEPOSIT ERROR:",
+        "❌ CREATE DEPOSIT ERROR:",
         error
       );
 
       // ==================================================
-      // ROLLBACK
+      // CLEANUP NOTE
+      //
+      // Deposit creation happens before optional ledger
+      // operations. If the actual Deposit.create() failed,
+      // createdDepositId remains null.
       // ==================================================
-
-      if (createdDepositId) {
-        try {
-          await Deposit.findByIdAndDelete(
-            createdDepositId
-          );
-
-          await WalletHistory.deleteMany({
-            referenceId:
-              createdDepositId.toString(),
-          });
-
-          await Transaction.deleteMany({
-            referenceId:
-              createdDepositId.toString(),
-          });
-        } catch (rollbackError) {
-          console.error(
-            "DEPOSIT ROLLBACK ERROR:",
-            rollbackError
-          );
-        }
-      }
 
       return res.status(500).json({
         success: false,
@@ -1461,10 +2275,20 @@ router.post(
                 error.message,
             }
           : {}),
+
+        depositId:
+          createdDepositId,
       });
     }
   }
 );
+
+// ======================================================
+// GoldTrade V18 Enterprise
+// depositRoutes.js
+// PART 3/6
+// ======================================================
+
 
 // ======================================================
 // GET CURRENT USER DEPOSIT HISTORY
@@ -1484,19 +2308,13 @@ router.get(
       // ==================================================
 
       const page = Math.max(
-        parseInt(
-          req.query.page,
-          10
-        ) || 1,
+        parseInt(req.query.page, 10) || 1,
         1
       );
 
       const limit = Math.min(
         Math.max(
-          parseInt(
-            req.query.limit,
-            10
-          ) || 20,
+          parseInt(req.query.limit, 10) || 20,
           1
         ),
         100
@@ -1506,12 +2324,11 @@ router.get(
         (page - 1) * limit;
 
       // ==================================================
-      // QUERY
+      // USER QUERY
       // ==================================================
 
       const query = {
-        userId:
-          req.user.id,
+        userId: req.user.id,
       };
 
       // ==================================================
@@ -1522,9 +2339,7 @@ router.get(
         total,
         deposits,
       ] = await Promise.all([
-        Deposit.countDocuments(
-          query
-        ),
+        Deposit.countDocuments(query),
 
         Deposit.find(query)
           .sort({
@@ -1537,9 +2352,7 @@ router.get(
       ]);
 
       const totalPages =
-        Math.ceil(
-          total / limit
-        );
+        Math.ceil(total / limit);
 
       // ==================================================
       // RESPONSE
@@ -1549,8 +2362,7 @@ router.get(
         success: true,
 
         username:
-          req.user.username ||
-          null,
+          req.user.username || null,
 
         pagination: {
           page,
@@ -1587,8 +2399,7 @@ router.get(
                 deposit.walletType,
 
               network:
-                deposit.network ||
-                "",
+                deposit.network || "",
 
               paymentMethod:
                 deposit.paymentMethod ||
@@ -1625,12 +2436,11 @@ router.get(
               status:
                 String(
                   deposit.status ||
-                    "PENDING"
+                  "PENDING"
                 ).toUpperCase(),
 
               note:
-                deposit.note ||
-                "",
+                deposit.note || "",
 
               rejectReason:
                 deposit.rejectReason ||
@@ -1664,23 +2474,23 @@ router.get(
         message:
           "Unable to load deposit history.",
 
-        ...(process.env.NODE_ENV !==
-        "production"
-          ? {
-              error:
-                error.message,
-            }
-          : {}),
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
       });
     }
   }
 );
 
+
 // ======================================================
 // GET USER DEPOSIT HISTORY BY USERNAME
+//
 // GET /api/deposit/history/:username
 //
-// Admin or Same User
+// Admin OR same user only
 // ======================================================
 
 router.get(
@@ -1692,11 +2502,12 @@ router.get(
       // NORMALIZE USERNAME
       // ==================================================
 
-      const username = String(
-        req.params.username || ""
-      )
-        .trim()
-        .toLowerCase();
+      const username =
+        String(
+          req.params.username || ""
+        )
+          .trim()
+          .toLowerCase();
 
       if (!username) {
         return res.status(400).json({
@@ -1713,14 +2524,14 @@ router.get(
 
       const currentRole =
         String(
-          req.user?.role || ""
+          req.user.role || ""
         )
           .trim()
           .toLowerCase();
 
       const currentUsername =
         String(
-          req.user?.username || ""
+          req.user.username || ""
         )
           .trim()
           .toLowerCase();
@@ -1730,12 +2541,10 @@ router.get(
       // ==================================================
 
       const isAdminUser =
-        currentRole ===
-        "admin";
+        currentRole === "admin";
 
       const isSameUser =
-        currentUsername ===
-        username;
+        currentUsername === username;
 
       if (
         !isAdminUser &&
@@ -1776,19 +2585,13 @@ router.get(
       // ==================================================
 
       const page = Math.max(
-        parseInt(
-          req.query.page,
-          10
-        ) || 1,
+        parseInt(req.query.page, 10) || 1,
         1
       );
 
       const limit = Math.min(
         Math.max(
-          parseInt(
-            req.query.limit,
-            10
-          ) || 20,
+          parseInt(req.query.limit, 10) || 20,
           1
         ),
         100
@@ -1802,8 +2605,7 @@ router.get(
       // ==================================================
 
       const query = {
-        userId:
-          user._id,
+        userId: user._id,
       };
 
       // ==================================================
@@ -1814,9 +2616,7 @@ router.get(
         total,
         deposits,
       ] = await Promise.all([
-        Deposit.countDocuments(
-          query
-        ),
+        Deposit.countDocuments(query),
 
         Deposit.find(query)
           .sort({
@@ -1829,9 +2629,7 @@ router.get(
       ]);
 
       const totalPages =
-        Math.ceil(
-          total / limit
-        );
+        Math.ceil(total / limit);
 
       // ==================================================
       // RESPONSE
@@ -1845,6 +2643,20 @@ router.get(
 
         userId:
           user._id,
+
+        user: {
+          _id:
+            user._id,
+
+          username:
+            user.username,
+
+          fullName:
+            user.fullName || "",
+
+          email:
+            user.email || "",
+        },
 
         pagination: {
           page,
@@ -1867,6 +2679,723 @@ router.get(
 
               _id:
                 deposit._id,
+
+              walletType:
+                deposit.walletType,
+
+              amount:
+                Number(
+                  deposit.amount || 0
+                ),
+
+              currency:
+                deposit.currency ||
+                deposit.walletType,
+
+              network:
+                deposit.network || "",
+
+              paymentMethod:
+                deposit.paymentMethod ||
+                "",
+
+              senderName:
+                deposit.senderName ||
+                "",
+
+              senderAccount:
+                deposit.senderAccount ||
+                "",
+
+              receiverAccount:
+                deposit.receiverAccount ||
+                "",
+
+              transactionId:
+                deposit.transactionId ||
+                "",
+
+              referenceId:
+                deposit.referenceId ||
+                "",
+
+              receiptUploaded:
+                deposit.receiptUploaded ===
+                true,
+
+              receiptImage:
+                deposit.receiptImage ||
+                "",
+
+              status:
+                String(
+                  deposit.status ||
+                  "PENDING"
+                ).toUpperCase(),
+
+              note:
+                deposit.note || "",
+
+              rejectReason:
+                deposit.rejectReason ||
+                "",
+
+              walletBefore:
+                deposit.walletBefore ||
+                null,
+
+              walletAfter:
+                deposit.walletAfter ||
+                null,
+
+              createdAt:
+                deposit.createdAt,
+
+              updatedAt:
+                deposit.updatedAt,
+            })
+          ),
+      });
+    } catch (error) {
+      console.error(
+        "GET USER DEPOSIT HISTORY ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load user deposit history.",
+
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
+  }
+);
+
+
+// ======================================================
+// GET PENDING DEPOSITS
+//
+// GET /api/deposit/pending
+//
+// ADMIN ONLY
+// ======================================================
+
+router.get(
+  "/pending",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // PAGINATION
+      // ==================================================
+
+      const page = Math.max(
+        parseInt(req.query.page, 10) || 1,
+        1
+      );
+
+      const limit = Math.min(
+        Math.max(
+          parseInt(req.query.limit, 10) || 50,
+          1
+        ),
+        100
+      );
+
+      const skip =
+        (page - 1) * limit;
+
+      // ==================================================
+      // PENDING STATUS COMPATIBILITY
+      //
+      // Supports:
+      // PENDING
+      // Pending
+      // pending
+      // ==================================================
+
+      const query = {
+        status: {
+          $in: [
+            "PENDING",
+            "Pending",
+            "pending",
+          ],
+        },
+      };
+
+      // ==================================================
+      // COUNT + DATA
+      // ==================================================
+
+      const [
+        total,
+        deposits,
+      ] = await Promise.all([
+        Deposit.countDocuments(query),
+
+        Deposit.find(query)
+          .sort({
+            createdAt: -1,
+            _id: -1,
+          })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+      ]);
+
+      const totalPages =
+        Math.ceil(total / limit);
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+
+          hasNextPage:
+            page < totalPages,
+
+          hasPreviousPage:
+            page > 1,
+        },
+
+        total,
+
+        pendingDeposits:
+          deposits.map(
+            (deposit) => ({
+              ...deposit,
+
+              id:
+                deposit._id,
+
+              _id:
+                deposit._id,
+
+              amount:
+                Number(
+                  deposit.amount || 0
+                ),
+
+              status:
+                String(
+                  deposit.status ||
+                  "PENDING"
+                ).toUpperCase(),
+            })
+          ),
+      });
+    } catch (error) {
+      console.error(
+        "GET PENDING DEPOSITS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load pending deposits.",
+
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
+  }
+);
+
+
+// ======================================================
+// GET RECENT DEPOSITS
+//
+// GET /api/deposit/recent
+//
+// ADMIN:
+//   returns recent deposits from all users
+//
+// USER:
+//   returns only own deposits
+// ======================================================
+
+router.get(
+  "/recent",
+  verifyToken,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // LIMIT
+      // ==================================================
+
+      const limit = Math.min(
+        Math.max(
+          parseInt(req.query.limit, 10) || 10,
+          1
+        ),
+        50
+      );
+
+      // ==================================================
+      // ROLE
+      // ==================================================
+
+      const isAdminUser =
+        String(
+          req.user.role || ""
+        )
+          .trim()
+          .toLowerCase() ===
+        "admin";
+
+      // ==================================================
+      // QUERY
+      // ==================================================
+
+      const query =
+        isAdminUser
+          ? {}
+          : {
+              userId:
+                req.user.id,
+            };
+
+      // ==================================================
+      // LOAD DATA
+      // ==================================================
+
+      const deposits =
+        await Deposit.find(query)
+          .sort({
+            createdAt: -1,
+            _id: -1,
+          })
+          .limit(limit)
+          .lean();
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+
+        total:
+          deposits.length,
+
+        recentDeposits:
+          deposits.map(
+            (deposit) => ({
+              ...deposit,
+
+              id:
+                deposit._id,
+
+              _id:
+                deposit._id,
+
+              amount:
+                Number(
+                  deposit.amount || 0
+                ),
+
+              status:
+                String(
+                  deposit.status ||
+                  "PENDING"
+                ).toUpperCase(),
+            })
+          ),
+      });
+    } catch (error) {
+      console.error(
+        "GET RECENT DEPOSITS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load recent deposits.",
+
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? undefined
+            : error.message,
+      });
+    }
+  }
+);
+
+
+// ======================================================
+// FILTER DEPOSIT HISTORY
+//
+// GET /api/deposit/filter
+//
+// Query:
+// ?status=PENDING
+// ?walletType=PKR
+// ?start=2026-01-01
+// ?end=2026-01-31
+// ?page=1
+// ?limit=20
+//
+// USER:
+//   own deposits only
+//
+// ADMIN:
+//   all deposits
+// ======================================================
+
+router.get(
+  "/filter",
+  verifyToken,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // PAGINATION
+      // ==================================================
+
+      const page = Math.max(
+        parseInt(req.query.page, 10) || 1,
+        1
+      );
+
+      const limit = Math.min(
+        Math.max(
+          parseInt(req.query.limit, 10) || 20,
+          1
+        ),
+        100
+      );
+
+      const skip =
+        (page - 1) * limit;
+
+      // ==================================================
+      // QUERY PARAMETERS
+      // ==================================================
+
+      const {
+        status,
+        walletType,
+        start,
+        end,
+      } = req.query;
+
+      // ==================================================
+      // ROLE
+      // ==================================================
+
+      const isAdminUser =
+        String(
+          req.user.role || ""
+        )
+          .trim()
+          .toLowerCase() ===
+        "admin";
+
+      // ==================================================
+      // BASE QUERY
+      //
+      // ADMIN:
+      //   all deposits
+      //
+      // USER:
+      //   own deposits only
+      // ==================================================
+
+      const query =
+        isAdminUser
+          ? {}
+          : {
+              userId:
+                req.user.id,
+            };
+
+      // ==================================================
+      // STATUS FILTER
+      // ==================================================
+
+      if (status) {
+        const normalizedStatus =
+          String(status)
+            .trim()
+            .toUpperCase();
+
+        const allowedStatuses = [
+          "PENDING",
+          "APPROVED",
+          "REJECTED",
+          "CANCELLED",
+        ];
+
+        if (
+          !allowedStatuses.includes(
+            normalizedStatus
+          )
+        ) {
+          return res.status(400).json({
+            success: false,
+
+            message:
+              "Invalid deposit status.",
+          });
+        }
+
+        // ------------------------------------------------
+        // Support old records with different casing
+        // ------------------------------------------------
+
+        query.status = {
+          $in: [
+            normalizedStatus,
+
+            normalizedStatus
+              .charAt(0) +
+              normalizedStatus
+                .slice(1)
+                .toLowerCase(),
+
+            normalizedStatus.toLowerCase(),
+          ],
+        };
+      }
+
+      // ==================================================
+      // WALLET TYPE FILTER
+      // ==================================================
+
+      if (walletType) {
+        const normalizedWalletType =
+          String(walletType)
+            .trim()
+            .toUpperCase();
+
+        if (
+          ![
+            "PKR",
+            "USDT",
+          ].includes(
+            normalizedWalletType
+          )
+        ) {
+          return res.status(400).json({
+            success: false,
+
+            message:
+              "Wallet type must be PKR or USDT.",
+          });
+        }
+
+        query.walletType =
+          normalizedWalletType;
+      }
+
+      // ==================================================
+      // DATE FILTER
+      // ==================================================
+
+      if (start || end) {
+        query.createdAt = {};
+
+        // ------------------------------------------------
+        // START DATE
+        // ------------------------------------------------
+
+        if (start) {
+          const startDate =
+            new Date(
+              String(start)
+            );
+
+          if (
+            Number.isNaN(
+              startDate.getTime()
+            )
+          ) {
+            return res.status(400).json({
+              success: false,
+
+              message:
+                "Invalid start date.",
+            });
+          }
+
+          startDate.setHours(
+            0,
+            0,
+            0,
+            0
+          );
+
+          query.createdAt.$gte =
+            startDate;
+        }
+
+        // ------------------------------------------------
+        // END DATE
+        // ------------------------------------------------
+
+        if (end) {
+          const endDate =
+            new Date(
+              String(end)
+            );
+
+          if (
+            Number.isNaN(
+              endDate.getTime()
+            )
+          ) {
+            return res.status(400).json({
+              success: false,
+
+              message:
+                "Invalid end date.",
+            });
+          }
+
+          endDate.setHours(
+            23,
+            59,
+            59,
+            999
+          );
+
+          query.createdAt.$lte =
+            endDate;
+        }
+
+        // ------------------------------------------------
+        // DATE RANGE VALIDATION
+        // ------------------------------------------------
+
+        if (
+          query.createdAt.$gte &&
+          query.createdAt.$lte &&
+          query.createdAt.$gte >
+            query.createdAt.$lte
+        ) {
+          return res.status(400).json({
+            success: false,
+
+            message:
+              "Start date cannot be after end date.",
+          });
+        }
+      }
+
+      // ==================================================
+      // COUNT + DATA
+      // ==================================================
+
+      const [
+        total,
+        deposits,
+      ] = await Promise.all([
+        Deposit.countDocuments(query),
+
+        Deposit.find(query)
+          .sort({
+            createdAt: -1,
+            _id: -1,
+          })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+      ]);
+
+      const totalPages =
+        Math.ceil(total / limit);
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+
+        filters: {
+          status:
+            status
+              ? String(status)
+                  .trim()
+                  .toUpperCase()
+              : null,
+
+          walletType:
+            walletType
+              ? String(walletType)
+                  .trim()
+                  .toUpperCase()
+              : null,
+
+          start:
+            start || null,
+
+          end:
+            end || null,
+        },
+
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+
+          hasNextPage:
+            page < totalPages,
+
+          hasPreviousPage:
+            page > 1,
+        },
+
+        total,
+
+        history:
+          deposits.map(
+            (deposit) => ({
+              id:
+                deposit._id,
+
+              _id:
+                deposit._id,
+
+              userId:
+                deposit.userId,
+
+              username:
+                deposit.username ||
+                "",
+
+              fullName:
+                deposit.fullName ||
+                "",
+
+              email:
+                deposit.email ||
+                "",
 
               walletType:
                 deposit.walletType,
@@ -1919,12 +3448,11 @@ router.get(
               status:
                 String(
                   deposit.status ||
-                    "PENDING"
+                  "PENDING"
                 ).toUpperCase(),
 
               note:
-                deposit.note ||
-                "",
+                deposit.note || "",
 
               rejectReason:
                 deposit.rejectReason ||
@@ -1948,570 +3476,6 @@ router.get(
       });
     } catch (error) {
       console.error(
-        "GET USER DEPOSIT HISTORY ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load user deposit history.",
-
-        ...(process.env.NODE_ENV !==
-        "production"
-          ? {
-              error:
-                error.message,
-            }
-          : {}),
-      });
-    }
-  }
-);
-// ======================================================
-// GET PENDING DEPOSITS
-// GET /api/deposit/pending
-// Admin Dashboard
-// ======================================================
-
-router.get(
-  "/pending",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // PAGINATION
-      // ==================================================
-
-      const page = Math.max(
-        parseInt(req.query.page, 10) || 1,
-        1
-      );
-
-      const limit = Math.min(
-        Math.max(
-          parseInt(req.query.limit, 10) || 50,
-          1
-        ),
-        100
-      );
-
-      const skip = (page - 1) * limit;
-
-      // ==================================================
-      // STATUS COMPATIBILITY
-      // ==================================================
-
-      const query = {
-        status: {
-          $in: [
-            "PENDING",
-            "Pending",
-            "pending",
-          ],
-        },
-      };
-
-      // ==================================================
-      // COUNT + DATA
-      // ==================================================
-
-      const [total, deposits] = await Promise.all([
-        Deposit.countDocuments(query),
-
-        Deposit.find(query)
-          .sort({
-            createdAt: -1,
-            _id: -1,
-          })
-          .skip(skip)
-          .limit(limit)
-          .lean(),
-      ]);
-
-      const totalPages = Math.ceil(total / limit);
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-
-          hasNextPage:
-            page < totalPages,
-
-          hasPreviousPage:
-            page > 1,
-        },
-
-        total,
-
-        pendingDeposits: deposits.map(
-          (deposit) => ({
-            ...deposit,
-
-            id: deposit._id,
-
-            amount: Number(
-              deposit.amount || 0
-            ),
-
-            status: String(
-              deposit.status || "PENDING"
-            ).toUpperCase(),
-          })
-        ),
-      });
-    } catch (error) {
-      console.error(
-        "GET PENDING DEPOSITS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load pending deposits.",
-
-        error:
-          process.env.NODE_ENV === "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// GET RECENT DEPOSITS
-// GET /api/deposit/recent
-// Dashboard Recent Activity
-// ======================================================
-
-router.get(
-  "/recent",
-  verifyToken,
-  async (req, res) => {
-    try {
-      const limit = Math.min(
-        Math.max(
-          parseInt(req.query.limit, 10) || 10,
-          1
-        ),
-        50
-      );
-
-      // ==================================================
-      // USER / ADMIN QUERY
-      // ==================================================
-
-      const isAdminUser =
-        String(req.user?.role || "").toLowerCase() ===
-        "admin";
-
-      const query = isAdminUser
-        ? {}
-        : {
-            userId: req.user.id,
-          };
-
-      // ==================================================
-      // LOAD RECENT DEPOSITS
-      // ==================================================
-
-      const deposits =
-        await Deposit.find(query)
-          .sort({
-            createdAt: -1,
-            _id: -1,
-          })
-          .limit(limit)
-          .lean();
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        total: deposits.length,
-
-        recentDeposits: deposits.map(
-          (deposit) => ({
-            ...deposit,
-
-            id: deposit._id,
-
-            amount: Number(
-              deposit.amount || 0
-            ),
-
-            status: String(
-              deposit.status || "PENDING"
-            ).toUpperCase(),
-          })
-        ),
-      });
-    } catch (error) {
-      console.error(
-        "GET RECENT DEPOSITS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load recent deposits.",
-
-        error:
-          process.env.NODE_ENV === "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// FILTER DEPOSIT HISTORY
-// GET /api/deposit/filter
-//
-// Query:
-// ?status=PENDING
-// ?walletType=PKR
-// ?start=2026-01-01
-// ?end=2026-01-31
-// ?page=1
-// ?limit=20
-// ======================================================
-
-router.get(
-  "/filter",
-  verifyToken,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // PAGINATION
-      // ==================================================
-
-      const page = Math.max(
-        parseInt(req.query.page, 10) || 1,
-        1
-      );
-
-      const limit = Math.min(
-        Math.max(
-          parseInt(req.query.limit, 10) || 20,
-          1
-        ),
-        100
-      );
-
-      const skip = (page - 1) * limit;
-
-      // ==================================================
-      // QUERY PARAMETERS
-      // ==================================================
-
-      const {
-        status,
-        walletType,
-        start,
-        end,
-      } = req.query;
-
-      const query = {
-        userId: req.user.id,
-      };
-
-      // ==================================================
-      // STATUS FILTER
-      // ==================================================
-
-      if (status) {
-        const normalizedStatus =
-          String(status)
-            .trim()
-            .toUpperCase();
-
-        const allowedStatuses = [
-          "PENDING",
-          "APPROVED",
-          "REJECTED",
-          "CANCELLED",
-        ];
-
-        if (
-          !allowedStatuses.includes(
-            normalizedStatus
-          )
-        ) {
-          return res.status(400).json({
-            success: false,
-
-            message:
-              "Invalid deposit status.",
-          });
-        }
-
-        query.status = {
-          $in: [
-            normalizedStatus,
-
-            normalizedStatus.charAt(0) +
-              normalizedStatus
-                .slice(1)
-                .toLowerCase(),
-
-            normalizedStatus.toLowerCase(),
-          ],
-        };
-      }
-
-      // ==================================================
-      // WALLET TYPE FILTER
-      // ==================================================
-
-      if (walletType) {
-        const normalizedWalletType =
-          String(walletType)
-            .trim()
-            .toUpperCase();
-
-        if (
-          !["PKR", "USDT"].includes(
-            normalizedWalletType
-          )
-        ) {
-          return res.status(400).json({
-            success: false,
-
-            message:
-              "Wallet type must be PKR or USDT.",
-          });
-        }
-
-        query.walletType =
-          normalizedWalletType;
-      }
-
-      // ==================================================
-      // DATE FILTER
-      // ==================================================
-
-      if (start || end) {
-        query.createdAt = {};
-
-        if (start) {
-          const startDate =
-            new Date(String(start));
-
-          if (
-            Number.isNaN(
-              startDate.getTime()
-            )
-          ) {
-            return res.status(400).json({
-              success: false,
-
-              message:
-                "Invalid start date.",
-            });
-          }
-
-          startDate.setHours(
-            0,
-            0,
-            0,
-            0
-          );
-
-          query.createdAt.$gte =
-            startDate;
-        }
-
-        if (end) {
-          const endDate =
-            new Date(String(end));
-
-          if (
-            Number.isNaN(
-              endDate.getTime()
-            )
-          ) {
-            return res.status(400).json({
-              success: false,
-
-              message:
-                "Invalid end date.",
-            });
-          }
-
-          endDate.setHours(
-            23,
-            59,
-            59,
-            999
-          );
-
-          query.createdAt.$lte =
-            endDate;
-        }
-
-        // ==================================================
-        // INVALID DATE RANGE
-        // ==================================================
-
-        if (
-          query.createdAt.$gte &&
-          query.createdAt.$lte &&
-          query.createdAt.$gte >
-            query.createdAt.$lte
-        ) {
-          return res.status(400).json({
-            success: false,
-
-            message:
-              "Start date cannot be after end date.",
-          });
-        }
-      }
-
-      // ==================================================
-      // COUNT + DATA
-      // ==================================================
-
-      const [total, deposits] =
-        await Promise.all([
-          Deposit.countDocuments(query),
-
-          Deposit.find(query)
-            .sort({
-              createdAt: -1,
-              _id: -1,
-            })
-            .skip(skip)
-            .limit(limit)
-            .lean(),
-        ]);
-
-      const totalPages =
-        Math.ceil(total / limit);
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        filters: {
-          status: status
-            ? String(status)
-                .trim()
-                .toUpperCase()
-            : null,
-
-          walletType: walletType
-            ? String(walletType)
-                .trim()
-                .toUpperCase()
-            : null,
-
-          start: start || null,
-
-          end: end || null,
-        },
-
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-
-          hasNextPage:
-            page < totalPages,
-
-          hasPreviousPage:
-            page > 1,
-        },
-
-        total,
-
-        history: deposits.map(
-          (deposit) => ({
-            id:
-              deposit._id,
-
-            _id:
-              deposit._id,
-
-            walletType:
-              deposit.walletType,
-
-            amount:
-              Number(
-                deposit.amount || 0
-              ),
-
-            currency:
-              deposit.currency ||
-              deposit.walletType,
-
-            network:
-              deposit.network || "",
-
-            paymentMethod:
-              deposit.paymentMethod || "",
-
-            transactionId:
-              deposit.transactionId || "",
-
-            referenceId:
-              deposit.referenceId || "",
-
-            receiptUploaded:
-              deposit.receiptUploaded === true,
-
-            receiptImage:
-              deposit.receiptImage || "",
-
-            status:
-              String(
-                deposit.status ||
-                  "PENDING"
-              ).toUpperCase(),
-
-            note:
-              deposit.note || "",
-
-            rejectReason:
-              deposit.rejectReason || "",
-
-            createdAt:
-              deposit.createdAt,
-
-            updatedAt:
-              deposit.updatedAt,
-          })
-        ),
-      });
-    } catch (error) {
-      console.error(
         "FILTER DEPOSIT HISTORY ERROR:",
         error
       );
@@ -2523,7 +3487,8 @@ router.get(
           "Unable to filter deposit history.",
 
         error:
-          process.env.NODE_ENV === "production"
+          process.env.NODE_ENV ===
+          "production"
             ? undefined
             : error.message,
       });
@@ -2533,16 +3498,28 @@ router.get(
 
 
 // ======================================================
+// GoldTrade V18 Enterprise
+// depositRoutes.js
+// PART 4/6
+// ======================================================
+
+
+// ======================================================
 // APPROVE DEPOSIT
+//
 // PATCH /api/deposit/:id/approve
 //
-// IMPORTANT:
-// Deposit
-// + Wallet
-// + WalletHistory
-// + Transaction
+// ADMIN ONLY
 //
-// are committed together.
+// IMPORTANT:
+// Approval atomically updates:
+//
+// 1. Deposit
+// 2. Wallet
+// 3. WalletHistory
+// 4. Transaction
+//
+// Wallet is credited ONLY here.
 // ======================================================
 
 router.patch(
@@ -2550,14 +3527,14 @@ router.patch(
   verifyToken,
   isAdmin,
   async (req, res) => {
+    // ==================================================
+    // VALIDATE DEPOSIT ID
+    // ==================================================
+
     const depositId =
       String(
         req.params.id || ""
       ).trim();
-
-    // ==================================================
-    // VALIDATE ID
-    // ==================================================
 
     if (
       !mongoose.Types.ObjectId.isValid(
@@ -2571,6 +3548,10 @@ router.patch(
           "Invalid deposit request ID.",
       });
     }
+
+    // ==================================================
+    // START SESSION
+    // ==================================================
 
     const session =
       await mongoose.startSession();
@@ -2602,6 +3583,11 @@ router.patch(
 
           // ==============================================
           // STATUS CHECK
+          //
+          // Supports:
+          // PENDING
+          // Pending
+          // pending
           // ==============================================
 
           const currentStatus =
@@ -2617,7 +3603,10 @@ router.patch(
           ) {
             const error =
               new Error(
-                `Deposit already ${currentStatus.toLowerCase()}.`
+                `Deposit already ${(
+                  currentStatus ||
+                  "processed"
+                ).toLowerCase()}.`
               );
 
             error.statusCode = 409;
@@ -2637,7 +3626,10 @@ router.patch(
               .toUpperCase();
 
           if (
-            !["PKR", "USDT"].includes(
+            ![
+              "PKR",
+              "USDT",
+            ].includes(
               walletType
             )
           ) {
@@ -2656,10 +3648,14 @@ router.patch(
           // ==============================================
 
           const amount =
-            Number(deposit.amount);
+            Number(
+              deposit.amount
+            );
 
           if (
-            !Number.isFinite(amount) ||
+            !Number.isFinite(
+              amount
+            ) ||
             amount <= 0
           ) {
             const error =
@@ -2673,16 +3669,19 @@ router.patch(
           }
 
           // ==============================================
-          // USER WALLET
+          // FIND USER WALLET
+          //
+          // IMPORTANT:
+          // Read wallet inside the same MongoDB session.
           // ==============================================
 
-          const walletDoc =
+          const wallet =
             await Wallet.findOne({
               userId:
                 deposit.userId,
             }).session(session);
 
-          if (!walletDoc) {
+          if (!wallet) {
             const error =
               new Error(
                 "User wallet not found."
@@ -2694,11 +3693,11 @@ router.patch(
           }
 
           // ==============================================
-          // FROZEN WALLET CHECK
+          // FROZEN WALLET
           // ==============================================
 
           if (
-            walletDoc.isFrozen === true
+            wallet.isFrozen === true
           ) {
             const error =
               new Error(
@@ -2717,82 +3716,100 @@ router.patch(
           const walletBefore = {
             pkrBalance:
               Number(
-                walletDoc.pkrBalance || 0
+                wallet.pkrBalance || 0
               ),
 
             usdtBalance:
               Number(
-                walletDoc.usdtBalance || 0
+                wallet.usdtBalance || 0
               ),
 
             goldBalance:
               Number(
-                walletDoc.goldBalance || 0
+                wallet.goldBalance || 0
               ),
 
             lockedPkr:
               Number(
-                walletDoc.lockedPkr || 0
+                wallet.lockedPkr || 0
               ),
 
             lockedUsdt:
               Number(
-                walletDoc.lockedUsdt || 0
+                wallet.lockedUsdt || 0
               ),
 
             lockedGold:
               Number(
-                walletDoc.lockedGold || 0
+                wallet.lockedGold || 0
               ),
           };
+
+          // ==============================================
+          // SAVE WALLET BEFORE SNAPSHOT
+          // ==============================================
 
           deposit.walletBefore =
             walletBefore;
 
           // ==============================================
-          // CREDIT WALLET
+          // CREDIT PKR
           // ==============================================
 
           if (
-            walletType === "PKR"
+            walletType ===
+            "PKR"
           ) {
-            walletDoc.pkrBalance =
+            wallet.pkrBalance =
               walletBefore.pkrBalance +
               amount;
 
-            walletDoc.totalDeposit =
+            wallet.totalDeposit =
               Number(
-                walletDoc.totalDeposit || 0
+                wallet.totalDeposit || 0
               ) + amount;
 
-            walletDoc.totalPkrDeposit =
+            wallet.totalPkrDeposit =
               Number(
-                walletDoc.totalPkrDeposit || 0
+                wallet.totalPkrDeposit || 0
               ) + amount;
           }
 
+          // ==============================================
+          // CREDIT USDT
+          // ==============================================
+
           if (
-            walletType === "USDT"
+            walletType ===
+            "USDT"
           ) {
-            walletDoc.usdtBalance =
+            wallet.usdtBalance =
               walletBefore.usdtBalance +
               amount;
 
-            walletDoc.totalDeposit =
+            wallet.totalDeposit =
               Number(
-                walletDoc.totalDeposit || 0
+                wallet.totalDeposit || 0
               ) + amount;
 
-            walletDoc.totalUsdtDeposited =
+            wallet.totalUsdtDeposited =
               Number(
-                walletDoc.totalUsdtDeposited || 0
+                wallet.totalUsdtDeposited || 0
               ) + amount;
           }
 
-          walletDoc.lastDepositAt =
+          // ==============================================
+          // LAST DEPOSIT
+          // ==============================================
+
+          wallet.lastDepositAt =
             new Date();
 
-          await walletDoc.save({
+          // ==============================================
+          // SAVE WALLET
+          // ==============================================
+
+          await wallet.save({
             session,
           });
 
@@ -2803,34 +3820,38 @@ router.patch(
           const walletAfter = {
             pkrBalance:
               Number(
-                walletDoc.pkrBalance || 0
+                wallet.pkrBalance || 0
               ),
 
             usdtBalance:
               Number(
-                walletDoc.usdtBalance || 0
+                wallet.usdtBalance || 0
               ),
 
             goldBalance:
               Number(
-                walletDoc.goldBalance || 0
+                wallet.goldBalance || 0
               ),
 
             lockedPkr:
               Number(
-                walletDoc.lockedPkr || 0
+                wallet.lockedPkr || 0
               ),
 
             lockedUsdt:
               Number(
-                walletDoc.lockedUsdt || 0
+                wallet.lockedUsdt || 0
               ),
 
             lockedGold:
               Number(
-                walletDoc.lockedGold || 0
+                wallet.lockedGold || 0
               ),
           };
+
+          // ==============================================
+          // SAVE WALLET AFTER
+          // ==============================================
 
           deposit.walletAfter =
             walletAfter;
@@ -2852,6 +3873,10 @@ router.patch(
           deposit.approvedAt =
             new Date();
 
+          // ==============================================
+          // SAVE DEPOSIT
+          // ==============================================
+
           await deposit.save({
             session,
           });
@@ -2872,23 +3897,25 @@ router.patch(
                 walletType,
 
                 type:
-                  "DEPOSIT_APPROVED",
+                  "DEPOSIT",
 
                 transactionType:
-                  "DEPOSIT_APPROVED",
+                  "DEPOSIT_REJECTED",
 
                 transactionMode:
-                  "CREDIT",
+                  "RELEASE",
 
                 amount,
 
                 balanceBefore:
-                  walletType === "PKR"
+                  walletType ===
+                  "PKR"
                     ? walletBefore.pkrBalance
                     : walletBefore.usdtBalance,
 
                 balanceAfter:
-                  walletType === "PKR"
+                  walletType ===
+                  "PKR"
                     ? walletAfter.pkrBalance
                     : walletAfter.usdtBalance,
 
@@ -2903,10 +3930,10 @@ router.patch(
                   req.user.id,
 
                 status:
-                  "Completed",
+                  "FAILED",
 
                 note:
-                  `Deposit approved by ${
+                  `Deposit rejected by ${
                     req.user.username ||
                     "Admin"
                   }`,
@@ -2933,28 +3960,31 @@ router.patch(
                 walletType,
 
                 transactionType:
-                  "DEPOSIT_APPROVED",
+                  "DEPOSIT_REJECTED",
 
                 transactionMode:
-                  "CREDIT",
+                  "RELEASE",
 
                 amount,
 
                 balanceBefore:
-                  walletType === "PKR"
+                  walletType ===
+                  "PKR"
                     ? walletBefore.pkrBalance
                     : walletBefore.usdtBalance,
 
                 balanceAfter:
-                  walletType === "PKR"
+                  walletType ===
+                  "PKR"
                     ? walletAfter.pkrBalance
                     : walletAfter.usdtBalance,
 
                 status:
-                  "Completed",
+                  "Rejected",
 
                 paymentMethod:
-                  deposit.paymentMethod,
+                  deposit.paymentMethod ||
+                  "",
 
                 referenceId:
                   deposit._id.toString(),
@@ -2967,7 +3997,11 @@ router.patch(
                   "Admin",
 
                 note:
-                  "Deposit approved successfully.",
+                   `Deposit rejected by ${
+                    req.user.username ||
+                    "Admin"
+                  }`,
+   
               },
             ],
             {
@@ -2982,6 +4016,9 @@ router.patch(
           responseData = {
             deposit: {
               id:
+                deposit._id,
+
+              _id:
                 deposit._id,
 
               username:
@@ -3044,6 +4081,10 @@ router.patch(
         }
       );
 
+      // ==================================================
+      // SUCCESS
+      // ==================================================
+
       return res.status(200).json({
         success: true,
 
@@ -3059,20 +4100,25 @@ router.patch(
       );
 
       const statusCode =
-        Number(error.statusCode) || 500;
+        Number(
+          error.statusCode
+        ) || 500;
 
-      return res.status(statusCode).json({
-        success: false,
+      return res
+        .status(statusCode)
+        .json({
+          success: false,
 
-        message:
-          error.message ||
-          "Unable to approve deposit.",
+          message:
+            error.message ||
+            "Unable to approve deposit.",
 
-        error:
-          process.env.NODE_ENV === "production"
-            ? undefined
-            : error.message,
-      });
+          error:
+            process.env.NODE_ENV ===
+            "production"
+              ? undefined
+              : error.message,
+        });
     } finally {
       await session.endSession();
     }
@@ -3082,10 +4128,13 @@ router.patch(
 
 // ======================================================
 // REJECT DEPOSIT
+//
 // PATCH /api/deposit/:id/reject
 //
+// ADMIN ONLY
+//
 // IMPORTANT:
-// Rejection does NOT change wallet balance.
+// Rejection NEVER changes wallet balance.
 // ======================================================
 
 router.patch(
@@ -3116,7 +4165,7 @@ router.patch(
     }
 
     // ==================================================
-    // INPUT
+    // REJECTION REASON
     // ==================================================
 
     const rejectReason =
@@ -3130,17 +4179,25 @@ router.patch(
     const noteProvided =
       req.body?.note !== undefined;
 
-    const note = noteProvided
-      ? String(req.body.note || "")
-          .trim()
-          .slice(0, 1000)
-      : null;
+    const note =
+      noteProvided
+        ? String(
+            req.body.note || ""
+          )
+            .trim()
+            .slice(0, 1000)
+        : null;
+
+    // ==================================================
+    // START SESSION
+    // ==================================================
 
     const session =
       await mongoose.startSession();
 
     try {
-      let responseDeposit = null;
+      let responseDeposit =
+        null;
 
       await session.withTransaction(
         async () => {
@@ -3165,7 +4222,7 @@ router.patch(
           }
 
           // ==============================================
-          // STATUS CHECK
+          // STATUS
           // ==============================================
 
           const currentStatus =
@@ -3176,11 +4233,15 @@ router.patch(
               .toUpperCase();
 
           if (
-            currentStatus !== "PENDING"
+            currentStatus !==
+            "PENDING"
           ) {
             const error =
               new Error(
-                `Deposit already ${currentStatus.toLowerCase()}.`
+                `Deposit already ${(
+                  currentStatus ||
+                  "processed"
+                ).toLowerCase()}.`
               );
 
             error.statusCode = 409;
@@ -3200,7 +4261,10 @@ router.patch(
               .toUpperCase();
 
           if (
-            !["PKR", "USDT"].includes(
+            ![
+              "PKR",
+              "USDT",
+            ].includes(
               walletType
             )
           ) {
@@ -3219,10 +4283,14 @@ router.patch(
           // ==============================================
 
           const amount =
-            Number(deposit.amount);
+            Number(
+              deposit.amount
+            );
 
           if (
-            !Number.isFinite(amount) ||
+            !Number.isFinite(
+              amount
+            ) ||
             amount <= 0
           ) {
             const error =
@@ -3236,7 +4304,9 @@ router.patch(
           }
 
           // ==============================================
-          // CURRENT WALLET
+          // FIND CURRENT WALLET
+          //
+          // No balance mutation.
           // ==============================================
 
           const wallet =
@@ -3244,9 +4314,6 @@ router.patch(
               userId:
                 deposit.userId,
             })
-              .select(
-                "pkrBalance usdtBalance goldBalance lockedPkr lockedUsdt lockedGold isFrozen"
-              )
               .session(session)
               .lean();
 
@@ -3262,7 +4329,7 @@ router.patch(
           }
 
           // ==============================================
-          // WALLET SNAPSHOT
+          // CURRENT WALLET SNAPSHOT
           // ==============================================
 
           const currentWallet = {
@@ -3297,6 +4364,17 @@ router.patch(
               ),
           };
 
+          // ==============================================
+          // PRESERVE SNAPSHOTS
+          // ==============================================
+
+          if (
+            !deposit.walletBefore
+          ) {
+            deposit.walletBefore =
+              currentWallet;
+          }
+
           deposit.walletAfter =
             currentWallet;
 
@@ -3310,6 +4388,10 @@ router.patch(
           deposit.rejectReason =
             rejectReason;
 
+          // IMPORTANT:
+          // Rejection uses rejectedBy fields.
+          // ==============================================
+
           deposit.rejectedBy =
             req.user.id;
 
@@ -3320,9 +4402,16 @@ router.patch(
           deposit.rejectedAt =
             new Date();
 
-          if (noteProvided) {
-            deposit.note = note;
+          if (
+            noteProvided
+          ) {
+            deposit.note =
+              note;
           }
+
+          // ==============================================
+          // SAVE DEPOSIT
+          // ==============================================
 
           await deposit.save({
             session,
@@ -3330,6 +4419,8 @@ router.patch(
 
           // ==============================================
           // WALLET HISTORY
+          //
+          // NO BALANCE CHANGE
           // ==============================================
 
           await WalletHistory.create(
@@ -3343,24 +4434,31 @@ router.patch(
 
                 walletType,
 
+                // FIXED:
+                // WalletHistory enum requires DEPOSIT
                 type:
-                  "DEPOSIT_REJECTED",
+                  "DEPOSIT",
 
+                // Keep audit transaction name
                 transactionType:
                   "DEPOSIT_REJECTED",
 
+                // FIXED:
+                // RELEASE is not valid for this model
                 transactionMode:
-                  "RELEASE",
+                  "CREDIT",
 
                 amount,
 
                 balanceBefore:
-                  walletType === "PKR"
+                  walletType ===
+                  "PKR"
                     ? currentWallet.pkrBalance
                     : currentWallet.usdtBalance,
 
                 balanceAfter:
-                  walletType === "PKR"
+                  walletType ===
+                  "PKR"
                     ? currentWallet.pkrBalance
                     : currentWallet.usdtBalance,
 
@@ -3374,8 +4472,10 @@ router.patch(
                 adminId:
                   req.user.id,
 
+                // FIXED:
+                // WalletHistory status enum
                 status:
-                  "Rejected",
+                  "FAILED",
 
                 note:
                   rejectReason,
@@ -3388,6 +4488,8 @@ router.patch(
 
           // ==============================================
           // TRANSACTION LEDGER
+          //
+          // NO BALANCE CHANGE
           // ==============================================
 
           await Transaction.create(
@@ -3404,18 +4506,22 @@ router.patch(
                 transactionType:
                   "DEPOSIT_REJECTED",
 
+                // FIXED:
+                // RELEASE was causing validation error
                 transactionMode:
-                  "RELEASE",
+                  "CREDIT",
 
                 amount,
 
                 balanceBefore:
-                  walletType === "PKR"
+                  walletType ===
+                  "PKR"
                     ? currentWallet.pkrBalance
                     : currentWallet.usdtBalance,
 
                 balanceAfter:
-                  walletType === "PKR"
+                  walletType ===
+                  "PKR"
                     ? currentWallet.pkrBalance
                     : currentWallet.usdtBalance,
 
@@ -3423,7 +4529,8 @@ router.patch(
                   "Rejected",
 
                 paymentMethod:
-                  deposit.paymentMethod,
+                  deposit.paymentMethod ||
+                  "",
 
                 referenceId:
                   deposit._id.toString(),
@@ -3443,13 +4550,15 @@ router.patch(
               session,
             }
           );
-
-          // ==============================================
-          // RESPONSE
+                    // ==============================================
+          // RESPONSE DATA
           // ==============================================
 
           responseDeposit = {
             id:
+              deposit._id,
+
+            _id:
               deposit._id,
 
             username:
@@ -3517,6 +4626,10 @@ router.patch(
         }
       );
 
+      // ==================================================
+      // SUCCESS
+      // ==================================================
+
       return res.status(200).json({
         success: true,
 
@@ -3532,62 +4645,83 @@ router.patch(
         error
       );
 
-      return res.status(
-        Number(error.statusCode) || 500
-      ).json({
-        success: false,
+      const statusCode =
+        Number(
+          error.statusCode
+        ) || 500;
 
-        message:
-          error.message ||
-          "Unable to reject deposit.",
+      return res
+        .status(statusCode)
+        .json({
+          success: false,
 
-        error:
-          process.env.NODE_ENV === "production"
-            ? undefined
-            : error.message,
-      });
+          message:
+            error.message ||
+            "Unable to reject deposit.",
+
+          error:
+            process.env.NODE_ENV ===
+            "production"
+              ? undefined
+              : error.message,
+        });
     } finally {
       await session.endSession();
     }
   }
 );
 
-
 // ======================================================
 // CANCEL DEPOSIT
+//
 // PATCH /api/deposit/:id/cancel
 //
-// User can cancel only their own PENDING deposit.
-// Admin can also cancel a PENDING deposit.
-// Wallet balance is NOT changed.
+// USER:
+//   Own pending deposits only
+//
+// ADMIN:
+//   Any pending deposit
+//
+// IMPORTANT:
+// Cancellation NEVER changes wallet balance.
 // ======================================================
 
 router.patch(
   "/:id/cancel",
   verifyToken,
   async (req, res) => {
+    const depositId =
+      String(
+        req.params.id || ""
+      ).trim();
+
+    // ==================================================
+    // VALIDATE ID
+    // ==================================================
+
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        depositId
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+
+        message:
+          "Invalid deposit ID.",
+      });
+    }
+
+    // ==================================================
+    // START SESSION
+    // ==================================================
+
     const session =
       await mongoose.startSession();
 
     try {
-      // ==================================================
-      // VALIDATE ID
-      // ==================================================
-
-      if (
-        !mongoose.Types.ObjectId.isValid(
-          req.params.id
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-
-          message:
-            "Invalid deposit ID.",
-        });
-      }
-
-      let responseData = null;
+      let responseData =
+        null;
 
       await session.withTransaction(
         async () => {
@@ -3597,7 +4731,7 @@ router.patch(
 
           const deposit =
             await Deposit.findById(
-              req.params.id
+              depositId
             ).session(session);
 
           if (!deposit) {
@@ -3612,14 +4746,20 @@ router.patch(
           }
 
           // ==============================================
-          // OWNERSHIP
+          // ROLE
           // ==============================================
 
           const isAdminUser =
             String(
               req.user?.role || ""
-            ).toLowerCase() ===
+            )
+              .trim()
+              .toLowerCase() ===
             "admin";
+
+          // ==============================================
+          // OWNERSHIP
+          // ==============================================
 
           const depositUserId =
             String(
@@ -3653,7 +4793,9 @@ router.patch(
           const currentStatus =
             String(
               deposit.status || ""
-            ).toUpperCase();
+            )
+              .trim()
+              .toUpperCase();
 
           if (
             currentStatus !==
@@ -3677,10 +4819,15 @@ router.patch(
             String(
               deposit.walletType ||
                 "PKR"
-            ).toUpperCase();
+            )
+              .trim()
+              .toUpperCase();
 
           if (
-            !["PKR", "USDT"].includes(
+            ![
+              "PKR",
+              "USDT",
+            ].includes(
               walletType
             )
           ) {
@@ -3704,7 +4851,9 @@ router.patch(
             );
 
           if (
-            !Number.isFinite(amount) ||
+            !Number.isFinite(
+              amount
+            ) ||
             amount <= 0
           ) {
             const error =
@@ -3718,7 +4867,9 @@ router.patch(
           }
 
           // ==============================================
-          // WALLET
+          // FIND WALLET
+          //
+          // Read only.
           // ==============================================
 
           const wallet =
@@ -3744,18 +4895,7 @@ router.patch(
           // WALLET SNAPSHOT
           // ==============================================
 
-          const balanceBefore =
-            walletType === "PKR"
-              ? Number(
-                  wallet.pkrBalance ??
-                    wallet.balance ??
-                    0
-                )
-              : Number(
-                  wallet.usdtBalance || 0
-                );
-
-          const walletBefore = {
+          const walletSnapshot = {
             pkrBalance:
               Number(
                 wallet.pkrBalance || 0
@@ -3787,6 +4927,12 @@ router.patch(
               ),
           };
 
+          const balanceBefore =
+            walletType ===
+            "PKR"
+              ? walletSnapshot.pkrBalance
+              : walletSnapshot.usdtBalance;
+
           // ==============================================
           // UPDATE DEPOSIT
           // ==============================================
@@ -3796,37 +4942,49 @@ router.patch(
 
           deposit.walletBefore =
             deposit.walletBefore ||
-            walletBefore;
+            walletSnapshot;
 
           deposit.walletAfter =
-            walletBefore;
+            walletSnapshot;
 
           deposit.note =
             isAdminUser
               ? "Deposit cancelled by admin."
               : "Deposit cancelled by user.";
 
-          deposit.rejectedAt =
-            new Date();
+          // ==============================================
+          // OPTIONAL CANCELLATION TIMESTAMP
+          // ==============================================
 
           if (
-            Object.prototype.hasOwnProperty.call(
-              deposit.toObject(),
-              "cancelledAt"
-            )
+            "cancelledAt" in
+            deposit
           ) {
             deposit.cancelledAt =
               new Date();
           }
 
-          if (isAdminUser) {
+          // ==============================================
+          // ADMIN AUDIT
+          // ==============================================
+
+          if (
+            isAdminUser
+          ) {
             deposit.rejectedBy =
               req.user.id;
 
             deposit.rejectedByUsername =
               req.user.username ||
               "Admin";
+
+            deposit.rejectedAt =
+              new Date();
           }
+
+          // ==============================================
+          // SAVE
+          // ==============================================
 
           await deposit.save({
             session,
@@ -3834,6 +4992,8 @@ router.patch(
 
           // ==============================================
           // WALLET HISTORY
+          //
+          // NO BALANCE CHANGE
           // ==============================================
 
           await WalletHistory.create(
@@ -3847,12 +5007,16 @@ router.patch(
 
                 walletType,
 
+                // FIXED:
+                // WalletHistory.type enum
                 type:
-                  "DEPOSIT_CANCELLED",
+                  "DEPOSIT",
 
+                // Keep audit transaction name
                 transactionType:
                   "DEPOSIT_CANCELLED",
 
+                // Cancellation remains RELEASE
                 transactionMode:
                   "RELEASE",
 
@@ -3863,8 +5027,10 @@ router.patch(
                 balanceAfter:
                   balanceBefore,
 
+                // FIXED:
+                // WalletHistory.status enum
                 status:
-                  "Cancelled",
+                  "CANCELLED",
 
                 referenceId:
                   deposit._id.toString(),
@@ -3872,11 +5038,6 @@ router.patch(
                 paymentMethod:
                   deposit.paymentMethod ||
                   "",
-
-                note:
-                  isAdminUser
-                    ? "Deposit cancelled by admin."
-                    : "Deposit cancelled by user.",
 
                 adminId:
                   isAdminUser
@@ -3887,15 +5048,19 @@ router.patch(
                   isAdminUser
                     ? req.user.username
                     : undefined,
+
+                note:
+                  isAdminUser
+                    ? "Deposit cancelled by admin."
+                    : "Deposit cancelled by user.",
               },
             ],
             {
               session,
             }
           );
-
-          // ==============================================
-          // TRANSACTION LOG
+                    // ==============================================
+          // TRANSACTION LEDGER
           // ==============================================
 
           await Transaction.create(
@@ -3912,6 +5077,10 @@ router.patch(
                 transactionType:
                   "DEPOSIT_CANCELLED",
 
+                // KEEP RELEASE
+                //
+                // Cancellation does not credit/debit
+                // the wallet balance.
                 transactionMode:
                   "RELEASE",
 
@@ -3931,6 +5100,16 @@ router.patch(
 
                 referenceId:
                   deposit._id.toString(),
+
+                adminId:
+                  isAdminUser
+                    ? req.user.id
+                    : undefined,
+
+                adminUsername:
+                  isAdminUser
+                    ? req.user.username
+                    : undefined,
 
                 note:
                   isAdminUser
@@ -3951,6 +5130,9 @@ router.patch(
             id:
               deposit._id,
 
+            _id:
+              deposit._id,
+
             status:
               deposit.status,
 
@@ -3965,6 +5147,10 @@ router.patch(
           };
         }
       );
+
+      // ==================================================
+      // SUCCESS
+      // ==================================================
 
       return res.status(200).json({
         success: true,
@@ -3982,26 +5168,30 @@ router.patch(
       );
 
       const statusCode =
-        Number(error.statusCode) >= 400
-          ? error.statusCode
+        Number(
+          error.statusCode
+        ) >= 400
+          ? Number(
+              error.statusCode
+            )
           : 500;
 
-      return res.status(
-        statusCode
-      ).json({
-        success: false,
+      return res
+        .status(statusCode)
+        .json({
+          success: false,
 
-        message:
-          statusCode === 500
-            ? "Unable to cancel deposit."
-            : error.message,
+          message:
+            statusCode === 500
+              ? "Unable to cancel deposit."
+              : error.message,
 
-        error:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.message,
-      });
+          error:
+            process.env.NODE_ENV ===
+            "production"
+              ? undefined
+              : error.message,
+        });
     } finally {
       await session.endSession();
     }
@@ -4010,3138 +5200,13 @@ router.patch(
 
 
 // ======================================================
-// UPDATE ADMIN NOTE
-// PATCH /api/deposit/:id/note
+// PART 5/6
+// ADMIN DEPOSIT MANAGEMENT
+// GoldTrade V18 Enterprise
 // ======================================================
-
-router.patch(
-  "/:id/note",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // VALIDATE ID
-      // ==================================================
-
-      if (
-        !mongoose.Types.ObjectId.isValid(
-          req.params.id
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-
-          message:
-            "Invalid deposit ID.",
-        });
-      }
-
-      // ==================================================
-      // READ NOTE
-      // ==================================================
-
-      const rawNote =
-        typeof req.body?.note ===
-        "string"
-          ? req.body.note
-          : "";
-
-      const note =
-        rawNote.trim();
-
-      if (note.length > 1000) {
-        return res.status(400).json({
-          success: false,
-
-          message:
-            "Note cannot exceed 1000 characters.",
-        });
-      }
-
-      // ==================================================
-      // FIND DEPOSIT
-      // ==================================================
-
-      const deposit =
-        await Deposit.findById(
-          req.params.id
-        );
-
-      if (!deposit) {
-        return res.status(404).json({
-          success: false,
-
-          message:
-            "Deposit request not found.",
-        });
-      }
-
-      // ==================================================
-      // UPDATE
-      // ==================================================
-
-      deposit.note =
-        note;
-
-      await deposit.save();
-
-      return res.status(200).json({
-        success: true,
-
-        message:
-          "Deposit note updated successfully.",
-
-        depositId:
-          deposit._id,
-
-        note:
-          deposit.note,
-      });
-    } catch (error) {
-      console.error(
-        "UPDATE DEPOSIT NOTE ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to update deposit note.",
-
-        error:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
 
 
 // ======================================================
-// CHECK DUPLICATE PENDING DEPOSIT
-// GET /api/deposit/check-pending/:walletType
-// ======================================================
-
-router.get(
-  "/check-pending/:walletType",
-  verifyToken,
-  async (req, res) => {
-    try {
-      const walletType =
-        String(
-          req.params.walletType || ""
-        )
-          .trim()
-          .toUpperCase();
-
-      if (
-        !["PKR", "USDT"].includes(
-          walletType
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-
-          message:
-            "Invalid wallet type. Use PKR or USDT.",
-        });
-      }
-
-      // ==================================================
-      // FIND PENDING
-      // ==================================================
-
-      const pendingDeposit =
-        await Deposit.findOne({
-          userId:
-            req.user.id,
-
-          walletType,
-
-          status: {
-            $in: [
-              "PENDING",
-              "Pending",
-              "pending",
-            ],
-          },
-        })
-          .sort({
-            createdAt: -1,
-          })
-          .lean();
-
-      return res.status(200).json({
-        success: true,
-
-        hasPendingDeposit:
-          Boolean(
-            pendingDeposit
-          ),
-
-        pendingDeposit:
-          pendingDeposit
-            ? {
-                id:
-                  pendingDeposit._id,
-
-                walletType:
-                  pendingDeposit.walletType,
-
-                amount:
-                  Number(
-                    pendingDeposit.amount ||
-                      0
-                  ),
-
-                status:
-                  String(
-                    pendingDeposit.status ||
-                      ""
-                  ).toUpperCase(),
-
-                paymentMethod:
-                  pendingDeposit.paymentMethod ||
-                  "",
-
-                transactionId:
-                  pendingDeposit.transactionId ||
-                  "",
-
-                referenceId:
-                  pendingDeposit.referenceId ||
-                  pendingDeposit._id?.toString(),
-
-                createdAt:
-                  pendingDeposit.createdAt ||
-                  null,
-              }
-            : null,
-      });
-    } catch (error) {
-      console.error(
-        "CHECK PENDING DEPOSIT ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to check pending deposits.",
-
-        error:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// USER DEPOSIT SUMMARY
-// GET /api/deposit/summary
-// ======================================================
-
-router.get(
-  "/summary",
-  verifyToken,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // GET USER DEPOSITS
-      // ==================================================
-
-      const deposits =
-        await Deposit.find({
-          userId:
-            req.user.id,
-        })
-          .select(
-            "status amount walletType createdAt paymentMethod transactionId referenceId"
-          )
-          .lean();
-
-      // ==================================================
-      // COUNTERS
-      // ==================================================
-
-      let pending = 0;
-      let approved = 0;
-      let rejected = 0;
-      let cancelled = 0;
-
-      let totalPendingAmount = 0;
-      let totalApprovedAmount = 0;
-
-      // ==================================================
-      // PROCESS
-      // ==================================================
-
-      for (
-        const deposit of deposits
-      ) {
-        const status =
-          String(
-            deposit.status || ""
-          ).toUpperCase();
-
-        const amount =
-          Number(
-            deposit.amount
-          );
-
-        const safeAmount =
-          Number.isFinite(
-            amount
-          ) && amount > 0
-            ? amount
-            : 0;
-
-        switch (status) {
-          case "PENDING":
-            pending += 1;
-            totalPendingAmount +=
-              safeAmount;
-            break;
-
-          case "APPROVED":
-            approved += 1;
-            totalApprovedAmount +=
-              safeAmount;
-            break;
-
-          case "REJECTED":
-            rejected += 1;
-            break;
-
-          case "CANCELLED":
-            cancelled += 1;
-            break;
-
-          default:
-            break;
-        }
-      }
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        summary: {
-          totalDeposits:
-            deposits.length,
-
-          pendingDeposits:
-            pending,
-
-          approvedDeposits:
-            approved,
-
-          rejectedDeposits:
-            rejected,
-
-          cancelledDeposits:
-            cancelled,
-
-          totalPendingAmount:
-            Number(
-              totalPendingAmount.toFixed(
-                2
-              )
-            ),
-
-          totalApprovedAmount:
-            Number(
-              totalApprovedAmount.toFixed(
-                2
-              )
-            ),
-        },
-
-        generatedAt:
-          new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error(
-        "DEPOSIT SUMMARY ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load deposit summary.",
-
-        error:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// ADMIN DEPOSIT DASHBOARD
-// GET /api/deposit/admin/dashboard
-// ======================================================
-
-router.get(
-  "/admin/dashboard",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // STATUS COUNTS
-      // ==================================================
-
-      const [
-        totalDeposits,
-        pendingDeposits,
-        approvedDeposits,
-        rejectedDeposits,
-        cancelledDeposits,
-        recentDeposits,
-      ] = await Promise.all([
-        Deposit.countDocuments({}),
-
-        Deposit.countDocuments({
-          status: {
-            $in: [
-              "PENDING",
-              "Pending",
-              "pending",
-            ],
-          },
-        }),
-
-        Deposit.countDocuments({
-          status: {
-            $in: [
-              "APPROVED",
-              "Approved",
-              "approved",
-            ],
-          },
-        }),
-
-        Deposit.countDocuments({
-          status: {
-            $in: [
-              "REJECTED",
-              "Rejected",
-              "rejected",
-            ],
-          },
-        }),
-
-        Deposit.countDocuments({
-          status: {
-            $in: [
-              "CANCELLED",
-              "Cancelled",
-              "cancelled",
-            ],
-          },
-        }),
-
-        Deposit.find({})
-          .sort({
-            createdAt: -1,
-            _id: -1,
-          })
-          .limit(10)
-          .lean(),
-      ]);
-
-      // ==================================================
-      // APPROVED TOTALS
-      // ==================================================
-
-      const approvedAggregation =
-        await Deposit.aggregate([
-          {
-            $match: {
-              status: {
-                $in: [
-                  "APPROVED",
-                  "Approved",
-                  "approved",
-                ],
-              },
-            },
-          },
-
-          {
-            $project: {
-              amount: {
-                $convert: {
-                  input: "$amount",
-
-                  to: "double",
-
-                  onError: 0,
-
-                  onNull: 0,
-                },
-              },
-
-              walletType: {
-                $toUpper: {
-                  $ifNull: [
-                    "$walletType",
-                    "",
-                  ],
-                },
-              },
-            },
-          },
-
-          {
-            $group: {
-              _id: null,
-
-              totalApprovedAmount: {
-                $sum:
-                  "$amount",
-              },
-
-              totalPkrDeposits: {
-                $sum: {
-                  $cond: [
-                    {
-                      $eq: [
-                        "$walletType",
-                        "PKR",
-                      ],
-                    },
-
-                    "$amount",
-
-                    0,
-                  ],
-                },
-              },
-
-              totalUsdtDeposits: {
-                $sum: {
-                  $cond: [
-                    {
-                      $eq: [
-                        "$walletType",
-                        "USDT",
-                      ],
-                    },
-
-                    "$amount",
-
-                    0,
-                  ],
-                },
-              },
-            },
-          },
-        ]);
-
-      // ==================================================
-      // PENDING TOTAL
-      // ==================================================
-
-      const pendingAggregation =
-        await Deposit.aggregate([
-          {
-            $match: {
-              status: {
-                $in: [
-                  "PENDING",
-                  "Pending",
-                  "pending",
-                ],
-              },
-            },
-          },
-
-          {
-            $project: {
-              amount: {
-                $convert: {
-                  input: "$amount",
-
-                  to: "double",
-
-                  onError: 0,
-
-                  onNull: 0,
-                },
-              },
-            },
-          },
-
-          {
-            $group: {
-              _id: null,
-
-              totalPendingAmount: {
-                $sum:
-                  "$amount",
-              },
-            },
-          },
-        ]);
-
-      // ==================================================
-      // NORMALIZE TOTALS
-      // ==================================================
-
-      const approvedTotals =
-        approvedAggregation[0] ||
-        {};
-
-      const pendingTotals =
-        pendingAggregation[0] ||
-        {};
-
-      const totalApprovedAmount =
-        Number(
-          approvedTotals
-            .totalApprovedAmount ||
-            0
-        );
-
-      const totalPendingAmount =
-        Number(
-          pendingTotals
-            .totalPendingAmount ||
-            0
-        );
-
-      const totalPkrDeposits =
-        Number(
-          approvedTotals
-            .totalPkrDeposits ||
-            0
-        );
-
-      const totalUsdtDeposits =
-        Number(
-          approvedTotals
-            .totalUsdtDeposits ||
-            0
-        );
-
-      // ==================================================
-      // NORMALIZE RECENT DEPOSITS
-      // ==================================================
-
-      const normalizedRecentDeposits =
-        recentDeposits.map(
-          (deposit) => ({
-            ...deposit,
-
-            id:
-              deposit._id,
-
-            status:
-              String(
-                deposit.status || ""
-              ).toUpperCase(),
-
-            amount:
-              Number(
-                Number(
-                  deposit.amount || 0
-                ).toFixed(6)
-              ),
-
-            walletType:
-              String(
-                deposit.walletType ||
-                  ""
-              ).toUpperCase(),
-          })
-        );
-
-      // ==================================================
-      // SUCCESS
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        dashboard: {
-          totalDeposits,
-
-          pendingDeposits,
-
-          approvedDeposits,
-
-          rejectedDeposits,
-
-          cancelledDeposits,
-
-          totalApprovedAmount,
-
-          totalPendingAmount,
-
-          totalPkrDeposits,
-
-          totalUsdtDeposits,
-
-          recentDeposits:
-            normalizedRecentDeposits,
-        },
-
-        totalDeposits,
-
-        pendingDeposits,
-
-        approvedDeposits,
-
-        rejectedDeposits,
-
-        cancelledDeposits,
-
-        totalApprovedAmount,
-
-        totalPendingAmount,
-
-        totalPkrDeposits,
-
-        totalUsdtDeposits,
-
-        recentDeposits:
-          normalizedRecentDeposits,
-      });
-    } catch (error) {
-      console.error(
-        "ADMIN DEPOSIT DASHBOARD ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load admin deposit dashboard.",
-
-        error:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
-// ======================================================
-// ADMIN DEPOSIT ANALYTICS
-// GET /api/deposit/admin/analytics
-//
-// Used by Dashboard Charts
-// ======================================================
-
-router.get(
-  "/admin/analytics",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // APPROVED DEPOSITS ONLY
-      // ==================================================
-
-      const deposits =
-        await Deposit.find({
-          status: {
-            $in: [
-              "APPROVED",
-              "Approved",
-              "approved",
-            ],
-          },
-        })
-          .select(
-            "amount walletType createdAt"
-          )
-          .lean();
-
-      // ==================================================
-      // TOTALS
-      // ==================================================
-
-      let totalAmount = 0;
-      let totalPKR = 0;
-      let totalUSDT = 0;
-
-      const monthlyMap = {};
-
-      // ==================================================
-      // PROCESS APPROVED DEPOSITS
-      // ==================================================
-
-      for (
-        const deposit of deposits
-      ) {
-        const amount =
-          Number(
-            deposit.amount
-          );
-
-        if (
-          !Number.isFinite(amount) ||
-          amount <= 0
-        ) {
-          continue;
-        }
-
-        const walletType =
-          String(
-            deposit.walletType || ""
-          ).toUpperCase();
-
-        // ==================================================
-        // DATE SAFETY
-        // ==================================================
-
-        const createdAt =
-          deposit.createdAt
-            ? new Date(
-                deposit.createdAt
-              )
-            : null;
-
-        if (
-          !createdAt ||
-          Number.isNaN(
-            createdAt.getTime()
-          )
-        ) {
-          continue;
-        }
-
-        const month =
-          createdAt
-            .toISOString()
-            .slice(0, 7);
-
-        // ==================================================
-        // CREATE MONTH
-        // ==================================================
-
-        if (
-          !monthlyMap[month]
-        ) {
-          monthlyMap[month] = {
-            month,
-
-            deposits: 0,
-
-            amount: 0,
-
-            pkr: 0,
-
-            usdt: 0,
-          };
-        }
-
-        // ==================================================
-        // MONTHLY TOTAL
-        // ==================================================
-
-        monthlyMap[month].deposits += 1;
-
-        monthlyMap[month].amount +=
-          amount;
-
-        // ==================================================
-        // PKR
-        // ==================================================
-
-        if (
-          walletType === "PKR"
-        ) {
-          monthlyMap[month].pkr +=
-            amount;
-
-          totalPKR += amount;
-        }
-
-        // ==================================================
-        // USDT
-        // ==================================================
-
-        if (
-          walletType === "USDT"
-        ) {
-          monthlyMap[month].usdt +=
-            amount;
-
-          totalUSDT += amount;
-        }
-
-        // ==================================================
-        // ALL DEPOSITS TOTAL
-        // ==================================================
-
-        totalAmount += amount;
-      }
-
-      // ==================================================
-      // SORT MONTHS
-      // ==================================================
-
-      const monthlyAnalytics =
-        Object.values(
-          monthlyMap
-        )
-          .sort(
-            (a, b) =>
-              a.month.localeCompare(
-                b.month
-              )
-          )
-          .map(
-            (item) => ({
-              month:
-                item.month,
-
-              deposits:
-                item.deposits,
-
-              amount:
-                Number(
-                  item.amount.toFixed(
-                    2
-                  )
-                ),
-
-              pkr:
-                Number(
-                  item.pkr.toFixed(
-                    2
-                  )
-                ),
-
-              usdt:
-                Number(
-                  item.usdt.toFixed(
-                    6
-                  )
-                ),
-            })
-          );
-
-      // ==================================================
-      // AVERAGE DEPOSIT
-      // ==================================================
-
-      const averageDeposit =
-        deposits.length > 0
-          ? totalAmount /
-            deposits.length
-          : 0;
-
-      // ==================================================
-      // SUCCESS
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        analytics: {
-          totalApprovedDeposits:
-            deposits.length,
-
-          totalAmount:
-            Number(
-              totalAmount.toFixed(
-                2
-              )
-            ),
-
-          totalPKR:
-            Number(
-              totalPKR.toFixed(
-                2
-              )
-            ),
-
-          totalUSDT:
-            Number(
-              totalUSDT.toFixed(
-                6
-              )
-            ),
-
-          averageDeposit:
-            Number(
-              averageDeposit.toFixed(
-                2
-              )
-            ),
-
-          monthlyAnalytics,
-        },
-
-        generatedAt:
-          new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error(
-        "DEPOSIT ANALYTICS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load deposit analytics.",
-
-        error:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// ADMIN RECENT DEPOSITS
-// GET /api/deposit/admin/recent
-// ======================================================
-
-router.get(
-  "/admin/recent",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // SAFE LIMIT
-      // ==================================================
-
-      let limit =
-        Number(
-          req.query.limit
-        );
-
-      if (
-        !Number.isFinite(limit) ||
-        limit <= 0
-      ) {
-        limit = 20;
-      }
-
-      limit =
-        Math.min(
-          Math.floor(limit),
-          100
-        );
-
-      // ==================================================
-      // GET RECENT DEPOSITS
-      // ==================================================
-
-      const deposits =
-        await Deposit.find({})
-          .select(
-            [
-              "_id",
-              "userId",
-              "username",
-              "fullName",
-              "email",
-              "walletType",
-              "amount",
-              "currency",
-              "paymentMethod",
-              "transactionId",
-              "referenceId",
-              "receiptImage",
-              "receiptUploaded",
-              "status",
-              "note",
-              "rejectReason",
-              "approvedBy",
-              "approvedByUsername",
-              "approvedAt",
-              "rejectedBy",
-              "rejectedByUsername",
-              "rejectedAt",
-              "cancelledAt",
-              "createdAt",
-              "updatedAt",
-            ].join(" ")
-          )
-          .sort({
-            createdAt: -1,
-            _id: -1,
-          })
-          .limit(limit)
-          .lean();
-
-      // ==================================================
-      // NORMALIZE RESPONSE
-      // ==================================================
-
-      const recentDeposits =
-        deposits.map(
-          (deposit) => ({
-            ...deposit,
-
-            id:
-              deposit._id,
-
-            status:
-              String(
-                deposit.status ||
-                  ""
-              ).toUpperCase(),
-
-            walletType:
-              String(
-                deposit.walletType ||
-                  ""
-              ).toUpperCase(),
-
-            amount:
-              Number(
-                Number(
-                  deposit.amount || 0
-                ).toFixed(6)
-              ),
-          })
-        );
-
-      // ==================================================
-      // SUCCESS
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        total:
-          recentDeposits.length,
-
-        limit,
-
-        recentDeposits,
-      });
-    } catch (error) {
-      console.error(
-        "ADMIN RECENT DEPOSITS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load recent deposits.",
-
-        error:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// ADMIN TOP DEPOSITORS
-// GET /api/deposit/admin/top-depositors
-//
-// Approved deposits only.
-// ======================================================
-
-router.get(
-  "/admin/top-depositors",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      const topDepositors =
-        await Deposit.aggregate([
-          // =================================================
-          // ONLY APPROVED
-          // =================================================
-
-          {
-            $match: {
-              status: {
-                $in: [
-                  "APPROVED",
-                  "Approved",
-                  "approved",
-                ],
-              },
-            },
-          },
-
-          // =================================================
-          // NORMALIZE FIELDS
-          // =================================================
-
-          {
-            $project: {
-              username: {
-                $ifNull: [
-                  "$username",
-                  "Unknown",
-                ],
-              },
-
-              amount: {
-                $convert: {
-                  input:
-                    "$amount",
-
-                  to: "double",
-
-                  onError: 0,
-
-                  onNull: 0,
-                },
-              },
-
-              walletType: {
-                $toUpper: {
-                  $ifNull: [
-                    "$walletType",
-                    "",
-                  ],
-                },
-              },
-
-              createdAt: 1,
-            },
-          },
-
-          // =================================================
-          // GROUP BY USERNAME
-          // =================================================
-
-          {
-            $group: {
-              _id:
-                "$username",
-
-              totalDeposits: {
-                $sum: 1,
-              },
-
-              totalAmount: {
-                $sum:
-                  "$amount",
-              },
-
-              pkrDeposits: {
-                $sum: {
-                  $cond: [
-                    {
-                      $eq: [
-                        "$walletType",
-                        "PKR",
-                      ],
-                    },
-
-                    "$amount",
-
-                    0,
-                  ],
-                },
-              },
-
-              usdtDeposits: {
-                $sum: {
-                  $cond: [
-                    {
-                      $eq: [
-                        "$walletType",
-                        "USDT",
-                      ],
-                    },
-
-                    "$amount",
-
-                    0,
-                  ],
-                },
-              },
-
-              lastDeposit: {
-                $max:
-                  "$createdAt",
-              },
-            },
-          },
-
-          // =================================================
-          // SORT
-          // =================================================
-
-          {
-            $sort: {
-              totalAmount: -1,
-
-              lastDeposit: -1,
-            },
-          },
-
-          // =================================================
-          // TOP 20
-          // =================================================
-
-          {
-            $limit: 20,
-          },
-        ]);
-
-      // ==================================================
-      // NORMALIZE RESPONSE
-      // ==================================================
-
-      const depositors =
-        topDepositors.map(
-          (
-            user,
-            index
-          ) => ({
-            rank:
-              index + 1,
-
-            username:
-              user._id ||
-              "Unknown",
-
-            totalDeposits:
-              Number(
-                user.totalDeposits ||
-                  0
-              ),
-
-            totalAmount:
-              Number(
-                Number(
-                  user.totalAmount ||
-                    0
-                ).toFixed(2)
-              ),
-
-            pkrDeposits:
-              Number(
-                Number(
-                  user.pkrDeposits ||
-                    0
-                ).toFixed(2)
-              ),
-
-            usdtDeposits:
-              Number(
-                Number(
-                  user.usdtDeposits ||
-                    0
-                ).toFixed(6)
-              ),
-
-            lastDeposit:
-              user.lastDeposit ||
-              null,
-          })
-        );
-
-      // ==================================================
-      // SUCCESS
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        total:
-          depositors.length,
-
-        depositors,
-      });
-    } catch (error) {
-      console.error(
-        "TOP DEPOSITORS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load top depositors.",
-
-        error:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// ADMIN USER DEPOSIT SUMMARY
-// GET /api/deposit/admin/user-summary/:username
-// ======================================================
-
-router.get(
-  "/admin/user-summary/:username",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // VALIDATE USERNAME
-      // ==================================================
-
-      const rawUsername =
-        String(
-          req.params.username || ""
-        ).trim();
-
-      if (!rawUsername) {
-        return res.status(400).json({
-          success: false,
-
-          message:
-            "Username is required.",
-        });
-      }
-
-      const username =
-        rawUsername.toLowerCase();
-
-      // ==================================================
-      // FIND USER
-      // ==================================================
-
-      const user =
-        await User.findOne({
-          username,
-        })
-          .select(
-            "_id username fullName email role createdAt"
-          )
-          .lean();
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-
-          message:
-            "User not found.",
-        });
-      }
-
-      // ==================================================
-      // LOAD WALLET + DEPOSITS
-      // ==================================================
-
-      const [
-        wallet,
-        deposits,
-      ] = await Promise.all([
-        Wallet.findOne({
-          userId:
-            user._id,
-        }).lean(),
-
-        Deposit.find({
-          userId:
-            user._id,
-        })
-          .sort({
-            createdAt: -1,
-            _id: -1,
-          })
-          .lean(),
-      ]);
-
-      // ==================================================
-      // STATISTICS
-      // ==================================================
-
-      let pendingAmount = 0;
-      let approvedAmount = 0;
-      let rejectedAmount = 0;
-      let cancelledAmount = 0;
-
-      let pendingCount = 0;
-      let approvedCount = 0;
-      let rejectedCount = 0;
-      let cancelledCount = 0;
-
-      let approvedPKR = 0;
-      let approvedUSDT = 0;
-
-      // ==================================================
-      // PROCESS DEPOSITS
-      // ==================================================
-
-      for (
-        const deposit of deposits
-      ) {
-        const status =
-          String(
-            deposit.status || ""
-          ).toUpperCase();
-
-        const walletType =
-          String(
-            deposit.walletType ||
-              ""
-          ).toUpperCase();
-
-        const amount =
-          Number(
-            deposit.amount
-          );
-
-        const safeAmount =
-          Number.isFinite(
-            amount
-          ) && amount > 0
-            ? amount
-            : 0;
-
-        // ================================================
-        // PENDING
-        // ================================================
-
-        if (
-          status === "PENDING"
-        ) {
-          pendingCount += 1;
-
-          pendingAmount +=
-            safeAmount;
-        }
-
-        // ================================================
-        // APPROVED
-        // ================================================
-
-        else if (
-          status === "APPROVED"
-        ) {
-          approvedCount += 1;
-
-          approvedAmount +=
-            safeAmount;
-
-          if (
-            walletType ===
-            "PKR"
-          ) {
-            approvedPKR +=
-              safeAmount;
-          }
-
-          if (
-            walletType ===
-            "USDT"
-          ) {
-            approvedUSDT +=
-              safeAmount;
-          }
-        }
-
-        // ================================================
-        // REJECTED
-        // ================================================
-
-        else if (
-          status === "REJECTED"
-        ) {
-          rejectedCount += 1;
-
-          rejectedAmount +=
-            safeAmount;
-        }
-
-        // ================================================
-        // CANCELLED
-        // ================================================
-
-        else if (
-          status === "CANCELLED"
-        ) {
-          cancelledCount += 1;
-
-          cancelledAmount +=
-            safeAmount;
-        }
-      }
-
-      // ==================================================
-      // WALLET RESPONSE
-      // ==================================================
-
-      let walletData = null;
-
-      if (wallet) {
-        const pkrBalance =
-          Number(
-            wallet.pkrBalance ||
-              0
-          );
-
-        const usdtBalance =
-          Number(
-            wallet.usdtBalance ||
-              0
-          );
-
-        const goldBalance =
-          Number(
-            wallet.goldBalance ||
-              0
-          );
-
-        const lockedPkr =
-          Number(
-            wallet.lockedPkr ||
-              0
-          );
-
-        const lockedUsdt =
-          Number(
-            wallet.lockedUsdt ||
-              0
-          );
-
-        const lockedGold =
-          Number(
-            wallet.lockedGold ||
-              0
-          );
-
-        walletData = {
-          pkrBalance,
-
-          usdtBalance,
-
-          goldBalance,
-
-          lockedPkr,
-
-          lockedUsdt,
-
-          lockedGold,
-
-          availablePkr:
-            Math.max(
-              0,
-              pkrBalance -
-                lockedPkr
-            ),
-
-          availableUsdt:
-            Math.max(
-              0,
-              usdtBalance -
-                lockedUsdt
-            ),
-
-          availableGold:
-            Math.max(
-              0,
-              goldBalance -
-                lockedGold
-            ),
-
-          status:
-            wallet.status ||
-            "Active",
-
-          isFrozen:
-            Boolean(
-              wallet.isFrozen
-            ),
-        };
-      }
-
-      // ==================================================
-      // NORMALIZE RECENT DEPOSITS
-      // ==================================================
-
-      const recentDeposits =
-        deposits
-          .slice(0, 10)
-          .map(
-            (deposit) => ({
-              ...deposit,
-
-              id:
-                deposit._id,
-
-              status:
-                String(
-                  deposit.status ||
-                    ""
-                ).toUpperCase(),
-
-              walletType:
-                String(
-                  deposit.walletType ||
-                    ""
-                ).toUpperCase(),
-
-              amount:
-                Number(
-                  Number(
-                    deposit.amount ||
-                      0
-                  ).toFixed(6)
-                ),
-            })
-          );
-
-      // ==================================================
-      // SUCCESS
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        user: {
-          id:
-            user._id,
-
-          username:
-            user.username,
-
-          fullName:
-            user.fullName ||
-            "",
-
-          email:
-            user.email ||
-            "",
-
-          role:
-            user.role ||
-            "user",
-
-          joinedAt:
-            user.createdAt ||
-            null,
-        },
-
-        wallet:
-          walletData,
-
-        statistics: {
-          totalDeposits:
-            deposits.length,
-
-          pendingCount,
-
-          approvedCount,
-
-          rejectedCount,
-
-          cancelledCount,
-
-          pendingAmount:
-            Number(
-              pendingAmount.toFixed(
-                2
-              )
-            ),
-
-          approvedAmount:
-            Number(
-              approvedAmount.toFixed(
-                2
-              )
-            ),
-
-          rejectedAmount:
-            Number(
-              rejectedAmount.toFixed(
-                2
-              )
-            ),
-
-          cancelledAmount:
-            Number(
-              cancelledAmount.toFixed(
-                2
-              )
-            ),
-
-          approvedPKR:
-            Number(
-              approvedPKR.toFixed(
-                2
-              )
-            ),
-
-          approvedUSDT:
-            Number(
-              approvedUSDT.toFixed(
-                6
-              )
-            ),
-        },
-
-        recentDeposits,
-
-        generatedAt:
-          new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error(
-        "USER DEPOSIT SUMMARY ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load user deposit summary.",
-
-        error:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// GET ADMIN DEPOSIT SETTINGS
-// GET /api/deposit/settings
-// ======================================================
-
-router.get(
-  "/settings",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      const settings =
-        await getDepositSettings();
-
-      // ==================================================
-      // NORMALIZE PAYMENT METHODS
-      // ==================================================
-
-      const methods =
-        normalizeDepositPaymentMethods(
-          settings.depositPaymentMethods ||
-            []
-        );
-
-      return res.status(200).json({
-        success: true,
-
-        settings: {
-          depositsEnabled:
-            Boolean(
-              settings.depositsEnabled
-            ),
-
-          minimumDeposit:
-            Number(
-              settings.minimumDeposit ||
-                0
-            ),
-
-          maximumDeposit:
-            Number(
-              settings.maximumDeposit ||
-                0
-            ),
-
-          methods,
-
-          paymentMethods:
-            methods,
-
-          updatedAt:
-            settings.updatedAt ||
-            null,
-        },
-      });
-    } catch (error) {
-      console.error(
-        "GET ADMIN DEPOSIT SETTINGS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load deposit settings.",
-
-        error:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
-// ======================================================
-// GET PAYMENT SETTINGS
-// GET /api/deposit/payment-settings
-//
-// Public endpoint used by Deposit Page.
-// ======================================================
-
-router.get(
-  "/payment-settings",
-  async (req, res) => {
-    try {
-      const settings =
-        await getDepositSettings();
-
-      // ==================================================
-      // V18 PAYMENT METHODS
-      // ==================================================
-
-      const methods =
-        normalizeDepositPaymentMethods(
-          settings.depositPaymentMethods || []
-        ).filter(
-          (method) =>
-            method.enabled !== false
-        );
-
-      // ==================================================
-      // LEGACY PAYMENT SETTINGS
-      // ==================================================
-
-      const legacy =
-        settings.paymentSettings || {};
-
-      return res.status(200).json({
-        success: true,
-
-        // ==================================================
-        // V18 STRUCTURE
-        // ==================================================
-
-        methods,
-
-        paymentMethods:
-          methods,
-
-        total:
-          methods.length,
-
-        // ==================================================
-        // LEGACY STRUCTURE
-        // ==================================================
-
-        paymentSettings: {
-          bankName:
-            legacy.bankName || "",
-
-          accountTitle:
-            legacy.accountTitle || "",
-
-          accountNumber:
-            legacy.accountNumber || "",
-
-          usdtAddress:
-            legacy.usdtAddress || "",
-
-          usdtNetwork:
-            legacy.usdtNetwork ||
-            "TRC20",
-        },
-
-        depositsEnabled:
-          Boolean(
-            settings.depositsEnabled
-          ),
-
-        minimumDeposit:
-          Number(
-            settings.minimumDeposit || 0
-          ),
-
-        maximumDeposit:
-          Number(
-            settings.maximumDeposit || 0
-          ),
-      });
-    } catch (error) {
-      console.error(
-        "GET PAYMENT SETTINGS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load payment settings.",
-
-        error:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// UPDATE PAYMENT SETTINGS
-// PATCH /api/deposit/payment-settings
-//
-// Admin Only
-//
-// Supports:
-// - V18 paymentMethods
-// - Legacy bank fields
-// - Legacy USDT fields
-// ======================================================
-
-router.patch(
-  "/payment-settings",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      const {
-        methods,
-        paymentMethods,
-
-        bankName,
-        accountTitle,
-        accountNumber,
-
-        usdtAddress,
-        usdtNetwork,
-      } = req.body || {};
-
-      const settings =
-        await getDepositSettings();
-
-      // ==================================================
-      // NEW V18 PAYMENT METHODS
-      // ==================================================
-
-      const suppliedMethods =
-        Array.isArray(
-          paymentMethods
-        )
-          ? paymentMethods
-          : Array.isArray(methods)
-          ? methods
-          : null;
-
-      if (
-        suppliedMethods !== null
-      ) {
-        if (
-          suppliedMethods.length >
-          20
-        ) {
-          return res.status(400).json({
-            success: false,
-
-            message:
-              "Maximum 20 payment methods are allowed.",
-          });
-        }
-
-        const normalizedMethods =
-          normalizeDepositPaymentMethods(
-            suppliedMethods
-          );
-
-        // ==================================================
-        // DUPLICATE METHOD CHECK
-        // ==================================================
-
-        const methodTypes =
-          normalizedMethods.map(
-            (method) =>
-              String(
-                method.type || ""
-              )
-                .trim()
-                .toUpperCase()
-          );
-
-        const uniqueTypes =
-          new Set(
-            methodTypes
-          );
-
-        if (
-          uniqueTypes.size !==
-          methodTypes.length
-        ) {
-          return res.status(400).json({
-            success: false,
-
-            message:
-              "Duplicate payment method types are not allowed.",
-          });
-        }
-
-        settings.depositPaymentMethods =
-          normalizedMethods;
-      }
-
-      // ==================================================
-      // LEGACY PAYMENT SETTINGS
-      //
-      // Keep these fields so old frontend/admin
-      // screens remain compatible.
-      // ==================================================
-
-      const currentLegacy =
-        settings.paymentSettings ||
-        {};
-
-      const hasLegacyFields =
-        bankName !== undefined ||
-        accountTitle !== undefined ||
-        accountNumber !== undefined ||
-        usdtAddress !== undefined ||
-        usdtNetwork !== undefined;
-
-      if (
-        hasLegacyFields
-      ) {
-        settings.paymentSettings = {
-          bankName:
-            bankName !== undefined
-              ? String(
-                  bankName
-                ).trim()
-              : currentLegacy.bankName ||
-                "",
-
-          accountTitle:
-            accountTitle !== undefined
-              ? String(
-                  accountTitle
-                ).trim()
-              : currentLegacy.accountTitle ||
-                "",
-
-          accountNumber:
-            accountNumber !== undefined
-              ? String(
-                  accountNumber
-                ).trim()
-              : currentLegacy.accountNumber ||
-                "",
-
-          usdtAddress:
-            usdtAddress !== undefined
-              ? String(
-                  usdtAddress
-                ).trim()
-              : currentLegacy.usdtAddress ||
-                "",
-
-          usdtNetwork:
-            usdtNetwork !== undefined
-              ? String(
-                  usdtNetwork
-                ).trim()
-              : currentLegacy.usdtNetwork ||
-                "TRC20",
-        };
-      }
-
-      // ==================================================
-      // SAVE
-      // ==================================================
-
-      await settings.save();
-
-      // ==================================================
-      // FINAL METHODS
-      // ==================================================
-
-      const finalMethods =
-        normalizeDepositPaymentMethods(
-          settings.depositPaymentMethods ||
-            []
-        );
-
-      const finalLegacy =
-        settings.paymentSettings ||
-        {};
-
-      // ==================================================
-      // SUCCESS
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        message:
-          "Payment settings updated successfully.",
-
-        methods:
-          finalMethods,
-
-        paymentMethods:
-          finalMethods,
-
-        total:
-          finalMethods.length,
-
-        paymentSettings: {
-          bankName:
-            finalLegacy.bankName ||
-            "",
-
-          accountTitle:
-            finalLegacy.accountTitle ||
-            "",
-
-          accountNumber:
-            finalLegacy.accountNumber ||
-            "",
-
-          usdtAddress:
-            finalLegacy.usdtAddress ||
-            "",
-
-          usdtNetwork:
-            finalLegacy.usdtNetwork ||
-            "TRC20",
-        },
-
-        updatedAt:
-          settings.updatedAt ||
-          null,
-      });
-    } catch (error) {
-      console.error(
-        "UPDATE PAYMENT SETTINGS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to update payment settings.",
-
-        error:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// GET PUBLIC PAYMENT DETAILS
-// GET /api/deposit/payment-details
-//
-// User Deposit Page
-// No Login Required
-// ======================================================
-
-router.get(
-  "/payment-details",
-  async (req, res) => {
-    try {
-      const settings =
-        await getDepositSettings();
-
-      // ==================================================
-      // V18 PAYMENT METHODS
-      // ==================================================
-
-      const methods =
-        normalizeDepositPaymentMethods(
-          settings.depositPaymentMethods ||
-            []
-        ).filter(
-          (method) =>
-            method.enabled !== false
-        );
-
-      // ==================================================
-      // LEGACY PAYMENT SETTINGS
-      // ==================================================
-
-      const payment =
-        settings.paymentSettings ||
-        {};
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        depositsEnabled:
-          Boolean(
-            settings.depositsEnabled
-          ),
-
-        minimumDeposit:
-          Number(
-            settings.minimumDeposit ||
-              0
-          ),
-
-        maximumDeposit:
-          Number(
-            settings.maximumDeposit ||
-              0
-          ),
-
-        // ==================================================
-        // V18
-        // ==================================================
-
-        methods,
-
-        paymentMethods:
-          methods,
-
-        total:
-          methods.length,
-
-        // ==================================================
-        // LEGACY
-        // ==================================================
-
-        bank: {
-          bankName:
-            payment.bankName ||
-            "",
-
-          accountTitle:
-            payment.accountTitle ||
-            "",
-
-          accountNumber:
-            payment.accountNumber ||
-            "",
-        },
-
-        usdt: {
-          address:
-            payment.usdtAddress ||
-            "",
-
-          network:
-            payment.usdtNetwork ||
-            "TRC20",
-        },
-      });
-    } catch (error) {
-      console.error(
-        "GET PAYMENT DETAILS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load payment details.",
-
-        error:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.message,
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// GENERATE DEPOSIT REFERENCE ID
-// ======================================================
-
-const generateDepositReference = () => {
-  const random =
-    Math.random()
-      .toString(36)
-      .substring(2, 8)
-      .toUpperCase();
-
-  return `DEP-${Date.now()}-${random}`;
-};
-
-
-// ======================================================
-// VALIDATE PAYMENT METHOD
-//
-// V18:
-// Primary validation is against configured
-// depositPaymentMethods.
-//
-// Legacy hard-coded methods remain fallback.
-// ======================================================
-
-const validatePaymentMethod = (
-  walletType,
-  paymentMethod,
-  network = "",
-  configuredMethods = []
-) => {
-  const type =
-    String(
-      walletType || ""
-    )
-      .trim()
-      .toUpperCase();
-
-  const method =
-    String(
-      paymentMethod || ""
-    )
-      .trim()
-      .toUpperCase();
-
-  const chain =
-    String(
-      network || ""
-    )
-      .trim()
-      .toUpperCase();
-
-  // ==================================================
-  // BASIC VALIDATION
-  // ==================================================
-
-  if (
-    !["PKR", "USDT"].includes(
-      type
-    )
-  ) {
-    return false;
-  }
-
-  if (!method) {
-    return false;
-  }
-
-  // ==================================================
-  // CONFIGURED V18 METHODS
-  // ==================================================
-
-  if (
-    Array.isArray(
-      configuredMethods
-    ) &&
-    configuredMethods.length > 0
-  ) {
-    const normalizedMethods =
-      normalizeDepositPaymentMethods(
-        configuredMethods
-      );
-
-    const activeMethods =
-      normalizedMethods.filter(
-        (item) =>
-          item.enabled !== false
-      );
-
-    const matched =
-      activeMethods.find(
-        (item) => {
-          const configuredType =
-            String(
-              item.type || ""
-            )
-              .trim()
-              .toUpperCase();
-
-          return (
-            configuredType ===
-              method ||
-            configuredType ===
-              `${type}_${method}` ||
-            configuredType ===
-              `${method}_${type}`
-          );
-        }
-      );
-
-    if (!matched) {
-      return false;
-    }
-
-    // ==================================================
-    // USDT NETWORK VALIDATION
-    // ==================================================
-
-    if (
-      type === "USDT" &&
-      chain
-    ) {
-      const allowedNetworks = [
-        "TRC20",
-        "ERC20",
-        "BEP20",
-        "POLYGON",
-        "SOL",
-      ];
-
-      if (
-        !allowedNetworks.includes(
-          chain
-        )
-      ) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  // ==================================================
-  // LEGACY FALLBACK
-  // ==================================================
-
-  const PKR_METHODS = [
-    "BANK",
-    "BANK_TRANSFER",
-    "JAZZCASH",
-    "EASYPAISA",
-    "NAYA PAY",
-    "SADAPAY",
-    "UPAY",
-    "MANUAL",
-  ];
-
-  const USDT_METHODS = [
-    "USDT",
-    "CRYPTO",
-    "BINANCE",
-    "TRUST WALLET",
-    "BYBIT",
-    "OKX",
-    "KUCOIN",
-  ];
-
-  const NETWORKS = [
-    "TRC20",
-    "ERC20",
-    "BEP20",
-    "POLYGON",
-    "SOL",
-  ];
-
-  if (
-    type === "PKR"
-  ) {
-    return PKR_METHODS.includes(
-      method
-    );
-  }
-
-  if (
-    type === "USDT"
-  ) {
-    return (
-      USDT_METHODS.includes(
-        method
-      ) &&
-      NETWORKS.includes(
-        chain
-      )
-    );
-  }
-
-  return false;
-};
-
-
-// ======================================================
-// VALIDATE RECEIPT
-//
-// Supports:
-// - data URL
-// - normal image URL
-// - stored receipt path
-// ======================================================
-
-const validateReceipt = (
-  receiptImage
-) => {
-  if (!receiptImage) {
-    return {
-      valid: false,
-
-      message:
-        "Deposit receipt is required.",
-    };
-  }
-
-  if (
-    typeof receiptImage !==
-    "string"
-  ) {
-    return {
-      valid: false,
-
-      message:
-        "Receipt must be a string.",
-    };
-  }
-
-  const receipt =
-    receiptImage.trim();
-
-  if (
-    receipt.length < 20
-  ) {
-    return {
-      valid: false,
-
-      message:
-        "Invalid receipt image.",
-    };
-  }
-
-  // ==================================================
-  // DATA URL CHECK
-  // ==================================================
-
-  if (
-    receipt.startsWith(
-      "data:image/"
-    )
-  ) {
-    const validDataUrl =
-      /^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(
-        receipt
-      );
-
-    if (!validDataUrl) {
-      return {
-        valid: false,
-
-        message:
-          "Invalid image data.",
-      };
-    }
-  }
-
-  return {
-    valid: true,
-  };
-};
-
-
-// ======================================================
-// DUPLICATE TRANSACTION CHECK
-//
-// Checks transactionId and referenceId.
-// ======================================================
-
-const isDuplicateTransaction =
-  async (
-    transactionId,
-    referenceId
-  ) => {
-    const cleanTransactionId =
-      String(
-        transactionId || ""
-      ).trim();
-
-    const cleanReferenceId =
-      String(
-        referenceId || ""
-      ).trim();
-
-    if (
-      !cleanTransactionId &&
-      !cleanReferenceId
-    ) {
-      return false;
-    }
-
-    const conditions = [];
-
-    if (
-      cleanTransactionId
-    ) {
-      conditions.push({
-        transactionId:
-          cleanTransactionId,
-      });
-    }
-
-    if (
-      cleanReferenceId
-    ) {
-      conditions.push({
-        referenceId:
-          cleanReferenceId,
-      });
-    }
-
-    if (
-      conditions.length === 0
-    ) {
-      return false;
-    }
-
-    const existing =
-      await Deposit.findOne({
-        $or: conditions,
-      })
-        .select(
-          "_id status"
-        )
-        .lean();
-
-    return Boolean(
-      existing
-    );
-  };
-
-
-// ======================================================
-// VALIDATE DEPOSIT LIMITS
-//
-// Uses global configured minimum/maximum.
-// ======================================================
-
-const validateDepositLimits = (
-  walletType,
-  amount,
-  settings
-) => {
-  const type =
-    String(
-      walletType || ""
-    )
-      .trim()
-      .toUpperCase();
-
-  const value =
-    Number(amount);
-
-  // ==================================================
-  // WALLET TYPE
-  // ==================================================
-
-  if (
-    !["PKR", "USDT"].includes(
-      type
-    )
-  ) {
-    return {
-      valid: false,
-
-      message:
-        "Invalid wallet type.",
-    };
-  }
-
-  // ==================================================
-  // AMOUNT
-  // ==================================================
-
-  if (
-    !Number.isFinite(
-      value
-    ) ||
-    value <= 0
-  ) {
-    return {
-      valid: false,
-
-      message:
-        "Deposit amount must be greater than zero.",
-    };
-  }
-
-  // ==================================================
-  // SETTINGS
-  // ==================================================
-
-  const minimum =
-    Number(
-      settings?.minimumDeposit
-    );
-
-  const maximum =
-    Number(
-      settings?.maximumDeposit
-    );
-
-  if (
-    !Number.isFinite(
-      minimum
-    ) ||
-    minimum <= 0
-  ) {
-    return {
-      valid: false,
-
-      message:
-        "Deposit minimum is not configured correctly.",
-    };
-  }
-
-  if (
-    !Number.isFinite(
-      maximum
-    ) ||
-    maximum <= 0
-  ) {
-    return {
-      valid: false,
-
-      message:
-        "Deposit maximum is not configured correctly.",
-    };
-  }
-
-  if (
-    minimum > maximum
-  ) {
-    return {
-      valid: false,
-
-      message:
-        "Deposit limits are configured incorrectly.",
-    };
-  }
-
-  // ==================================================
-  // MINIMUM
-  // ==================================================
-
-  if (
-    value < minimum
-  ) {
-    return {
-      valid: false,
-
-      message:
-        `Minimum deposit is ${minimum}.`,
-    };
-  }
-
-  // ==================================================
-  // MAXIMUM
-  // ==================================================
-
-  if (
-    value > maximum
-  ) {
-    return {
-      valid: false,
-
-      message:
-        `Maximum deposit is ${maximum}.`,
-    };
-  }
-
-  // ==================================================
-  // USDT SAFETY LIMIT
-  // ==================================================
-
-  if (
-    type === "USDT" &&
-    value > 1000000
-  ) {
-    return {
-      valid: false,
-
-      message:
-        "USDT deposit exceeds allowed limit.",
-    };
-  }
-
-  return {
-    valid: true,
-  };
-};
-
-
-// ======================================================
-// VERIFY PAYMENT CONFIGURATION
-//
-// V18:
-// depositPaymentMethods = primary
-// paymentSettings = legacy fallback
-// ======================================================
-
-const verifyPaymentConfiguration =
-  async (
-    walletType,
-    paymentMethod = ""
-  ) => {
-    const type =
-      String(
-        walletType || ""
-      )
-        .trim()
-        .toUpperCase();
-
-    const method =
-      String(
-        paymentMethod || ""
-      )
-        .trim()
-        .toUpperCase();
-
-    // ==================================================
-    // VALIDATE WALLET TYPE
-    // ==================================================
-
-    if (
-      !["PKR", "USDT"].includes(
-        type
-      )
-    ) {
-      return {
-        valid: false,
-
-        message:
-          "Invalid wallet type.",
-      };
-    }
-
-    // ==================================================
-    // LOAD SETTINGS
-    // ==================================================
-
-    const settings =
-      await getDepositSettings();
-
-    // ==================================================
-    // DEPOSITS ENABLED
-    // ==================================================
-
-    if (
-      !settings.depositsEnabled
-    ) {
-      return {
-        valid: false,
-
-        message:
-          "Deposits are currently disabled.",
-      };
-    }
-
-// ==================================================
-// V18 PAYMENT METHODS
-// ==================================================
-
-const methods =
-  normalizeDepositPaymentMethods(
-    settings.depositPaymentMethods || []
-  ).filter(
-    (item) =>
-      item.enabled !== false
-  );
-
-// ==================================================
-// IF V18 METHODS ARE CONFIGURED
-// ==================================================
-
-if (
-  methods.length > 0
-) {
-  // -----------------------------------------------
-  // Specific method supplied
-  // -----------------------------------------------
-
-  if (method) {
-    const matched =
-      methods.find(
-        (item) => {
-          const configured =
-            String(
-              item.type || ""
-            )
-              .trim()
-              .toUpperCase();
-
-          return (
-            configured ===
-              method ||
-            configured ===
-              `${type}_${method}` ||
-            configured ===
-              `${method}_${type}`
-          );
-        }
-      );
-
-    if (!matched) {
-      return {
-        valid: false,
-
-        message:
-          "Selected payment method is not available.",
-      };
-    }
-
-    return {
-      valid: true,
-
-      method:
-        matched,
-    };
-  }
-
-  // -----------------------------------------------
-  // No method supplied
-  // -----------------------------------------------
-
-  const hasTypeMethod =
-    methods.some(
-      (item) => {
-        const configured =
-          String(
-            item.type || ""
-          )
-            .trim()
-            .toUpperCase();
-
-        return (
-          configured.includes(
-            type
-          ) ||
-
-          (
-            type === "PKR" &&
-            [
-              "BANK",
-              "BANK_TRANSFER",
-              "JAZZCASH",
-              "EASYPAISA",
-              "NAYA PAY",
-              "SADAPAY",
-              "UPAY",
-              "MANUAL",
-            ].includes(
-              configured
-            )
-          ) ||
-
-          (
-            type === "USDT" &&
-            [
-              "USDT",
-              "CRYPTO",
-              "BINANCE",
-              "TRUST WALLET",
-              "BYBIT",
-              "OKX",
-              "KUCOIN",
-            ].includes(
-              configured
-            )
-          )
-        );
-      }
-    );
-
-  if (!hasTypeMethod) {
-    return {
-      valid: false,
-
-      message:
-        `No active ${type} payment method is configured.`,
-    };
-  }
-
-  return {
-    valid: true,
-  };
-}
-
-// ==================================================
-// LEGACY PAYMENT SETTINGS FALLBACK
-// ==================================================
-
-const payment =
-  settings.paymentSettings || {};
-
-if (type === "PKR") {
-  if (
-    !payment.bankName ||
-    !payment.accountNumber
-  ) {
-    return {
-      valid: false,
-
-      message:
-        "PKR payment account is not configured.",
-    };
-  }
-}
-
-if (type === "USDT") {
-  if (!payment.usdtAddress) {
-    return {
-      valid: false,
-
-      message:
-        "USDT wallet address is not configured.",
-    };
-  }
-}
-
-return {
-  valid: true,
-};
-};
-  
- // ======================================================
 // ADMIN GET ALL DEPOSITS
 // GET /api/deposit/admin/all
 //
@@ -7159,35 +5224,21 @@ router.get(
       // PAGINATION
       // ==================================================
 
-      let page =
-        Number(req.query.page);
+      let page = Number(req.query.page);
+      let limit = Number(req.query.limit);
 
-      let limit =
-        Number(req.query.limit);
-
-      if (
-        !Number.isFinite(page) ||
-        page < 1
-      ) {
+      if (!Number.isFinite(page) || page < 1) {
         page = 1;
       }
 
-      if (
-        !Number.isFinite(limit) ||
-        limit < 1
-      ) {
+      if (!Number.isFinite(limit) || limit < 1) {
         limit = 20;
       }
 
       page = Math.floor(page);
+      limit = Math.min(Math.floor(limit), 100);
 
-      limit = Math.min(
-        Math.floor(limit),
-        100
-      );
-
-      const skip =
-        (page - 1) * limit;
+      const skip = (page - 1) * limit;
 
       // ==================================================
       // FILTERS
@@ -7209,10 +5260,9 @@ router.get(
       // ==================================================
 
       if (status) {
-        const normalizedStatus =
-          String(status)
-            .trim()
-            .toUpperCase();
+        const normalizedStatus = String(status)
+          .trim()
+          .toUpperCase();
 
         const statusMap = {
           PENDING: [
@@ -7240,24 +5290,16 @@ router.get(
           ],
         };
 
-        if (
-          statusMap[
-            normalizedStatus
-          ]
-        ) {
-          query.status = {
-            $in:
-              statusMap[
-                normalizedStatus
-              ],
-          };
-        } else {
+        if (!statusMap[normalizedStatus]) {
           return res.status(400).json({
             success: false,
-            message:
-              "Invalid deposit status.",
+            message: "Invalid deposit status.",
           });
         }
+
+        query.status = {
+          $in: statusMap[normalizedStatus],
+        };
       }
 
       // ==================================================
@@ -7265,10 +5307,11 @@ router.get(
       // ==================================================
 
       if (walletType) {
-        const normalizedWalletType =
-          String(walletType)
-            .trim()
-            .toUpperCase();
+        const normalizedWalletType = String(
+          walletType
+        )
+          .trim()
+          .toUpperCase();
 
         if (
           !["PKR", "USDT"].includes(
@@ -7277,8 +5320,7 @@ router.get(
         ) {
           return res.status(400).json({
             success: false,
-            message:
-              "Invalid wallet type.",
+            message: "Invalid wallet type.",
           });
         }
 
@@ -7292,16 +5334,14 @@ router.get(
 
       if (username) {
         const cleanUsername =
-          String(username)
-            .trim();
+          String(username).trim();
 
         if (cleanUsername) {
           query.username = {
-            $regex:
-              cleanUsername.replace(
-                /[.*+?^${}()|[\]\\]/g,
-                "\\$&"
-              ),
+            $regex: cleanUsername.replace(
+              /[.*+?^${}()|[\]\\]/g,
+              "\\$&"
+            ),
             $options: "i",
           };
         }
@@ -7313,16 +5353,14 @@ router.get(
 
       if (paymentMethod) {
         const cleanMethod =
-          String(paymentMethod)
-            .trim();
+          String(paymentMethod).trim();
 
         if (cleanMethod) {
           query.paymentMethod = {
-            $regex:
-              cleanMethod.replace(
-                /[.*+?^${}()|[\]\\]/g,
-                "\\$&"
-              ),
+            $regex: cleanMethod.replace(
+              /[.*+?^${}()|[\]\\]/g,
+              "\\$&"
+            ),
             $options: "i",
           };
         }
@@ -7335,6 +5373,10 @@ router.get(
       if (start || end) {
         query.createdAt = {};
 
+        // ==================================================
+        // START DATE
+        // ==================================================
+
         if (start) {
           const startDate =
             new Date(start);
@@ -7346,8 +5388,7 @@ router.get(
           ) {
             return res.status(400).json({
               success: false,
-              message:
-                "Invalid start date.",
+              message: "Invalid start date.",
             });
           }
 
@@ -7362,6 +5403,10 @@ router.get(
             startDate;
         }
 
+        // ==================================================
+        // END DATE
+        // ==================================================
+
         if (end) {
           const endDate =
             new Date(end);
@@ -7373,8 +5418,7 @@ router.get(
           ) {
             return res.status(400).json({
               success: false,
-              message:
-                "Invalid end date.",
+              message: "Invalid end date.",
             });
           }
 
@@ -7389,9 +5433,9 @@ router.get(
             endDate;
         }
 
-        // ----------------------------------------------
-        // START > END
-        // ----------------------------------------------
+        // ==================================================
+        // DATE RANGE VALIDATION
+        // ==================================================
 
         if (
           query.createdAt.$gte &&
@@ -7408,7 +5452,7 @@ router.get(
       }
 
       // ==================================================
-      // QUERY DATABASE
+      // DATABASE QUERY
       // ==================================================
 
       const [
@@ -7427,37 +5471,33 @@ router.get(
       ]);
 
       // ==================================================
-      // NORMALIZE RESPONSE
+      // NORMALIZE
       // ==================================================
 
       const normalizedDeposits =
-        deposits.map(
-          (deposit) => ({
-            ...deposit,
+        deposits.map((deposit) => ({
+          ...deposit,
 
-            id: deposit._id,
+          id: deposit._id,
 
-            status: String(
-              deposit.status || ""
-            ).toUpperCase(),
+          status: String(
+            deposit.status || ""
+          ).toUpperCase(),
 
-            walletType: String(
-              deposit.walletType || ""
-            ).toUpperCase(),
+          walletType: String(
+            deposit.walletType || ""
+          ).toUpperCase(),
 
-            amount: Number(
-              Number(
-                deposit.amount || 0
-              ).toFixed(6)
-            ),
-          })
-        );
+          amount: Number(
+            Number(
+              deposit.amount || 0
+            ).toFixed(6)
+          ),
+        }));
 
       const totalPages =
         total > 0
-          ? Math.ceil(
-              total / limit
-            )
+          ? Math.ceil(total / limit)
           : 0;
 
       // ==================================================
@@ -7487,26 +5527,39 @@ router.get(
         generatedAt:
           new Date().toISOString(),
       });
+            // ==================================================
+      // END SUCCESS
+      // ==================================================
+
     } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
+
       console.error(
         "ADMIN GET ALL DEPOSITS ERROR:",
         error
       );
 
+      // ==================================================
+      // ERROR RESPONSE
+      // ==================================================
+
       return res.status(500).json({
         success: false,
+
         message:
           "Unable to load deposits.",
 
         error:
-          process.env.NODE_ENV === "production"
+          process.env.NODE_ENV ===
+          "production"
             ? undefined
             : error.message,
       });
     }
   }
 );
-
 
 // ======================================================
 // ADMIN GET SINGLE DEPOSIT
@@ -7536,7 +5589,7 @@ router.get(
       }
 
       // ==================================================
-      // LOAD DEPOSIT + WALLET
+      // LOAD DEPOSIT
       // ==================================================
 
       const deposit =
@@ -7552,6 +5605,10 @@ router.get(
         });
       }
 
+      // ==================================================
+      // LOAD WALLET
+      // ==================================================
+
       const wallet =
         await Wallet.findOne({
           userId:
@@ -7565,47 +5622,85 @@ router.get(
       let walletData = null;
 
       if (wallet) {
-        const pkrBalance =
+        const rawPkrBalance =
           Number(
             wallet.pkrBalance || 0
           );
 
-        const usdtBalance =
+        const rawUsdtBalance =
           Number(
             wallet.usdtBalance || 0
           );
 
-        const goldBalance =
+        const rawGoldBalance =
           Number(
             wallet.goldBalance || 0
           );
 
-        const lockedPkr =
+        const rawLockedPkr =
           Number(
             wallet.lockedPkr || 0
           );
 
-        const lockedUsdt =
+        const rawLockedUsdt =
           Number(
             wallet.lockedUsdt || 0
           );
 
-        const lockedGold =
+        const rawLockedGold =
           Number(
             wallet.lockedGold || 0
           );
 
+        const pkrBalance =
+          Number.isFinite(
+            rawPkrBalance
+          )
+            ? rawPkrBalance
+            : 0;
+
+        const usdtBalance =
+          Number.isFinite(
+            rawUsdtBalance
+          )
+            ? rawUsdtBalance
+            : 0;
+
+        const goldBalance =
+          Number.isFinite(
+            rawGoldBalance
+          )
+            ? rawGoldBalance
+            : 0;
+
+        const lockedPkr =
+          Number.isFinite(
+            rawLockedPkr
+          )
+            ? rawLockedPkr
+            : 0;
+
+        const lockedUsdt =
+          Number.isFinite(
+            rawLockedUsdt
+          )
+            ? rawLockedUsdt
+            : 0;
+
+        const lockedGold =
+          Number.isFinite(
+            rawLockedGold
+          )
+            ? rawLockedGold
+            : 0;
+
         walletData = {
           pkrBalance,
-
           usdtBalance,
-
           goldBalance,
 
           lockedPkr,
-
           lockedUsdt,
-
           lockedGold,
 
           availablePkr:
@@ -7639,10 +5734,21 @@ router.get(
             ),
         };
       }
-
-      // ==================================================
+            // ==================================================
       // NORMALIZED DEPOSIT
       // ==================================================
+
+      const rawAmount =
+        Number(
+          deposit.amount || 0
+        );
+
+      const safeAmount =
+        Number.isFinite(
+          rawAmount
+        )
+          ? rawAmount
+          : 0;
 
       const normalizedDeposit = {
         ...deposit,
@@ -7658,9 +5764,7 @@ router.get(
         ).toUpperCase(),
 
         amount: Number(
-          Number(
-            deposit.amount || 0
-          ).toFixed(6)
+          safeAmount.toFixed(6)
         ),
       };
 
@@ -7680,7 +5784,12 @@ router.get(
         generatedAt:
           new Date().toISOString(),
       });
+
     } catch (error) {
+      // ==================================================
+      // ERROR
+      // ==================================================
+
       console.error(
         "ADMIN GET DEPOSIT ERROR:",
         error
@@ -7688,18 +5797,19 @@ router.get(
 
       return res.status(500).json({
         success: false,
+
         message:
           "Unable to load deposit details.",
 
         error:
-          process.env.NODE_ENV === "production"
+          process.env.NODE_ENV ===
+          "production"
             ? undefined
             : error.message,
       });
     }
   }
 );
-
 
 // ======================================================
 // ADMIN SEARCH DEPOSITS
@@ -7725,10 +5835,13 @@ router.get(
       ).trim();
 
       // ==================================================
-      // AT LEAST ONE SEARCH FIELD
+      // VALIDATE SEARCH
       // ==================================================
 
-      if (!reference && !transactionId) {
+      if (
+        !reference &&
+        !transactionId
+      ) {
         return res.status(400).json({
           success: false,
           message:
@@ -7749,7 +5862,7 @@ router.get(
         );
 
       // ==================================================
-      // REFERENCE SEARCH
+      // REFERENCE
       // ==================================================
 
       if (reference) {
@@ -7761,15 +5874,13 @@ router.get(
       }
 
       // ==================================================
-      // TRANSACTION ID SEARCH
+      // TRANSACTION ID
       // ==================================================
 
       if (transactionId) {
         query.transactionId = {
           $regex:
-            escapeRegex(
-              transactionId
-            ),
+            escapeRegex(transactionId),
           $options: "i",
         };
       }
@@ -7791,8 +5902,20 @@ router.get(
       // ==================================================
 
       const normalizedDeposits =
-        deposits.map(
-          (deposit) => ({
+        deposits.map((deposit) => {
+          const rawAmount =
+            Number(
+              deposit.amount || 0
+            );
+
+          const safeAmount =
+            Number.isFinite(
+              rawAmount
+            )
+              ? rawAmount
+              : 0;
+
+          return {
             ...deposit,
 
             id: deposit._id,
@@ -7806,12 +5929,14 @@ router.get(
             ).toUpperCase(),
 
             amount: Number(
-              Number(
-                deposit.amount || 0
-              ).toFixed(6)
+              safeAmount.toFixed(6)
             ),
-          })
-        );
+          };
+        });
+
+      // ==================================================
+      // SUCCESS
+      // ==================================================
 
       return res.status(200).json({
         success: true,
@@ -7822,7 +5947,12 @@ router.get(
         deposits:
           normalizedDeposits,
       });
+
     } catch (error) {
+      // ==================================================
+      // ERROR
+      // ==================================================
+
       console.error(
         "ADMIN SEARCH DEPOSITS ERROR:",
         error
@@ -7830,18 +5960,19 @@ router.get(
 
       return res.status(500).json({
         success: false,
+
         message:
           "Unable to search deposits.",
 
         error:
-          process.env.NODE_ENV === "production"
+          process.env.NODE_ENV ===
+          "production"
             ? undefined
             : error.message,
       });
     }
   }
 );
-
 
 // ======================================================
 // ADMIN RECEIPT PREVIEW
@@ -7904,13 +6035,39 @@ router.get(
       }
 
       // ==================================================
-      // NORMALIZE
+      // NORMALIZE AMOUNT
+      // ==================================================
+
+      const rawAmount =
+        Number(
+          deposit.amount || 0
+        );
+
+      const safeAmount =
+        Number.isFinite(
+          rawAmount
+        )
+          ? rawAmount
+          : 0;
+
+      // ==================================================
+      // NORMALIZE RECEIPT
       // ==================================================
 
       const receipt = {
         ...deposit,
 
         id: deposit._id,
+
+        receiptImage:
+          typeof deposit.receiptImage ===
+          "string"
+            ? deposit.receiptImage
+            : "",
+
+        receiptUploaded:
+          deposit.receiptUploaded ===
+          true,
 
         status: String(
           deposit.status || ""
@@ -7921,9 +6078,7 @@ router.get(
         ).toUpperCase(),
 
         amount: Number(
-          Number(
-            deposit.amount || 0
-          ).toFixed(6)
+          safeAmount.toFixed(6)
         ),
       };
 
@@ -7936,7 +6091,12 @@ router.get(
 
         receipt,
       });
+
     } catch (error) {
+      // ==================================================
+      // ERROR
+      // ==================================================
+
       console.error(
         "RECEIPT PREVIEW ERROR:",
         error
@@ -7944,18 +6104,19 @@ router.get(
 
       return res.status(500).json({
         success: false,
+
         message:
           "Unable to load receipt.",
 
         error:
-          process.env.NODE_ENV === "production"
+          process.env.NODE_ENV ===
+          "production"
             ? undefined
             : error.message,
       });
     }
   }
 );
-
 
 // ======================================================
 // BULK APPROVE DEPOSITS
@@ -7967,9 +6128,7 @@ router.get(
 // }
 //
 // Only PENDING deposits are approved.
-// Each deposit is processed in its own MongoDB
-// transaction so one failure cannot partially approve
-// that particular deposit.
+// Each deposit uses its own MongoDB transaction.
 // ======================================================
 
 router.patch(
@@ -7999,7 +6158,7 @@ router.patch(
       }
 
       // ==================================================
-      // LIMIT BULK REQUEST
+      // MAXIMUM
       // ==================================================
 
       if (
@@ -8013,7 +6172,7 @@ router.patch(
       }
 
       // ==================================================
-      // REMOVE DUPLICATES
+      // UNIQUE IDS
       // ==================================================
 
       const depositIds = [
@@ -8025,7 +6184,7 @@ router.patch(
       ];
 
       // ==================================================
-      // VALIDATE ALL OBJECT IDS
+      // VALIDATE IDS
       // ==================================================
 
       const invalidIds =
@@ -8062,7 +6221,9 @@ router.patch(
       // PROCESS EACH DEPOSIT
       // ==================================================
 
-      for (const depositId of depositIds) {
+      for (
+        const depositId of depositIds
+      ) {
         const session =
           await mongoose.startSession();
 
@@ -8071,9 +6232,9 @@ router.patch(
 
           await session.withTransaction(
             async () => {
-              // ==========================================
+              // ========================================
               // FIND DEPOSIT
-              // ==========================================
+              // ========================================
 
               const deposit =
                 await Deposit.findById(
@@ -8085,9 +6246,9 @@ router.patch(
                 return;
               }
 
-              // ==========================================
+              // ========================================
               // STATUS
-              // ==========================================
+              // ========================================
 
               const currentStatus =
                 String(
@@ -8102,14 +6263,13 @@ router.patch(
                 return;
               }
 
-              // ==========================================
+              // ========================================
               // WALLET TYPE
-              // ==========================================
+              // ========================================
 
               const walletType =
                 String(
-                  deposit.walletType ||
-                    ""
+                  deposit.walletType || ""
                 )
                   .trim()
                   .toUpperCase();
@@ -8124,9 +6284,9 @@ router.patch(
                 );
               }
 
-              // ==========================================
+              // ========================================
               // AMOUNT
-              // ==========================================
+              // ========================================
 
               const amount =
                 Number(
@@ -8144,9 +6304,9 @@ router.patch(
                 );
               }
 
-              // ==========================================
-              // FIND WALLET
-              // ==========================================
+              // ========================================
+              // WALLET
+              // ========================================
 
               const wallet =
                 await Wallet.findOne({
@@ -8160,9 +6320,9 @@ router.patch(
                 );
               }
 
-              // ==========================================
-              // FROZEN WALLET CHECK
-              // ==========================================
+              // ========================================
+              // FROZEN CHECK
+              // ========================================
 
               if (
                 wallet.isFrozen === true
@@ -8172,60 +6332,50 @@ router.patch(
                 );
               }
 
-              // ==========================================
+              // ========================================
               // WALLET BEFORE
-              // ==========================================
+              // ========================================
 
               const walletBefore = {
                 pkrBalance:
                   Number(
-                    wallet.pkrBalance ||
-                      0
+                    wallet.pkrBalance || 0
                   ),
 
                 usdtBalance:
                   Number(
-                    wallet.usdtBalance ||
-                      0
+                    wallet.usdtBalance || 0
                   ),
 
                 goldBalance:
                   Number(
-                    wallet.goldBalance ||
-                      0
+                    wallet.goldBalance || 0
                   ),
 
                 lockedPkr:
                   Number(
-                    wallet.lockedPkr ||
-                      0
+                    wallet.lockedPkr || 0
                   ),
 
                 lockedUsdt:
                   Number(
-                    wallet.lockedUsdt ||
-                      0
+                    wallet.lockedUsdt || 0
                   ),
 
                 lockedGold:
                   Number(
-                    wallet.lockedGold ||
-                      0
+                    wallet.lockedGold || 0
                   ),
               };
-
-              // ==========================================
-              // BALANCE BEFORE
-              // ==========================================
 
               const balanceBefore =
                 walletType === "PKR"
                   ? walletBefore.pkrBalance
                   : walletBefore.usdtBalance;
 
-              // ==========================================
+              // ========================================
               // CREDIT WALLET
-              // ==========================================
+              // ========================================
 
               if (
                 walletType === "PKR"
@@ -8236,9 +6386,9 @@ router.patch(
 
                 wallet.totalPkrDeposit =
                   Number(
-                    wallet.totalPkrDeposit ||
-                      0
+                    wallet.totalPkrDeposit || 0
                   ) + amount;
+
               } else {
                 wallet.usdtBalance =
                   walletBefore.usdtBalance +
@@ -8246,63 +6396,55 @@ router.patch(
 
                 wallet.totalUsdtDeposited =
                   Number(
-                    wallet.totalUsdtDeposited ||
-                      0
+                    wallet.totalUsdtDeposited || 0
                   ) + amount;
               }
 
-              // ==========================================
+              // ========================================
               // COMMON TOTAL
-              // ==========================================
+              // ========================================
 
               wallet.totalDeposit =
                 Number(
-                  wallet.totalDeposit ||
-                    0
+                  wallet.totalDeposit || 0
                 ) + amount;
 
               wallet.lastDepositAt =
                 new Date();
 
-              // ==========================================
+              // ========================================
               // WALLET AFTER
-              // ==========================================
+              // ========================================
 
               const walletAfter = {
                 pkrBalance:
                   Number(
-                    wallet.pkrBalance ||
-                      0
+                    wallet.pkrBalance || 0
                   ),
 
                 usdtBalance:
                   Number(
-                    wallet.usdtBalance ||
-                      0
+                    wallet.usdtBalance || 0
                   ),
 
                 goldBalance:
                   Number(
-                    wallet.goldBalance ||
-                      0
+                    wallet.goldBalance || 0
                   ),
 
                 lockedPkr:
                   Number(
-                    wallet.lockedPkr ||
-                      0
+                    wallet.lockedPkr || 0
                   ),
 
                 lockedUsdt:
                   Number(
-                    wallet.lockedUsdt ||
-                      0
+                    wallet.lockedUsdt || 0
                   ),
 
                 lockedGold:
                   Number(
-                    wallet.lockedGold ||
-                      0
+                    wallet.lockedGold || 0
                   ),
               };
 
@@ -8311,17 +6453,17 @@ router.patch(
                   ? walletAfter.pkrBalance
                   : walletAfter.usdtBalance;
 
-              // ==========================================
+              // ========================================
               // SAVE WALLET
-              // ==========================================
+              // ========================================
 
               await wallet.save({
                 session,
               });
 
-              // ==========================================
+              // ========================================
               // UPDATE DEPOSIT
-              // ==========================================
+              // ========================================
 
               deposit.walletBefore =
                 walletBefore;
@@ -8345,10 +6487,9 @@ router.patch(
               await deposit.save({
                 session,
               });
-
-              // ==========================================
+                            // ========================================
               // WALLET HISTORY
-              // ==========================================
+              // ========================================
 
               await WalletHistory.create(
                 [
@@ -8361,8 +6502,11 @@ router.patch(
 
                     walletType,
 
+                    // FIXED:
+                    // WalletHistory enum allows DEPOSIT,
+                    // not DEPOSIT_APPROVED.
                     type:
-                      "DEPOSIT_APPROVED",
+                      "DEPOSIT",
 
                     transactionType:
                       "DEPOSIT_APPROVED",
@@ -8376,8 +6520,11 @@ router.patch(
 
                     balanceAfter,
 
+                    // FIXED:
+                    // WalletHistory enum allows SUCCESS,
+                    // not Completed.
                     status:
-                      "Completed",
+                      "SUCCESS",
 
                     paymentMethod:
                       deposit.paymentMethod ||
@@ -8406,9 +6553,9 @@ router.patch(
                 }
               );
 
-              // ==========================================
+              // ========================================
               // TRANSACTION
-              // ==========================================
+              // ========================================
 
               await Transaction.create(
                 [
@@ -8466,6 +6613,7 @@ router.patch(
           if (processed) {
             approved += 1;
           }
+
         } catch (err) {
           console.error(
             `BULK APPROVE ${depositId} ERROR:`,
@@ -8479,13 +6627,14 @@ router.patch(
               err.message ||
               "Unable to approve deposit.",
           });
+
         } finally {
           await session.endSession();
         }
       }
 
       // ==================================================
-      // SUCCESS RESPONSE
+      // SUCCESS
       // ==================================================
 
       return res.status(200).json({
@@ -8508,6 +6657,7 @@ router.patch(
 
         failed,
       });
+
     } catch (error) {
       console.error(
         "BULK APPROVE ERROR:",
@@ -8521,14 +6671,14 @@ router.patch(
           "Bulk approval failed.",
 
         error:
-          process.env.NODE_ENV === "production"
+          process.env.NODE_ENV ===
+          "production"
             ? undefined
             : error.message,
       });
     }
   }
 );
-
 
 // ======================================================
 // BULK REJECT DEPOSITS
@@ -8574,7 +6724,9 @@ router.patch(
       // LIMIT
       // ==================================================
 
-      if (depositIds.length > 100) {
+      if (
+        depositIds.length > 100
+      ) {
         return res.status(400).json({
           success: false,
           message:
@@ -8583,7 +6735,7 @@ router.patch(
       }
 
       // ==================================================
-      // REJECTION REASON
+      // REASON
       // ==================================================
 
       const reason =
@@ -8595,7 +6747,9 @@ router.patch(
         reason ||
         "Bulk rejected by admin.";
 
-      if (finalReason.length > 500) {
+      if (
+        finalReason.length > 500
+      ) {
         return res.status(400).json({
           success: false,
           message:
@@ -8604,7 +6758,7 @@ router.patch(
       }
 
       // ==================================================
-      // REMOVE DUPLICATES
+      // UNIQUE IDS
       // ==================================================
 
       const uniqueDepositIds = [
@@ -8616,7 +6770,7 @@ router.patch(
       ];
 
       // ==================================================
-      // VALIDATE OBJECT IDS
+      // VALIDATE IDS
       // ==================================================
 
       const invalidIds =
@@ -8627,7 +6781,9 @@ router.patch(
             )
         );
 
-      if (invalidIds.length > 0) {
+      if (
+        invalidIds.length > 0
+      ) {
         return res.status(400).json({
           success: false,
           message:
@@ -8646,7 +6802,7 @@ router.patch(
       const failed = [];
 
       // ==================================================
-      // PROCESS EACH DEPOSIT
+      // PROCESS
       // ==================================================
 
       for (
@@ -8660,9 +6816,9 @@ router.patch(
 
           await session.withTransaction(
             async () => {
-              // ==========================================
+              // ========================================
               // FIND DEPOSIT
-              // ==========================================
+              // ========================================
 
               const deposit =
                 await Deposit.findById(
@@ -8674,9 +6830,9 @@ router.patch(
                 return;
               }
 
-              // ==========================================
-              // STATUS CHECK
-              // ==========================================
+              // ========================================
+              // STATUS
+              // ========================================
 
               const currentStatus =
                 String(
@@ -8691,14 +6847,13 @@ router.patch(
                 return;
               }
 
-              // ==========================================
+              // ========================================
               // WALLET TYPE
-              // ==========================================
+              // ========================================
 
               const walletType =
                 String(
-                  deposit.walletType ||
-                    ""
+                  deposit.walletType || ""
                 )
                   .trim()
                   .toUpperCase();
@@ -8713,9 +6868,9 @@ router.patch(
                 );
               }
 
-              // ==========================================
+              // ========================================
               // AMOUNT
-              // ==========================================
+              // ========================================
 
               const amount =
                 Number(
@@ -8733,9 +6888,9 @@ router.patch(
                 );
               }
 
-              // ==========================================
-              // WALLET
-              // ==========================================
+              // ========================================
+              // WALLET SNAPSHOT
+              // ========================================
 
               const wallet =
                 await Wallet.findOne({
@@ -8751,45 +6906,35 @@ router.patch(
                 );
               }
 
-              // ==========================================
-              // WALLET SNAPSHOT
-              // ==========================================
-
               const walletBefore = {
                 pkrBalance:
                   Number(
-                    wallet.pkrBalance ||
-                      0
+                    wallet.pkrBalance || 0
                   ),
 
                 usdtBalance:
                   Number(
-                    wallet.usdtBalance ||
-                      0
+                    wallet.usdtBalance || 0
                   ),
 
                 goldBalance:
                   Number(
-                    wallet.goldBalance ||
-                      0
+                    wallet.goldBalance || 0
                   ),
 
                 lockedPkr:
                   Number(
-                    wallet.lockedPkr ||
-                      0
+                    wallet.lockedPkr || 0
                   ),
 
                 lockedUsdt:
                   Number(
-                    wallet.lockedUsdt ||
-                      0
+                    wallet.lockedUsdt || 0
                   ),
 
                 lockedGold:
                   Number(
-                    wallet.lockedGold ||
-                      0
+                    wallet.lockedGold || 0
                   ),
               };
 
@@ -8798,9 +6943,9 @@ router.patch(
                   ? walletBefore.pkrBalance
                   : walletBefore.usdtBalance;
 
-              // ==========================================
-              // DEPOSIT UPDATE
-              // ==========================================
+              // ========================================
+              // UPDATE DEPOSIT
+              // ========================================
 
               deposit.walletBefore =
                 deposit.walletBefore ||
@@ -8815,24 +6960,12 @@ router.patch(
               deposit.rejectReason =
                 finalReason;
 
-              // IMPORTANT:
-              // Rejection uses rejection fields,
-              // NOT approvedBy.
-              if (
-                "rejectedBy" in deposit
-              ) {
-                deposit.rejectedBy =
-                  req.user.id;
-              }
+              deposit.rejectedBy =
+                req.user.id;
 
-              if (
-                "rejectedByUsername" in
-                deposit
-              ) {
-                deposit.rejectedByUsername =
-                  req.user.username ||
-                  "Admin";
-              }
+              deposit.rejectedByUsername =
+                req.user.username ||
+                "Admin";
 
               deposit.rejectedAt =
                 new Date();
@@ -8850,9 +6983,9 @@ router.patch(
                 session,
               });
 
-              // ==========================================
+                           // ==================================================
               // WALLET HISTORY
-              // ==========================================
+              // ==================================================
 
               await WalletHistory.create(
                 [
@@ -8865,8 +6998,9 @@ router.patch(
 
                     walletType,
 
-                    type:
-                      "DEPOSIT_REJECTED",
+                    // FIX:
+                    // WalletHistory enum = DEPOSIT
+                    type: "DEPOSIT",
 
                     transactionType:
                       "DEPOSIT_REJECTED",
@@ -8881,8 +7015,9 @@ router.patch(
                     balanceAfter:
                       balanceBefore,
 
-                    status:
-                      "Rejected",
+                    // FIX:
+                    // WalletHistory status enum
+                    status: "FAILED",
 
                     paymentMethod:
                       deposit.paymentMethod ||
@@ -8911,9 +7046,9 @@ router.patch(
                 }
               );
 
-              // ==========================================
+              // ==================================================
               // TRANSACTION
-              // ==========================================
+              // ==================================================
 
               await Transaction.create(
                 [
@@ -9034,11 +7169,10 @@ router.patch(
     }
   }
 );
+
 // ======================================================
 // DEPOSIT STATISTICS
 // GET /api/deposit/statistics
-//
-// Dashboard Cards
 //
 // Admin:
 //   All deposits
@@ -9103,12 +7237,16 @@ router.get(
         const status =
           String(
             deposit.status || ""
-          ).toUpperCase();
+          )
+            .trim()
+            .toUpperCase();
 
         const walletType =
           String(
             deposit.walletType || ""
-          ).toUpperCase();
+          )
+            .trim()
+            .toUpperCase();
 
         const amount =
           Number(
@@ -9271,8 +7409,6 @@ router.get(
     }
   }
 );
-
-
 // ======================================================
 // ADMIN EXPORT DEPOSITS
 // GET /api/deposit/admin/export
@@ -9328,40 +7464,42 @@ router.get(
             id: deposit._id,
 
             username:
-              deposit.username || "",
+              typeof deposit.username === "string"
+                ? deposit.username
+                : "",
 
             walletType:
               String(
-                deposit.walletType ||
-                  ""
-              ).toUpperCase(),
+                deposit.walletType || ""
+              )
+                .trim()
+                .toUpperCase(),
 
-            amount: Number(
+            amount:
               Number(
-                deposit.amount || 0
-              ).toFixed(6)
-            ),
+                Number(
+                  deposit.amount || 0
+                ).toFixed(6)
+              ),
 
             currency:
-              deposit.currency ||
-              "",
+              deposit.currency || "",
 
             paymentMethod:
-              deposit.paymentMethod ||
-              "",
+              deposit.paymentMethod || "",
 
             transactionId:
-              deposit.transactionId ||
-              "",
+              deposit.transactionId || "",
 
             referenceId:
-              deposit.referenceId ||
-              "",
+              deposit.referenceId || "",
 
             status:
               String(
                 deposit.status || ""
-              ).toUpperCase(),
+              )
+                .trim()
+                .toUpperCase(),
 
             approvedBy:
               deposit.approvedByUsername ||
@@ -9433,9 +7571,11 @@ router.get(
     }
   }
 );
+
 // ======================================================
 // DEPOSIT DEBUG
 // GET /api/deposit/debug
+//
 // Backend Diagnostics - V18 Enterprise
 // ======================================================
 
@@ -9457,25 +7597,29 @@ router.get(
       const role =
         String(
           req.user?.role || ""
-        ).trim()
-        .toLowerCase();
+        )
+          .trim()
+          .toLowerCase();
 
-      // --------------------------------------------------
-      // VALIDATE USER ID
-      // --------------------------------------------------
+      // ==================================================
+      // AUTH CHECK
+      // ==================================================
 
       if (!userId) {
         return res.status(401).json({
           success: false,
+
           message:
             "Authenticated user ID is missing.",
         });
       }
 
-      // --------------------------------------------------
-      // ADMIN = ALL DEPOSITS
-      // USER  = OWN DEPOSITS ONLY
-      // --------------------------------------------------
+      // ==================================================
+      // DEPOSIT QUERY
+      //
+      // ADMIN = ALL
+      // USER  = OWN
+      // ==================================================
 
       const depositQuery =
         role === "admin"
@@ -9484,9 +7628,9 @@ router.get(
               userId,
             };
 
-      // --------------------------------------------------
-      // TRANSACTION / HISTORY USER FILTER
-      // --------------------------------------------------
+      // ==================================================
+      // TRANSACTION QUERY
+      // ==================================================
 
       const transactionQuery =
         role === "admin"
@@ -9496,11 +7640,19 @@ router.get(
                 {
                   userId,
                 },
-                {
-                  username,
-                },
+                ...(username
+                  ? [
+                      {
+                        username,
+                      },
+                    ]
+                  : []),
               ],
             };
+
+      // ==================================================
+      // HISTORY QUERY
+      // ==================================================
 
       const historyQuery =
         role === "admin"
@@ -9510,31 +7662,47 @@ router.get(
                 {
                   userId,
                 },
-                {
-                  username,
-                },
+                ...(username
+                  ? [
+                      {
+                        username,
+                      },
+                    ]
+                  : []),
               ],
             };
 
-      // --------------------------------------------------
-      // SAFE STATUS FILTER
-      // --------------------------------------------------
+      // ==================================================
+      // STATUS QUERIES
+      // ==================================================
 
       const pendingStatusQuery = {
         ...depositQuery,
 
-        status: {
-          $in: [
-            "PENDING",
-            "Pending",
-            "pending",
-          ],
-        },
+        status: "PENDING",
       };
 
-      // --------------------------------------------------
+      const approvedStatusQuery = {
+        ...depositQuery,
+
+        status: "APPROVED",
+      };
+
+      const rejectedStatusQuery = {
+        ...depositQuery,
+
+        status: "REJECTED",
+      };
+
+      const cancelledStatusQuery = {
+        ...depositQuery,
+
+        status: "CANCELLED",
+      };
+
+      // ==================================================
       // PARALLEL DIAGNOSTICS
-      // --------------------------------------------------
+      // ==================================================
 
       const [
         wallet,
@@ -9558,41 +7726,17 @@ router.get(
           pendingStatusQuery
         ),
 
-        Deposit.countDocuments({
-          ...depositQuery,
+        Deposit.countDocuments(
+          approvedStatusQuery
+        ),
 
-          status: {
-            $in: [
-              "APPROVED",
-              "Approved",
-              "approved",
-            ],
-          },
-        }),
+        Deposit.countDocuments(
+          rejectedStatusQuery
+        ),
 
-        Deposit.countDocuments({
-          ...depositQuery,
-
-          status: {
-            $in: [
-              "REJECTED",
-              "Rejected",
-              "rejected",
-            ],
-          },
-        }),
-
-        Deposit.countDocuments({
-          ...depositQuery,
-
-          status: {
-            $in: [
-              "CANCELLED",
-              "Cancelled",
-              "cancelled",
-            ],
-          },
-        }),
+        Deposit.countDocuments(
+          cancelledStatusQuery
+        ),
 
         Transaction.countDocuments({
           ...transactionQuery,
@@ -9605,25 +7749,55 @@ router.get(
         WalletHistory.countDocuments({
           ...historyQuery,
 
-          $or: [
-            {
-              type: {
-                $regex: /DEPOSIT/i,
-              },
-            },
-
-            {
-              transactionType: {
-                $regex: /DEPOSIT/i,
-              },
-            },
-          ],
+          type: "DEPOSIT",
         }),
       ]);
 
-      // --------------------------------------------------
+      // ==================================================
       // SAFE WALLET SNAPSHOT
-      // --------------------------------------------------
+      // ==================================================
+
+      const pkrBalance =
+        wallet
+          ? Number(
+              wallet.pkrBalance || 0
+            )
+          : 0;
+
+      const usdtBalance =
+        wallet
+          ? Number(
+              wallet.usdtBalance || 0
+            )
+          : 0;
+
+      const goldBalance =
+        wallet
+          ? Number(
+              wallet.goldBalance || 0
+            )
+          : 0;
+
+      const lockedPkr =
+        wallet
+          ? Number(
+              wallet.lockedPkr || 0
+            )
+          : 0;
+
+      const lockedUsdt =
+        wallet
+          ? Number(
+              wallet.lockedUsdt || 0
+            )
+          : 0;
+
+      const lockedGold =
+        wallet
+          ? Number(
+              wallet.lockedGold || 0
+            )
+          : 0;
 
       const walletDiagnostics =
         wallet
@@ -9631,70 +7805,37 @@ router.get(
               walletId:
                 wallet._id,
 
-              pkrBalance:
-                Number(
-                  wallet.pkrBalance ||
-                    0
-                ),
+              pkrBalance,
 
-              usdtBalance:
-                Number(
-                  wallet.usdtBalance ||
-                    0
-                ),
+              usdtBalance,
 
-              goldBalance:
-                Number(
-                  wallet.goldBalance ||
-                    0
-                ),
+              goldBalance,
 
-              lockedPkr:
-                Number(
-                  wallet.lockedPkr ||
-                    0
-                ),
+              lockedPkr,
 
-              lockedUsdt:
-                Number(
-                  wallet.lockedUsdt ||
-                    0
-                ),
+              lockedUsdt,
 
-              lockedGold:
-                Number(
-                  wallet.lockedGold ||
-                    0
-                ),
+              lockedGold,
 
               availablePkr:
-                Number(
-                  wallet.pkrBalance ||
-                    0
-                ) -
-                Number(
-                  wallet.lockedPkr ||
-                    0
+                Math.max(
+                  0,
+                  pkrBalance -
+                    lockedPkr
                 ),
 
               availableUsdt:
-                Number(
-                  wallet.usdtBalance ||
-                    0
-                ) -
-                Number(
-                  wallet.lockedUsdt ||
-                    0
+                Math.max(
+                  0,
+                  usdtBalance -
+                    lockedUsdt
                 ),
 
               availableGold:
-                Number(
-                  wallet.goldBalance ||
-                    0
-                ) -
-                Number(
-                  wallet.lockedGold ||
-                    0
+                Math.max(
+                  0,
+                  goldBalance -
+                    lockedGold
                 ),
 
               totalDeposit:
@@ -9735,9 +7876,9 @@ router.get(
             }
           : null;
 
-      // --------------------------------------------------
+            // ==================================================
       // RESPONSE
-      // --------------------------------------------------
+      // ==================================================
 
       return res.status(200).json({
         success: true,
@@ -9803,8 +7944,7 @@ router.get(
           "Deposit diagnostics failed.",
 
         error:
-          process.env.NODE_ENV ===
-          "production"
+          process.env.NODE_ENV === "production"
             ? undefined
             : error.message,
       });
@@ -9812,10 +7952,10 @@ router.get(
   }
 );
 
-
 // ======================================================
 // API ROUTE LIST
 // GET /api/deposit/routes
+//
 // Diagnostics - V18 Enterprise
 // ======================================================
 
@@ -9832,9 +7972,9 @@ router.get(
         "18.0.0",
 
       routes: {
-        // ------------------------------------------------
+        // ==================================================
         // HEALTH / DIAGNOSTICS
-        // ------------------------------------------------
+        // ==================================================
 
         health: [
           "GET /api/deposit/health",
@@ -9844,83 +7984,67 @@ router.get(
           "GET /api/deposit/statistics",
         ],
 
-        // ------------------------------------------------
+        // ==================================================
         // USER
-        // ------------------------------------------------
+        // ==================================================
 
         user: [
           "POST /api/deposit/create",
 
           "GET /api/deposit/history",
-
           "GET /api/deposit/history/:username",
-
           "GET /api/deposit/filter",
-
           "GET /api/deposit/recent",
-
           "GET /api/deposit/summary",
 
           "GET /api/deposit/check-pending/:walletType",
 
           "PATCH /api/deposit/:id/cancel",
-
           "PATCH /api/deposit/:id/note",
         ],
 
-        // ------------------------------------------------
+        // ==================================================
         // SETTINGS / PAYMENT
-        // ------------------------------------------------
+        // ==================================================
 
         settings: [
           "GET /api/deposit/settings",
-
           "PATCH /api/deposit/settings",
 
           "GET /api/deposit/settings/payment-methods",
-
           "PATCH /api/deposit/settings/payment-methods",
 
           "GET /api/deposit/payment-details",
 
           "GET /api/deposit/payment-settings",
-
           "PATCH /api/deposit/payment-settings",
         ],
 
-        // ------------------------------------------------
+        // ==================================================
         // ADMIN
-        // ------------------------------------------------
+        // ==================================================
 
         admin: [
           "GET /api/deposit/pending",
 
           "PATCH /api/deposit/:id/approve",
-
           "PATCH /api/deposit/:id/reject",
 
           "GET /api/deposit/admin/dashboard",
-
           "GET /api/deposit/admin/analytics",
-
           "GET /api/deposit/admin/recent",
 
           "GET /api/deposit/admin/all",
-
           "GET /api/deposit/admin/search",
 
           "GET /api/deposit/admin/top-depositors",
-
           "GET /api/deposit/admin/user-summary/:username",
 
           "GET /api/deposit/admin/:id",
-
           "GET /api/deposit/admin/receipt/:id",
-
           "GET /api/deposit/admin/export",
 
           "PATCH /api/deposit/admin/bulk-approve",
-
           "PATCH /api/deposit/admin/bulk-reject",
         ],
       },
@@ -9930,7 +8054,6 @@ router.get(
     });
   }
 );
-
 
 // ======================================================
 // ROUTER EXPORT

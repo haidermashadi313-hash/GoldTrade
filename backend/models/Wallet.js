@@ -2,7 +2,8 @@
 // GoldTrade V18 Enterprise Backend
 // Wallet.js — PART 1/2
 // Wallet Schema
-// Production Ready (Render + MongoDB Atlas + Ubuntu)
+// Production Ready
+// Render + MongoDB Atlas + Ubuntu
 // ======================================================
 
 const mongoose = require("mongoose");
@@ -38,24 +39,28 @@ const WalletSchema = new mongoose.Schema(
     // MAIN BALANCES
     // ==================================================
 
+    // Legacy / compatibility balance
     balance: {
       type: Number,
       default: 0,
       min: 0,
     },
 
+    // PKR wallet
     pkrBalance: {
       type: Number,
       default: 0,
       min: 0,
     },
 
+    // Gold wallet
     goldBalance: {
       type: Number,
       default: 0,
       min: 0,
     },
 
+    // USDT wallet
     usdtBalance: {
       type: Number,
       default: 0,
@@ -132,17 +137,9 @@ const WalletSchema = new mongoose.Schema(
       min: 0,
     },
 
-    totalUsdtDeposited: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-
-    totalUsdtWithdrawn: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
+    // ==================================================
+    // GOLD TOTALS
+    // ==================================================
 
     totalGoldPurchased: {
       type: Number,
@@ -155,13 +152,34 @@ const WalletSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
-        // ==================================================
+
+    // ==================================================
+    // USDT TOTALS
+    // ==================================================
+
+    totalUsdtDeposited: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    totalUsdtWithdrawn: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    // ==================================================
     // ACCOUNT STATUS
     // ==================================================
 
     status: {
       type: String,
-      enum: ["Active", "Suspended", "Blocked"],
+      enum: [
+        "Active",
+        "Suspended",
+        "Blocked",
+      ],
       default: "Active",
       index: true,
     },
@@ -195,35 +213,74 @@ const WalletSchema = new mongoose.Schema(
       default: null,
     },
   },
+
+  // ====================================================
+  // SCHEMA OPTIONS
+  // ====================================================
+
   {
     timestamps: true,
+
     collection: "Wallets",
+
     versionKey: false,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+
+    toJSON: {
+      virtuals: true,
+    },
+
+    toObject: {
+      virtuals: true,
+    },
   }
 );
-
 // ======================================================
 // VIRTUALS
 // ======================================================
 
-// Available PKR
+// ======================================================
+// AVAILABLE PKR
+// ======================================================
+
 WalletSchema.virtual("availablePkr").get(function () {
-  return Math.max(this.pkrBalance - this.lockedPkr, 0);
+  return Math.max(
+    Number(this.pkrBalance || 0) -
+      Number(this.lockedPkr || 0),
+    0
+  );
 });
 
-// Available Gold
+// ======================================================
+// AVAILABLE GOLD
+// ======================================================
+
 WalletSchema.virtual("availableGold").get(function () {
-  return Math.max(this.goldBalance - this.lockedGold, 0);
+  return Math.max(
+    Number(this.goldBalance || 0) -
+      Number(this.lockedGold || 0),
+    0
+  );
 });
 
-// Available USDT
+// ======================================================
+// AVAILABLE USDT
+// ======================================================
+
 WalletSchema.virtual("availableUsdt").get(function () {
-  return Math.max(this.usdtBalance - this.lockedUsdt, 0);
+  return Math.max(
+    Number(this.usdtBalance || 0) -
+      Number(this.lockedUsdt || 0),
+    0
+  );
 });
 
-// Total Wallet Value
+// ======================================================
+// TOTAL WALLET VALUE
+// ======================================================
+//
+// PKR + Portfolio Value + USDT
+// ======================================================
+
 WalletSchema.virtual("totalWalletValue").get(function () {
   return (
     Number(this.pkrBalance || 0) +
@@ -232,57 +289,151 @@ WalletSchema.virtual("totalWalletValue").get(function () {
   );
 });
 
+
 // ======================================================
 // PRE SAVE MIDDLEWARE
 // ======================================================
+//
+// Normalize numeric fields before saving.
+// ======================================================
 
 WalletSchema.pre("save", function (next) {
-  const numberFields = [
-    "balance",
-    "pkrBalance",
-    "goldBalance",
-    "usdtBalance",
-    "lockedPkr",
-    "lockedGold",
-    "lockedUsdt",
-    "portfolioValue",
-    "liveProfit",
-    "liveProfitPercent",
-    "totalDeposit",
-    "totalWithdraw",
-    "totalPkrDeposit",
-    "totalPkrWithdraw",
-    "totalUsdtDeposited",
-    "totalUsdtWithdrawn",
-    "totalGoldPurchased",
-    "totalGoldSold",
-  ];
+  try {
+    const numberFields = [
+      "balance",
+      "pkrBalance",
+      "goldBalance",
+      "usdtBalance",
 
-  numberFields.forEach((field) => {
-    if (this[field] === undefined || this[field] === null) {
-      this[field] = 0;
+      "lockedPkr",
+      "lockedGold",
+      "lockedUsdt",
+
+      "portfolioValue",
+      "liveProfit",
+      "liveProfitPercent",
+
+      "totalDeposit",
+      "totalWithdraw",
+
+      "totalPkrDeposit",
+      "totalPkrWithdraw",
+
+      "totalGoldPurchased",
+      "totalGoldSold",
+
+      "totalUsdtDeposited",
+      "totalUsdtWithdrawn",
+    ];
+
+    // --------------------------------------------------
+    // NORMALIZE NUMERIC FIELDS
+    // --------------------------------------------------
+
+    for (const field of numberFields) {
+      const value = this[field];
+
+      if (
+        value === undefined ||
+        value === null ||
+        value === ""
+      ) {
+        this[field] = 0;
+        continue;
+      }
+
+      const numericValue = Number(value);
+
+      if (!Number.isFinite(numericValue)) {
+        return next(
+          new Error(
+            `Invalid numeric value for wallet field: ${field}`
+          )
+        );
+      }
+
+      this[field] = numericValue;
     }
-  });
 
-  next();
+    // --------------------------------------------------
+    // NORMALIZE USERNAME
+    // --------------------------------------------------
+
+    if (
+      typeof this.username === "string"
+    ) {
+      this.username =
+        this.username
+          .trim()
+          .toLowerCase();
+    }
+
+    // --------------------------------------------------
+    // NORMALIZE STATUS
+    // --------------------------------------------------
+
+    if (!this.status) {
+      this.status = "Active";
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
+
 
 // ======================================================
 // JSON RESPONSE CLEANUP
 // ======================================================
+//
+// Virtuals remain available in API responses.
+// MongoDB internal __v is removed.
+// ======================================================
 
-WalletSchema.set("toJSON", {
-  virtuals: true,
-  transform(doc, ret) {
-    delete ret.__v;
-    return ret;
-  },
-});
+WalletSchema.set(
+  "toJSON",
+  {
+    virtuals: true,
+
+    transform(doc, ret) {
+      delete ret.__v;
+
+      return ret;
+    },
+  }
+);
+
 
 // ======================================================
-// SAFE EXPORT (Render + Hot Reload)
+// OBJECT RESPONSE CLEANUP
+// ======================================================
+
+WalletSchema.set(
+  "toObject",
+  {
+    virtuals: true,
+
+    transform(doc, ret) {
+      delete ret.__v;
+
+      return ret;
+    },
+  }
+);
+
+
+// ======================================================
+// SAFE EXPORT
+// ======================================================
+//
+// Prevents OverwriteModelError during
+// Render / hot reload / repeated imports.
 // ======================================================
 
 module.exports =
   mongoose.models.Wallet ||
-  mongoose.model("Wallet", WalletSchema);
+  mongoose.model(
+    "Wallet",
+    WalletSchema
+  );

@@ -1,6 +1,6 @@
 // ======================================================
 // GoldTrade V18 Enterprise Backend
-// WalletHistory.js — PART 1/2
+// WalletHistory.js
 // Wallet Transaction History Model
 // Production Ready (Render + PM2 + MongoDB Atlas)
 // ======================================================
@@ -40,7 +40,11 @@ const WalletHistorySchema = new mongoose.Schema(
       type: String,
       required: true,
       uppercase: true,
-      enum: ["PKR", "USDT", "GOLD"],
+      enum: [
+        "PKR",
+        "USDT",
+        "GOLD",
+      ],
       index: true,
     },
 
@@ -101,6 +105,35 @@ const WalletHistorySchema = new mongoose.Schema(
     },
 
     // ==================================================
+    // TRANSACTION IDENTIFICATION
+    // ==================================================
+
+    transactionType: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: "",
+      index: true,
+    },
+
+    transactionMode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: "",
+    },
+
+    // ==================================================
+    // PAYMENT DETAILS
+    // ==================================================
+
+    paymentMethod: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    // ==================================================
     // REFERENCE DETAILS
     // ==================================================
 
@@ -141,6 +174,28 @@ const WalletHistorySchema = new mongoose.Schema(
     },
 
     // ==================================================
+    // ADMIN / AUDIT DETAILS
+    // ==================================================
+
+    admin: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    adminId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    adminUsername: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    // ==================================================
     // DESCRIPTION
     // ==================================================
 
@@ -151,27 +206,54 @@ const WalletHistorySchema = new mongoose.Schema(
       maxlength: 500,
     },
 
-    admin: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-        // ==================================================
+    // ==================================================
     // STATUS
+    // ==================================================
+    //
+    // IMPORTANT:
+    // WithdrawRoutes uses:
+    // PENDING
+    // APPROVED
+    // REJECTED
+    // CANCELLED
+    //
+    // Therefore APPROVED and REJECTED
+    // must be allowed here.
     // ==================================================
 
     status: {
       type: String,
-      enum: ["PENDING", "SUCCESS", "FAILED", "CANCELLED"],
+      uppercase: true,
+      enum: [
+        "PENDING",
+        "SUCCESS",
+        "FAILED",
+        "APPROVED",
+        "REJECTED",
+        "CANCELLED",
+      ],
       default: "SUCCESS",
       index: true,
     },
 
+    // ==================================================
+    // SOURCE
+    // ==================================================
+
     source: {
       type: String,
-      enum: ["USER", "ADMIN", "SYSTEM"],
+      uppercase: true,
+      enum: [
+        "USER",
+        "ADMIN",
+        "SYSTEM",
+      ],
       default: "SYSTEM",
     },
+
+    // ==================================================
+    // REQUEST / DEVICE INFORMATION
+    // ==================================================
 
     ipAddress: {
       type: String,
@@ -183,9 +265,13 @@ const WalletHistorySchema = new mongoose.Schema(
       default: "",
     },
 
+    // ==================================================
+    // EXTRA METADATA
+    // ==================================================
+
     metadata: {
       type: mongoose.Schema.Types.Mixed,
-      default: {},
+      default: () => ({}),
     },
   },
   {
@@ -197,47 +283,104 @@ const WalletHistorySchema = new mongoose.Schema(
 
 // ======================================================
 // PERFORMANCE INDEXES
-// (Do NOT duplicate indexes already defined in fields.)
 // ======================================================
 
-WalletHistorySchema.index({ userId: 1, createdAt: -1 });
-WalletHistorySchema.index({ walletType: 1, createdAt: -1 });
-WalletHistorySchema.index({ type: 1, createdAt: -1 });
-WalletHistorySchema.index({ status: 1, createdAt: -1 });
+// User history
+WalletHistorySchema.index({
+  userId: 1,
+  createdAt: -1,
+});
+
+// Wallet type history
+WalletHistorySchema.index({
+  walletType: 1,
+  createdAt: -1,
+});
+
+// Transaction type history
+WalletHistorySchema.index({
+  type: 1,
+  createdAt: -1,
+});
+
+// Status history
+WalletHistorySchema.index({
+  status: 1,
+  createdAt: -1,
+});
 
 // ======================================================
 // PRE SAVE MIDDLEWARE
 // ======================================================
 
-WalletHistorySchema.pre("save", function (next) {
-  this.amount = Number(this.amount || 0);
-  this.balanceBefore = Number(this.balanceBefore || 0);
-  this.balanceAfter = Number(this.balanceAfter || 0);
-  this.fee = Number(this.fee || 0);
+WalletHistorySchema.pre(
+  "save",
+  function (next) {
+    // ==================================================
+    // NORMALIZE NUMERIC VALUES
+    // ==================================================
 
-  if (!this.netAmount) {
-    this.netAmount = this.amount - this.fee;
+    this.amount = Number(
+      this.amount || 0
+    );
+
+    this.balanceBefore = Number(
+      this.balanceBefore || 0
+    );
+
+    this.balanceAfter = Number(
+      this.balanceAfter || 0
+    );
+
+    this.fee = Number(
+      this.fee || 0
+    );
+
+    // ==================================================
+    // NET AMOUNT
+    // ==================================================
+
+    if (
+      this.netAmount === null ||
+      this.netAmount === undefined
+    ) {
+      this.netAmount =
+        this.amount - this.fee;
+    }
+
+    // ==================================================
+    // CONTINUE
+    // ==================================================
+
+    next();
   }
-
-  next();
-});
+);
 
 // ======================================================
 // JSON RESPONSE CLEANUP
 // ======================================================
 
-WalletHistorySchema.set("toJSON", {
-  virtuals: true,
-  transform(doc, ret) {
-    delete ret.__v;
-    return ret;
-  },
-});
+WalletHistorySchema.set(
+  "toJSON",
+  {
+    virtuals: true,
+
+    transform(doc, ret) {
+      delete ret.__v;
+
+      return ret;
+    },
+  }
+);
 
 // ======================================================
-// SAFE EXPORT (Render + Nodemon + PM2 Safe)
+// SAFE EXPORT
+// Render + Nodemon + PM2 Safe
 // ======================================================
 
 module.exports =
   mongoose.models.WalletHistory ||
-  mongoose.model("WalletHistory", WalletHistorySchema);
+  mongoose.model(
+    "WalletHistory",
+    WalletHistorySchema
+  );

@@ -1,4 +1,5 @@
 const express = require("express");
+
 const router = express.Router();
 
 // ======================================================
@@ -19,6 +20,48 @@ const {
 } = require("../middleware/auth");
 
 // ======================================================
+// CONSTANTS
+// ======================================================
+
+const ALLOWED_WALLET_TYPES = [
+  "PKR",
+  "GOLD",
+  "USDT",
+];
+
+// ======================================================
+// HELPER — SAFE NUMBER
+// ======================================================
+
+const toNumber = (value) => {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : 0;
+};
+
+// ======================================================
+// HELPER — NORMALIZE WALLET TYPE
+// ======================================================
+
+const normalizeWalletType = (value) => {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase();
+};
+
+// ======================================================
+// HELPER — VALIDATE WALLET TYPE
+// ======================================================
+
+const isValidWalletType = (value) => {
+  return ALLOWED_WALLET_TYPES.includes(
+    normalizeWalletType(value)
+  );
+};
+
+// ======================================================
 // HELPER — GET OR CREATE WALLET
 // ======================================================
 
@@ -31,13 +74,21 @@ const getOrCreateWallet = async (user) => {
     userId: user._id,
   });
 
+  // ====================================================
+  // CREATE WALLET IF MISSING
+  // ====================================================
+
   if (!wallet) {
     wallet = await Wallet.create({
       userId: user._id,
 
-      username: String(
-        user.username || ""
-      ).trim().toLowerCase(),
+      username: String(user.username ?? "")
+        .trim()
+        .toLowerCase(),
+
+      // ==============================================
+      // MAIN BALANCES
+      // ==============================================
 
       balance: 0,
 
@@ -45,13 +96,26 @@ const getOrCreateWallet = async (user) => {
       goldBalance: 0,
       usdtBalance: 0,
 
+      // ==============================================
+      // LOCKED BALANCES
+      // ==============================================
+
       lockedPkr: 0,
       lockedGold: 0,
       lockedUsdt: 0,
 
+      // ==============================================
+      // PERFORMANCE
+      // ==============================================
+
       portfolioValue: 0,
       liveProfit: 0,
       liveProfitPercent: 0,
+      totalWalletValue: 0,
+
+      // ==============================================
+      // TOTALS
+      // ==============================================
 
       totalDeposit: 0,
       totalWithdraw: 0,
@@ -64,6 +128,10 @@ const getOrCreateWallet = async (user) => {
 
       totalUsdtDeposited: 0,
       totalUsdtWithdrawn: 0,
+
+      // ==============================================
+      // STATUS
+      // ==============================================
 
       status: "Active",
       isVerified: true,
@@ -79,71 +147,296 @@ const getOrCreateWallet = async (user) => {
 };
 
 // ======================================================
-// HEALTH CHECK
-// GET /api/wallet/health
+// HELPER — GET LOGGED-IN USER
 // ======================================================
 
-router.get("/health", (req, res) => {
-  return res.status(200).json({
-    success: true,
+const getLoggedInUser = async (req) => {
+  const userId =
+    req.user?.id ||
+    req.user?._id;
 
-    module: "Wallet API",
+  if (!userId) {
+    throw new Error("AUTHENTICATION_REQUIRED");
+  }
 
-    version:
-      "GoldTrade V18 Enterprise",
+  const user = await User.findById(userId)
+    .select("_id username email role")
+    .lean();
 
-    status: "ONLINE",
+  if (!user) {
+    throw new Error("USER_NOT_FOUND");
+  }
 
-    environment:
-      process.env.NODE_ENV ||
-      "development",
+  return user;
+};
 
-    timestamp:
-      new Date().toISOString(),
-  });
-});
+// ======================================================
+// HELPER — WALLET SNAPSHOT
+// ======================================================
+
+const buildWalletSnapshot = (
+  wallet,
+  user = null
+) => {
+  // ====================================================
+  // MAIN BALANCES
+  // ====================================================
+
+  const pkrBalance = toNumber(
+    wallet?.pkrBalance
+  );
+
+  const goldBalance = toNumber(
+    wallet?.goldBalance
+  );
+
+  const usdtBalance = toNumber(
+    wallet?.usdtBalance
+  );
+
+  // ====================================================
+  // LOCKED BALANCES
+  // ====================================================
+
+  const lockedPkr = toNumber(
+    wallet?.lockedPkr
+  );
+
+  const lockedGold = toNumber(
+    wallet?.lockedGold
+  );
+
+  const lockedUsdt = toNumber(
+    wallet?.lockedUsdt
+  );
+
+  // ====================================================
+  // AVAILABLE BALANCES
+  // ====================================================
+
+  const availablePkr = Math.max(
+    0,
+    pkrBalance - lockedPkr
+  );
+
+  const availableGold = Math.max(
+    0,
+    goldBalance - lockedGold
+  );
+
+  const availableUsdt = Math.max(
+    0,
+    usdtBalance - lockedUsdt
+  );
+
+  // ====================================================
+  // PERFORMANCE
+  // ====================================================
+
+  const portfolioValue = toNumber(
+    wallet?.portfolioValue
+  );
+
+  const liveProfit = toNumber(
+    wallet?.liveProfit
+  );
+
+  const liveProfitPercent = toNumber(
+    wallet?.liveProfitPercent
+  );
+
+  const totalWalletValue = toNumber(
+    wallet?.totalWalletValue ??
+      portfolioValue
+  );
+
+  // ====================================================
+  // SNAPSHOT
+  // ====================================================
+
+  return {
+    userId:
+      user?._id ??
+      wallet?.userId ??
+      null,
+
+    username:
+      wallet?.username ||
+      user?.username ||
+      "",
+
+    email:
+      user?.email ||
+      "",
+
+    role:
+      user?.role ||
+      "",
+
+    // ================================================
+    // BALANCES
+    // ================================================
+
+    pkrBalance,
+    goldBalance,
+    usdtBalance,
+
+    lockedPkr,
+    lockedGold,
+    lockedUsdt,
+
+    availablePkr,
+    availableGold,
+    availableUsdt,
+
+    // ================================================
+    // NESTED BALANCES
+    // ================================================
+
+    balances: {
+      pkr: pkrBalance,
+      gold: goldBalance,
+      usdt: usdtBalance,
+    },
+
+    available: {
+      pkr: availablePkr,
+      gold: availableGold,
+      usdt: availableUsdt,
+    },
+
+    locked: {
+      pkr: lockedPkr,
+      gold: lockedGold,
+      usdt: lockedUsdt,
+    },
+
+    // ================================================
+    // PERFORMANCE
+    // ================================================
+
+    portfolioValue,
+    liveProfit,
+    liveProfitPercent,
+    totalWalletValue,
+
+    performance: {
+      portfolioValue,
+      liveProfit,
+      liveProfitPercent,
+      totalWalletValue,
+    },
+
+    // ================================================
+    // TOTALS
+    // ================================================
+
+    totalDeposit: toNumber(
+      wallet?.totalDeposit
+    ),
+
+    totalWithdraw: toNumber(
+      wallet?.totalWithdraw
+    ),
+
+    totalPkrDeposit: toNumber(
+      wallet?.totalPkrDeposit
+    ),
+
+    totalPkrWithdraw: toNumber(
+      wallet?.totalPkrWithdraw
+    ),
+
+    totalGoldPurchased: toNumber(
+      wallet?.totalGoldPurchased
+    ),
+
+    totalGoldSold: toNumber(
+      wallet?.totalGoldSold
+    ),
+
+    totalUsdtDeposited: toNumber(
+      wallet?.totalUsdtDeposited
+    ),
+
+    totalUsdtWithdrawn: toNumber(
+      wallet?.totalUsdtWithdrawn
+    ),
+
+    totals: {
+      deposit: toNumber(
+        wallet?.totalDeposit
+      ),
+
+      withdraw: toNumber(
+        wallet?.totalWithdraw
+      ),
+
+      goldPurchased: toNumber(
+        wallet?.totalGoldPurchased
+      ),
+
+      goldSold: toNumber(
+        wallet?.totalGoldSold
+      ),
+
+      usdtDeposited: toNumber(
+        wallet?.totalUsdtDeposited
+      ),
+
+      usdtWithdrawn: toNumber(
+        wallet?.totalUsdtWithdrawn
+      ),
+    },
+
+    // ================================================
+    // STATUS
+    // ================================================
+
+    status:
+      wallet?.status ||
+      "Active",
+
+    isVerified: Boolean(
+      wallet?.isVerified
+    ),
+
+    isFrozen: Boolean(
+      wallet?.isFrozen
+    ),
+
+    // ================================================
+    // DATES
+    // ================================================
+
+    createdAt:
+      wallet?.createdAt ??
+      null,
+
+    updatedAt:
+      wallet?.updatedAt ??
+      null,
+  };
+};
 
 // ======================================================
 // GET LOGGED-IN USER WALLET
-// GET /api/wallet/balance
+// GET /api/wallet
 //
-// Used by:
-// Dashboard
-// Wallet
-// Deposit
-// Withdraw
-// Gold
-// USDT
+// IMPORTANT:
+// ROOT wallet route
 // ======================================================
 
 router.get(
-  "/balance",
+  "/",
   verifyToken,
   async (req, res) => {
     try {
       // ==================================================
-      // AUTH VALIDATION
+      // GET LOGGED-IN USER
       // ==================================================
 
-      if (!req.user?.id) {
-        return res.status(401).json({
-          success: false,
-          message:
-            "Authentication required.",
-        });
-      }
-
-      // ==================================================
-      // FIND LOGGED-IN USER
-      // ==================================================
-
-      const user = await User.findById(
-        req.user.id
-      )
-        .select(
-          "_id username email role"
-        )
-        .lean();
+      const user = await getLoggedInUser(req);
 
       if (!user) {
         return res.status(404).json({
@@ -153,125 +446,54 @@ router.get(
       }
 
       // ==================================================
-      // GET OR CREATE WALLET
+      // GET OR CREATE USER WALLET
       // ==================================================
 
-      const wallet =
-        await getOrCreateWallet(user);
+      const wallet = await getOrCreateWallet(user);
 
       // ==================================================
-      // WALLET RESPONSE
+      // BUILD WALLET SNAPSHOT
+      // ==================================================
+
+      const snapshot = buildWalletSnapshot(
+        wallet,
+        user
+      );
+
+      // ==================================================
+      // SUCCESS RESPONSE
       // ==================================================
 
       return res.status(200).json({
         success: true,
 
-        username: wallet.username,
+        username: snapshot.username,
 
-        wallet: {
-          pkrBalance: Number(
-            wallet.pkrBalance ?? 0
-          ),
-
-          goldBalance: Number(
-            wallet.goldBalance ?? 0
-          ),
-
-          usdtBalance: Number(
-            wallet.usdtBalance ?? 0
-          ),
-
-          lockedPkr: Number(
-            wallet.lockedPkr ?? 0
-          ),
-
-          lockedGold: Number(
-            wallet.lockedGold ?? 0
-          ),
-
-          lockedUsdt: Number(
-            wallet.lockedUsdt ?? 0
-          ),
-
-          availablePkr: Number(
-            wallet.availablePkr ?? 0
-          ),
-
-          availableGold: Number(
-            wallet.availableGold ?? 0
-          ),
-
-          availableUsdt: Number(
-            wallet.availableUsdt ?? 0
-          ),
-
-          portfolioValue: Number(
-            wallet.portfolioValue ?? 0
-          ),
-
-          liveProfit: Number(
-            wallet.liveProfit ?? 0
-          ),
-
-          liveProfitPercent: Number(
-            wallet.liveProfitPercent ?? 0
-          ),
-
-          totalWalletValue: Number(
-            wallet.totalWalletValue ?? 0
-          ),
-
-          status:
-            wallet.status ||
-            "Active",
-        },
+        wallet: snapshot,
 
         updatedAt:
           wallet.updatedAt ||
           new Date(),
       });
+
     } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
+
       console.error(
-        "GOLDTRADE V18 GET WALLET BALANCE ERROR:",
+        "GOLDTRADE V18 GET ROOT WALLET ERROR:",
         error
       );
 
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load wallet balance.",
-
-        ...(process.env.NODE_ENV !==
-          "production" && {
-          error: error.message,
-        }),
-      });
-    }
-  }
-);
-
-// ======================================================
-// GET USER WALLET BY USERNAME
-// GET /api/wallet/:username
-//
-// User:
-//   Can access own wallet.
-//
-// Admin:
-//   Can access any user's wallet.
-// ======================================================
-
-router.get(
-  "/:username",
-  verifyToken,
-  async (req, res) => {
-    try {
       // ==================================================
-      // AUTH VALIDATION
+      // AUTHENTICATION ERROR
       // ==================================================
 
-      if (!req.user) {
+      if (
+        error?.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
         return res.status(401).json({
           success: false,
           message:
@@ -280,73 +502,13 @@ router.get(
       }
 
       // ==================================================
-      // NORMALIZE USERNAME
+      // USER NOT FOUND
       // ==================================================
-
-      const username = String(
-        req.params.username || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      if (!username) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Username is required.",
-        });
-      }
-
-      // ==================================================
-      // AUTHORIZATION
-      // ==================================================
-
-      const requesterUsername =
-        String(
-          req.user.username || ""
-        )
-          .trim()
-          .toLowerCase();
-
-      const requesterRole =
-        String(
-          req.user.role || ""
-        )
-          .trim()
-          .toLowerCase();
-
-      const isRequesterAdmin =
-        requesterRole === "admin";
-
-      const isOwnWallet =
-        requesterUsername ===
-        username;
 
       if (
-        !isRequesterAdmin &&
-        !isOwnWallet
+        error?.message ===
+        "USER_NOT_FOUND"
       ) {
-        return res.status(403).json({
-          success: false,
-          message:
-            "Access denied.",
-        });
-      }
-
-      // ==================================================
-      // FIND USER
-      // ==================================================
-
-      const user =
-        await User.findOne({
-          username,
-        })
-          .select(
-            "_id username email role"
-          )
-          .lean();
-
-      if (!user) {
         return res.status(404).json({
           success: false,
           message:
@@ -355,151 +517,42 @@ router.get(
       }
 
       // ==================================================
-      // GET OR CREATE WALLET
+      // SERVER ERROR
       // ==================================================
-
-      const wallet =
-        await getOrCreateWallet(user);
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        wallet: {
-          username:
-            wallet.username,
-
-          email:
-            user.email,
-
-          role:
-            user.role,
-
-          pkrBalance: Number(
-            wallet.pkrBalance ?? 0
-          ),
-
-          goldBalance: Number(
-            wallet.goldBalance ?? 0
-          ),
-
-          usdtBalance: Number(
-            wallet.usdtBalance ?? 0
-          ),
-
-          lockedPkr: Number(
-            wallet.lockedPkr ?? 0
-          ),
-
-          lockedGold: Number(
-            wallet.lockedGold ?? 0
-          ),
-
-          lockedUsdt: Number(
-            wallet.lockedUsdt ?? 0
-          ),
-
-          availablePkr: Number(
-            wallet.availablePkr ?? 0
-          ),
-
-          availableGold: Number(
-            wallet.availableGold ?? 0
-          ),
-
-          availableUsdt: Number(
-            wallet.availableUsdt ?? 0
-          ),
-
-          portfolioValue: Number(
-            wallet.portfolioValue ?? 0
-          ),
-
-          liveProfit: Number(
-            wallet.liveProfit ?? 0
-          ),
-
-          liveProfitPercent: Number(
-            wallet.liveProfitPercent ?? 0
-          ),
-
-          totalWalletValue: Number(
-            wallet.totalWalletValue ?? 0
-          ),
-
-          totalDeposit: Number(
-            wallet.totalDeposit ?? 0
-          ),
-
-          totalWithdraw: Number(
-            wallet.totalWithdraw ?? 0
-          ),
-
-          status:
-            wallet.status ||
-            "Active",
-
-          createdAt:
-            wallet.createdAt,
-
-          updatedAt:
-            wallet.updatedAt,
-        },
-      });
-    } catch (error) {
-      console.error(
-        "GOLDTRADE V18 GET USER WALLET ERROR:",
-        error
-      );
 
       return res.status(500).json({
         success: false,
-
         message:
           "Unable to load wallet.",
 
         ...(process.env.NODE_ENV !==
           "production" && {
-          error: error.message,
+          error:
+            error?.message ||
+            "Unknown server error.",
         }),
       });
     }
   }
 );
 
-// ======================================================
-// WALLET SUMMARY
-// GET /api/wallet/summary
+ // ======================================================
+// GET LOGGED-IN USER WALLET
+// GET /api/wallet/balance
 //
-// Logged-in user only
+// Compatibility endpoint
 // ======================================================
 
 router.get(
-  "/summary",
+  "/balance",
   verifyToken,
   async (req, res) => {
     try {
       // ==================================================
-      // AUTH CHECK
+      // GET LOGGED-IN USER
       // ==================================================
 
-      if (!req.user?.id) {
-        return res.status(401).json({
-          success: false,
-          message: "Authentication required.",
-        });
-      }
-
-      // ==================================================
-      // FIND USER
-      // ==================================================
-
-      const user = await User.findById(req.user.id)
-        .select("_id username")
-        .lean();
+      const user = await getLoggedInUser(req);
 
       if (!user) {
         return res.status(404).json({
@@ -513,6 +566,175 @@ router.get(
       // ==================================================
 
       const wallet = await getOrCreateWallet(user);
+
+      // ==================================================
+      // BUILD WALLET SNAPSHOT
+      // ==================================================
+
+      const snapshot = buildWalletSnapshot(
+        wallet,
+        user
+      );
+
+      // ==================================================
+      // SUCCESS RESPONSE
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+
+        username: snapshot.username,
+
+        wallet: {
+          pkrBalance:
+            snapshot.pkrBalance,
+
+          goldBalance:
+            snapshot.goldBalance,
+
+          usdtBalance:
+            snapshot.usdtBalance,
+
+          lockedPkr:
+            snapshot.lockedPkr,
+
+          lockedGold:
+            snapshot.lockedGold,
+
+          lockedUsdt:
+            snapshot.lockedUsdt,
+
+          availablePkr:
+            snapshot.availablePkr,
+
+          availableGold:
+            snapshot.availableGold,
+
+          availableUsdt:
+            snapshot.availableUsdt,
+
+          portfolioValue:
+            snapshot.portfolioValue,
+
+          liveProfit:
+            snapshot.liveProfit,
+
+          liveProfitPercent:
+            snapshot.liveProfitPercent,
+
+          totalWalletValue:
+            snapshot.totalWalletValue,
+
+          status:
+            snapshot.status,
+
+          isFrozen:
+            snapshot.isFrozen,
+        },
+
+        updatedAt:
+          wallet.updatedAt ||
+          new Date(),
+      });
+
+    } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
+
+      console.error(
+        "GOLDTRADE V18 GET WALLET BALANCE ERROR:",
+        error
+      );
+
+      // ==================================================
+      // AUTHENTICATION ERROR
+      // ==================================================
+
+      if (
+        error?.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required.",
+        });
+      }
+
+      // ==================================================
+      // USER NOT FOUND
+      // ==================================================
+
+      if (
+        error?.message ===
+        "USER_NOT_FOUND"
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found.",
+        });
+      }
+
+      // ==================================================
+      // SERVER ERROR
+      // ==================================================
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load wallet balance.",
+
+        ...(process.env.NODE_ENV !==
+          "production" && {
+          error:
+            error?.message ||
+            "Unknown server error.",
+        }),
+      });
+    }
+  }
+);
+// ======================================================
+// WALLET SUMMARY
+// GET /api/wallet/summary
+//
+// Logged-in user only
+// ======================================================
+
+router.get(
+  "/summary",
+  verifyToken,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // GET LOGGED-IN USER
+      // ==================================================
+
+      const user = await getLoggedInUser(req);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      // ==================================================
+      // GET / CREATE WALLET
+      // ==================================================
+
+      const wallet = await getOrCreateWallet(user);
+
+      // ==================================================
+      // BUILD WALLET SNAPSHOT
+      // ==================================================
+
+      const snapshot = buildWalletSnapshot(
+        wallet,
+        user
+      );
 
       // ==================================================
       // TRANSACTION COUNT
@@ -531,64 +753,10 @@ router.get(
         await WalletHistory.findOne({
           userId: user._id,
         })
-          .sort({ createdAt: -1 })
+          .sort({
+            createdAt: -1,
+          })
           .lean();
-
-      // ==================================================
-      // NORMALIZED VALUES
-      // ==================================================
-
-      const pkrBalance = Number(
-        wallet.pkrBalance ?? 0
-      );
-
-      const goldBalance = Number(
-        wallet.goldBalance ?? 0
-      );
-
-      const usdtBalance = Number(
-        wallet.usdtBalance ?? 0
-      );
-
-      const availablePkr = Number(
-        wallet.availablePkr ?? 0
-      );
-
-      const availableGold = Number(
-        wallet.availableGold ?? 0
-      );
-
-      const availableUsdt = Number(
-        wallet.availableUsdt ?? 0
-      );
-
-      const lockedPkr = Number(
-        wallet.lockedPkr ?? 0
-      );
-
-      const lockedGold = Number(
-        wallet.lockedGold ?? 0
-      );
-
-      const lockedUsdt = Number(
-        wallet.lockedUsdt ?? 0
-      );
-
-      const portfolioValue = Number(
-        wallet.portfolioValue ?? 0
-      );
-
-      const liveProfit = Number(
-        wallet.liveProfit ?? 0
-      );
-
-      const liveProfitPercent = Number(
-        wallet.liveProfitPercent ?? 0
-      );
-
-      const totalWalletValue = Number(
-        wallet.totalWalletValue ?? 0
-      );
 
       // ==================================================
       // RESPONSE
@@ -598,118 +766,164 @@ router.get(
         success: true,
 
         summary: {
-          username: wallet.username,
+          // ==============================================
+          // USER
+          // ==============================================
 
-          // ----------------------------------------------
-          // FLAT VALUES
-          // Frontend compatibility
-          // ----------------------------------------------
+          userId: snapshot.userId,
 
-          pkrBalance,
-          goldBalance,
-          usdtBalance,
+          username: snapshot.username,
 
-          availablePkr,
-          availableGold,
-          availableUsdt,
+          // ==============================================
+          // FLAT BALANCES
+          // ==============================================
 
-          lockedPkr,
-          lockedGold,
-          lockedUsdt,
+          pkrBalance: snapshot.pkrBalance,
 
-          portfolioValue,
-          liveProfit,
-          liveProfitPercent,
-          totalWalletValue,
+          goldBalance: snapshot.goldBalance,
 
-          // ----------------------------------------------
+          usdtBalance: snapshot.usdtBalance,
+
+          availablePkr: snapshot.availablePkr,
+
+          availableGold: snapshot.availableGold,
+
+          availableUsdt: snapshot.availableUsdt,
+
+          lockedPkr: snapshot.lockedPkr,
+
+          lockedGold: snapshot.lockedGold,
+
+          lockedUsdt: snapshot.lockedUsdt,
+
+          // ==============================================
+          // PERFORMANCE
+          // ==============================================
+
+          portfolioValue: snapshot.portfolioValue,
+
+          liveProfit: snapshot.liveProfit,
+
+          liveProfitPercent:
+            snapshot.liveProfitPercent,
+
+          totalWalletValue:
+            snapshot.totalWalletValue,
+
+          // ==============================================
           // NESTED BALANCES
-          // ----------------------------------------------
+          // ==============================================
 
-          balances: {
-            pkr: pkrBalance,
-            gold: goldBalance,
-            usdt: usdtBalance,
-          },
+          balances: snapshot.balances,
 
-          available: {
-            pkr: availablePkr,
-            gold: availableGold,
-            usdt: availableUsdt,
-          },
+          available: snapshot.available,
 
-          locked: {
-            pkr: lockedPkr,
-            gold: lockedGold,
-            usdt: lockedUsdt,
-          },
+          locked: snapshot.locked,
 
-          performance: {
-            portfolioValue,
-            liveProfit,
-            liveProfitPercent,
-            totalWalletValue,
-          },
+          performance: snapshot.performance,
 
-          totals: {
-            deposit: Number(
-              wallet.totalDeposit ?? 0
-            ),
+          // ==============================================
+          // TOTALS
+          // ==============================================
 
-            withdraw: Number(
-              wallet.totalWithdraw ?? 0
-            ),
+          totals: snapshot.totals,
 
-            goldPurchased: Number(
-              wallet.totalGoldPurchased ?? 0
-            ),
-
-            goldSold: Number(
-              wallet.totalGoldSold ?? 0
-            ),
-
-            usdtDeposited: Number(
-              wallet.totalUsdtDeposited ?? 0
-            ),
-
-            usdtWithdrawn: Number(
-              wallet.totalUsdtWithdrawn ?? 0
-            ),
-          },
+          // ==============================================
+          // TRANSACTIONS
+          // ==============================================
 
           totalTransactions,
 
-          lastTransaction,
+          // ------------------------------------------------
+          // IMPORTANT:
+          // Do NOT use formatHistoryItem() here because
+          // that function is not defined/imported.
+          // WalletHistory.findOne().lean() already returns
+          // a plain JavaScript object suitable for JSON.
+          // ------------------------------------------------
 
-          status:
-            wallet.status || "Active",
+          lastTransaction:
+            lastTransaction || null,
+
+          // ==============================================
+          // STATUS
+          // ==============================================
+
+          status: snapshot.status,
+
+          isFrozen: snapshot.isFrozen,
+
+          // ==============================================
+          // UPDATED AT
+          // ==============================================
 
           updatedAt:
-            wallet.updatedAt,
+            wallet.updatedAt ||
+            new Date(),
         },
       });
     } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
+
       console.error(
         "GOLDTRADE V18 GET WALLET SUMMARY ERROR:",
         error
       );
 
+      // ==================================================
+      // AUTHENTICATION ERROR
+      // ==================================================
+
+      if (
+        error?.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required.",
+        });
+      }
+
+      // ==================================================
+      // USER NOT FOUND
+      // ==================================================
+
+      if (
+        error?.message ===
+        "USER_NOT_FOUND"
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found.",
+        });
+      }
+
+      // ==================================================
+      // SERVER ERROR
+      // ==================================================
+
       return res.status(500).json({
         success: false,
+
         message:
           "Unable to load wallet summary.",
 
         ...(process.env.NODE_ENV !==
           "production" && {
-          error: error.message,
+          error:
+            error?.message ||
+            "Unknown server error.",
         }),
       });
     }
   }
 );
-
 // ======================================================
-// GET DASHBOARD PORTFOLIO
+// GET LOGGED-IN USER PORTFOLIO
 // GET /api/wallet/portfolio
 //
 // Logged-in user only
@@ -722,23 +936,10 @@ router.get(
   async (req, res) => {
     try {
       // ==================================================
-      // AUTH CHECK
+      // GET LOGGED-IN USER
       // ==================================================
 
-      if (!req.user?.id) {
-        return res.status(401).json({
-          success: false,
-          message: "Authentication required.",
-        });
-      }
-
-      // ==================================================
-      // FIND USER
-      // ==================================================
-
-      const user = await User.findById(req.user.id)
-        .select("_id username email role")
-        .lean();
+      const user = await getLoggedInUser(req);
 
       if (!user) {
         return res.status(404).json({
@@ -748,66 +949,18 @@ router.get(
       }
 
       // ==================================================
-      // GET OR CREATE WALLET
+      // GET / CREATE WALLET
       // ==================================================
 
-      const wallet =
-        await getOrCreateWallet(user);
+      const wallet = await getOrCreateWallet(user);
 
       // ==================================================
-      // NORMALIZED VALUES
+      // BUILD WALLET SNAPSHOT
       // ==================================================
 
-      const pkrBalance = Number(
-        wallet.pkrBalance ?? 0
-      );
-
-      const goldBalance = Number(
-        wallet.goldBalance ?? 0
-      );
-
-      const usdtBalance = Number(
-        wallet.usdtBalance ?? 0
-      );
-
-      const availablePkr = Number(
-        wallet.availablePkr ?? 0
-      );
-
-      const availableGold = Number(
-        wallet.availableGold ?? 0
-      );
-
-      const availableUsdt = Number(
-        wallet.availableUsdt ?? 0
-      );
-
-      const lockedPkr = Number(
-        wallet.lockedPkr ?? 0
-      );
-
-      const lockedGold = Number(
-        wallet.lockedGold ?? 0
-      );
-
-      const lockedUsdt = Number(
-        wallet.lockedUsdt ?? 0
-      );
-
-      const portfolioValue = Number(
-        wallet.portfolioValue ?? 0
-      );
-
-      const liveProfit = Number(
-        wallet.liveProfit ?? 0
-      );
-
-      const liveProfitPercent = Number(
-        wallet.liveProfitPercent ?? 0
-      );
-
-      const totalWalletValue = Number(
-        wallet.totalWalletValue ?? 0
+      const snapshot = buildWalletSnapshot(
+        wallet,
+        user
       );
 
       // ==================================================
@@ -818,106 +971,181 @@ router.get(
         success: true,
 
         portfolio: {
-          username: wallet.username,
+          // ==============================================
+          // USER
+          // ==============================================
 
-          // ----------------------------------------------
-          // FLAT VALUES
-          // ----------------------------------------------
+          userId:
+            snapshot.userId,
 
-          pkrBalance,
-          goldBalance,
-          usdtBalance,
+          username:
+            snapshot.username,
 
-          availablePkr,
-          availableGold,
-          availableUsdt,
+          email:
+            snapshot.email,
 
-          lockedPkr,
-          lockedGold,
-          lockedUsdt,
+          role:
+            snapshot.role,
 
-          portfolioValue,
-          liveProfit,
-          liveProfitPercent,
-          totalWalletValue,
+          // ==============================================
+          // FLAT BALANCES
+          // ==============================================
 
-          // ----------------------------------------------
-          // NESTED VALUES
-          // ----------------------------------------------
+          pkrBalance:
+            snapshot.pkrBalance,
 
-          balances: {
-            pkr: pkrBalance,
-            gold: goldBalance,
-            usdt: usdtBalance,
-          },
+          goldBalance:
+            snapshot.goldBalance,
 
-          available: {
-            pkr: availablePkr,
-            gold: availableGold,
-            usdt: availableUsdt,
-          },
+          usdtBalance:
+            snapshot.usdtBalance,
 
-          locked: {
-            pkr: lockedPkr,
-            gold: lockedGold,
-            usdt: lockedUsdt,
-          },
+          availablePkr:
+            snapshot.availablePkr,
 
-          // ----------------------------------------------
+          availableGold:
+            snapshot.availableGold,
+
+          availableUsdt:
+            snapshot.availableUsdt,
+
+          lockedPkr:
+            snapshot.lockedPkr,
+
+          lockedGold:
+            snapshot.lockedGold,
+
+          lockedUsdt:
+            snapshot.lockedUsdt,
+
+          // ==============================================
+          // PERFORMANCE
+          // ==============================================
+
+          portfolioValue:
+            snapshot.portfolioValue,
+
+          liveProfit:
+            snapshot.liveProfit,
+
+          liveProfitPercent:
+            snapshot.liveProfitPercent,
+
+          totalWalletValue:
+            snapshot.totalWalletValue,
+
+          // ==============================================
+          // NESTED BALANCES
+          // ==============================================
+
+          balances:
+            snapshot.balances,
+
+          available:
+            snapshot.available,
+
+          locked:
+            snapshot.locked,
+
+          // ==============================================
+          // PERFORMANCE OBJECT
+          // ==============================================
+
+          performance:
+            snapshot.performance,
+
+          // ==============================================
           // TOTALS
-          // ----------------------------------------------
+          // ==============================================
 
-          totalDeposit: Number(
-            wallet.totalDeposit ?? 0
-          ),
+          totals:
+            snapshot.totals,
 
-          totalWithdraw: Number(
-            wallet.totalWithdraw ?? 0
-          ),
-
-          totalGoldPurchased: Number(
-            wallet.totalGoldPurchased ?? 0
-          ),
-
-          totalGoldSold: Number(
-            wallet.totalGoldSold ?? 0
-          ),
-
-          totalUsdtDeposited: Number(
-            wallet.totalUsdtDeposited ?? 0
-          ),
-
-          totalUsdtWithdrawn: Number(
-            wallet.totalUsdtWithdrawn ?? 0
-          ),
+          // ==============================================
+          // STATUS
+          // ==============================================
 
           status:
-            wallet.status || "Active",
+            snapshot.status,
+
+          isVerified:
+            snapshot.isVerified,
+
+          isFrozen:
+            snapshot.isFrozen,
+
+          // ==============================================
+          // DATES
+          // ==============================================
+
+          createdAt:
+            snapshot.createdAt,
 
           updatedAt:
-            wallet.updatedAt,
+            snapshot.updatedAt,
         },
       });
+
     } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
+
       console.error(
         "GOLDTRADE V18 GET PORTFOLIO ERROR:",
         error
       );
 
+      // ==================================================
+      // AUTHENTICATION ERROR
+      // ==================================================
+
+      if (
+        error?.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required.",
+        });
+      }
+
+      // ==================================================
+      // USER NOT FOUND
+      // ==================================================
+
+      if (
+        error?.message ===
+        "USER_NOT_FOUND"
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found.",
+        });
+      }
+
+      // ==================================================
+      // SERVER ERROR
+      // ==================================================
+
       return res.status(500).json({
         success: false,
+
         message:
           "Unable to load portfolio.",
 
         ...(process.env.NODE_ENV !==
           "production" && {
-          error: error.message,
+          error:
+            error?.message ||
+            "Unknown server error.",
         }),
       });
     }
   }
 );
-
 // ======================================================
 // GET USER PORTFOLIO BY USERNAME
 // GET /api/wallet/portfolio/:username
@@ -935,882 +1163,61 @@ router.get(
   async (req, res) => {
     try {
       // ==================================================
-      // AUTH CHECK
+      // AUTH VALIDATION
       // ==================================================
 
       if (!req.user) {
         return res.status(401).json({
           success: false,
-          message: "Authentication required.",
+          message:
+            "Authentication required.",
         });
       }
 
       // ==================================================
-      // NORMALIZE USERNAMES
+      // NORMALIZE REQUESTED USERNAME
       // ==================================================
 
       const username = String(
-        req.params.username || ""
+        req.params?.username ?? ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (!username) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Username is required.",
+        });
+      }
+
+      // ==================================================
+      // REQUESTER INFORMATION
+      // ==================================================
+
+      const requesterRole = String(
+        req.user?.role ?? ""
       )
         .trim()
         .toLowerCase();
 
       const requesterUsername = String(
-        req.user.username || ""
+        req.user?.username ?? ""
       )
         .trim()
         .toLowerCase();
 
-      const requesterRole = String(
-        req.user.role || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      // ==================================================
-      // VALIDATE USERNAME
-      // ==================================================
-
-      if (!username) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Username is required.",
-        });
-      }
-
-      // ==================================================
-      // AUTHORIZATION
-      // ==================================================
+      const requesterId =
+        req.user?.id ||
+        req.user?._id ||
+        null;
 
       const isAdminUser =
         requesterRole === "admin";
 
-      const isOwnPortfolio =
-        requesterUsername === username;
-
-      if (
-        !isAdminUser &&
-        !isOwnPortfolio
-      ) {
-        return res.status(403).json({
-          success: false,
-          message: "Access denied.",
-        });
-      }
-
       // ==================================================
-      // FIND USER
-      // ==================================================
-
-      const user =
-        await User.findOne({
-          username,
-        })
-          .select(
-            "_id username email role"
-          )
-          .lean();
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found.",
-        });
-      }
-
-      // ==================================================
-      // GET OR CREATE WALLET
-      // ==================================================
-
-      const wallet =
-        await getOrCreateWallet(user);
-
-      // ==================================================
-      // NORMALIZED VALUES
-      // ==================================================
-
-      const pkrBalance = Number(
-        wallet.pkrBalance ?? 0
-      );
-
-      const goldBalance = Number(
-        wallet.goldBalance ?? 0
-      );
-
-      const usdtBalance = Number(
-        wallet.usdtBalance ?? 0
-      );
-
-      const availablePkr = Number(
-        wallet.availablePkr ?? 0
-      );
-
-      const availableGold = Number(
-        wallet.availableGold ?? 0
-      );
-
-      const availableUsdt = Number(
-        wallet.availableUsdt ?? 0
-      );
-
-      const lockedPkr = Number(
-        wallet.lockedPkr ?? 0
-      );
-
-      const lockedGold = Number(
-        wallet.lockedGold ?? 0
-      );
-
-      const lockedUsdt = Number(
-        wallet.lockedUsdt ?? 0
-      );
-
-      const portfolioValue = Number(
-        wallet.portfolioValue ?? 0
-      );
-
-      const liveProfit = Number(
-        wallet.liveProfit ?? 0
-      );
-
-      const liveProfitPercent = Number(
-        wallet.liveProfitPercent ?? 0
-      );
-
-      const totalWalletValue = Number(
-        wallet.totalWalletValue ?? 0
-      );
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        portfolio: {
-          username: wallet.username,
-
-          email: user.email,
-
-          role: user.role,
-
-          // ----------------------------------------------
-          // FLAT VALUES
-          // ----------------------------------------------
-
-          pkrBalance,
-          goldBalance,
-          usdtBalance,
-
-          availablePkr,
-          availableGold,
-          availableUsdt,
-
-          lockedPkr,
-          lockedGold,
-          lockedUsdt,
-
-          portfolioValue,
-          liveProfit,
-          liveProfitPercent,
-          totalWalletValue,
-
-          // ----------------------------------------------
-          // NESTED VALUES
-          // ----------------------------------------------
-
-          balances: {
-            pkr: pkrBalance,
-            gold: goldBalance,
-            usdt: usdtBalance,
-          },
-
-          available: {
-            pkr: availablePkr,
-            gold: availableGold,
-            usdt: availableUsdt,
-          },
-
-          locked: {
-            pkr: lockedPkr,
-            gold: lockedGold,
-            usdt: lockedUsdt,
-          },
-
-          // ----------------------------------------------
-          // TOTALS
-          // ----------------------------------------------
-
-          totals: {
-            deposit: Number(
-              wallet.totalDeposit ?? 0
-            ),
-
-            withdraw: Number(
-              wallet.totalWithdraw ?? 0
-            ),
-
-            goldPurchased: Number(
-              wallet.totalGoldPurchased ?? 0
-            ),
-
-            goldSold: Number(
-              wallet.totalGoldSold ?? 0
-            ),
-
-            usdtDeposited: Number(
-              wallet.totalUsdtDeposited ?? 0
-            ),
-
-            usdtWithdrawn: Number(
-              wallet.totalUsdtWithdrawn ?? 0
-            ),
-          },
-
-          status:
-            wallet.status || "Active",
-
-          createdAt:
-            wallet.createdAt,
-
-          updatedAt:
-            wallet.updatedAt,
-        },
-      });
-    } catch (error) {
-      console.error(
-        "GOLDTRADE V18 GET USER PORTFOLIO ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Unable to load user portfolio.",
-
-        ...(process.env.NODE_ENV !==
-          "production" && {
-          error: error.message,
-        }),
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// GET LOGGED-IN USER WALLET HISTORY
-// GET /api/wallet/history
-//
-// Used by:
-// Wallet Page
-// Dashboard
-// ======================================================
-
-router.get(
-  "/history",
-  verifyToken,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // AUTH CHECK
-      // ==================================================
-
-      if (!req.user?.id) {
-        return res.status(401).json({
-          success: false,
-          message: "Authentication required.",
-        });
-      }
-
-      // ==================================================
-      // PAGINATION
-      // ==================================================
-
-      const requestedPage = Number(
-        req.query.page
-      );
-
-      const requestedLimit = Number(
-        req.query.limit
-      );
-
-      const page =
-        Number.isFinite(requestedPage) &&
-        requestedPage > 0
-          ? Math.floor(requestedPage)
-          : 1;
-
-      const limit =
-        Number.isFinite(requestedLimit) &&
-        requestedLimit > 0
-          ? Math.min(
-              Math.floor(requestedLimit),
-              100
-            )
-          : 20;
-
-      const skip = (page - 1) * limit;
-
-      // ==================================================
-      // LOAD HISTORY
-      // ==================================================
-
-      const history =
-        await WalletHistory.find({
-          userId: req.user.id,
-        })
-          .sort({
-            createdAt: -1,
-          })
-          .skip(skip)
-          .limit(limit)
-          .lean();
-
-      // ==================================================
-      // TOTAL
-      // ==================================================
-
-      const total =
-        await WalletHistory.countDocuments({
-          userId: req.user.id,
-        });
-
-      // ==================================================
-      // FORMAT HISTORY
-      // ==================================================
-
-      const formattedHistory =
-        history.map((item) => ({
-          id: String(item._id),
-
-          _id: item._id,
-
-          walletType:
-            item.walletType || "",
-
-          type:
-            item.type || "",
-
-          amount: Number(
-            item.amount ?? 0
-          ),
-
-          balanceAfter: Number(
-            item.balanceAfter ?? 0
-          ),
-
-          note:
-            item.note || "",
-
-          admin:
-            item.admin || "",
-
-          reference:
-            item.reference ||
-            item.referenceId ||
-            "",
-
-          status:
-            item.status || "",
-
-          createdAt:
-            item.createdAt,
-        }));
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        username:
-          req.user.username || "",
-
-        total,
-
-        page,
-
-        limit,
-
-        totalPages:
-          total > 0
-            ? Math.ceil(total / limit)
-            : 0,
-
-        history:
-          formattedHistory,
-      });
-    } catch (error) {
-      console.error(
-        "GOLDTRADE V18 GET WALLET HISTORY ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load wallet history.",
-
-        ...(process.env.NODE_ENV !==
-          "production" && {
-          error: error.message,
-        }),
-      });
-    }
-  }
-);
-
-// ======================================================
-// SEARCH WALLET HISTORY
-// GET /api/wallet/history/search
-//
-// Filters:
-// walletType
-// type
-// fromDate
-// toDate
-// ======================================================
-
-router.get(
-  "/history/search",
-  verifyToken,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // AUTH CHECK
-      // ==================================================
-
-      if (!req.user?.id) {
-        return res.status(401).json({
-          success: false,
-          message: "Authentication required.",
-        });
-      }
-
-      // ==================================================
-      // QUERY PARAMETERS
-      // ==================================================
-
-      const {
-        walletType,
-        type,
-        fromDate,
-        toDate,
-      } = req.query;
-
-      // ==================================================
-      // BASE QUERY
-      // ==================================================
-
-      const query = {
-        userId: req.user.id,
-      };
-
-      // ==================================================
-      // WALLET TYPE FILTER
-      // ==================================================
-
-      if (
-        typeof walletType === "string" &&
-        walletType.trim()
-      ) {
-        query.walletType =
-          walletType
-            .trim()
-            .toUpperCase();
-      }
-
-      // ==================================================
-      // TRANSACTION TYPE FILTER
-      // ==================================================
-
-      if (
-        typeof type === "string" &&
-        type.trim()
-      ) {
-        query.type =
-          type
-            .trim()
-            .toUpperCase();
-      }
-
-      // ==================================================
-      // DATE FILTER
-      // ==================================================
-
-      if (
-        typeof fromDate === "string" &&
-        fromDate.trim()
-      ) {
-        const startDate =
-          new Date(
-            fromDate.trim()
-          );
-
-        if (
-          Number.isNaN(
-            startDate.getTime()
-          )
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Invalid fromDate.",
-          });
-        }
-
-        query.createdAt = {
-          ...(query.createdAt || {}),
-          $gte: startDate,
-        };
-      }
-
-      if (
-        typeof toDate === "string" &&
-        toDate.trim()
-      ) {
-        const endDate =
-          new Date(
-            toDate.trim()
-          );
-
-        if (
-          Number.isNaN(
-            endDate.getTime()
-          )
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Invalid toDate.",
-          });
-        }
-
-        // Include the entire selected day
-        endDate.setHours(
-          23,
-          59,
-          59,
-          999
-        );
-
-        query.createdAt = {
-          ...(query.createdAt || {}),
-          $lte: endDate,
-        };
-      }
-
-      // ==================================================
-      // LOAD RESULTS
-      // ==================================================
-
-      const history =
-        await WalletHistory.find(
-          query
-        )
-          .sort({
-            createdAt: -1,
-          })
-          .limit(200)
-          .lean();
-
-      // ==================================================
-      // FORMAT RESULTS
-      // ==================================================
-
-      const formattedHistory =
-        history.map((item) => ({
-          id: String(item._id),
-
-          _id: item._id,
-
-          walletType:
-            item.walletType || "",
-
-          type:
-            item.type || "",
-
-          amount: Number(
-            item.amount ?? 0
-          ),
-
-          balanceAfter: Number(
-            item.balanceAfter ?? 0
-          ),
-
-          note:
-            item.note || "",
-
-          admin:
-            item.admin || "",
-
-          reference:
-            item.reference ||
-            item.referenceId ||
-            "",
-
-          status:
-            item.status || "",
-
-          createdAt:
-            item.createdAt,
-        }));
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        total:
-          formattedHistory.length,
-
-        filters: {
-          walletType:
-            walletType || null,
-
-          type:
-            type || null,
-
-          fromDate:
-            fromDate || null,
-
-          toDate:
-            toDate || null,
-        },
-
-        history:
-          formattedHistory,
-      });
-    } catch (error) {
-      console.error(
-        "GOLDTRADE V18 SEARCH WALLET HISTORY ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to search wallet history.",
-
-        ...(process.env.NODE_ENV !==
-          "production" && {
-          error: error.message,
-        }),
-      });
-    }
-  }
-);
-
-// ======================================================
-// GET RECENT WALLET TRANSACTIONS
-// GET /api/wallet/recent
-//
-// Dashboard Recent Activity
-// ======================================================
-
-router.get(
-  "/recent",
-  verifyToken,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // AUTH CHECK
-      // ==================================================
-
-      if (!req.user?.id) {
-        return res.status(401).json({
-          success: false,
-          message: "Authentication required.",
-        });
-      }
-
-      // ==================================================
-      // LOAD RECENT TRANSACTIONS
-      // ==================================================
-
-      const recentTransactions =
-        await WalletHistory.find({
-          userId: req.user.id,
-        })
-          .sort({
-            createdAt: -1,
-          })
-          .limit(10)
-          .lean();
-
-      // ==================================================
-      // FORMAT
-      // ==================================================
-
-      const formattedTransactions =
-        recentTransactions.map(
-          (item) => ({
-            id: String(item._id),
-
-            _id: item._id,
-
-            walletType:
-              item.walletType || "",
-
-            type:
-              item.type || "",
-
-            amount: Number(
-              item.amount ?? 0
-            ),
-
-            balanceAfter: Number(
-              item.balanceAfter ?? 0
-            ),
-
-            note:
-              item.note || "",
-
-            admin:
-              item.admin || "",
-
-            reference:
-              item.reference ||
-              item.referenceId ||
-              "",
-
-            status:
-              item.status || "",
-
-            createdAt:
-              item.createdAt,
-          })
-        );
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      return res.status(200).json({
-        success: true,
-
-        total:
-          formattedTransactions.length,
-
-        transactions:
-          formattedTransactions,
-      });
-    } catch (error) {
-      console.error(
-        "GOLDTRADE V18 GET RECENT WALLET TRANSACTIONS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load recent transactions.",
-
-        ...(process.env.NODE_ENV !==
-          "production" && {
-          error: error.message,
-        }),
-      });
-    }
-  }
-);
-
-// ======================================================
-// GET WALLET HISTORY BY USERNAME
-// GET /api/wallet/history/:username
-//
-// Admin:
-//   Can access any user's history.
-//
-// User:
-//   Can access only own history.
-// ======================================================
-
-router.get(
-  "/history/:username",
-  verifyToken,
-  async (req, res) => {
-    try {
-      // ==================================================
-      // AUTH CHECK
-      // ==================================================
-
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          message: "Authentication required.",
-        });
-      }
-
-      // ==================================================
-      // NORMALIZE USERNAME
-      // ==================================================
-
-      const username = String(
-        req.params.username || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      const requesterUsername =
-        String(
-          req.user.username || ""
-        )
-          .trim()
-          .toLowerCase();
-
-      const requesterRole =
-        String(
-          req.user.role || ""
-        )
-          .trim()
-          .toLowerCase();
-
-      // ==================================================
-      // VALIDATION
-      // ==================================================
-
-      if (!username) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Username is required.",
-        });
-      }
-
-      // ==================================================
-      // AUTHORIZATION
-      // ==================================================
-
-      const isAdminUser =
-        requesterRole === "admin";
-
-      const isOwnHistory =
-        requesterUsername ===
-        username;
-
-      if (
-        !isAdminUser &&
-        !isOwnHistory
-      ) {
-        return res.status(403).json({
-          success: false,
-          message:
-            "Access denied.",
-        });
-      }
-
-      // ==================================================
-      // FIND USER
+      // FIND REQUESTED USER
       // ==================================================
 
       const user =
@@ -1831,14 +1238,274 @@ router.get(
       }
 
       // ==================================================
+      // CHECK OWNERSHIP
+      // ==================================================
+
+      const isOwnPortfolio =
+        (
+          requesterUsername &&
+          requesterUsername ===
+            String(
+              user.username ?? ""
+            )
+              .trim()
+              .toLowerCase()
+        ) ||
+        (
+          requesterId &&
+          String(requesterId) ===
+            String(user._id)
+        );
+
+      // ==================================================
+      // AUTHORIZATION
+      // ==================================================
+
+      if (
+        !isAdminUser &&
+        !isOwnPortfolio
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Access denied.",
+        });
+      }
+
+      // ==================================================
+      // GET / CREATE WALLET
+      // ==================================================
+
+      const wallet =
+        await getOrCreateWallet(user);
+
+      // ==================================================
+      // BUILD WALLET SNAPSHOT
+      // ==================================================
+
+      const snapshot =
+        buildWalletSnapshot(
+          wallet,
+          user
+        );
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+
+        portfolio: {
+          // ==============================================
+          // USER
+          // ==============================================
+
+          userId:
+            snapshot.userId,
+
+          username:
+            snapshot.username,
+
+          email:
+            snapshot.email,
+
+          role:
+            snapshot.role,
+
+          // ==============================================
+          // FLAT BALANCES
+          // ==============================================
+
+          pkrBalance:
+            snapshot.pkrBalance,
+
+          goldBalance:
+            snapshot.goldBalance,
+
+          usdtBalance:
+            snapshot.usdtBalance,
+
+          availablePkr:
+            snapshot.availablePkr,
+
+          availableGold:
+            snapshot.availableGold,
+
+          availableUsdt:
+            snapshot.availableUsdt,
+
+          lockedPkr:
+            snapshot.lockedPkr,
+
+          lockedGold:
+            snapshot.lockedGold,
+
+          lockedUsdt:
+            snapshot.lockedUsdt,
+
+          // ==============================================
+          // PERFORMANCE
+          // ==============================================
+
+          portfolioValue:
+            snapshot.portfolioValue,
+
+          liveProfit:
+            snapshot.liveProfit,
+
+          liveProfitPercent:
+            snapshot.liveProfitPercent,
+
+          totalWalletValue:
+            snapshot.totalWalletValue,
+
+          // ==============================================
+          // NESTED VALUES
+          // ==============================================
+
+          balances:
+            snapshot.balances,
+
+          available:
+            snapshot.available,
+
+          locked:
+            snapshot.locked,
+
+          performance:
+            snapshot.performance,
+
+          // ==============================================
+          // TOTALS
+          // ==============================================
+
+          totals:
+            snapshot.totals,
+
+          // ==============================================
+          // STATUS
+          // ==============================================
+
+          status:
+            snapshot.status,
+
+          isVerified:
+            snapshot.isVerified,
+
+          isFrozen:
+            snapshot.isFrozen,
+
+          // ==============================================
+          // DATES
+          // ==============================================
+
+          createdAt:
+            snapshot.createdAt,
+
+          updatedAt:
+            snapshot.updatedAt,
+        },
+      });
+
+    } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
+
+      console.error(
+        "GOLDTRADE V18 GET USER PORTFOLIO ERROR:",
+        error
+      );
+
+      // ==================================================
+      // AUTHENTICATION ERROR
+      // ==================================================
+
+      if (
+        error?.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required.",
+        });
+      }
+
+      // ==================================================
+      // USER NOT FOUND
+      // ==================================================
+
+      if (
+        error?.message ===
+        "USER_NOT_FOUND"
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found.",
+        });
+      }
+
+      // ==================================================
+      // SERVER ERROR
+      // ==================================================
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load user portfolio.",
+
+        ...(process.env.NODE_ENV !==
+          "production" && {
+          error:
+            error?.message ||
+            "Unknown server error.",
+        }),
+      });
+    }
+  }
+);
+// ======================================================
+// GET LOGGED-IN USER WALLET HISTORY
+// GET /api/wallet/history
+//
+// Used by:
+// - Wallet Page
+// - Dashboard
+// ======================================================
+
+router.get(
+  "/history",
+  verifyToken,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // GET LOGGED-IN USER
+      // ==================================================
+
+      const user =
+        await getLoggedInUser(req);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found.",
+        });
+      }
+
+      // ==================================================
       // PAGINATION
       // ==================================================
 
       const requestedPage =
-        Number(req.query.page);
+        Number(req.query?.page);
 
       const requestedLimit =
-        Number(req.query.limit);
+        Number(req.query?.limit);
 
       const page =
         Number.isFinite(
@@ -1861,13 +1528,13 @@ router.get(
               ),
               100
             )
-          : 50;
+          : 20;
 
       const skip =
         (page - 1) * limit;
 
       // ==================================================
-      // LOAD HISTORY
+      // LOAD WALLET HISTORY
       // ==================================================
 
       const history =
@@ -1882,7 +1549,7 @@ router.get(
           .lean();
 
       // ==================================================
-      // TOTAL
+      // TOTAL TRANSACTIONS
       // ==================================================
 
       const total =
@@ -1891,46 +1558,13 @@ router.get(
         });
 
       // ==================================================
-      // FORMAT
+      // FORMAT HISTORY
       // ==================================================
 
       const formattedHistory =
-        history.map((item) => ({
-          id: String(item._id),
-
-          _id: item._id,
-
-          walletType:
-            item.walletType || "",
-
-          type:
-            item.type || "",
-
-          amount: Number(
-            item.amount ?? 0
-          ),
-
-          balanceAfter: Number(
-            item.balanceAfter ?? 0
-          ),
-
-          note:
-            item.note || "",
-
-          admin:
-            item.admin || "",
-
-          reference:
-            item.reference ||
-            item.referenceId ||
-            "",
-
-          status:
-            item.status || "",
-
-          createdAt:
-            item.createdAt,
-        }));
+        history.map(
+          formatHistoryItem
+        );
 
       // ==================================================
       // RESPONSE
@@ -1939,8 +1573,11 @@ router.get(
       return res.status(200).json({
         success: true,
 
+        userId:
+          user._id,
+
         username:
-          user.username,
+          user.username || "",
 
         total,
 
@@ -1958,37 +1595,541 @@ router.get(
         history:
           formattedHistory,
       });
+
     } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
+
       console.error(
-        "GOLDTRADE V18 GET USER WALLET HISTORY ERROR:",
+        "GOLDTRADE V18 GET WALLET HISTORY ERROR:",
         error
       );
+
+      // ==================================================
+      // AUTHENTICATION ERROR
+      // ==================================================
+
+      if (
+        error?.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required.",
+        });
+      }
+
+      // ==================================================
+      // USER NOT FOUND
+      // ==================================================
+
+      if (
+        error?.message ===
+        "USER_NOT_FOUND"
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found.",
+        });
+      }
+
+      // ==================================================
+      // SERVER ERROR
+      // ==================================================
 
       return res.status(500).json({
         success: false,
 
         message:
-          "Unable to load user wallet history.",
+          "Unable to load wallet history.",
 
         ...(process.env.NODE_ENV !==
           "production" && {
-          error: error.message,
+          error:
+            error?.message ||
+            "Unknown server error.",
         }),
       });
     }
   }
 );
-
-
 // ======================================================
-// ADMIN CREDIT WALLET
+// SEARCH WALLET HISTORY
+// GET /api/wallet/history/search
+//
+// Filters:
+// - walletType
+// - type
+// - fromDate
+// - toDate
+// ======================================================
+
+router.get(
+  "/history/search",
+  verifyToken,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // GET LOGGED-IN USER
+      // ==================================================
+
+      const user =
+        await getLoggedInUser(req);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found.",
+        });
+      }
+
+      // ==================================================
+      // QUERY PARAMETERS
+      // ==================================================
+
+      const {
+        walletType,
+        type,
+        fromDate,
+        toDate,
+      } = req.query;
+
+      // ==================================================
+      // BASE QUERY
+      // ==================================================
+
+      const query = {
+        userId: user._id,
+      };
+
+      // ==================================================
+      // WALLET TYPE FILTER
+      // ==================================================
+
+      if (
+        typeof walletType ===
+          "string" &&
+        walletType.trim()
+      ) {
+        const normalizedWalletType =
+          normalizeWalletType(
+            walletType
+          );
+
+        if (
+          !isValidWalletType(
+            normalizedWalletType
+          )
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid wallet type.",
+          });
+        }
+
+        query.walletType =
+          normalizedWalletType;
+      }
+
+      // ==================================================
+      // TRANSACTION TYPE FILTER
+      // ==================================================
+
+      if (
+        typeof type ===
+          "string" &&
+        type.trim()
+      ) {
+        query.type =
+          type
+            .trim()
+            .toUpperCase();
+      }
+
+      // ==================================================
+      // FROM DATE
+      // ==================================================
+
+      if (
+        typeof fromDate ===
+          "string" &&
+        fromDate.trim()
+      ) {
+        const startDate =
+          new Date(
+            fromDate.trim()
+          );
+
+        if (
+          Number.isNaN(
+            startDate.getTime()
+          )
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid fromDate.",
+          });
+        }
+
+        query.createdAt = {
+          ...(query.createdAt ||
+            {}),
+          $gte: startDate,
+        };
+      }
+
+      // ==================================================
+      // TO DATE
+      // ==================================================
+
+      if (
+        typeof toDate ===
+          "string" &&
+        toDate.trim()
+      ) {
+        const endDate =
+          new Date(
+            toDate.trim()
+          );
+
+        if (
+          Number.isNaN(
+            endDate.getTime()
+          )
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid toDate.",
+          });
+        }
+
+        // ================================================
+        // INCLUDE COMPLETE SELECTED DAY
+        // ================================================
+
+        endDate.setHours(
+          23,
+          59,
+          59,
+          999
+        );
+
+        query.createdAt = {
+          ...(query.createdAt ||
+            {}),
+          $lte: endDate,
+        };
+      }
+
+      // ==================================================
+      // DATE RANGE VALIDATION
+      // ==================================================
+
+      if (
+        query.createdAt?.$gte &&
+        query.createdAt?.$lte &&
+        query.createdAt.$gte >
+          query.createdAt.$lte
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "fromDate cannot be later than toDate.",
+        });
+      }
+
+      // ==================================================
+      // LOAD RESULTS
+      // ==================================================
+
+      const history =
+        await WalletHistory.find(
+          query
+        )
+          .sort({
+            createdAt: -1,
+          })
+          .limit(200)
+          .lean();
+
+      // ==================================================
+      // FORMAT RESULTS
+      // ==================================================
+
+      const formattedHistory =
+        history.map(
+          formatHistoryItem
+        );
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+
+        total:
+          formattedHistory.length,
+
+        filters: {
+          walletType:
+            walletType
+              ? String(
+                  walletType
+                )
+                  .trim()
+                  .toUpperCase()
+              : null,
+
+          type:
+            type
+              ? String(
+                  type
+                )
+                  .trim()
+                  .toUpperCase()
+              : null,
+
+          fromDate:
+            fromDate || null,
+
+          toDate:
+            toDate || null,
+        },
+
+        history:
+          formattedHistory,
+      });
+
+    } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
+
+      console.error(
+        "GOLDTRADE V18 SEARCH WALLET HISTORY ERROR:",
+        error
+      );
+
+      // ==================================================
+      // AUTHENTICATION ERROR
+      // ==================================================
+
+      if (
+        error?.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required.",
+        });
+      }
+
+      // ==================================================
+      // USER NOT FOUND
+      // ==================================================
+
+      if (
+        error?.message ===
+        "USER_NOT_FOUND"
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found.",
+        });
+      }
+
+      // ==================================================
+      // SERVER ERROR
+      // ==================================================
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to search wallet history.",
+
+        ...(process.env.NODE_ENV !==
+          "production" && {
+          error:
+            error?.message ||
+            "Unknown server error.",
+        }),
+      });
+    }
+  }
+);
+// ======================================================
+// GET RECENT WALLET TRANSACTIONS
+// GET /api/wallet/recent
+//
+// Dashboard Recent Activity
+// ======================================================
+
+router.get(
+  "/recent",
+  verifyToken,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // GET LOGGED-IN USER
+      // ==================================================
+
+      const user =
+        await getLoggedInUser(req);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found.",
+        });
+      }
+
+      // ==================================================
+      // LIMIT
+      // ==================================================
+
+      const requestedLimit =
+        Number(
+          req.query?.limit
+        );
+
+      const limit =
+        Number.isFinite(
+          requestedLimit
+        ) &&
+        requestedLimit > 0
+          ? Math.min(
+              Math.floor(
+                requestedLimit
+              ),
+              50
+            )
+          : 10;
+
+      // ==================================================
+      // LOAD RECENT TRANSACTIONS
+      // ==================================================
+
+      const recentTransactions =
+        await WalletHistory.find({
+          userId: user._id,
+        })
+          .sort({
+            createdAt: -1,
+          })
+          .limit(limit)
+          .lean();
+
+      // ==================================================
+      // FORMAT TRANSACTIONS
+      // ==================================================
+
+      const formattedTransactions =
+        recentTransactions.map(
+          formatHistoryItem
+        );
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+
+        total:
+          formattedTransactions.length,
+
+        transactions:
+          formattedTransactions,
+
+        // ================================================
+        // COMPATIBILITY ALIAS
+        // ================================================
+
+        history:
+          formattedTransactions,
+      });
+
+    } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
+
+      console.error(
+        "GOLDTRADE V18 GET RECENT WALLET TRANSACTIONS ERROR:",
+        error
+      );
+
+      // ==================================================
+      // AUTHENTICATION ERROR
+      // ==================================================
+
+      if (
+        error?.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required.",
+        });
+      }
+
+      // ==================================================
+      // USER NOT FOUND
+      // ==================================================
+
+      if (
+        error?.message ===
+        "USER_NOT_FOUND"
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found.",
+        });
+      }
+
+      // ==================================================
+      // SERVER ERROR
+      // ==================================================
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load recent transactions.",
+
+        ...(process.env.NODE_ENV !==
+          "production" && {
+          error:
+            error?.message ||
+            "Unknown server error.",
+        }),
+      });
+    }
+  }
+);
+// ======================================================
+// ADMIN — CREDIT WALLET
 // POST /api/wallet/admin/credit
 //
 // Admin only
 // Supports:
-// PKR
-// GOLD
-// USDT
+// - PKR
+// - GOLD
+// - USDT
 // ======================================================
 
 router.post(
@@ -2001,10 +2142,11 @@ router.post(
       // ADMIN AUTH CHECK
       // ==================================================
 
-      if (!req.user?.id) {
+      if (!req.user) {
         return res.status(401).json({
           success: false,
-          message: "Authentication required.",
+          message:
+            "Authentication required.",
         });
       }
 
@@ -2040,10 +2182,13 @@ router.post(
       // NORMALIZE AMOUNT
       // ==================================================
 
-      const creditAmount = Number(amount);
+      const creditAmount =
+        Number(amount);
 
       if (
-        !Number.isFinite(creditAmount) ||
+        !Number.isFinite(
+          creditAmount
+        ) ||
         creditAmount <= 0
       ) {
         return res.status(400).json({
@@ -2057,14 +2202,13 @@ router.post(
       // NORMALIZE WALLET TYPE
       // ==================================================
 
-      const walletKey = String(
-        walletType
-      )
-        .trim()
-        .toUpperCase();
+      const walletKey =
+        normalizeWalletType(
+          walletType
+        );
 
       if (
-        !["PKR", "GOLD", "USDT"].includes(
+        !isValidWalletType(
           walletKey
         )
       ) {
@@ -2080,14 +2224,19 @@ router.post(
       // ==================================================
 
       const user =
-        await User.findById(userId)
-          .select("_id username")
+        await User.findById(
+          userId
+        )
+          .select(
+            "_id username email role"
+          )
           .lean();
 
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found.",
+          message:
+            "User not found.",
         });
       }
 
@@ -2096,13 +2245,23 @@ router.post(
       // ==================================================
 
       const wallet =
-        await getOrCreateWallet(user);
+        await getOrCreateWallet(
+          user
+        );
 
       // ==================================================
       // WALLET FREEZE CHECK
       // ==================================================
 
-      if (wallet.isFrozen === true) {
+      if (
+        wallet.isFrozen === true ||
+        String(
+          wallet.status || ""
+        )
+          .trim()
+          .toLowerCase() ===
+          "frozen"
+      ) {
         return res.status(403).json({
           success: false,
           message:
@@ -2116,105 +2275,129 @@ router.post(
 
       const adminUsername =
         String(
-          req.user.username ||
-            req.user.email ||
+          req.user?.username ||
+            req.user?.email ||
             "Admin"
         ).trim();
 
       // ==================================================
-      // UPDATE WALLET
+      // BALANCE BEFORE / AFTER
       // ==================================================
 
       let balanceBefore = 0;
       let balanceAfter = 0;
 
+      // ==================================================
+      // UPDATE WALLET
+      // ==================================================
+
       switch (walletKey) {
+        // ================================================
+        // PKR
+        // ================================================
+
         case "PKR": {
-          balanceBefore = Number(
-            wallet.pkrBalance ?? 0
-          );
+          balanceBefore =
+            toNumber(
+              wallet.pkrBalance
+            );
 
           wallet.pkrBalance =
             balanceBefore +
             creditAmount;
 
           wallet.totalDeposit =
-            Number(
-              wallet.totalDeposit ?? 0
+            toNumber(
+              wallet.totalDeposit
             ) + creditAmount;
 
           wallet.totalPkrDeposit =
-            Number(
-              wallet.totalPkrDeposit ?? 0
+            toNumber(
+              wallet.totalPkrDeposit
             ) + creditAmount;
 
           wallet.lastDepositAt =
             new Date();
 
           balanceAfter =
-            Number(
+            toNumber(
               wallet.pkrBalance
             );
 
           break;
         }
 
+        // ================================================
+        // GOLD
+        // ================================================
+
         case "GOLD": {
-          balanceBefore = Number(
-            wallet.goldBalance ?? 0
-          );
+          balanceBefore =
+            toNumber(
+              wallet.goldBalance
+            );
 
           wallet.goldBalance =
             balanceBefore +
             creditAmount;
 
           wallet.totalGoldPurchased =
-            Number(
-              wallet.totalGoldPurchased ?? 0
+            toNumber(
+              wallet.totalGoldPurchased
             ) + creditAmount;
 
           wallet.lastTradeAt =
             new Date();
 
           balanceAfter =
-            Number(
+            toNumber(
               wallet.goldBalance
             );
 
           break;
         }
 
+        // ================================================
+        // USDT
+        // ================================================
+
         case "USDT": {
-          balanceBefore = Number(
-            wallet.usdtBalance ?? 0
-          );
+          balanceBefore =
+            toNumber(
+              wallet.usdtBalance
+            );
 
           wallet.usdtBalance =
             balanceBefore +
             creditAmount;
 
           wallet.totalUsdtDeposited =
-            Number(
-              wallet.totalUsdtDeposited ?? 0
+            toNumber(
+              wallet.totalUsdtDeposited
             ) + creditAmount;
 
           wallet.lastDepositAt =
             new Date();
 
           balanceAfter =
-            Number(
+            toNumber(
               wallet.usdtBalance
             );
 
           break;
         }
 
-        default:
+        // ================================================
+        // UNSUPPORTED TYPE
+        // ================================================
+
+        default: {
           return res.status(400).json({
             success: false,
             message:
               "Unsupported wallet type.",
           });
+        }
       }
 
       // ==================================================
@@ -2222,13 +2405,13 @@ router.post(
       // ==================================================
 
       await wallet.save();
-
-      // ==================================================
+            // ==================================================
       // WALLET HISTORY
       // ==================================================
 
       await WalletHistory.create({
-        userId: user._id,
+        userId:
+          user._id,
 
         username:
           user.username,
@@ -2242,18 +2425,34 @@ router.post(
         amount:
           creditAmount,
 
+        balanceBefore:
+          balanceBefore,
+
         balanceAfter:
           balanceAfter,
 
         note:
           String(
-            note ||
+            note ??
               "Wallet credited by admin"
           ).trim(),
 
         admin:
           adminUsername,
+
+        status:
+          "COMPLETED",
       });
+
+      // ==================================================
+      // BUILD UPDATED WALLET SNAPSHOT
+      // ==================================================
+
+      const snapshot =
+        buildWalletSnapshot(
+          wallet,
+          user
+        );
 
       // ==================================================
       // RESPONSE
@@ -2277,37 +2476,38 @@ router.post(
         balanceAfter:
           balanceAfter,
 
-        wallet: {
-          pkrBalance: Number(
-            wallet.pkrBalance ?? 0
-          ),
-
-          goldBalance: Number(
-            wallet.goldBalance ?? 0
-          ),
-
-          usdtBalance: Number(
-            wallet.usdtBalance ?? 0
-          ),
-
-          portfolioValue: Number(
-            wallet.portfolioValue ?? 0
-          ),
-
-          liveProfit: Number(
-            wallet.liveProfit ?? 0
-          ),
-
-          status:
-            wallet.status ||
-            "Active",
-        },
+        wallet:
+          snapshot,
       });
+
     } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
+
       console.error(
         "GOLDTRADE V18 ADMIN CREDIT WALLET ERROR:",
         error
       );
+
+      // ==================================================
+      // AUTHENTICATION ERROR
+      // ==================================================
+
+      if (
+        error?.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required.",
+        });
+      }
+
+      // ==================================================
+      // SERVER ERROR
+      // ==================================================
 
       return res.status(500).json({
         success: false,
@@ -2317,7 +2517,9 @@ router.post(
 
         ...(process.env.NODE_ENV !==
           "production" && {
-          error: error.message,
+          error:
+            error?.message ||
+            "Unknown server error.",
         }),
       });
     }
@@ -2325,14 +2527,14 @@ router.post(
 );
 
 // ======================================================
-// ADMIN DEBIT WALLET
+// ADMIN — DEBIT WALLET
 // POST /api/wallet/admin/debit
 //
 // Admin only
 // Supports:
-// PKR
-// GOLD
-// USDT
+// - PKR
+// - GOLD
+// - USDT
 // ======================================================
 
 router.post(
@@ -2345,10 +2547,11 @@ router.post(
       // ADMIN AUTH CHECK
       // ==================================================
 
-      if (!req.user?.id) {
+      if (!req.user) {
         return res.status(401).json({
           success: false,
-          message: "Authentication required.",
+          message:
+            "Authentication required.",
         });
       }
 
@@ -2384,10 +2587,13 @@ router.post(
       // NORMALIZE AMOUNT
       // ==================================================
 
-      const debitAmount = Number(amount);
+      const debitAmount =
+        Number(amount);
 
       if (
-        !Number.isFinite(debitAmount) ||
+        !Number.isFinite(
+          debitAmount
+        ) ||
         debitAmount <= 0
       ) {
         return res.status(400).json({
@@ -2401,14 +2607,13 @@ router.post(
       // NORMALIZE WALLET TYPE
       // ==================================================
 
-      const walletKey = String(
-        walletType
-      )
-        .trim()
-        .toUpperCase();
+      const walletKey =
+        normalizeWalletType(
+          walletType
+        );
 
       if (
-        !["PKR", "GOLD", "USDT"].includes(
+        !isValidWalletType(
           walletKey
         )
       ) {
@@ -2424,14 +2629,19 @@ router.post(
       // ==================================================
 
       const user =
-        await User.findById(userId)
-          .select("_id username")
+        await User.findById(
+          userId
+        )
+          .select(
+            "_id username email role"
+          )
           .lean();
 
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found.",
+          message:
+            "User not found.",
         });
       }
 
@@ -2440,13 +2650,23 @@ router.post(
       // ==================================================
 
       const wallet =
-        await getOrCreateWallet(user);
+        await getOrCreateWallet(
+          user
+        );
 
       // ==================================================
       // WALLET FREEZE CHECK
       // ==================================================
 
-      if (wallet.isFrozen === true) {
+      if (
+        wallet.isFrozen === true ||
+        String(
+          wallet.status || ""
+        )
+          .trim()
+          .toLowerCase() ===
+          "frozen"
+      ) {
         return res.status(403).json({
           success: false,
           message:
@@ -2460,23 +2680,32 @@ router.post(
 
       const adminUsername =
         String(
-          req.user.username ||
-            req.user.email ||
+          req.user?.username ||
+            req.user?.email ||
             "Admin"
         ).trim();
 
       // ==================================================
-      // UPDATE WALLET
+      // BALANCE VARIABLES
       // ==================================================
 
       let balanceBefore = 0;
       let balanceAfter = 0;
 
+      // ==================================================
+      // UPDATE WALLET
+      // ==================================================
+
       switch (walletKey) {
+        // ================================================
+        // PKR
+        // ================================================
+
         case "PKR": {
-          balanceBefore = Number(
-            wallet.pkrBalance ?? 0
-          );
+          balanceBefore =
+            toNumber(
+              wallet.pkrBalance
+            );
 
           if (
             balanceBefore <
@@ -2484,10 +2713,13 @@ router.post(
           ) {
             return res.status(400).json({
               success: false,
+
               message:
                 "Insufficient PKR wallet balance.",
+
               availableBalance:
                 balanceBefore,
+
               requestedAmount:
                 debitAmount,
             });
@@ -2498,30 +2730,35 @@ router.post(
             debitAmount;
 
           wallet.totalWithdraw =
-            Number(
-              wallet.totalWithdraw ?? 0
+            toNumber(
+              wallet.totalWithdraw
             ) + debitAmount;
 
           wallet.totalPkrWithdraw =
-            Number(
-              wallet.totalPkrWithdraw ?? 0
+            toNumber(
+              wallet.totalPkrWithdraw
             ) + debitAmount;
 
           wallet.lastWithdrawAt =
             new Date();
 
           balanceAfter =
-            Number(
+            toNumber(
               wallet.pkrBalance
             );
 
           break;
         }
 
+        // ================================================
+        // GOLD
+        // ================================================
+
         case "GOLD": {
-          balanceBefore = Number(
-            wallet.goldBalance ?? 0
-          );
+          balanceBefore =
+            toNumber(
+              wallet.goldBalance
+            );
 
           if (
             balanceBefore <
@@ -2529,10 +2766,13 @@ router.post(
           ) {
             return res.status(400).json({
               success: false,
+
               message:
                 "Insufficient Gold wallet balance.",
+
               availableBalance:
                 balanceBefore,
+
               requestedAmount:
                 debitAmount,
             });
@@ -2543,25 +2783,30 @@ router.post(
             debitAmount;
 
           wallet.totalGoldSold =
-            Number(
-              wallet.totalGoldSold ?? 0
+            toNumber(
+              wallet.totalGoldSold
             ) + debitAmount;
 
           wallet.lastTradeAt =
             new Date();
 
           balanceAfter =
-            Number(
+            toNumber(
               wallet.goldBalance
             );
 
           break;
         }
 
+        // ================================================
+        // USDT
+        // ================================================
+
         case "USDT": {
-          balanceBefore = Number(
-            wallet.usdtBalance ?? 0
-          );
+          balanceBefore =
+            toNumber(
+              wallet.usdtBalance
+            );
 
           if (
             balanceBefore <
@@ -2569,10 +2814,13 @@ router.post(
           ) {
             return res.status(400).json({
               success: false,
+
               message:
                 "Insufficient USDT wallet balance.",
+
               availableBalance:
                 balanceBefore,
+
               requestedAmount:
                 debitAmount,
             });
@@ -2583,27 +2831,32 @@ router.post(
             debitAmount;
 
           wallet.totalUsdtWithdrawn =
-            Number(
-              wallet.totalUsdtWithdrawn ?? 0
+            toNumber(
+              wallet.totalUsdtWithdrawn
             ) + debitAmount;
 
           wallet.lastWithdrawAt =
             new Date();
 
           balanceAfter =
-            Number(
+            toNumber(
               wallet.usdtBalance
             );
 
           break;
         }
 
-        default:
+        // ================================================
+        // UNSUPPORTED TYPE
+        // ================================================
+
+        default: {
           return res.status(400).json({
             success: false,
             message:
               "Unsupported wallet type.",
           });
+        }
       }
 
       // ==================================================
@@ -2617,7 +2870,8 @@ router.post(
       // ==================================================
 
       await WalletHistory.create({
-        userId: user._id,
+        userId:
+          user._id,
 
         username:
           user.username,
@@ -2631,18 +2885,34 @@ router.post(
         amount:
           debitAmount,
 
+        balanceBefore:
+          balanceBefore,
+
         balanceAfter:
           balanceAfter,
 
         note:
           String(
-            note ||
+            note ??
               "Wallet debited by admin"
           ).trim(),
 
         admin:
           adminUsername,
+
+        status:
+          "COMPLETED",
       });
+
+      // ==================================================
+      // BUILD UPDATED SNAPSHOT
+      // ==================================================
+
+      const snapshot =
+        buildWalletSnapshot(
+          wallet,
+          user
+        );
 
       // ==================================================
       // RESPONSE
@@ -2666,37 +2936,38 @@ router.post(
         balanceAfter:
           balanceAfter,
 
-        wallet: {
-          pkrBalance: Number(
-            wallet.pkrBalance ?? 0
-          ),
-
-          goldBalance: Number(
-            wallet.goldBalance ?? 0
-          ),
-
-          usdtBalance: Number(
-            wallet.usdtBalance ?? 0
-          ),
-
-          portfolioValue: Number(
-            wallet.portfolioValue ?? 0
-          ),
-
-          liveProfit: Number(
-            wallet.liveProfit ?? 0
-          ),
-
-          status:
-            wallet.status ||
-            "Active",
-        },
+        wallet:
+          snapshot,
       });
+
     } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
+
       console.error(
         "GOLDTRADE V18 ADMIN DEBIT WALLET ERROR:",
         error
       );
+
+      // ==================================================
+      // AUTHENTICATION ERROR
+      // ==================================================
+
+      if (
+        error?.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required.",
+        });
+      }
+
+      // ==================================================
+      // SERVER ERROR
+      // ==================================================
 
       return res.status(500).json({
         success: false,
@@ -2706,198 +2977,152 @@ router.post(
 
         ...(process.env.NODE_ENV !==
           "production" && {
-          error: error.message,
+          error:
+            error?.message ||
+            "Unknown server error.",
         }),
       });
     }
   }
 );
 
-
 // ======================================================
 // REFRESH LOGGED-IN USER WALLET
 // GET /api/wallet/refresh
+//
 // Dashboard Auto Refresh API
 // ======================================================
 
-router.get("/refresh", verifyToken, async (req, res) => {
-  try {
-    // --------------------------------------------------
-    // AUTH VALIDATION
-    // --------------------------------------------------
+router.get(
+  "/refresh",
+  verifyToken,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // GET LOGGED-IN USER
+      // ==================================================
 
-    const userId = req.user?.id;
+      const user =
+        await getLoggedInUser(req);
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required.",
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found.",
+        });
+      }
+
+      // ==================================================
+      // GET / CREATE WALLET
+      // ==================================================
+
+      const wallet =
+        await getOrCreateWallet(
+          user
+        );
+
+      if (!wallet) {
+        return res.status(500).json({
+          success: false,
+          message:
+            "Unable to load wallet.",
+        });
+      }
+
+      // ==================================================
+      // BUILD WALLET SNAPSHOT
+      // ==================================================
+
+      const snapshot =
+        buildWalletSnapshot(
+          wallet,
+          user
+        );
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+
+        username:
+          snapshot.username,
+
+        wallet:
+          snapshot,
+
+        refreshedAt:
+          new Date().toISOString(),
       });
-    }
 
-    // --------------------------------------------------
-    // LOAD USER
-    // --------------------------------------------------
+    } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
 
-    const user = await User.findById(userId)
-      .select("_id username email role")
-      .lean();
+      console.error(
+        "GOLDTRADE V18 REFRESH WALLET ERROR:",
+        error
+      );
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-    }
+      // ==================================================
+      // AUTHENTICATION ERROR
+      // ==================================================
 
-    // --------------------------------------------------
-    // GET / CREATE WALLET
-    // --------------------------------------------------
+      if (
+        error?.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required.",
+        });
+      }
 
-    const wallet = await getOrCreateWallet(user);
+      // ==================================================
+      // USER NOT FOUND
+      // ==================================================
 
-    if (!wallet) {
+      if (
+        error?.message ===
+        "USER_NOT_FOUND"
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found.",
+        });
+      }
+
+      // ==================================================
+      // SERVER ERROR
+      // ==================================================
+
       return res.status(500).json({
         success: false,
-        message: "Unable to load wallet.",
+
+        message:
+          "Unable to refresh wallet.",
+
+        ...(process.env.NODE_ENV !==
+          "production" && {
+          error:
+            error?.message ||
+            "Unknown server error.",
+        }),
       });
     }
-
-    // --------------------------------------------------
-    // NORMALIZE WALLET VALUES
-    // --------------------------------------------------
-
-    const pkrBalance = Number(wallet.pkrBalance || 0);
-    const goldBalance = Number(wallet.goldBalance || 0);
-    const usdtBalance = Number(wallet.usdtBalance || 0);
-
-    const lockedPkr = Number(wallet.lockedPkr || 0);
-    const lockedGold = Number(wallet.lockedGold || 0);
-    const lockedUsdt = Number(wallet.lockedUsdt || 0);
-
-    const availablePkr = Math.max(
-      pkrBalance - lockedPkr,
-      0
-    );
-
-    const availableGold = Math.max(
-      goldBalance - lockedGold,
-      0
-    );
-
-    const availableUsdt = Math.max(
-      usdtBalance - lockedUsdt,
-      0
-    );
-
-    const portfolioValue = Number(
-      wallet.portfolioValue || 0
-    );
-
-    const liveProfit = Number(
-      wallet.liveProfit || 0
-    );
-
-    const liveProfitPercent = Number(
-      wallet.liveProfitPercent || 0
-    );
-
-    const totalWalletValue = Number(
-      wallet.totalWalletValue || portfolioValue
-    );
-
-    // --------------------------------------------------
-    // RESPONSE
-    // --------------------------------------------------
-
-    return res.status(200).json({
-      success: true,
-
-      username: wallet.username || user.username,
-
-      wallet: {
-        pkrBalance,
-        goldBalance,
-        usdtBalance,
-
-        lockedPkr,
-        lockedGold,
-        lockedUsdt,
-
-        availablePkr,
-        availableGold,
-        availableUsdt,
-
-        portfolioValue,
-        liveProfit,
-        liveProfitPercent,
-
-        totalWalletValue,
-
-        totalDeposit: Number(wallet.totalDeposit || 0),
-        totalWithdraw: Number(wallet.totalWithdraw || 0),
-
-        totalPkrDeposit: Number(
-          wallet.totalPkrDeposit || 0
-        ),
-
-        totalPkrWithdraw: Number(
-          wallet.totalPkrWithdraw || 0
-        ),
-
-        totalGoldPurchased: Number(
-          wallet.totalGoldPurchased || 0
-        ),
-
-        totalGoldSold: Number(
-          wallet.totalGoldSold || 0
-        ),
-
-        totalUsdtDeposited: Number(
-          wallet.totalUsdtDeposited || 0
-        ),
-
-        totalUsdtWithdrawn: Number(
-          wallet.totalUsdtWithdrawn || 0
-        ),
-
-        status: wallet.status || "Active",
-
-        isVerified: Boolean(
-          wallet.isVerified
-        ),
-
-        isFrozen: Boolean(
-          wallet.isFrozen
-        ),
-
-        updatedAt: wallet.updatedAt || null,
-      },
-
-      refreshedAt: new Date().toISOString(),
-    });
-
-  } catch (error) {
-    console.error(
-      "REFRESH WALLET ERROR:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to refresh wallet.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
   }
-});
-
+);
 
 // ======================================================
 // ADMIN REFRESH USER WALLET
 // GET /api/wallet/admin/refresh/:userId
+//
+// Admin only
 // ======================================================
 
 router.get(
@@ -2906,344 +3131,168 @@ router.get(
   isAdmin,
   async (req, res) => {
     try {
-      // ------------------------------------------------
+      // ==================================================
       // VALIDATE USER ID
-      // ------------------------------------------------
+      // ==================================================
 
-      const userId = req.params.userId;
+      const userId =
+        String(
+          req.params?.userId ?? ""
+        ).trim();
 
       if (!userId) {
         return res.status(400).json({
           success: false,
-          message: "User ID is required.",
+          message:
+            "User ID is required.",
         });
       }
 
-      // ------------------------------------------------
-      // LOAD USER
-      // ------------------------------------------------
+      // ==================================================
+      // VALIDATE MONGODB OBJECT ID
+      // ==================================================
 
-      const user = await User.findById(userId)
-        .select("_id username email role")
-        .lean();
+      if (
+        !mongoose.Types.ObjectId.isValid(
+          userId
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid user ID.",
+        });
+      }
+
+      // ==================================================
+      // LOAD USER
+      // ==================================================
+
+      const user =
+        await User.findById(
+          userId
+        )
+          .select(
+            "_id username email role"
+          )
+          .lean();
 
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: "User not found.",
+          message:
+            "User not found.",
         });
       }
 
-      // ------------------------------------------------
+      // ==================================================
       // GET / CREATE WALLET
-      // ------------------------------------------------
+      // ==================================================
 
-      const wallet = await getOrCreateWallet(user);
+      const wallet =
+        await getOrCreateWallet(
+          user
+        );
 
       if (!wallet) {
         return res.status(500).json({
           success: false,
-          message: "Unable to load user wallet.",
+          message:
+            "Unable to load user wallet.",
         });
       }
 
-      // ------------------------------------------------
-      // NORMALIZE BALANCES
-      // ------------------------------------------------
+      // ==================================================
+      // BUILD WALLET SNAPSHOT
+      // ==================================================
 
-      const pkrBalance = Number(
-        wallet.pkrBalance || 0
-      );
+      const snapshot =
+        buildWalletSnapshot(
+          wallet,
+          user
+        );
 
-      const goldBalance = Number(
-        wallet.goldBalance || 0
-      );
-
-      const usdtBalance = Number(
-        wallet.usdtBalance || 0
-      );
-
-      const lockedPkr = Number(
-        wallet.lockedPkr || 0
-      );
-
-      const lockedGold = Number(
-        wallet.lockedGold || 0
-      );
-
-      const lockedUsdt = Number(
-        wallet.lockedUsdt || 0
-      );
-
-      const availablePkr = Math.max(
-        pkrBalance - lockedPkr,
-        0
-      );
-
-      const availableGold = Math.max(
-        goldBalance - lockedGold,
-        0
-      );
-
-      const availableUsdt = Math.max(
-        usdtBalance - lockedUsdt,
-        0
-      );
-
-      // ------------------------------------------------
+      // ==================================================
       // RESPONSE
-      // ------------------------------------------------
+      // ==================================================
 
       return res.status(200).json({
         success: true,
 
-        wallet: {
-          userId: user._id,
-          username:
-            wallet.username || user.username,
+        wallet:
+          snapshot,
 
-          email: user.email || "",
-          role: user.role || "user",
-
-          pkrBalance,
-          goldBalance,
-          usdtBalance,
-
-          availablePkr,
-          availableGold,
-          availableUsdt,
-
-          lockedPkr,
-          lockedGold,
-          lockedUsdt,
-
-          portfolioValue: Number(
-            wallet.portfolioValue || 0
-          ),
-
-          liveProfit: Number(
-            wallet.liveProfit || 0
-          ),
-
-          liveProfitPercent: Number(
-            wallet.liveProfitPercent || 0
-          ),
-
-          totalWalletValue: Number(
-            wallet.totalWalletValue ||
-              wallet.portfolioValue ||
-              0
-          ),
-
-          totalDeposit: Number(
-            wallet.totalDeposit || 0
-          ),
-
-          totalWithdraw: Number(
-            wallet.totalWithdraw || 0
-          ),
-
-          totalPkrDeposit: Number(
-            wallet.totalPkrDeposit || 0
-          ),
-
-          totalPkrWithdraw: Number(
-            wallet.totalPkrWithdraw || 0
-          ),
-
-          totalGoldPurchased: Number(
-            wallet.totalGoldPurchased || 0
-          ),
-
-          totalGoldSold: Number(
-            wallet.totalGoldSold || 0
-          ),
-
-          totalUsdtDeposited: Number(
-            wallet.totalUsdtDeposited || 0
-          ),
-
-          totalUsdtWithdrawn: Number(
-            wallet.totalUsdtWithdrawn || 0
-          ),
-
-          status:
-            wallet.status || "Active",
-
-          isVerified: Boolean(
-            wallet.isVerified
-          ),
-
-          isFrozen: Boolean(
-            wallet.isFrozen
-          ),
-
-          updatedAt:
-            wallet.updatedAt || null,
-        },
+        refreshedAt:
+          new Date().toISOString(),
       });
 
     } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
+
       console.error(
-        "ADMIN REFRESH WALLET ERROR:",
+        "GOLDTRADE V18 ADMIN REFRESH WALLET ERROR:",
         error
       );
 
+      // ==================================================
+      // AUTHENTICATION ERROR
+      // ==================================================
+
+      if (
+        error?.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required.",
+        });
+      }
+
+      // ==================================================
+      // USER NOT FOUND
+      // ==================================================
+
+      if (
+        error?.message ===
+        "USER_NOT_FOUND"
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found.",
+        });
+      }
+
+      // ==================================================
+      // SERVER ERROR
+      // ==================================================
+
       return res.status(500).json({
         success: false,
+
         message:
           "Unable to refresh admin wallet.",
-        error:
-          process.env.NODE_ENV === "production"
-            ? undefined
-            : error.message,
+
+        ...(process.env.NODE_ENV !==
+          "production" && {
+          error:
+            error?.message ||
+            "Unknown server error.",
+        }),
       });
     }
   }
 );
 
-
-// ======================================================
-// WALLET DIAGNOSTICS
-// GET /api/wallet/debug
-// Backend Testing
-// ======================================================
-
-router.get("/debug", verifyToken, async (req, res) => {
-  try {
-    const userId = req.user?.id;
-
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required.",
-      });
-    }
-
-    // --------------------------------------------------
-    // LOAD WALLET
-    // --------------------------------------------------
-
-    const wallet = await Wallet.findOne({
-      userId,
-    }).lean();
-
-    // --------------------------------------------------
-    // HISTORY COUNT
-    // --------------------------------------------------
-
-    const historyCount =
-      await WalletHistory.countDocuments({
-        userId,
-      });
-
-    // --------------------------------------------------
-    // USER
-    // --------------------------------------------------
-
-    const user = await User.findById(userId)
-      .select("_id username role")
-      .lean();
-
-    // --------------------------------------------------
-    // DEBUG RESPONSE
-    // --------------------------------------------------
-
-    return res.status(200).json({
-      success: true,
-
-      module:
-        "GoldTrade Wallet API V18 Enterprise",
-
-      serverTime:
-        new Date().toISOString(),
-
-      authenticatedUser: {
-        id: req.user?.id || null,
-        role: req.user?.role || null,
-        username: req.user?.username || null,
-      },
-
-      databaseUser: user
-        ? {
-            id: user._id,
-            username: user.username,
-            role: user.role,
-          }
-        : null,
-
-      walletExists: Boolean(wallet),
-
-      wallet: wallet
-        ? {
-            id: wallet._id,
-            userId: wallet.userId,
-            username: wallet.username,
-
-            pkrBalance: Number(
-              wallet.pkrBalance || 0
-            ),
-
-            goldBalance: Number(
-              wallet.goldBalance || 0
-            ),
-
-            usdtBalance: Number(
-              wallet.usdtBalance || 0
-            ),
-
-            lockedPkr: Number(
-              wallet.lockedPkr || 0
-            ),
-
-            lockedGold: Number(
-              wallet.lockedGold || 0
-            ),
-
-            lockedUsdt: Number(
-              wallet.lockedUsdt || 0
-            ),
-
-            status:
-              wallet.status || "Active",
-
-            isVerified: Boolean(
-              wallet.isVerified
-            ),
-
-            isFrozen: Boolean(
-              wallet.isFrozen
-            ),
-          }
-        : null,
-
-      walletHistoryCount: historyCount,
-
-      mongodbReady: true,
-    });
-
-  } catch (error) {
-    console.error(
-      "WALLET DEBUG ERROR:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message:
-        "Wallet diagnostics failed.",
-      error:
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : error.message,
-    });
-  }
-});
-
-
 // ======================================================
 // ADMIN WALLET LIST
 // GET /api/wallet/admin/all
+//
+// Admin only
+// Pagination supported
 // ======================================================
 
 router.get(
@@ -3252,136 +3301,197 @@ router.get(
   isAdmin,
   async (req, res) => {
     try {
-      // ------------------------------------------------
+      // ==================================================
       // PAGINATION
-      // ------------------------------------------------
+      // ==================================================
 
       const requestedPage =
         Number.parseInt(
-          req.query.page,
+          req.query?.page,
           10
         );
 
       const requestedLimit =
         Number.parseInt(
-          req.query.limit,
+          req.query?.limit,
           10
         );
 
       const page =
-        Number.isFinite(requestedPage) &&
+        Number.isFinite(
+          requestedPage
+        ) &&
         requestedPage > 0
           ? requestedPage
           : 1;
 
       const limit =
-        Number.isFinite(requestedLimit) &&
+        Number.isFinite(
+          requestedLimit
+        ) &&
         requestedLimit > 0
-          ? Math.min(requestedLimit, 100)
+          ? Math.min(
+              requestedLimit,
+              100
+            )
           : 25;
 
       const skip =
         (page - 1) * limit;
 
-      // ------------------------------------------------
-      // LOAD WALLETS
-      // ------------------------------------------------
+      // ==================================================
+      // LOAD WALLETS + TOTAL
+      // ==================================================
 
-      const [wallets, total] =
-        await Promise.all([
-          Wallet.find({})
-            .sort({
-              updatedAt: -1,
-              _id: -1,
-            })
-            .skip(skip)
-            .limit(limit)
-            .lean(),
+      const [
+        wallets,
+        total,
+      ] = await Promise.all([
+        Wallet.find({})
+          .sort({
+            updatedAt: -1,
+            _id: -1,
+          })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
 
-          Wallet.countDocuments({}),
-        ]);
+        Wallet.countDocuments({}),
+      ]);
 
-      // ------------------------------------------------
+      // ==================================================
       // NORMALIZE WALLET DATA
-      // ------------------------------------------------
+      // ==================================================
 
       const normalizedWallets =
-        wallets.map((wallet) => ({
-          _id: wallet._id,
-          userId: wallet.userId,
-          username: wallet.username,
+        wallets.map(
+          (wallet) => {
+            const snapshot =
+              buildWalletSnapshot(
+                wallet,
+                null
+              );
 
-          pkrBalance: Number(
-            wallet.pkrBalance || 0
-          ),
+            return {
+              _id:
+                wallet._id,
 
-          goldBalance: Number(
-            wallet.goldBalance || 0
-          ),
+              userId:
+                wallet.userId,
 
-          usdtBalance: Number(
-            wallet.usdtBalance || 0
-          ),
+              username:
+                snapshot.username,
 
-          lockedPkr: Number(
-            wallet.lockedPkr || 0
-          ),
+              // ==========================================
+              // FLAT BALANCES
+              // ==========================================
 
-          lockedGold: Number(
-            wallet.lockedGold || 0
-          ),
+              pkrBalance:
+                snapshot.pkrBalance,
 
-          lockedUsdt: Number(
-            wallet.lockedUsdt || 0
-          ),
+              goldBalance:
+                snapshot.goldBalance,
 
-          portfolioValue: Number(
-            wallet.portfolioValue || 0
-          ),
+              usdtBalance:
+                snapshot.usdtBalance,
 
-          liveProfit: Number(
-            wallet.liveProfit || 0
-          ),
+              lockedPkr:
+                snapshot.lockedPkr,
 
-          liveProfitPercent: Number(
-            wallet.liveProfitPercent || 0
-          ),
+              lockedGold:
+                snapshot.lockedGold,
 
-          totalWalletValue: Number(
-            wallet.totalWalletValue ||
-              wallet.portfolioValue ||
-              0
-          ),
+              lockedUsdt:
+                snapshot.lockedUsdt,
 
-          totalDeposit: Number(
-            wallet.totalDeposit || 0
-          ),
+              availablePkr:
+                snapshot.availablePkr,
 
-          totalWithdraw: Number(
-            wallet.totalWithdraw || 0
-          ),
+              availableGold:
+                snapshot.availableGold,
 
-          status:
-            wallet.status || "Active",
+              availableUsdt:
+                snapshot.availableUsdt,
 
-          isVerified: Boolean(
-            wallet.isVerified
-          ),
+              // ==========================================
+              // PERFORMANCE
+              // ==========================================
 
-          isFrozen: Boolean(
-            wallet.isFrozen
-          ),
+              portfolioValue:
+                snapshot.portfolioValue,
 
-          createdAt:
-            wallet.createdAt || null,
+              liveProfit:
+                snapshot.liveProfit,
 
-          updatedAt:
-            wallet.updatedAt || null,
-        }));
+              liveProfitPercent:
+                snapshot.liveProfitPercent,
 
-      // ------------------------------------------------
+              totalWalletValue:
+                snapshot.totalWalletValue,
+
+              performance:
+                snapshot.performance,
+
+              // ==========================================
+              // TOTALS
+              // ==========================================
+
+              totalDeposit:
+                snapshot.totalDeposit,
+
+              totalWithdraw:
+                snapshot.totalWithdraw,
+
+              totalPkrDeposit:
+                snapshot.totalPkrDeposit,
+
+              totalPkrWithdraw:
+                snapshot.totalPkrWithdraw,
+
+              totalGoldPurchased:
+                snapshot.totalGoldPurchased,
+
+              totalGoldSold:
+                snapshot.totalGoldSold,
+
+              totalUsdtDeposited:
+                snapshot.totalUsdtDeposited,
+
+              totalUsdtWithdrawn:
+                snapshot.totalUsdtWithdrawn,
+
+              totals:
+                snapshot.totals,
+
+              // ==========================================
+              // STATUS
+              // ==========================================
+
+              status:
+                snapshot.status,
+
+              isVerified:
+                snapshot.isVerified,
+
+              isFrozen:
+                snapshot.isFrozen,
+
+              // ==========================================
+              // DATES
+              // ==========================================
+
+              createdAt:
+                snapshot.createdAt,
+
+              updatedAt:
+                snapshot.updatedAt,
+            };
+          }
+        );
+
+      // ==================================================
       // RESPONSE
-      // ------------------------------------------------
+      // ==================================================
 
       return res.status(200).json({
         success: true,
@@ -3394,7 +3504,9 @@ router.get(
 
         totalPages:
           total > 0
-            ? Math.ceil(total / limit)
+            ? Math.ceil(
+                total / limit
+              )
             : 0,
 
         hasNextPage:
@@ -3408,17 +3520,234 @@ router.get(
       });
 
     } catch (error) {
+      // ==================================================
+      // ERROR LOG
+      // ==================================================
+
       console.error(
-        "ADMIN WALLET LIST ERROR:",
+        "GOLDTRADE V18 ADMIN WALLET LIST ERROR:",
+        error
+      );
+
+      // ==================================================
+      // AUTHENTICATION ERROR
+      // ==================================================
+
+      if (
+        error?.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required.",
+        });
+      }
+
+      // ==================================================
+      // SERVER ERROR
+      // ==================================================
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load wallets.",
+
+        ...(process.env.NODE_ENV !==
+          "production" && {
+          error:
+            error?.message ||
+            "Unknown server error.",
+        }),
+      });
+    }
+  }
+);
+
+// ======================================================
+// GET USER WALLET BY USERNAME
+// GET /api/wallet/:username
+// ======================================================
+
+router.get(
+  "/:username",
+  verifyToken,
+  async (req, res) => {
+    try {
+      // ==================================================
+      // GET REQUESTER
+      // ==================================================
+
+      const requester = await getLoggedInUser(req);
+
+      // ==================================================
+      // NORMALIZE USERNAME
+      // ==================================================
+
+      const username = String(
+        req.params.username ?? ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (!username) {
+        return res.status(400).json({
+          success: false,
+          message: "Username is required.",
+        });
+      }
+
+      // ==================================================
+      // REQUESTER INFORMATION
+      // ==================================================
+
+      const requesterRole = String(
+        requester.role ?? ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const requesterUsername = String(
+        requester.username ?? ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const requesterId =
+        requester._id ?? null;
+
+      const isRequesterAdmin =
+        requesterRole === "admin";
+
+      // ==================================================
+      // FIND REQUESTED USER
+      // ==================================================
+
+      const user = await User.findOne({
+        username,
+      })
+        .select("_id username email role")
+        .lean();
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      // ==================================================
+      // OWN WALLET CHECK
+      // ==================================================
+
+      const isOwnWallet =
+        requesterUsername ===
+          String(user.username ?? "")
+            .trim()
+            .toLowerCase() ||
+        (
+          requesterId &&
+          String(requesterId) ===
+            String(user._id)
+        );
+
+      // ==================================================
+      // AUTHORIZATION
+      // ==================================================
+
+      if (
+        !isRequesterAdmin &&
+        !isOwnWallet
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied.",
+        });
+      }
+
+      // ==================================================
+      // GET / CREATE WALLET
+      // ==================================================
+
+      const wallet =
+        await getOrCreateWallet(user);
+
+      // ==================================================
+      // BUILD STANDARD WALLET SNAPSHOT
+      // ==================================================
+
+      const snapshot =
+        buildWalletSnapshot(
+          wallet,
+          user
+        );
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.status(200).json({
+        success: true,
+
+        username:
+          snapshot.username,
+
+        wallet: snapshot,
+
+        updatedAt:
+          wallet.updatedAt ??
+          new Date(),
+      });
+    } catch (error) {
+      // ==================================================
+      // AUTHENTICATION ERROR
+      // ==================================================
+
+      if (
+        error.message ===
+        "AUTHENTICATION_REQUIRED"
+      ) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Authentication required.",
+        });
+      }
+
+      // ==================================================
+      // USER NOT FOUND
+      // ==================================================
+
+      if (
+        error.message ===
+        "USER_NOT_FOUND"
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Authenticated user not found.",
+        });
+      }
+
+      // ==================================================
+      // SERVER ERROR
+      // ==================================================
+
+      console.error(
+        "GET WALLET BY USERNAME ERROR:",
         error
       );
 
       return res.status(500).json({
         success: false,
+
         message:
-          "Unable to load wallets.",
+          "Unable to load user wallet.",
+
         error:
-          process.env.NODE_ENV === "production"
+          process.env.NODE_ENV ===
+          "production"
             ? undefined
             : error.message,
       });
@@ -3428,31 +3757,7 @@ router.get(
 
 
 // ======================================================
-// WALLET MODULE STATUS
-// GET /api/wallet/status
-// Public Health Check
-// ======================================================
-
-router.get("/status", (req, res) => {
-  return res.status(200).json({
-    success: true,
-
-    module: "Wallet API",
-
-    version: "18.0.0 Enterprise",
-
-    environment:
-      process.env.NODE_ENV ||
-      "development",
-
-    timestamp:
-      new Date().toISOString(),
-  });
-});
-
-
-// ======================================================
-// EXPORT ROUTER
+// FINAL EXPORT
 // ======================================================
 
 module.exports = router;

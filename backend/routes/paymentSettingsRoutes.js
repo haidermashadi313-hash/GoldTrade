@@ -35,6 +35,10 @@ const {
 // HELPERS
 // ======================================================
 
+// ------------------------------------------------------
+// Clean string
+// ------------------------------------------------------
+
 const clean = (value) => {
   if (value === undefined || value === null) {
     return "";
@@ -71,1757 +75,9 @@ const boolValue = (value, fallback = true) => {
   return Boolean(value);
 };
 
-
-
-// ======================================================
-// HEALTH CHECK
-// ======================================================
-//
-// GET /api/payment-settings/health
-//
-// No authentication required.
-// ======================================================
-
-router.get("/health", (req, res) => {
-  return res.status(200).json({
-    success: true,
-    module: "Payment Settings API",
-    version: "V18 Enterprise",
-    status: "ONLINE",
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// ======================================================
-// USER DEPOSIT PAYMENT METHODS
-// ======================================================
-//
-// GET /api/payment-settings/deposit
-//
-// Used by:
-// frontend/app/deposit/page.tsx
-//
-// IMPORTANT:
-// Only enabled payment methods are returned.
-// ======================================================
-
-router.get(
-  "/deposit",
-  verifyToken,
-  async (req, res) => {
-    try {
-      const settings =
-        await PaymentSettings.findOne().lean();
-
-      // ------------------------------------------------
-      // No settings document
-      // ------------------------------------------------
-
-      if (!settings) {
-        return res.status(200).json({
-          success: true,
-          total: 0,
-          methods: [],
-          updatedAt: null,
-        });
-      }
-
-      const methods = [];
-
-      // =================================================
-      // BANK
-      // =================================================
-
-      if (
-        settings.bankEnabled === true &&
-        (
-          settings.bankName ||
-          settings.bankAccountTitle ||
-          settings.bankAccountNumber ||
-          settings.iban
-        )
-      ) {
-        methods.push({
-          _id: `BANK_${settings._id}`,
-
-          method: "BANK",
-
-          title:
-            settings.bankName ||
-            "Bank Transfer",
-
-          enabled: true,
-
-          bankName:
-            settings.bankName || "",
-
-          accountTitle:
-            settings.bankAccountTitle || "",
-
-          accountNumber:
-            settings.bankAccountNumber || "",
-
-          iban:
-            settings.iban || "",
-
-          walletAddress: "",
-
-          network: "",
-
-          qrImage:
-            settings.bankQR || "",
-        });
-      }
-
-      // =================================================
-      // JAZZCASH
-      // =================================================
-
-      if (
-        settings.jazzCashEnabled === true &&
-        (
-          settings.jazzCashNumber ||
-          settings.jazzCashTitle
-        )
-      ) {
-        methods.push({
-          _id: `JAZZCASH_${settings._id}`,
-
-          method: "JAZZCASH",
-
-          title: "JazzCash",
-
-          enabled: true,
-
-          accountTitle:
-            settings.jazzCashTitle || "",
-
-          accountNumber:
-            settings.jazzCashNumber || "",
-
-          iban: "",
-
-          walletAddress: "",
-
-          network: "",
-
-          qrImage:
-            settings.jazzCashQR || "",
-        });
-      }
-
-      // =================================================
-      // EASYPAISA
-      // =================================================
-
-      if (
-        settings.easypaisaEnabled === true &&
-        (
-          settings.easypaisaNumber ||
-          settings.easypaisaTitle
-        )
-      ) {
-        methods.push({
-          _id: `EASYPAISA_${settings._id}`,
-
-          method: "EASYPAISA",
-
-          title: "EasyPaisa",
-
-          enabled: true,
-
-          accountTitle:
-            settings.easypaisaTitle || "",
-
-          accountNumber:
-            settings.easypaisaNumber || "",
-
-          iban: "",
-
-          walletAddress: "",
-
-          network: "",
-
-          qrImage:
-            settings.easypaisaQR || "",
-        });
-      }
-
-      // =================================================
-      // USDT TRC20
-      // =================================================
-
-      if (
-        settings.usdtEnabled === true &&
-        settings.usdtTRC20
-      ) {
-        methods.push({
-          _id: `BINANCE_${settings._id}`,
-
-          method: "BINANCE",
-
-          title: "USDT TRC20",
-
-          enabled: true,
-
-          accountTitle: "",
-
-          accountNumber: "",
-
-          iban: "",
-
-          walletAddress:
-            settings.usdtTRC20,
-
-          network: "TRC20",
-
-          qrImage:
-            settings.binanceQR || "",
-        });
-      }
-
-      // =================================================
-      // USDT BEP20
-      // =================================================
-
-      if (
-        settings.usdtEnabled === true &&
-        settings.usdtBEP20
-      ) {
-        methods.push({
-          _id: `USDT_BEP20_${settings._id}`,
-
-          method: "USDT_BEP20",
-
-          title: "USDT BEP20",
-
-          enabled: true,
-
-          accountTitle: "",
-
-          accountNumber: "",
-
-          iban: "",
-
-          walletAddress:
-            settings.usdtBEP20,
-
-          network: "BEP20",
-
-          qrImage:
-            settings.binanceQR || "",
-        });
-      }
-
-      // =================================================
-      // USDT ERC20
-      // =================================================
-
-      if (
-        settings.usdtEnabled === true &&
-        settings.usdtERC20
-      ) {
-        methods.push({
-          _id: `USDT_ERC20_${settings._id}`,
-
-          method: "USDT_ERC20",
-
-          title: "USDT ERC20",
-
-          enabled: true,
-
-          accountTitle: "",
-
-          accountNumber: "",
-
-          iban: "",
-
-          walletAddress:
-            settings.usdtERC20,
-
-          network: "ERC20",
-
-          qrImage:
-            settings.binanceQR || "",
-        });
-      }
-
-      // =================================================
-      // RESPONSE
-      // =================================================
-
-      return res.status(200).json({
-        success: true,
-
-        total: methods.length,
-
-        methods,
-
-        updatedAt:
-          settings.updatedAt || null,
-      });
-    } catch (error) {
-      console.error(
-        "GET USER DEPOSIT PAYMENT METHODS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Unable to load deposit payment methods.",
-      });
-    }
-  }
-);
-
-// ======================================================
-// SINGLE PAYMENT METHOD
-// ======================================================
-//
-// GET /api/payment-settings/method/:method
-//
-// Examples:
-//
-// /api/payment-settings/method/BANK
-// /api/payment-settings/method/JAZZCASH
-// /api/payment-settings/method/EASYPAISA
-// /api/payment-settings/method/BINANCE
-// ======================================================
-
-router.get(
-  "/method/:method",
-  verifyToken,
-  async (req, res) => {
-    try {
-      const methodName =
-        normalizeMethod(req.params.method);
-
-      const settings =
-        await PaymentSettings.findOne().lean();
-
-      if (!settings) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "Payment settings not found.",
-        });
-      }
-
-      let method = null;
-
-      // =================================================
-      // BANK
-      // =================================================
-
-      if (methodName === "BANK") {
-        method = {
-          _id: `BANK_${settings._id}`,
-
-          method: "BANK",
-
-          title:
-            settings.bankName ||
-            "Bank Transfer",
-
-          enabled:
-            settings.bankEnabled === true,
-
-          bankName:
-            settings.bankName || "",
-
-          accountTitle:
-            settings.bankAccountTitle || "",
-
-          accountNumber:
-            settings.bankAccountNumber || "",
-
-          iban:
-            settings.iban || "",
-
-          walletAddress: "",
-
-          network: "",
-
-          qrImage:
-            settings.bankQR || "",
-        };
-      }
-
-      // =================================================
-      // JAZZCASH
-      // =================================================
-
-      if (methodName === "JAZZCASH") {
-        method = {
-          _id: `JAZZCASH_${settings._id}`,
-
-          method: "JAZZCASH",
-
-          title: "JazzCash",
-
-          enabled:
-            settings.jazzCashEnabled === true,
-
-          accountTitle:
-            settings.jazzCashTitle || "",
-
-          accountNumber:
-            settings.jazzCashNumber || "",
-
-          iban: "",
-
-          walletAddress: "",
-
-          network: "",
-
-          qrImage:
-            settings.jazzCashQR || "",
-        };
-      }
-
-      // =================================================
-      // EASYPAISA
-      // =================================================
-
-      if (methodName === "EASYPAISA") {
-        method = {
-          _id: `EASYPAISA_${settings._id}`,
-
-          method: "EASYPAISA",
-
-          title: "EasyPaisa",
-
-          enabled:
-            settings.easypaisaEnabled === true,
-
-          accountTitle:
-            settings.easypaisaTitle || "",
-
-          accountNumber:
-            settings.easypaisaNumber || "",
-
-          iban: "",
-
-          walletAddress: "",
-
-          network: "",
-
-          qrImage:
-            settings.easypaisaQR || "",
-        };
-      }
-
-      // =================================================
-      // BINANCE / USDT TRC20
-      // =================================================
-
-      if (methodName === "BINANCE") {
-        method = {
-          _id: `BINANCE_${settings._id}`,
-
-          method: "BINANCE",
-
-          title: "USDT TRC20",
-
-          enabled:
-            settings.usdtEnabled === true,
-
-          accountTitle: "",
-
-          accountNumber: "",
-
-          iban: "",
-
-          walletAddress:
-            settings.usdtTRC20 || "",
-
-          network: "TRC20",
-
-          qrImage:
-            settings.binanceQR || "",
-        };
-      }
-
-      // =================================================
-      // USDT BEP20
-      // =================================================
-
-      if (methodName === "USDT_BEP20") {
-        method = {
-          _id: `USDT_BEP20_${settings._id}`,
-
-          method: "USDT_BEP20",
-
-          title: "USDT BEP20",
-
-          enabled:
-            settings.usdtEnabled === true,
-
-          accountTitle: "",
-
-          accountNumber: "",
-
-          iban: "",
-
-          walletAddress:
-            settings.usdtBEP20 || "",
-
-          network: "BEP20",
-
-          qrImage:
-            settings.binanceQR || "",
-        };
-      }
-
-      // =================================================
-      // USDT ERC20
-      // =================================================
-
-      if (methodName === "USDT_ERC20") {
-        method = {
-          _id: `USDT_ERC20_${settings._id}`,
-
-          method: "USDT_ERC20",
-
-          title: "USDT ERC20",
-
-          enabled:
-            settings.usdtEnabled === true,
-
-          accountTitle: "",
-
-          accountNumber: "",
-
-          iban: "",
-
-          walletAddress:
-            settings.usdtERC20 || "",
-
-          network: "ERC20",
-
-          qrImage:
-            settings.binanceQR || "",
-        };
-      }
-
-      // =================================================
-      // NOT FOUND
-      // =================================================
-
-      if (!method) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "Payment method not found.",
-        });
-      }
-
-      // =================================================
-      // RESPONSE
-      // =================================================
-
-      return res.status(200).json({
-        success: true,
-        method,
-      });
-    } catch (error) {
-      console.error(
-        "GET SINGLE PAYMENT METHOD ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Unable to load payment method.",
-      });
-    }
-  }
-);
-
-// ======================================================
-// GoldTrade V18 Enterprise Backend
-// paymentSettingsRoutes.js
-// PART 2/6
-//
-// Admin Payment Settings APIs
-//
-// FRONTEND CONTRACT:
-//
-// GET   /api/payment-settings/admin/all
-// GET   /api/payment-settings/admin/raw
-// GET   /api/payment-settings/admin/deposit
-// PATCH /api/payment-settings/admin/deposit
-// ======================================================
-
-
-// ======================================================
-// GET COMPLETE PAYMENT SETTINGS
-// ======================================================
-//
-// GET /api/payment-settings/admin/all
-//
-// Used by:
-// frontend/app/admin/payment-settings/page.tsx
-//
-// Returns the complete MongoDB PaymentSettings document.
-// ======================================================
-
-router.get(
-  "/admin/all",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      let settings =
-        await PaymentSettings.findOne().lean();
-
-      // ------------------------------------------------
-      // Create settings document if none exists
-      // ------------------------------------------------
-
-      if (!settings) {
-        const created =
-          await PaymentSettings.create({});
-
-        settings =
-          created.toObject();
-      }
-
-      return res.status(200).json({
-        success: true,
-
-        settings,
-
-        timestamp:
-          new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error(
-        "GET ADMIN PAYMENT SETTINGS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load payment settings.",
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// GET ADMIN RAW SETTINGS
-// ======================================================
-//
-// GET /api/payment-settings/admin/raw
-//
-// Diagnostic/admin use.
-// ======================================================
-
-router.get(
-  "/admin/raw",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      const settings =
-        await PaymentSettings.findOne().lean();
-
-      return res.status(200).json({
-        success: true,
-
-        settings:
-          settings || {},
-
-        timestamp:
-          new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error(
-        "GET ADMIN RAW PAYMENT SETTINGS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load raw payment settings.",
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// GET ADMIN DEPOSIT METHODS
-// ======================================================
-//
-// GET /api/payment-settings/admin/deposit
-//
-// Returns the same payment-method structure that the
-// Admin frontend can directly display.
-//
-// IMPORTANT:
-// This reads the SAME MongoDB fields that the save route
-// below writes.
-// ======================================================
-
-router.get(
-  "/admin/deposit",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      const settings =
-        await PaymentSettings.findOne().lean();
-
-      // ------------------------------------------------
-      // No settings
-      // ------------------------------------------------
-
-      if (!settings) {
-        return res.status(200).json({
-          success: true,
-
-          total: 0,
-
-          methods: [],
-        });
-      }
-
-      const methods = [];
-
-      // =================================================
-      // BANK
-      // =================================================
-
-      if (
-        settings.bankEnabled === true &&
-        (
-          settings.bankName ||
-          settings.bankAccountTitle ||
-          settings.bankAccountNumber ||
-          settings.iban
-        )
-      ) {
-        methods.push({
-          _id:
-            `BANK_${settings._id}`,
-
-          method:
-            "BANK",
-
-          title:
-            settings.bankName ||
-            "Bank Transfer",
-
-          enabled:
-            true,
-
-          bankName:
-            settings.bankName || "",
-
-          accountTitle:
-            settings.bankAccountTitle || "",
-
-          accountNumber:
-            settings.bankAccountNumber || "",
-
-          iban:
-            settings.iban || "",
-
-          walletAddress:
-            "",
-
-          network:
-            "",
-
-          qrImage:
-            settings.bankQR || "",
-        });
-      }
-
-      // =================================================
-      // JAZZCASH
-      // =================================================
-
-      if (
-        settings.jazzCashEnabled === true &&
-        (
-          settings.jazzCashNumber ||
-          settings.jazzCashTitle
-        )
-      ) {
-        methods.push({
-          _id:
-            `JAZZCASH_${settings._id}`,
-
-          method:
-            "JAZZCASH",
-
-          title:
-            "JazzCash",
-
-          enabled:
-            true,
-
-          accountTitle:
-            settings.jazzCashTitle || "",
-
-          accountNumber:
-            settings.jazzCashNumber || "",
-
-          iban:
-            "",
-
-          walletAddress:
-            "",
-
-          network:
-            "",
-
-          qrImage:
-            settings.jazzCashQR || "",
-        });
-      }
-
-      // =================================================
-      // EASYPAISA
-      // =================================================
-
-      if (
-        settings.easypaisaEnabled === true &&
-        (
-          settings.easypaisaNumber ||
-          settings.easypaisaTitle
-        )
-      ) {
-        methods.push({
-          _id:
-            `EASYPAISA_${settings._id}`,
-
-          method:
-            "EASYPAISA",
-
-          title:
-            "EasyPaisa",
-
-          enabled:
-            true,
-
-          accountTitle:
-            settings.easypaisaTitle || "",
-
-          accountNumber:
-            settings.easypaisaNumber || "",
-
-          iban:
-            "",
-
-          walletAddress:
-            "",
-
-          network:
-            "",
-
-          qrImage:
-            settings.easypaisaQR || "",
-        });
-      }
-
-      // =================================================
-      // USDT TRC20
-      // =================================================
-
-      if (
-        settings.usdtEnabled === true &&
-        settings.usdtTRC20
-      ) {
-        methods.push({
-          _id:
-            `BINANCE_${settings._id}`,
-
-          method:
-            "BINANCE",
-
-          title:
-            "USDT TRC20",
-
-          enabled:
-            true,
-
-          accountTitle:
-            "",
-
-          accountNumber:
-            "",
-
-          iban:
-            "",
-
-          walletAddress:
-            settings.usdtTRC20,
-
-          network:
-            "TRC20",
-
-          qrImage:
-            settings.binanceQR || "",
-        });
-      }
-
-      // =================================================
-      // USDT BEP20
-      // =================================================
-
-      if (
-        settings.usdtEnabled === true &&
-        settings.usdtBEP20
-      ) {
-        methods.push({
-          _id:
-            `USDT_BEP20_${settings._id}`,
-
-          method:
-            "USDT_BEP20",
-
-          title:
-            "USDT BEP20",
-
-          enabled:
-            true,
-
-          accountTitle:
-            "",
-
-          accountNumber:
-            "",
-
-          iban:
-            "",
-
-          walletAddress:
-            settings.usdtBEP20,
-
-          network:
-            "BEP20",
-
-          qrImage:
-            settings.binanceQR || "",
-        });
-      }
-
-      // =================================================
-      // USDT ERC20
-      // =================================================
-
-      if (
-        settings.usdtEnabled === true &&
-        settings.usdtERC20
-      ) {
-        methods.push({
-          _id:
-            `USDT_ERC20_${settings._id}`,
-
-          method:
-            "USDT_ERC20",
-
-          title:
-            "USDT ERC20",
-
-          enabled:
-            true,
-
-          accountTitle:
-            "",
-
-          accountNumber:
-            "",
-
-          iban:
-            "",
-
-          walletAddress:
-            settings.usdtERC20,
-
-          network:
-            "ERC20",
-
-          qrImage:
-            settings.binanceQR || "",
-        });
-      }
-
-      // =================================================
-      // RESPONSE
-      // =================================================
-
-      return res.status(200).json({
-        success: true,
-
-        total:
-          methods.length,
-
-        methods,
-      });
-    } catch (error) {
-      console.error(
-        "GET ADMIN DEPOSIT METHODS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load admin deposit methods.",
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// MAIN ADMIN SAVE
-// ======================================================
-//
-// PATCH /api/payment-settings/admin/deposit
-//
-// THIS IS THE IMPORTANT ROUTE.
-//
-// Frontend sends:
-//
-// {
-//   depositMethods: [
-//     {
-//       method,
-//       title,
-//       enabled,
-//       accountTitle,
-//       accountNumber,
-//       iban,
-//       walletAddress,
-//       network,
-//       qrImage
-//     }
-//   ]
-// }
-//
-// We convert that structure into the existing
-// PaymentSettings MongoDB model.
-// ======================================================
-
-router.patch(
-  "/admin/deposit",
-  verifyToken,
-  isAdmin,
-  async (req, res) => {
-    try {
-      // ------------------------------------------------
-      // REQUEST BODY
-      // ------------------------------------------------
-
-      const body =
-        req.body || {};
-
-      const depositMethods =
-        Array.isArray(
-          body.depositMethods
-        )
-          ? body.depositMethods
-          : null;
-
-      // ------------------------------------------------
-      // VALIDATION
-      // ------------------------------------------------
-
-      if (!depositMethods) {
-        return res.status(400).json({
-          success: false,
-
-          message:
-            "depositMethods must be an array.",
-        });
-      }
-
-      // ------------------------------------------------
-      // MAX METHODS
-      // ------------------------------------------------
-
-      if (
-        depositMethods.length > 20
-      ) {
-        return res.status(400).json({
-          success: false,
-
-          message:
-            "Maximum 20 payment methods are allowed.",
-        });
-      }
-
-      // ------------------------------------------------
-      // LOAD EXISTING SETTINGS
-      // ------------------------------------------------
-
-      const existing =
-        await PaymentSettings.findOne().lean();
-
-      // ------------------------------------------------
-      // START WITH SAFE VALUES
-      //
-      // IMPORTANT:
-      // Methods that are removed from Admin UI should
-      // NOT remain active from old MongoDB values.
-      // ------------------------------------------------
-
-      const update = {
-        // ----------------------------------------------
-        // BANK
-        // ----------------------------------------------
-
-        bankName:
-          "",
-
-        bankAccountTitle:
-          "",
-
-        bankAccountNumber:
-          "",
-
-        iban:
-          "",
-
-        bankQR:
-          "",
-
-        bankEnabled:
-          false,
-
-        // ----------------------------------------------
-        // JAZZCASH
-        // ----------------------------------------------
-
-        jazzCashNumber:
-          "",
-
-        jazzCashTitle:
-          "",
-
-        jazzCashQR:
-          "",
-
-        jazzCashEnabled:
-          false,
-
-        // ----------------------------------------------
-        // EASYPAISA
-        // ----------------------------------------------
-
-        easypaisaNumber:
-          "",
-
-        easypaisaTitle:
-          "",
-
-        easypaisaQR:
-          "",
-
-        easypaisaEnabled:
-          false,
-
-        // ----------------------------------------------
-        // USDT
-        // ----------------------------------------------
-
-        usdtTRC20:
-          "",
-
-        usdtBEP20:
-          "",
-
-        usdtERC20:
-          "",
-
-        binanceQR:
-          "",
-
-        usdtEnabled:
-          false,
-      };
-
-      // =================================================
-      // PROCESS FRONTEND METHODS
-      // =================================================
-
-      for (
-        const item of depositMethods
-      ) {
-        if (
-          !item ||
-          typeof item !== "object"
-        ) {
-          continue;
-        }
-
-        const method =
-          normalizeMethod(
-            item.method ||
-            item.type ||
-            ""
-          );
-
-        const enabled =
-          boolValue(
-            item.enabled,
-            true
-          );
-
-        const title =
-          clean(
-            item.title
-          );
-
-        const accountTitle =
-          clean(
-            item.accountTitle ||
-            item.accountName
-          );
-
-        const accountNumber =
-          clean(
-            item.accountNumber
-          );
-
-        const iban =
-          clean(
-            item.iban
-          ).toUpperCase();
-
-        const walletAddress =
-          clean(
-            item.walletAddress
-          );
-
-        const network =
-          clean(
-            item.network
-          ).toUpperCase();
-
-        const qrImage =
-          clean(
-            item.qrImage ||
-            item.qrCode
-          );
-
-        // =================================================
-        // BANK
-        // =================================================
-
-        if (
-          method === "BANK"
-        ) {
-          update.bankName =
-            clean(
-              item.bankName
-            ) ||
-            title ||
-            "Bank Transfer";
-
-          update.bankAccountTitle =
-            accountTitle;
-
-          update.bankAccountNumber =
-            accountNumber;
-
-          update.iban =
-            iban;
-
-          update.bankQR =
-            qrImage;
-
-          update.bankEnabled =
-            enabled;
-
-          continue;
-        }
-
-        // =================================================
-        // JAZZCASH
-        // =================================================
-
-        if (
-          method === "JAZZCASH"
-        ) {
-          update.jazzCashTitle =
-            accountTitle ||
-            title ||
-            "JazzCash";
-
-          update.jazzCashNumber =
-            accountNumber;
-
-          update.jazzCashQR =
-            qrImage;
-
-          update.jazzCashEnabled =
-            enabled;
-
-          continue;
-        }
-
-        // =================================================
-        // EASYPAISA
-        // =================================================
-
-        if (
-          method === "EASYPAISA"
-        ) {
-          update.easypaisaTitle =
-            accountTitle ||
-            title ||
-            "EasyPaisa";
-
-          update.easypaisaNumber =
-            accountNumber;
-
-          update.easypaisaQR =
-            qrImage;
-
-          update.easypaisaEnabled =
-            enabled;
-
-          continue;
-        }
-
-        // =================================================
-        // BINANCE / USDT TRC20
-        // =================================================
-
-        if (
-          method === "BINANCE"
-        ) {
-          update.usdtTRC20 =
-            walletAddress ||
-            accountNumber;
-
-          update.binanceQR =
-            qrImage;
-
-          update.usdtEnabled =
-            enabled;
-
-          continue;
-        }
-
-        // =================================================
-        // USDT BEP20
-        // =================================================
-
-        if (
-          method === "USDT_BEP20"
-        ) {
-          update.usdtBEP20 =
-            walletAddress ||
-            accountNumber;
-
-          // ----------------------------------------------
-          // QR is shared between USDT networks.
-          // ----------------------------------------------
-
-          if (qrImage) {
-            update.binanceQR =
-              qrImage;
-          }
-
-          update.usdtEnabled =
-            enabled;
-
-          continue;
-        }
-
-        // =================================================
-        // USDT ERC20
-        // =================================================
-
-        if (
-          method === "USDT_ERC20"
-        ) {
-          update.usdtERC20 =
-            walletAddress ||
-            accountNumber;
-
-          if (qrImage) {
-            update.binanceQR =
-              qrImage;
-          }
-
-          update.usdtEnabled =
-            enabled;
-
-          continue;
-        }
-      }
-
-      // =================================================
-      // PRESERVE UNRELATED SETTINGS
-      // =================================================
-      //
-      // We only modify payment-method fields here.
-      // Gold wallet and other settings remain untouched.
-      // =================================================
-
-      const settings =
-        await PaymentSettings.findOneAndUpdate(
-          {},
-
-          {
-            $set: update,
-          },
-
-          {
-            new: true,
-
-            upsert: true,
-
-            setDefaultsOnInsert:
-              true,
-
-            runValidators:
-              true,
-          }
-        ).lean();
-
-      // =================================================
-      // BUILD SAVED METHODS FOR RESPONSE
-      // =================================================
-
-      const savedMethods = [];
-
-      // -------------------------------------------------
-      // BANK
-      // -------------------------------------------------
-
-      if (
-        settings.bankEnabled === true &&
-        (
-          settings.bankName ||
-          settings.bankAccountTitle ||
-          settings.bankAccountNumber ||
-          settings.iban
-        )
-      ) {
-        savedMethods.push({
-          _id:
-            `BANK_${settings._id}`,
-
-          method:
-            "BANK",
-
-          title:
-            settings.bankName ||
-            "Bank Transfer",
-
-          enabled:
-            true,
-
-          bankName:
-            settings.bankName || "",
-
-          accountTitle:
-            settings.bankAccountTitle || "",
-
-          accountNumber:
-            settings.bankAccountNumber || "",
-
-          iban:
-            settings.iban || "",
-
-          walletAddress:
-            "",
-
-          network:
-            "",
-
-          qrImage:
-            settings.bankQR || "",
-        });
-      }
-
-      // -------------------------------------------------
-      // JAZZCASH
-      // -------------------------------------------------
-
-      if (
-        settings.jazzCashEnabled === true &&
-        (
-          settings.jazzCashNumber ||
-          settings.jazzCashTitle
-        )
-      ) {
-        savedMethods.push({
-          _id:
-            `JAZZCASH_${settings._id}`,
-
-          method:
-            "JAZZCASH",
-
-          title:
-            "JazzCash",
-
-          enabled:
-            true,
-
-          accountTitle:
-            settings.jazzCashTitle || "",
-
-          accountNumber:
-            settings.jazzCashNumber || "",
-
-          iban:
-            "",
-
-          walletAddress:
-            "",
-
-          network:
-            "",
-
-          qrImage:
-            settings.jazzCashQR || "",
-        });
-      }
-
-      // -------------------------------------------------
-      // EASYPAISA
-      // -------------------------------------------------
-
-      if (
-        settings.easypaisaEnabled === true &&
-        (
-          settings.easypaisaNumber ||
-          settings.easypaisaTitle
-        )
-      ) {
-        savedMethods.push({
-          _id:
-            `EASYPAISA_${settings._id}`,
-
-          method:
-            "EASYPAISA",
-
-          title:
-            "EasyPaisa",
-
-          enabled:
-            true,
-
-          accountTitle:
-            settings.easypaisaTitle || "",
-
-          accountNumber:
-            settings.easypaisaNumber || "",
-
-          iban:
-            "",
-
-          walletAddress:
-            "",
-
-          network:
-            "",
-
-          qrImage:
-            settings.easypaisaQR || "",
-        });
-      }
-
-      // -------------------------------------------------
-      // USDT TRC20
-      // -------------------------------------------------
-
-      if (
-        settings.usdtEnabled === true &&
-        settings.usdtTRC20
-      ) {
-        savedMethods.push({
-          _id:
-            `BINANCE_${settings._id}`,
-
-          method:
-            "BINANCE",
-
-          title:
-            "USDT TRC20",
-
-          enabled:
-            true,
-
-          accountTitle:
-            "",
-
-          accountNumber:
-            "",
-
-          iban:
-            "",
-
-          walletAddress:
-            settings.usdtTRC20,
-
-          network:
-            "TRC20",
-
-          qrImage:
-            settings.binanceQR || "",
-        });
-      }
-
-      // -------------------------------------------------
-      // USDT BEP20
-      // -------------------------------------------------
-
-      if (
-        settings.usdtEnabled === true &&
-        settings.usdtBEP20
-      ) {
-        savedMethods.push({
-          _id:
-            `USDT_BEP20_${settings._id}`,
-
-          method:
-            "USDT_BEP20",
-
-          title:
-            "USDT BEP20",
-
-          enabled:
-            true,
-
-          accountTitle:
-            "",
-
-          accountNumber:
-            "",
-
-          iban:
-            "",
-
-          walletAddress:
-            settings.usdtBEP20,
-
-          network:
-            "BEP20",
-
-          qrImage:
-            settings.binanceQR || "",
-        });
-      }
-
-      // -------------------------------------------------
-      // USDT ERC20
-      // -------------------------------------------------
-
-      if (
-        settings.usdtEnabled === true &&
-        settings.usdtERC20
-      ) {
-        savedMethods.push({
-          _id:
-            `USDT_ERC20_${settings._id}`,
-
-          method:
-            "USDT_ERC20",
-
-          title:
-            "USDT ERC20",
-
-          enabled:
-            true,
-
-          accountTitle:
-            "",
-
-          accountNumber:
-            "",
-
-          iban:
-            "",
-
-          walletAddress:
-            settings.usdtERC20,
-
-          network:
-            "ERC20",
-
-          qrImage:
-            settings.binanceQR || "",
-        });
-      }
-
-      // =================================================
-      // SUCCESS RESPONSE
-      // =================================================
-
-      return res.status(200).json({
-        success: true,
-
-        message:
-          "Deposit payment methods saved successfully.",
-
-        total:
-          savedMethods.length,
-
-        methods:
-          savedMethods,
-
-        settings,
-
-        timestamp:
-          new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error(
-        "PATCH ADMIN DEPOSIT PAYMENT METHODS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to save deposit payment methods.",
-
-        error:
-          process.env.NODE_ENV === "development"
-            ? error.message
-            : undefined,
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// GoldTrade V18 Enterprise Backend
-// paymentSettingsRoutes.js
-// PART 3/6
-//
-// Individual Payment Method APIs
-// ======================================================
-
-
 // ======================================================
 // NORMALIZE PAYMENT METHOD
 // ======================================================
-//
-// Converts different frontend names into one standard
-// backend method name.
 //
 // Supported:
 //
@@ -1834,9 +90,7 @@ router.patch(
 // ======================================================
 
 const normalizeMethod = (value) => {
-  const method = String(
-    value || ""
-  )
+  const method = String(value || "")
     .trim()
     .toUpperCase();
 
@@ -1914,6 +168,1236 @@ const normalizeMethod = (value) => {
   return method;
 };
 
+// ======================================================
+// FORMAT NEW V18 DEPOSIT METHOD
+// ======================================================
+//
+// Converts PaymentSettings.depositMethods[] into the
+// exact structure expected by the existing frontend.
+//
+// This is the NEW SOURCE OF TRUTH.
+//
+// ======================================================
+
+const formatDepositMethod = (item, settingsId) => {
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+
+  const method = normalizeMethod(
+    item.method ||
+      item.type ||
+      ""
+  );
+
+  if (!method) {
+    return null;
+  }
+
+  const enabled =
+    item.enabled !== false;
+
+  const title =
+    clean(item.title);
+
+  const accountTitle =
+    clean(
+      item.accountTitle ||
+        item.accountName
+    );
+
+  const accountNumber =
+    clean(item.accountNumber);
+
+  const iban =
+    clean(item.iban).toUpperCase();
+
+  const walletAddress =
+    clean(item.walletAddress);
+
+  const network =
+    clean(item.network).toUpperCase();
+
+  const qrImage =
+    clean(
+      item.qrImage ||
+        item.qrCode
+    );
+
+  // ====================================================
+  // BANK
+  // ====================================================
+
+  if (method === "BANK") {
+    return {
+      _id:
+        item._id ||
+        `BANK_${settingsId}`,
+
+      method: "BANK",
+
+      title:
+        title ||
+        "Bank Transfer",
+
+      enabled,
+
+      bankName:
+        clean(item.bankName) ||
+        title ||
+        "Bank Transfer",
+
+      accountTitle,
+
+      accountNumber,
+
+      iban,
+
+      walletAddress: "",
+
+      network: "",
+
+      qrImage,
+    };
+  }
+
+  // ====================================================
+  // JAZZCASH
+  // ====================================================
+
+  if (method === "JAZZCASH") {
+    return {
+      _id:
+        item._id ||
+        `JAZZCASH_${settingsId}`,
+
+      method: "JAZZCASH",
+
+      title:
+        title ||
+        "JazzCash",
+
+      enabled,
+
+      accountTitle,
+
+      accountNumber,
+
+      iban: "",
+
+      walletAddress: "",
+
+      network: "",
+
+      qrImage,
+    };
+  }
+
+  // ====================================================
+  // EASYPAISA
+  // ====================================================
+
+  if (method === "EASYPAISA") {
+    return {
+      _id:
+        item._id ||
+        `EASYPAISA_${settingsId}`,
+
+      method: "EASYPAISA",
+
+      title:
+        title ||
+        "EasyPaisa",
+
+      enabled,
+
+      accountTitle,
+
+      accountNumber,
+
+      iban: "",
+
+      walletAddress: "",
+
+      network: "",
+
+      qrImage,
+    };
+  }
+
+  // ====================================================
+  // BINANCE / USDT TRC20
+  // ====================================================
+
+  if (method === "BINANCE") {
+    return {
+      _id:
+        item._id ||
+        `BINANCE_${settingsId}`,
+
+      method: "BINANCE",
+
+      title:
+        title ||
+        "USDT TRC20",
+
+      enabled,
+
+      accountTitle: "",
+
+      accountNumber: "",
+
+      iban: "",
+
+      walletAddress:
+        walletAddress ||
+        accountNumber,
+
+      network:
+        network ||
+        "TRC20",
+
+      qrImage,
+    };
+  }
+
+  // ====================================================
+  // USDT BEP20
+  // ====================================================
+
+  if (method === "USDT_BEP20") {
+    return {
+      _id:
+        item._id ||
+        `USDT_BEP20_${settingsId}`,
+
+      method: "USDT_BEP20",
+
+      title:
+        title ||
+        "USDT BEP20",
+
+      enabled,
+
+      accountTitle: "",
+
+      accountNumber: "",
+
+      iban: "",
+
+      walletAddress:
+        walletAddress ||
+        accountNumber,
+
+      network:
+        network ||
+        "BEP20",
+
+      qrImage,
+    };
+  }
+
+  // ====================================================
+  // USDT ERC20
+  // ====================================================
+
+  if (method === "USDT_ERC20") {
+    return {
+      _id:
+        item._id ||
+        `USDT_ERC20_${settingsId}`,
+
+      method: "USDT_ERC20",
+
+      title:
+        title ||
+        "USDT ERC20",
+
+      enabled,
+
+      accountTitle: "",
+
+      accountNumber: "",
+
+      iban: "",
+
+      walletAddress:
+        walletAddress ||
+        accountNumber,
+
+      network:
+        network ||
+        "ERC20",
+
+      qrImage,
+    };
+  }
+
+  // ====================================================
+  // GENERIC METHOD
+  // ====================================================
+
+  return {
+    _id:
+      item._id ||
+      `${method}_${settingsId}`,
+
+    method,
+
+    title:
+      title ||
+      method,
+
+    enabled,
+
+    accountTitle,
+
+    accountNumber,
+
+    iban,
+
+    walletAddress,
+
+    network,
+
+    qrImage,
+  };
+};
+
+// ======================================================
+// BUILD LEGACY METHODS
+// ======================================================
+//
+// IMPORTANT:
+//
+// Old MongoDB documents may not have depositMethods[].
+// Therefore we keep a legacy fallback.
+//
+// New documents:
+//     depositMethods[]
+//
+// Old documents:
+//     bankEnabled / jazzCashEnabled / etc.
+//
+// ======================================================
+
+const buildLegacyDepositMethods = (settings) => {
+  if (!settings) {
+    return [];
+  }
+
+  const methods = [];
+
+  // ====================================================
+  // BANK
+  // ====================================================
+
+  if (
+    settings.bankEnabled === true &&
+    (
+      settings.bankName ||
+      settings.bankAccountTitle ||
+      settings.bankAccountNumber ||
+      settings.iban
+    )
+  ) {
+    methods.push({
+      _id:
+        `BANK_${settings._id}`,
+
+      method: "BANK",
+
+      title:
+        settings.bankName ||
+        "Bank Transfer",
+
+      enabled: true,
+
+      bankName:
+        settings.bankName || "",
+
+      accountTitle:
+        settings.bankAccountTitle || "",
+
+      accountNumber:
+        settings.bankAccountNumber || "",
+
+      iban:
+        settings.iban || "",
+
+      walletAddress: "",
+
+      network: "",
+
+      qrImage:
+        settings.bankQR || "",
+    });
+  }
+
+  // ====================================================
+  // JAZZCASH
+  // ====================================================
+
+  if (
+    settings.jazzCashEnabled === true &&
+    (
+      settings.jazzCashNumber ||
+      settings.jazzCashTitle
+    )
+  ) {
+    methods.push({
+      _id:
+        `JAZZCASH_${settings._id}`,
+
+      method: "JAZZCASH",
+
+      title: "JazzCash",
+
+      enabled: true,
+
+      accountTitle:
+        settings.jazzCashTitle || "",
+
+      accountNumber:
+        settings.jazzCashNumber || "",
+
+      iban: "",
+
+      walletAddress: "",
+
+      network: "",
+
+      qrImage:
+        settings.jazzCashQR || "",
+    });
+  }
+
+  // ====================================================
+  // EASYPAISA
+  // ====================================================
+
+  if (
+    settings.easypaisaEnabled === true &&
+    (
+      settings.easypaisaNumber ||
+      settings.easypaisaTitle
+    )
+  ) {
+    methods.push({
+      _id:
+        `EASYPAISA_${settings._id}`,
+
+      method: "EASYPAISA",
+
+      title: "EasyPaisa",
+
+      enabled: true,
+
+      accountTitle:
+        settings.easypaisaTitle || "",
+
+      accountNumber:
+        settings.easypaisaNumber || "",
+
+      iban: "",
+
+      walletAddress: "",
+
+      network: "",
+
+      qrImage:
+        settings.easypaisaQR || "",
+    });
+  }
+
+  // ====================================================
+  // USDT TRC20 / BINANCE
+  // ====================================================
+
+  if (
+    settings.usdtEnabled === true &&
+    settings.usdtTRC20
+  ) {
+    methods.push({
+      _id:
+        `BINANCE_${settings._id}`,
+
+      method: "BINANCE",
+
+      title: "USDT TRC20",
+
+      enabled: true,
+
+      accountTitle: "",
+
+      accountNumber: "",
+
+      iban: "",
+
+      walletAddress:
+        settings.usdtTRC20,
+
+      network: "TRC20",
+
+      qrImage:
+        settings.binanceQR || "",
+    });
+  }
+
+  // ====================================================
+  // USDT BEP20
+  // ====================================================
+
+  if (
+    settings.usdtEnabled === true &&
+    settings.usdtBEP20
+  ) {
+    methods.push({
+      _id:
+        `USDT_BEP20_${settings._id}`,
+
+      method: "USDT_BEP20",
+
+      title: "USDT BEP20",
+
+      enabled: true,
+
+      accountTitle: "",
+
+      accountNumber: "",
+
+      iban: "",
+
+      walletAddress:
+        settings.usdtBEP20,
+
+      network: "BEP20",
+
+      qrImage:
+        settings.binanceQR || "",
+    });
+  }
+
+  // ====================================================
+  // USDT ERC20
+  // ====================================================
+
+  if (
+    settings.usdtEnabled === true &&
+    settings.usdtERC20
+  ) {
+    methods.push({
+      _id:
+        `USDT_ERC20_${settings._id}`,
+
+      method: "USDT_ERC20",
+
+      title: "USDT ERC20",
+
+      enabled: true,
+
+      accountTitle: "",
+
+      accountNumber: "",
+
+      iban: "",
+
+      walletAddress:
+        settings.usdtERC20,
+
+      network: "ERC20",
+
+      qrImage:
+        settings.binanceQR || "",
+    });
+  }
+
+  return methods;
+};
+
+// ======================================================
+// GET ACTIVE DEPOSIT METHODS
+// ======================================================
+//
+// New source:
+//     settings.depositMethods[]
+//
+// Fallback:
+//     legacy MongoDB fields
+//
+// ======================================================
+
+const getDepositMethods = (settings) => {
+  if (!settings) {
+    return [];
+  }
+
+  // ----------------------------------------------------
+  // NEW V18 ARRAY
+  // ----------------------------------------------------
+
+  if (
+    Array.isArray(settings.depositMethods) &&
+    settings.depositMethods.length > 0
+  ) {
+    return settings.depositMethods
+      .map((item) =>
+        formatDepositMethod(
+          item,
+          settings._id
+        )
+      )
+      .filter(Boolean);
+  }
+
+  // ----------------------------------------------------
+  // LEGACY FALLBACK
+  // ----------------------------------------------------
+
+  return buildLegacyDepositMethods(
+    settings
+  );
+};
+
+// ======================================================
+// HEALTH CHECK
+// ======================================================
+//
+// GET /api/payment-settings/health
+//
+// No authentication required.
+// ======================================================
+
+router.get(
+  "/health",
+  (req, res) => {
+    return res.status(200).json({
+      success: true,
+
+      module:
+        "Payment Settings API",
+
+      version:
+        "V18 Enterprise",
+
+      status:
+        "ONLINE",
+
+      timestamp:
+        new Date().toISOString(),
+    });
+  }
+);
+
+// ======================================================
+// USER DEPOSIT PAYMENT METHODS
+// ======================================================
+//
+// GET /api/payment-settings/deposit
+//
+// Used by:
+//
+// frontend/app/deposit/page.tsx
+//
+// IMPORTANT:
+//
+// New V18 depositMethods[] is preferred.
+//
+// Only enabled payment methods are returned.
+// ======================================================
+
+router.get(
+  "/deposit",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const settings =
+        await PaymentSettings
+          .findOne()
+          .lean();
+
+      // ------------------------------------------------
+      // NO SETTINGS
+      // ------------------------------------------------
+
+      if (!settings) {
+        return res.status(200).json({
+          success: true,
+
+          total: 0,
+
+          methods: [],
+
+          updatedAt: null,
+        });
+      }
+
+      // ------------------------------------------------
+      // GET METHODS
+      // ------------------------------------------------
+
+      const allMethods =
+        getDepositMethods(
+          settings
+        );
+
+      // ------------------------------------------------
+      // ONLY ENABLED METHODS
+      // ------------------------------------------------
+
+      const methods =
+        allMethods.filter(
+          (method) =>
+            method.enabled !== false
+        );
+
+      // ------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+
+        total:
+          methods.length,
+
+        methods,
+
+        updatedAt:
+          settings.updatedAt ||
+          null,
+      });
+    } catch (error) {
+      console.error(
+        "GET USER DEPOSIT PAYMENT METHODS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load deposit payment methods.",
+      });
+    }
+  }
+);
+
+// ======================================================
+// SINGLE PAYMENT METHOD
+// ======================================================
+//
+// GET /api/payment-settings/method/:method
+//
+// Examples:
+//
+// /api/payment-settings/method/BANK
+// /api/payment-settings/method/JAZZCASH
+// /api/payment-settings/method/EASYPAISA
+// /api/payment-settings/method/BINANCE
+// /api/payment-settings/method/USDT_BEP20
+// /api/payment-settings/method/USDT_ERC20
+// ======================================================
+
+router.get(
+  "/method/:method",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const requestedMethod =
+        normalizeMethod(
+          req.params.method
+        );
+
+      const settings =
+        await PaymentSettings
+          .findOne()
+          .lean();
+
+      // ------------------------------------------------
+      // SETTINGS NOT FOUND
+      // ------------------------------------------------
+
+      if (!settings) {
+        return res.status(404).json({
+          success: false,
+
+          message:
+            "Payment settings not found.",
+        });
+      }
+
+      // ------------------------------------------------
+      // LOAD ALL METHODS
+      // ------------------------------------------------
+
+      const methods =
+        getDepositMethods(
+          settings
+        );
+
+      // ------------------------------------------------
+      // FIND REQUESTED METHOD
+      // ------------------------------------------------
+
+      const method =
+        methods.find(
+          (item) =>
+            normalizeMethod(
+              item.method
+            ) === requestedMethod
+        );
+
+      // ------------------------------------------------
+      // NOT FOUND
+      // ------------------------------------------------
+
+      if (!method) {
+        return res.status(404).json({
+          success: false,
+
+          message:
+            "Payment method not found.",
+        });
+      }
+
+      // ------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+
+        method,
+      });
+    } catch (error) {
+      console.error(
+        "GET SINGLE PAYMENT METHOD ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load payment method.",
+      });
+    }
+  }
+);
+
+// ======================================================
+// GoldTrade V18 Enterprise Backend
+// paymentSettingsRoutes.js
+// PART 2/6
+//
+// Admin Payment Settings APIs
+//
+// FRONTEND CONTRACT:
+//
+// GET   /api/payment-settings/admin/all
+// GET   /api/payment-settings/admin/raw
+// GET   /api/payment-settings/admin/deposit
+//
+// IMPORTANT:
+//
+// PATCH /api/payment-settings/admin/deposit
+// PART 4/6 mein hoga.
+//
+// ======================================================
+
+
+// ======================================================
+// GET COMPLETE PAYMENT SETTINGS
+// ======================================================
+//
+// GET /api/payment-settings/admin/all
+//
+// Used by:
+//
+// frontend/app/admin/payment-settings/page.tsx
+//
+// Returns the complete MongoDB PaymentSettings document.
+//
+// ======================================================
+
+router.get(
+  "/admin/all",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      let settings =
+        await PaymentSettings
+          .findOne()
+          .lean();
+
+      // ------------------------------------------------
+      // CREATE SETTINGS DOCUMENT IF NONE EXISTS
+      // ------------------------------------------------
+
+      if (!settings) {
+        const created =
+          await PaymentSettings.create({});
+
+        settings =
+          created.toObject();
+      }
+
+      // ------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+
+        settings,
+
+        timestamp:
+          new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(
+        "GET ADMIN PAYMENT SETTINGS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load payment settings.",
+      });
+    }
+  }
+);
+
+
+// ======================================================
+// GET ADMIN RAW SETTINGS
+// ======================================================
+//
+// GET /api/payment-settings/admin/raw
+//
+// Diagnostic/admin use.
+//
+// This endpoint intentionally returns the raw
+// PaymentSettings document.
+//
+// ======================================================
+
+router.get(
+  "/admin/raw",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const settings =
+        await PaymentSettings
+          .findOne()
+          .lean();
+
+      // ------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+
+        settings:
+          settings || {},
+
+        timestamp:
+          new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(
+        "GET ADMIN RAW PAYMENT SETTINGS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load raw payment settings.",
+      });
+    }
+  }
+);
+
+
+// ======================================================
+// GET ADMIN DEPOSIT METHODS
+// ======================================================
+//
+// GET /api/payment-settings/admin/deposit
+//
+// Used by:
+//
+// frontend/app/admin/payment-settings/page.tsx
+//
+// IMPORTANT:
+//
+// NEW V18 SOURCE:
+//
+//     settings.depositMethods[]
+//
+// LEGACY FALLBACK:
+//
+//     bankEnabled
+//     jazzCashEnabled
+//     easypaisaEnabled
+//     usdtEnabled
+//
+// PART 1 already provides:
+//
+//     getDepositMethods(settings)
+//
+// So this route does NOT duplicate the old
+// BANK/JAZZCASH/EASYPAISA/USDT conversion logic.
+//
+// ======================================================
+
+router.get(
+  "/admin/deposit",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const settings =
+        await PaymentSettings
+          .findOne()
+          .lean();
+
+      // ------------------------------------------------
+      // NO SETTINGS DOCUMENT
+      // ------------------------------------------------
+
+      if (!settings) {
+        return res.status(200).json({
+          success: true,
+
+          total: 0,
+
+          methods: [],
+
+          updatedAt: null,
+        });
+      }
+
+      // ------------------------------------------------
+      // LOAD METHODS
+      // ------------------------------------------------
+      //
+      // PART 1 helper:
+      //
+      // getDepositMethods(settings)
+      //
+      // It first checks depositMethods[].
+      //
+      // If depositMethods[] is empty/missing,
+      // it falls back to legacy fields.
+      //
+      // ------------------------------------------------
+
+      const allMethods =
+        getDepositMethods(
+          settings
+        );
+
+      // ------------------------------------------------
+      // ADMIN DISPLAY
+      // ------------------------------------------------
+      //
+      // Admin should be able to see disabled methods
+      // too, otherwise an OFF method could disappear
+      // from the settings page.
+      //
+      // Therefore:
+      //
+      // DO NOT filter enabled === false here.
+      //
+      // ------------------------------------------------
+
+      const methods =
+        allMethods.map(
+          (method) => ({
+            ...method,
+
+            enabled:
+              method.enabled !== false,
+          })
+        );
+
+      // ------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+
+        total:
+          methods.length,
+
+        methods,
+
+        updatedAt:
+          settings.updatedAt ||
+          null,
+      });
+    } catch (error) {
+      console.error(
+        "GET ADMIN DEPOSIT METHODS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load admin deposit methods.",
+      });
+    }
+  }
+);
+
+
+// ======================================================
+// ADMIN PAYMENT SETTINGS DEBUG
+// ======================================================
+//
+// This small diagnostic endpoint is intentionally kept
+// separate from /admin/raw.
+//
+// GET /api/payment-settings/admin/deposit/debug
+//
+// It helps verify:
+//
+// 1. MongoDB document exists
+// 2. depositMethods[] exists
+// 3. number of methods
+// 4. methods stored in MongoDB
+//
+// Admin authentication required.
+//
+// ======================================================
+
+router.get(
+  "/admin/deposit/debug",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const settings =
+        await PaymentSettings
+          .findOne()
+          .lean();
+
+      // ------------------------------------------------
+      // NO SETTINGS
+      // ------------------------------------------------
+
+      if (!settings) {
+        return res.status(200).json({
+          success: true,
+
+          exists: false,
+
+          depositMethods: [],
+
+          total: 0,
+        });
+      }
+
+      // ------------------------------------------------
+      // RAW NEW V18 ARRAY
+      // ------------------------------------------------
+
+      const storedMethods =
+        Array.isArray(
+          settings.depositMethods
+        )
+          ? settings.depositMethods
+          : [];
+
+      // ------------------------------------------------
+      // FORMATTED METHODS
+      // ------------------------------------------------
+
+      const formattedMethods =
+        getDepositMethods(
+          settings
+        );
+
+      // ------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+
+        exists: true,
+
+        settingsId:
+          settings._id || null,
+
+        storedDepositMethods:
+          storedMethods,
+
+        storedTotal:
+          storedMethods.length,
+
+        formattedMethods,
+
+        formattedTotal:
+          formattedMethods.length,
+
+        updatedAt:
+          settings.updatedAt ||
+          null,
+      });
+    } catch (error) {
+      console.error(
+        "GET ADMIN DEPOSIT DEBUG ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to debug payment settings.",
+      });
+    }
+  }
+);
+
+
+// ======================================================
+// GoldTrade V18 Enterprise Backend
+// paymentSettingsRoutes.js
+// PART 3/6
+//
+// Individual Payment Method APIs
+//
+// FRONTEND CONTRACT:
+//
+// PATCH /api/payment-settings/admin/deposit/BANK
+// PATCH /api/payment-settings/admin/deposit/JAZZCASH
+// PATCH /api/payment-settings/admin/deposit/EASYPAISA
+// PATCH /api/payment-settings/admin/deposit/USDT
+//
+// These routes are kept for compatibility with existing
+// admin/frontend integrations.
+//
+// MAIN V18 bulk save route remains:
+//
+// PATCH /api/payment-settings/admin/deposit
+//
+// That route will be provided in PART 4/6.
+// ======================================================
+
 
 // ======================================================
 // SAVE JAZZCASH
@@ -1940,6 +1424,10 @@ router.patch(
       const body =
         req.body || {};
 
+      // ------------------------------------------------
+      // INPUTS
+      // ------------------------------------------------
+
       const accountTitle =
         clean(
           body.accountTitle ||
@@ -1963,6 +1451,10 @@ router.patch(
           body.enabled,
           true
         );
+
+      // ------------------------------------------------
+      // SAVE LEGACY FIELDS
+      // ------------------------------------------------
 
       const settings =
         await PaymentSettings.findOneAndUpdate(
@@ -1996,6 +1488,10 @@ router.patch(
               true,
           }
         ).lean();
+
+      // ------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------
 
       return res.status(200).json({
         success: true,
@@ -2058,6 +1554,10 @@ router.patch(
       const body =
         req.body || {};
 
+      // ------------------------------------------------
+      // INPUTS
+      // ------------------------------------------------
+
       const accountTitle =
         clean(
           body.accountTitle ||
@@ -2081,6 +1581,10 @@ router.patch(
           body.enabled,
           true
         );
+
+      // ------------------------------------------------
+      // SAVE
+      // ------------------------------------------------
 
       const settings =
         await PaymentSettings.findOneAndUpdate(
@@ -2114,6 +1618,10 @@ router.patch(
               true,
           }
         ).lean();
+
+      // ------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------
 
       return res.status(200).json({
         success: true,
@@ -2187,6 +1695,10 @@ router.patch(
       const body =
         req.body || {};
 
+      // ------------------------------------------------
+      // INPUTS
+      // ------------------------------------------------
+
       const bankName =
         clean(
           body.bankName ||
@@ -2221,6 +1733,10 @@ router.patch(
           body.enabled,
           true
         );
+
+      // ------------------------------------------------
+      // SAVE
+      // ------------------------------------------------
 
       const settings =
         await PaymentSettings.findOneAndUpdate(
@@ -2260,6 +1776,10 @@ router.patch(
               true,
           }
         ).lean();
+
+      // ------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------
 
       return res.status(200).json({
         success: true,
@@ -2325,7 +1845,7 @@ router.patch(
 // BEP20
 // ERC20
 //
-// Body examples:
+// Body example:
 //
 // {
 //   network: "TRC20",
@@ -2344,6 +1864,10 @@ router.patch(
       const body =
         req.body || {};
 
+      // ------------------------------------------------
+      // INPUTS
+      // ------------------------------------------------
+
       const network =
         clean(
           body.network
@@ -2351,7 +1875,8 @@ router.patch(
 
       const walletAddress =
         clean(
-          body.walletAddress
+          body.walletAddress ||
+          body.address
         );
 
       const trc20 =
@@ -2384,10 +1909,14 @@ router.patch(
           true
         );
 
+      // ------------------------------------------------
+      // BUILD UPDATE
+      // ------------------------------------------------
+
       const update = {};
 
       // ------------------------------------------------
-      // Explicit TRC20
+      // TRC20
       // ------------------------------------------------
 
       if (
@@ -2399,7 +1928,7 @@ router.patch(
       }
 
       // ------------------------------------------------
-      // Explicit BEP20
+      // BEP20
       // ------------------------------------------------
 
       if (
@@ -2411,7 +1940,7 @@ router.patch(
       }
 
       // ------------------------------------------------
-      // Explicit ERC20
+      // ERC20
       // ------------------------------------------------
 
       if (
@@ -2423,7 +1952,9 @@ router.patch(
       }
 
       // ------------------------------------------------
-      // If network is not provided, save supplied fields
+      // NO NETWORK
+      //
+      // Save all explicitly supplied addresses.
       // ------------------------------------------------
 
       if (!network) {
@@ -2444,7 +1975,7 @@ router.patch(
       }
 
       // ------------------------------------------------
-      // QR + master USDT status
+      // SHARED QR
       // ------------------------------------------------
 
       if (qrImage) {
@@ -2452,8 +1983,16 @@ router.patch(
           qrImage;
       }
 
+      // ------------------------------------------------
+      // MASTER USDT STATUS
+      // ------------------------------------------------
+
       update.usdtEnabled =
         enabled;
+
+      // ------------------------------------------------
+      // SAVE
+      // ------------------------------------------------
 
       const settings =
         await PaymentSettings.findOneAndUpdate(
@@ -2476,78 +2015,101 @@ router.patch(
           }
         ).lean();
 
+      // ------------------------------------------------
+      // RESPONSE METHODS
+      // ------------------------------------------------
+
+      const methods = [];
+
+      // TRC20
+
+      if (
+        settings.usdtTRC20
+      ) {
+        methods.push({
+          method:
+            "BINANCE",
+
+          title:
+            "USDT TRC20",
+
+          enabled:
+            settings.usdtEnabled === true,
+
+          walletAddress:
+            settings.usdtTRC20,
+
+          network:
+            "TRC20",
+
+          qrImage:
+            settings.binanceQR || "",
+        });
+      }
+
+      // BEP20
+
+      if (
+        settings.usdtBEP20
+      ) {
+        methods.push({
+          method:
+            "USDT_BEP20",
+
+          title:
+            "USDT BEP20",
+
+          enabled:
+            settings.usdtEnabled === true,
+
+          walletAddress:
+            settings.usdtBEP20,
+
+          network:
+            "BEP20",
+
+          qrImage:
+            settings.binanceQR || "",
+        });
+      }
+
+      // ERC20
+
+      if (
+        settings.usdtERC20
+      ) {
+        methods.push({
+          method:
+            "USDT_ERC20",
+
+          title:
+            "USDT ERC20",
+
+          enabled:
+            settings.usdtEnabled === true,
+
+          walletAddress:
+            settings.usdtERC20,
+
+          network:
+            "ERC20",
+
+          qrImage:
+            settings.binanceQR || "",
+        });
+      }
+
+      // ------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------
+
       return res.status(200).json({
         success: true,
 
         message:
           "USDT settings saved successfully.",
 
-        methods: [
-          {
-            method:
-              "BINANCE",
-
-            title:
-              "USDT TRC20",
-
-            enabled:
-              settings.usdtEnabled === true,
-
-            walletAddress:
-              settings.usdtTRC20 || "",
-
-            network:
-              "TRC20",
-
-            qrImage:
-              settings.binanceQR || "",
-          },
-
-          {
-            method:
-              "USDT_BEP20",
-
-            title:
-              "USDT BEP20",
-
-            enabled:
-              settings.usdtEnabled === true,
-
-            walletAddress:
-              settings.usdtBEP20 || "",
-
-            network:
-              "BEP20",
-
-            qrImage:
-              settings.binanceQR || "",
-          },
-
-          {
-            method:
-              "USDT_ERC20",
-
-            title:
-              "USDT ERC20",
-
-            enabled:
-              settings.usdtEnabled === true,
-
-            walletAddress:
-              settings.usdtERC20 || "",
-
-            network:
-              "ERC20",
-
-            qrImage:
-              settings.binanceQR || "",
-          },
-        ].filter(
-          (item) =>
-            Boolean(
-              item.walletAddress
-            )
-        ),
+        methods,
 
         settings,
       });
@@ -2569,298 +2131,725 @@ router.patch(
 
 
 // ======================================================
-// GoldTrade V18 Enterprise Backend
-// paymentSettingsRoutes.js
 // PART 4/6
-//
-// Individual Method Read + Toggle APIs
+// MAIN ADMIN DEPOSIT METHODS SAVE
+// PATCH /api/payment-settings/admin/deposit
 // ======================================================
 
-
-// ======================================================
-// GET SINGLE PAYMENT METHOD
-// ======================================================
-//
-// GET /api/payment-settings/method/:method
-//
-// Supported:
-//
-// BANK
-// JAZZCASH
-// EASYPAISA
-// BINANCE
-// USDT
-// USDT_TRC20
-// USDT_BEP20
-// USDT_ERC20
-// ======================================================
-
-router.get(
-  "/method/:method",
+router.patch(
+  "/admin/deposit",
   verifyToken,
+  isAdmin,
   async (req, res) => {
     try {
-      const methodName =
-        normalizeMethod(
-          req.params.method
+      // ==================================================
+      // VALIDATE REQUEST BODY
+      // ==================================================
+
+      const { depositMethods } = req.body;
+
+      if (!Array.isArray(depositMethods)) {
+        return res.status(400).json({
+          success: false,
+          message: "depositMethods must be an array",
+        });
+      }
+
+      // ==================================================
+      // SAFETY LIMIT
+      // ==================================================
+
+      if (depositMethods.length > 20) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Maximum 20 deposit methods are allowed",
+        });
+      }
+
+      // ==================================================
+      // SUPPORTED METHODS
+      // ==================================================
+
+      const supportedMethods = new Set([
+        "BANK",
+        "JAZZCASH",
+        "EASYPAISA",
+        "BINANCE",
+        "USDT_BEP20",
+        "USDT_ERC20",
+      ]);
+
+      // ==================================================
+      // NORMALIZE + VALIDATE METHODS
+      // ==================================================
+
+      const normalizedDepositMethods = [];
+      const seenMethods = new Set();
+
+      for (const rawMethod of depositMethods) {
+        if (
+          !rawMethod ||
+          typeof rawMethod !== "object"
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid deposit method format",
+          });
+        }
+
+        // ----------------------------------------------
+        // METHOD
+        // ----------------------------------------------
+
+        const method = normalizeMethod(
+          rawMethod.method ||
+            rawMethod.type ||
+            rawMethod.name
         );
 
+        if (!method) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Deposit method is required",
+          });
+        }
+
+        // ----------------------------------------------
+        // SUPPORTED METHOD CHECK
+        // ----------------------------------------------
+
+        if (!supportedMethods.has(method)) {
+          return res.status(400).json({
+            success: false,
+            message:
+              `Unsupported deposit method: ${method}`,
+          });
+        }
+
+        // ----------------------------------------------
+        // DUPLICATE METHOD CHECK
+        // ----------------------------------------------
+
+        if (seenMethods.has(method)) {
+          return res.status(400).json({
+            success: false,
+            message:
+              `Duplicate deposit method: ${method}`,
+          });
+        }
+
+        seenMethods.add(method);
+
+        // ----------------------------------------------
+        // COMMON FIELDS
+        // ----------------------------------------------
+
+        const normalized = {
+          method,
+
+          title: clean(
+            rawMethod.title ||
+              rawMethod.name ||
+              rawMethod.label
+          ),
+
+          enabled: boolValue(
+            rawMethod.enabled
+          ),
+
+          accountTitle: clean(
+            rawMethod.accountTitle
+          ),
+
+          accountNumber: clean(
+            rawMethod.accountNumber
+          ),
+
+          iban: clean(
+            rawMethod.iban
+          ).toUpperCase(),
+
+          walletAddress: clean(
+            rawMethod.walletAddress ||
+              rawMethod.address
+          ),
+
+          network: clean(
+            rawMethod.network
+          ).toUpperCase(),
+
+          qrImage: clean(
+            rawMethod.qrImage ||
+              rawMethod.qr ||
+              rawMethod.qrCode
+          ),
+        };
+
+        // ==================================================
+        // BANK
+        // ==================================================
+
+        if (method === "BANK") {
+          normalized.title = clean(
+            rawMethod.title ||
+              rawMethod.bankName ||
+              "Bank Transfer"
+          );
+
+          normalized.accountTitle = clean(
+            rawMethod.accountTitle ||
+              rawMethod.bankAccountTitle ||
+              rawMethod.accountName
+          );
+
+          normalized.accountNumber = clean(
+            rawMethod.accountNumber ||
+              rawMethod.bankAccountNumber
+          );
+
+          normalized.iban = clean(
+            rawMethod.iban
+          ).toUpperCase();
+
+          normalized.qrImage = clean(
+            rawMethod.qrImage ||
+              rawMethod.bankQR ||
+              rawMethod.qr ||
+              rawMethod.qrCode
+          );
+        }
+
+        // ==================================================
+        // JAZZCASH
+        // ==================================================
+
+        if (method === "JAZZCASH") {
+          normalized.title = clean(
+            rawMethod.title ||
+              rawMethod.jazzCashTitle ||
+              "JazzCash"
+          );
+
+          normalized.accountTitle = clean(
+            rawMethod.accountTitle ||
+              rawMethod.jazzCashTitle ||
+              rawMethod.accountName
+          );
+
+          normalized.accountNumber = clean(
+            rawMethod.accountNumber ||
+              rawMethod.jazzCashNumber ||
+              rawMethod.number
+          );
+
+          normalized.qrImage = clean(
+            rawMethod.qrImage ||
+              rawMethod.jazzCashQR ||
+              rawMethod.qr ||
+              rawMethod.qrCode
+          );
+        }
+
+        // ==================================================
+        // EASYPAISA
+        // ==================================================
+
+        if (method === "EASYPAISA") {
+          normalized.title = clean(
+            rawMethod.title ||
+              rawMethod.easypaisaTitle ||
+              "EasyPaisa"
+          );
+
+          normalized.accountTitle = clean(
+            rawMethod.accountTitle ||
+              rawMethod.easypaisaTitle ||
+              rawMethod.accountName
+          );
+
+          normalized.accountNumber = clean(
+            rawMethod.accountNumber ||
+              rawMethod.easypaisaNumber ||
+              rawMethod.number
+          );
+
+          normalized.qrImage = clean(
+            rawMethod.qrImage ||
+              rawMethod.easypaisaQR ||
+              rawMethod.qr ||
+              rawMethod.qrCode
+          );
+        }
+
+        // ==================================================
+        // USDT TRC20 / BINANCE
+        // ==================================================
+
+        if (method === "BINANCE") {
+          normalized.title = clean(
+            rawMethod.title ||
+              "USDT TRC20"
+          );
+
+          normalized.walletAddress = clean(
+            rawMethod.walletAddress ||
+              rawMethod.usdtTRC20 ||
+              rawMethod.address ||
+              rawMethod.accountNumber
+          );
+
+          normalized.network =
+            clean(
+              rawMethod.network
+            ).toUpperCase() ||
+            "TRC20";
+
+          normalized.qrImage = clean(
+            rawMethod.qrImage ||
+              rawMethod.binanceQR ||
+              rawMethod.qr ||
+              rawMethod.qrCode
+          );
+        }
+
+        // ==================================================
+        // USDT BEP20
+        // ==================================================
+
+        if (method === "USDT_BEP20") {
+          normalized.title = clean(
+            rawMethod.title ||
+              "USDT BEP20"
+          );
+
+          normalized.walletAddress = clean(
+            rawMethod.walletAddress ||
+              rawMethod.usdtBEP20 ||
+              rawMethod.address ||
+              rawMethod.accountNumber
+          );
+
+          normalized.network =
+            clean(
+              rawMethod.network
+            ).toUpperCase() ||
+            "BEP20";
+
+          normalized.qrImage = clean(
+            rawMethod.qrImage ||
+              rawMethod.binanceQR ||
+              rawMethod.qr ||
+              rawMethod.qrCode
+          );
+        }
+
+        // ==================================================
+        // USDT ERC20
+        // ==================================================
+
+        if (method === "USDT_ERC20") {
+          normalized.title = clean(
+            rawMethod.title ||
+              "USDT ERC20"
+          );
+
+          normalized.walletAddress = clean(
+            rawMethod.walletAddress ||
+              rawMethod.usdtERC20 ||
+              rawMethod.address ||
+              rawMethod.accountNumber
+          );
+
+          normalized.network =
+            clean(
+              rawMethod.network
+            ).toUpperCase() ||
+            "ERC20";
+
+          normalized.qrImage = clean(
+            rawMethod.qrImage ||
+              rawMethod.binanceQR ||
+              rawMethod.qr ||
+              rawMethod.qrCode
+          );
+        }
+
+        // ==================================================
+        // REMOVE EMPTY OPTIONAL VALUES
+        // ==================================================
+
+        if (!normalized.title) {
+          delete normalized.title;
+        }
+
+        if (!normalized.accountTitle) {
+          delete normalized.accountTitle;
+        }
+
+        if (!normalized.accountNumber) {
+          delete normalized.accountNumber;
+        }
+
+        if (!normalized.iban) {
+          delete normalized.iban;
+        }
+
+        if (!normalized.walletAddress) {
+          delete normalized.walletAddress;
+        }
+
+        if (!normalized.network) {
+          delete normalized.network;
+        }
+
+        if (!normalized.qrImage) {
+          delete normalized.qrImage;
+        }
+
+        // ==================================================
+        // IMPORTANT
+        // DO NOT SAVE FRONTEND _id DIRECTLY
+        // Mongoose will create ObjectIds.
+        // ==================================================
+
+        normalizedDepositMethods.push(
+          normalized
+        );
+      }
+
+      // ==================================================
+      // BUILD LEGACY COMPATIBILITY FIELDS
+      // ==================================================
+      //
+      // IMPORTANT:
+      // We build these directly from the normalized
+      // V18 depositMethods[].
+      //
+      // DO NOT call:
+      //
+      // buildLegacyDepositMethods(
+      //   normalizedDepositMethods
+      // );
+      //
+      // because that helper expects a SETTINGS OBJECT,
+      // not an ARRAY.
+      // ==================================================
+
+      const legacyMethods = {
+        // ------------------------------------------------
+        // BANK
+        // ------------------------------------------------
+
+        bankName: "",
+        bankAccountTitle: "",
+        bankAccountNumber: "",
+        iban: "",
+        bankQR: "",
+        bankEnabled: false,
+
+        // ------------------------------------------------
+        // JAZZCASH
+        // ------------------------------------------------
+
+        jazzCashNumber: "",
+        jazzCashTitle: "",
+        jazzCashQR: "",
+        jazzCashEnabled: false,
+
+        // ------------------------------------------------
+        // EASYPAISA
+        // ------------------------------------------------
+
+        easypaisaNumber: "",
+        easypaisaTitle: "",
+        easypaisaQR: "",
+        easypaisaEnabled: false,
+
+        // ------------------------------------------------
+        // USDT
+        // ------------------------------------------------
+
+        usdtTRC20: "",
+        usdtBEP20: "",
+        usdtERC20: "",
+        binanceQR: "",
+      };
+
+      // ==================================================
+      // MAP NORMALIZED METHODS → LEGACY FIELDS
+      // ==================================================
+
+      for (const item of normalizedDepositMethods) {
+        // ------------------------------------------------
+        // BANK
+        // ------------------------------------------------
+
+        if (item.method === "BANK") {
+          legacyMethods.bankName =
+            item.title || "";
+
+          legacyMethods.bankAccountTitle =
+            item.accountTitle || "";
+
+          legacyMethods.bankAccountNumber =
+            item.accountNumber || "";
+
+          legacyMethods.iban =
+            item.iban || "";
+
+          legacyMethods.bankQR =
+            item.qrImage || "";
+
+          legacyMethods.bankEnabled =
+            item.enabled === true;
+        }
+
+        // ------------------------------------------------
+        // JAZZCASH
+        // ------------------------------------------------
+
+        if (item.method === "JAZZCASH") {
+          legacyMethods.jazzCashNumber =
+            item.accountNumber || "";
+
+          legacyMethods.jazzCashTitle =
+            item.accountTitle ||
+            item.title ||
+            "";
+
+          legacyMethods.jazzCashQR =
+            item.qrImage || "";
+
+          legacyMethods.jazzCashEnabled =
+            item.enabled === true;
+        }
+
+        // ------------------------------------------------
+        // EASYPAISA
+        // ------------------------------------------------
+
+        if (item.method === "EASYPAISA") {
+          legacyMethods.easypaisaNumber =
+            item.accountNumber || "";
+
+          legacyMethods.easypaisaTitle =
+            item.accountTitle ||
+            item.title ||
+            "";
+
+          legacyMethods.easypaisaQR =
+            item.qrImage || "";
+
+          legacyMethods.easypaisaEnabled =
+            item.enabled === true;
+        }
+
+        // ------------------------------------------------
+        // USDT TRC20
+        // ------------------------------------------------
+
+        if (item.method === "BINANCE") {
+          legacyMethods.usdtTRC20 =
+            item.walletAddress || "";
+
+          if (item.qrImage) {
+            legacyMethods.binanceQR =
+              item.qrImage;
+          }
+        }
+
+        // ------------------------------------------------
+        // USDT BEP20
+        // ------------------------------------------------
+
+        if (item.method === "USDT_BEP20") {
+          legacyMethods.usdtBEP20 =
+            item.walletAddress || "";
+
+          if (
+            !legacyMethods.binanceQR &&
+            item.qrImage
+          ) {
+            legacyMethods.binanceQR =
+              item.qrImage;
+          }
+        }
+
+        // ------------------------------------------------
+        // USDT ERC20
+        // ------------------------------------------------
+
+        if (item.method === "USDT_ERC20") {
+          legacyMethods.usdtERC20 =
+            item.walletAddress || "";
+
+          if (
+            !legacyMethods.binanceQR &&
+            item.qrImage
+          ) {
+            legacyMethods.binanceQR =
+              item.qrImage;
+          }
+        }
+      }
+
+      // ==================================================
+      // USDT MASTER ENABLED FLAG
+      // ==================================================
+      //
+      // TRUE if ANY USDT network is enabled.
+      // ==================================================
+
+      const usdtMethods =
+        normalizedDepositMethods.filter(
+          (item) =>
+            item.method === "BINANCE" ||
+            item.method === "USDT_BEP20" ||
+            item.method === "USDT_ERC20"
+        );
+
+      const usdtEnabled =
+        usdtMethods.some(
+          (item) =>
+            item.enabled === true
+        );
+
+      // ==================================================
+      // UPDATE OBJECT
+      // ==================================================
+
+      const update = {
+        // ----------------------------------------------
+        // V18 SOURCE OF TRUTH
+        // ----------------------------------------------
+
+        depositMethods:
+          normalizedDepositMethods,
+
+        // ----------------------------------------------
+        // LEGACY BANK
+        // ----------------------------------------------
+
+        bankName:
+          legacyMethods.bankName || "",
+
+        bankAccountTitle:
+          legacyMethods.bankAccountTitle || "",
+
+        bankAccountNumber:
+          legacyMethods.bankAccountNumber || "",
+
+        iban:
+          legacyMethods.iban || "",
+
+        bankQR:
+          legacyMethods.bankQR || "",
+
+        bankEnabled:
+          legacyMethods.bankEnabled === true,
+
+        // ----------------------------------------------
+        // LEGACY JAZZCASH
+        // ----------------------------------------------
+
+        jazzCashNumber:
+          legacyMethods.jazzCashNumber || "",
+
+        jazzCashTitle:
+          legacyMethods.jazzCashTitle || "",
+
+        jazzCashQR:
+          legacyMethods.jazzCashQR || "",
+
+        jazzCashEnabled:
+          legacyMethods.jazzCashEnabled === true,
+
+        // ----------------------------------------------
+        // LEGACY EASYPAISA
+        // ----------------------------------------------
+
+        easypaisaNumber:
+          legacyMethods.easypaisaNumber || "",
+
+        easypaisaTitle:
+          legacyMethods.easypaisaTitle || "",
+
+        easypaisaQR:
+          legacyMethods.easypaisaQR || "",
+
+        easypaisaEnabled:
+          legacyMethods.easypaisaEnabled === true,
+
+        // ----------------------------------------------
+        // LEGACY USDT
+        // ----------------------------------------------
+
+        usdtTRC20:
+          legacyMethods.usdtTRC20 || "",
+
+        usdtBEP20:
+          legacyMethods.usdtBEP20 || "",
+
+        usdtERC20:
+          legacyMethods.usdtERC20 || "",
+
+        binanceQR:
+          legacyMethods.binanceQR || "",
+
+        usdtEnabled,
+      };
+
+      // ==================================================
+      // SAVE TO DATABASE
+      // ==================================================
+
       const settings =
-        await PaymentSettings.findOne().lean();
+        await PaymentSettings.findOneAndUpdate(
+          {},
+          {
+            $set: update,
+          },
+          {
+            new: true,
+            upsert: true,
+            setDefaultsOnInsert: true,
+            runValidators: true,
+          }
+        ).lean();
 
-      // ------------------------------------------------
-      // SETTINGS NOT FOUND
-      // ------------------------------------------------
+      // ==================================================
+      // FORMAT RESPONSE
+      // ==================================================
 
-      if (!settings) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "Payment settings not found.",
-        });
-      }
+      const savedMethods =
+        getDepositMethods(
+          settings
+        );
 
-      let method = null;
-
-      // =================================================
-      // BANK
-      // =================================================
-
-      if (
-        methodName === "BANK"
-      ) {
-        method = {
-          method:
-            "BANK",
-
-          title:
-            settings.bankName ||
-            "Bank Transfer",
-
-          enabled:
-            settings.bankEnabled === true,
-
-          bankName:
-            settings.bankName || "",
-
-          accountTitle:
-            settings.bankAccountTitle || "",
-
-          accountNumber:
-            settings.bankAccountNumber || "",
-
-          iban:
-            settings.iban || "",
-
-          qrImage:
-            settings.bankQR || "",
-        };
-      }
-
-      // =================================================
-      // JAZZCASH
-      // =================================================
-
-      if (
-        methodName === "JAZZCASH"
-      ) {
-        method = {
-          method:
-            "JAZZCASH",
-
-          title:
-            "JazzCash",
-
-          enabled:
-            settings.jazzCashEnabled === true,
-
-          accountTitle:
-            settings.jazzCashTitle || "",
-
-          accountNumber:
-            settings.jazzCashNumber || "",
-
-          iban:
-            "",
-
-          walletAddress:
-            "",
-
-          network:
-            "",
-
-          qrImage:
-            settings.jazzCashQR || "",
-        };
-      }
-
-      // =================================================
-      // EASYPAISA
-      // =================================================
-
-      if (
-        methodName === "EASYPAISA"
-      ) {
-        method = {
-          method:
-            "EASYPAISA",
-
-          title:
-            "EasyPaisa",
-
-          enabled:
-            settings.easypaisaEnabled === true,
-
-          accountTitle:
-            settings.easypaisaTitle || "",
-
-          accountNumber:
-            settings.easypaisaNumber || "",
-
-          iban:
-            "",
-
-          walletAddress:
-            "",
-
-          network:
-            "",
-
-          qrImage:
-            settings.easypaisaQR || "",
-        };
-      }
-
-      // =================================================
-      // USDT TRC20 / BINANCE
-      // =================================================
-
-      if (
-        methodName === "BINANCE"
-      ) {
-        method = {
-          method:
-            "BINANCE",
-
-          title:
-            "USDT TRC20",
-
-          enabled:
-            settings.usdtEnabled === true,
-
-          accountTitle:
-            "",
-
-          accountNumber:
-            "",
-
-          walletAddress:
-            settings.usdtTRC20 || "",
-
-          network:
-            "TRC20",
-
-          qrImage:
-            settings.binanceQR || "",
-        };
-      }
-
-      // =================================================
-      // USDT BEP20
-      // =================================================
-
-      if (
-        methodName === "USDT_BEP20"
-      ) {
-        method = {
-          method:
-            "USDT_BEP20",
-
-          title:
-            "USDT BEP20",
-
-          enabled:
-            settings.usdtEnabled === true,
-
-          accountTitle:
-            "",
-
-          accountNumber:
-            "",
-
-          walletAddress:
-            settings.usdtBEP20 || "",
-
-          network:
-            "BEP20",
-
-          qrImage:
-            settings.binanceQR || "",
-        };
-      }
-
-      // =================================================
-      // USDT ERC20
-      // =================================================
-
-      if (
-        methodName === "USDT_ERC20"
-      ) {
-        method = {
-          method:
-            "USDT_ERC20",
-
-          title:
-            "USDT ERC20",
-
-          enabled:
-            settings.usdtEnabled === true,
-
-          accountTitle:
-            "",
-
-          accountNumber:
-            "",
-
-          walletAddress:
-            settings.usdtERC20 || "",
-
-          network:
-            "ERC20",
-
-          qrImage:
-            settings.binanceQR || "",
-        };
-      }
-
-      // =================================================
-      // METHOD NOT FOUND
-      // =================================================
-
-      if (!method) {
-        return res.status(404).json({
-          success: false,
-
-          message:
-            "Payment method not found.",
-        });
-      }
-
-      // =================================================
-      // RESPONSE
-      // =================================================
+      // ==================================================
+      // SUCCESS RESPONSE
+      // ==================================================
 
       return res.status(200).json({
         success: true,
 
-        method,
+        message:
+          "Deposit payment settings saved successfully",
 
-        timestamp:
-          new Date().toISOString(),
+        total:
+          savedMethods.length,
+
+        methods:
+          savedMethods,
+
+        settings,
       });
     } catch (error) {
       console.error(
-        "GET SINGLE PAYMENT METHOD ERROR:",
+        "ADMIN DEPOSIT SETTINGS SAVE ERROR:",
         error
       );
 
@@ -2868,17 +2857,27 @@ router.get(
         success: false,
 
         message:
-          "Unable to load payment method.",
+          "Unable to save deposit payment settings",
+
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : undefined,
       });
     }
   }
 );
+// ======================================================
+// PART 5/6
+// TOGGLE APIs
+// WITHDRAW METHODS
+// PUBLIC SETTINGS
+// ADMIN DEBUG
+// ======================================================
 
 
 // ======================================================
 // TOGGLE JAZZCASH
-// ======================================================
-//
 // PATCH /api/payment-settings/admin/deposit/JAZZCASH/toggle
 // ======================================================
 
@@ -2894,28 +2893,36 @@ router.patch(
       if (!settings) {
         return res.status(404).json({
           success: false,
-
-          message:
-            "Payment settings not found.",
+          message: "Payment settings not found.",
         });
       }
 
-      settings.jazzCashEnabled =
-        !Boolean(
-          settings.jazzCashEnabled
-        );
+      const enabled =
+        !Boolean(settings.jazzCashEnabled);
+
+      settings.jazzCashEnabled = enabled;
+
+      // ----------------------------------------------
+      // Keep V18 depositMethods synchronized
+      // ----------------------------------------------
+
+      if (Array.isArray(settings.depositMethods)) {
+        for (const item of settings.depositMethods) {
+          if (
+            normalizeMethod(item.method) ===
+            "JAZZCASH"
+          ) {
+            item.enabled = enabled;
+          }
+        }
+      }
 
       await settings.save();
 
       return res.status(200).json({
         success: true,
-
-        method:
-          "JAZZCASH",
-
-        enabled:
-          settings.jazzCashEnabled,
-
+        method: "JAZZCASH",
+        enabled,
         message:
           "JazzCash status updated successfully.",
       });
@@ -2927,7 +2934,6 @@ router.patch(
 
       return res.status(500).json({
         success: false,
-
         message:
           "Unable to update JazzCash status.",
       });
@@ -2938,8 +2944,6 @@ router.patch(
 
 // ======================================================
 // TOGGLE EASYPAISA
-// ======================================================
-//
 // PATCH /api/payment-settings/admin/deposit/EASYPAISA/toggle
 // ======================================================
 
@@ -2955,28 +2959,36 @@ router.patch(
       if (!settings) {
         return res.status(404).json({
           success: false,
-
-          message:
-            "Payment settings not found.",
+          message: "Payment settings not found.",
         });
       }
 
-      settings.easypaisaEnabled =
-        !Boolean(
-          settings.easypaisaEnabled
-        );
+      const enabled =
+        !Boolean(settings.easypaisaEnabled);
+
+      settings.easypaisaEnabled = enabled;
+
+      // ----------------------------------------------
+      // Keep V18 depositMethods synchronized
+      // ----------------------------------------------
+
+      if (Array.isArray(settings.depositMethods)) {
+        for (const item of settings.depositMethods) {
+          if (
+            normalizeMethod(item.method) ===
+            "EASYPAISA"
+          ) {
+            item.enabled = enabled;
+          }
+        }
+      }
 
       await settings.save();
 
       return res.status(200).json({
         success: true,
-
-        method:
-          "EASYPAISA",
-
-        enabled:
-          settings.easypaisaEnabled,
-
+        method: "EASYPAISA",
+        enabled,
         message:
           "EasyPaisa status updated successfully.",
       });
@@ -2988,7 +3000,6 @@ router.patch(
 
       return res.status(500).json({
         success: false,
-
         message:
           "Unable to update EasyPaisa status.",
       });
@@ -2999,8 +3010,6 @@ router.patch(
 
 // ======================================================
 // TOGGLE BANK
-// ======================================================
-//
 // PATCH /api/payment-settings/admin/deposit/BANK/toggle
 // ======================================================
 
@@ -3016,28 +3025,36 @@ router.patch(
       if (!settings) {
         return res.status(404).json({
           success: false,
-
-          message:
-            "Payment settings not found.",
+          message: "Payment settings not found.",
         });
       }
 
-      settings.bankEnabled =
-        !Boolean(
-          settings.bankEnabled
-        );
+      const enabled =
+        !Boolean(settings.bankEnabled);
+
+      settings.bankEnabled = enabled;
+
+      // ----------------------------------------------
+      // Keep V18 depositMethods synchronized
+      // ----------------------------------------------
+
+      if (Array.isArray(settings.depositMethods)) {
+        for (const item of settings.depositMethods) {
+          if (
+            normalizeMethod(item.method) ===
+            "BANK"
+          ) {
+            item.enabled = enabled;
+          }
+        }
+      }
 
       await settings.save();
 
       return res.status(200).json({
         success: true,
-
-        method:
-          "BANK",
-
-        enabled:
-          settings.bankEnabled,
-
+        method: "BANK",
+        enabled,
         message:
           "Bank payment status updated successfully.",
       });
@@ -3049,7 +3066,6 @@ router.patch(
 
       return res.status(500).json({
         success: false,
-
         message:
           "Unable to update bank status.",
       });
@@ -3059,14 +3075,8 @@ router.patch(
 
 
 // ======================================================
-// TOGGLE USDT
-// ======================================================
-//
+// TOGGLE USDT MASTER
 // PATCH /api/payment-settings/admin/deposit/USDT/toggle
-//
-// This controls the master USDT switch.
-//
-// TRC20 / BEP20 / ERC20 all follow this status.
 // ======================================================
 
 router.patch(
@@ -3081,28 +3091,40 @@ router.patch(
       if (!settings) {
         return res.status(404).json({
           success: false,
-
-          message:
-            "Payment settings not found.",
+          message: "Payment settings not found.",
         });
       }
 
-      settings.usdtEnabled =
-        !Boolean(
-          settings.usdtEnabled
-        );
+      const enabled =
+        !Boolean(settings.usdtEnabled);
+
+      settings.usdtEnabled = enabled;
+
+      // ----------------------------------------------
+      // Keep all USDT V18 methods synchronized
+      // ----------------------------------------------
+
+      if (Array.isArray(settings.depositMethods)) {
+        for (const item of settings.depositMethods) {
+          const method =
+            normalizeMethod(item.method);
+
+          if (
+            method === "BINANCE" ||
+            method === "USDT_BEP20" ||
+            method === "USDT_ERC20"
+          ) {
+            item.enabled = enabled;
+          }
+        }
+      }
 
       await settings.save();
 
       return res.status(200).json({
         success: true,
-
-        method:
-          "USDT",
-
-        enabled:
-          settings.usdtEnabled,
-
+        method: "USDT",
+        enabled,
         message:
           "USDT payment status updated successfully.",
       });
@@ -3114,7 +3136,6 @@ router.patch(
 
       return res.status(500).json({
         success: false,
-
         message:
           "Unable to update USDT status.",
       });
@@ -3124,21 +3145,15 @@ router.patch(
 
 
 // ======================================================
-// EXPLICIT SET STATUS
-// ======================================================
+// EXPLICIT PAYMENT METHOD STATUS
 //
 // PATCH /api/payment-settings/admin/deposit/status
 //
-// Optional endpoint for frontend.
-//
 // Body:
-//
 // {
 //   method: "BANK",
 //   enabled: true
 // }
-//
-// Unlike toggle, this explicitly sets the desired state.
 // ======================================================
 
 router.patch(
@@ -3161,74 +3176,100 @@ router.patch(
       if (!method) {
         return res.status(400).json({
           success: false,
-
           message:
             "Payment method is required.",
         });
       }
 
-      const fieldMap = {
-        BANK:
-          "bankEnabled",
+      const supportedMethods = new Set([
+        "BANK",
+        "JAZZCASH",
+        "EASYPAISA",
+        "BINANCE",
+        "USDT_BEP20",
+        "USDT_ERC20",
+      ]);
 
-        JAZZCASH:
-          "jazzCashEnabled",
-
-        EASYPAISA:
-          "easypaisaEnabled",
-
-        BINANCE:
-          "usdtEnabled",
-
-        USDT_BEP20:
-          "usdtEnabled",
-
-        USDT_ERC20:
-          "usdtEnabled",
-      };
-
-      const field =
-        fieldMap[method];
-
-      if (!field) {
+      if (!supportedMethods.has(method)) {
         return res.status(400).json({
           success: false,
-
           message:
             `Unsupported payment method: ${method}`,
         });
       }
 
+      // ----------------------------------------------
+      // Legacy field
+      // ----------------------------------------------
+
+      const legacyFieldMap = {
+        BANK: "bankEnabled",
+        JAZZCASH: "jazzCashEnabled",
+        EASYPAISA: "easypaisaEnabled",
+        BINANCE: "usdtEnabled",
+        USDT_BEP20: "usdtEnabled",
+        USDT_ERC20: "usdtEnabled",
+      };
+
+      const update = {
+        [legacyFieldMap[method]]: enabled,
+      };
+
+      // ----------------------------------------------
+      // Update V18 depositMethods
+      // ----------------------------------------------
+
       const settings =
-        await PaymentSettings.findOneAndUpdate(
-          {},
+        await PaymentSettings.findOne();
 
-          {
-            $set: {
-              [field]:
-                enabled,
-            },
-          },
+      if (!settings) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Payment settings not found.",
+        });
+      }
 
-          {
-            new: true,
+      if (Array.isArray(settings.depositMethods)) {
+        for (const item of settings.depositMethods) {
+          const itemMethod =
+            normalizeMethod(item.method);
 
-            upsert: true,
-
-            setDefaultsOnInsert:
-              true,
+          if (method === itemMethod) {
+            item.enabled = enabled;
           }
-        ).lean();
+
+          // USDT master compatibility
+          if (
+            method === "BINANCE" ||
+            method === "USDT_BEP20" ||
+            method === "USDT_ERC20"
+          ) {
+            if (
+              itemMethod === "BINANCE" ||
+              itemMethod === "USDT_BEP20" ||
+              itemMethod === "USDT_ERC20"
+            ) {
+              item.enabled = enabled;
+            }
+          }
+        }
+      }
+
+      Object.assign(
+        settings,
+        update
+      );
+
+      await settings.save();
 
       return res.status(200).json({
         success: true,
-
         method,
-
         enabled,
-
+        methods:
+          getDepositMethods(settings),
         settings,
-
         message:
           "Payment method status updated successfully.",
       });
@@ -3240,7 +3281,6 @@ router.patch(
 
       return res.status(500).json({
         success: false,
-
         message:
           "Unable to update payment method status.",
       });
@@ -3249,369 +3289,10 @@ router.patch(
 );
 
 
- // ======================================================
-// GoldTrade V18 Enterprise Backend
-// paymentSettingsRoutes.js
-// PART 5/6
-//
-// User Deposit Final API
-// Withdraw API
-// Public API
-// Diagnostics
 // ======================================================
-
-
-// ======================================================
-// USER DEPOSIT METHODS
-// ======================================================
-//
-// GET /api/payment-settings/deposit
-//
-// IMPORTANT:
-// Ye endpoint USER frontend ka source of truth hai.
-//
-// Sirf enabled methods return honge.
-//
-// MongoDB fields:
-//
-// BANK
-// JAZZCASH
-// EASYPAISA
-// USDT TRC20
-// USDT BEP20
-// USDT ERC20
-// ======================================================
-
-router.get(
-  "/deposit",
-  verifyToken,
-  async (req, res) => {
-    try {
-      const settings =
-        await PaymentSettings.findOne().lean();
-
-      // ------------------------------------------------
-      // No settings document
-      // ------------------------------------------------
-
-      if (!settings) {
-        return res.status(200).json({
-          success: true,
-          total: 0,
-          methods: [],
-          updatedAt: null,
-        });
-      }
-
-      const methods = [];
-
-      // =================================================
-      // BANK
-      // =================================================
-
-      if (
-        settings.bankEnabled === true &&
-        (
-          settings.bankName ||
-          settings.bankAccountTitle ||
-          settings.bankAccountNumber ||
-          settings.iban
-        )
-      ) {
-        methods.push({
-          _id:
-            `BANK_${settings._id}`,
-
-          method:
-            "BANK",
-
-          title:
-            settings.bankName ||
-            "Bank Transfer",
-
-          enabled:
-            true,
-
-          bankName:
-            settings.bankName || "",
-
-          accountTitle:
-            settings.bankAccountTitle || "",
-
-          accountNumber:
-            settings.bankAccountNumber || "",
-
-          iban:
-            settings.iban || "",
-
-          walletAddress:
-            "",
-
-          network:
-            "",
-
-          qrImage:
-            settings.bankQR || "",
-        });
-      }
-
-      // =================================================
-      // JAZZCASH
-      // =================================================
-
-      if (
-        settings.jazzCashEnabled === true &&
-        (
-          settings.jazzCashTitle ||
-          settings.jazzCashNumber
-        )
-      ) {
-        methods.push({
-          _id:
-            `JAZZCASH_${settings._id}`,
-
-          method:
-            "JAZZCASH",
-
-          title:
-            "JazzCash",
-
-          enabled:
-            true,
-
-          accountTitle:
-            settings.jazzCashTitle || "",
-
-          accountNumber:
-            settings.jazzCashNumber || "",
-
-          iban:
-            "",
-
-          walletAddress:
-            "",
-
-          network:
-            "",
-
-          qrImage:
-            settings.jazzCashQR || "",
-        });
-      }
-
-      // =================================================
-      // EASYPAISA
-      // =================================================
-
-      if (
-        settings.easypaisaEnabled === true &&
-        (
-          settings.easypaisaTitle ||
-          settings.easypaisaNumber
-        )
-      ) {
-        methods.push({
-          _id:
-            `EASYPAISA_${settings._id}`,
-
-          method:
-            "EASYPAISA",
-
-          title:
-            "EasyPaisa",
-
-          enabled:
-            true,
-
-          accountTitle:
-            settings.easypaisaTitle || "",
-
-          accountNumber:
-            settings.easypaisaNumber || "",
-
-          iban:
-            "",
-
-          walletAddress:
-            "",
-
-          network:
-            "",
-
-          qrImage:
-            settings.easypaisaQR || "",
-        });
-      }
-
-      // =================================================
-      // USDT TRC20
-      // =================================================
-
-      if (
-        settings.usdtEnabled === true &&
-        clean(
-          settings.usdtTRC20
-        )
-      ) {
-        methods.push({
-          _id:
-            `BINANCE_${settings._id}`,
-
-          method:
-            "BINANCE",
-
-          title:
-            "USDT TRC20",
-
-          enabled:
-            true,
-
-          accountTitle:
-            "",
-
-          accountNumber:
-            "",
-
-          iban:
-            "",
-
-          walletAddress:
-            settings.usdtTRC20,
-
-          network:
-            "TRC20",
-
-          qrImage:
-            settings.binanceQR || "",
-        });
-      }
-
-      // =================================================
-      // USDT BEP20
-      // =================================================
-
-      if (
-        settings.usdtEnabled === true &&
-        clean(
-          settings.usdtBEP20
-        )
-      ) {
-        methods.push({
-          _id:
-            `USDT_BEP20_${settings._id}`,
-
-          method:
-            "USDT_BEP20",
-
-          title:
-            "USDT BEP20",
-
-          enabled:
-            true,
-
-          accountTitle:
-            "",
-
-          accountNumber:
-            "",
-
-          iban:
-            "",
-
-          walletAddress:
-            settings.usdtBEP20,
-
-          network:
-            "BEP20",
-
-          qrImage:
-            settings.binanceQR || "",
-        });
-      }
-
-      // =================================================
-      // USDT ERC20
-      // =================================================
-
-      if (
-        settings.usdtEnabled === true &&
-        clean(
-          settings.usdtERC20
-        )
-      ) {
-        methods.push({
-          _id:
-            `USDT_ERC20_${settings._id}`,
-
-          method:
-            "USDT_ERC20",
-
-          title:
-            "USDT ERC20",
-
-          enabled:
-            true,
-
-          accountTitle:
-            "",
-
-          accountNumber:
-            "",
-
-          iban:
-            "",
-
-          walletAddress:
-            settings.usdtERC20,
-
-          network:
-            "ERC20",
-
-          qrImage:
-            settings.binanceQR || "",
-        });
-      }
-
-      // =================================================
-      // FINAL RESPONSE
-      // =================================================
-
-      return res.status(200).json({
-        success: true,
-
-        total:
-          methods.length,
-
-        methods,
-
-        updatedAt:
-          settings.updatedAt || null,
-      });
-    } catch (error) {
-      console.error(
-        "USER DEPOSIT METHODS ERROR:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-
-        message:
-          "Unable to load deposit payment methods.",
-      });
-    }
-  }
-);
-
-
-// ======================================================
-// WITHDRAW PAYMENT METHODS
-// ======================================================
+// USER WITHDRAW PAYMENT METHODS
 //
 // GET /api/payment-settings/withdraw
-//
-// User Withdraw page can use this endpoint.
-//
 // ======================================================
 
 router.get(
@@ -3625,18 +3306,16 @@ router.get(
       if (!settings) {
         return res.status(200).json({
           success: true,
-
           total: 0,
-
           methods: [],
         });
       }
 
       const methods = [];
 
-      // =================================================
+      // ==================================================
       // BANK
-      // =================================================
+      // ==================================================
 
       if (
         settings.bankEnabled === true &&
@@ -3646,15 +3325,13 @@ router.get(
         )
       ) {
         methods.push({
-          method:
-            "BANK",
+          method: "BANK",
 
           title:
             settings.bankName ||
             "Bank Transfer",
 
-          enabled:
-            true,
+          enabled: true,
 
           accountTitle:
             settings.bankAccountTitle || "",
@@ -3665,28 +3342,24 @@ router.get(
           iban:
             settings.iban || "",
 
-          network:
-            "PKR",
+          network: "PKR",
         });
       }
 
-      // =================================================
+      // ==================================================
       // JAZZCASH
-      // =================================================
+      // ==================================================
 
       if (
         settings.jazzCashEnabled === true &&
         settings.jazzCashNumber
       ) {
         methods.push({
-          method:
-            "JAZZCASH",
+          method: "JAZZCASH",
 
-          title:
-            "JazzCash",
+          title: "JazzCash",
 
-          enabled:
-            true,
+          enabled: true,
 
           accountTitle:
             settings.jazzCashTitle || "",
@@ -3694,28 +3367,24 @@ router.get(
           accountNumber:
             settings.jazzCashNumber || "",
 
-          network:
-            "PKR",
+          network: "PKR",
         });
       }
 
-      // =================================================
+      // ==================================================
       // EASYPAISA
-      // =================================================
+      // ==================================================
 
       if (
         settings.easypaisaEnabled === true &&
         settings.easypaisaNumber
       ) {
         methods.push({
-          method:
-            "EASYPAISA",
+          method: "EASYPAISA",
 
-          title:
-            "EasyPaisa",
+          title: "EasyPaisa",
 
-          enabled:
-            true,
+          enabled: true,
 
           accountTitle:
             settings.easypaisaTitle || "",
@@ -3723,95 +3392,79 @@ router.get(
           accountNumber:
             settings.easypaisaNumber || "",
 
-          network:
-            "PKR",
+          network: "PKR",
         });
       }
 
-      // =================================================
+      // ==================================================
       // USDT TRC20
-      // =================================================
+      // ==================================================
 
       if (
         settings.usdtEnabled === true &&
         settings.usdtTRC20
       ) {
         methods.push({
-          method:
-            "BINANCE",
+          method: "BINANCE",
 
-          title:
-            "USDT TRC20",
+          title: "USDT TRC20",
 
-          enabled:
-            true,
+          enabled: true,
 
           walletAddress:
             settings.usdtTRC20,
 
-          network:
-            "TRC20",
+          network: "TRC20",
         });
       }
 
-      // =================================================
+      // ==================================================
       // USDT BEP20
-      // =================================================
+      // ==================================================
 
       if (
         settings.usdtEnabled === true &&
         settings.usdtBEP20
       ) {
         methods.push({
-          method:
-            "USDT_BEP20",
+          method: "USDT_BEP20",
 
-          title:
-            "USDT BEP20",
+          title: "USDT BEP20",
 
-          enabled:
-            true,
+          enabled: true,
 
           walletAddress:
             settings.usdtBEP20,
 
-          network:
-            "BEP20",
+          network: "BEP20",
         });
       }
 
-      // =================================================
+      // ==================================================
       // USDT ERC20
-      // =================================================
+      // ==================================================
 
       if (
         settings.usdtEnabled === true &&
         settings.usdtERC20
       ) {
         methods.push({
-          method:
-            "USDT_ERC20",
+          method: "USDT_ERC20",
 
-          title:
-            "USDT ERC20",
+          title: "USDT ERC20",
 
-          enabled:
-            true,
+          enabled: true,
 
           walletAddress:
             settings.usdtERC20,
 
-          network:
-            "ERC20",
+          network: "ERC20",
         });
       }
 
       return res.status(200).json({
         success: true,
-
-        total:
-          methods.length,
-
+        total: methods.length,
         methods,
       });
     } catch (error) {
@@ -3822,7 +3475,6 @@ router.get(
 
       return res.status(500).json({
         success: false,
-
         message:
           "Unable to load withdraw payment settings.",
       });
@@ -3833,15 +3485,11 @@ router.get(
 
 // ======================================================
 // PUBLIC PAYMENT SETTINGS
-// ======================================================
 //
 // GET /api/payment-settings/public
 //
 // No JWT required.
-//
-// IMPORTANT:
-// Sensitive account numbers/wallet addresses are NOT
-// returned here.
+// Sensitive account details are NOT returned.
 // ======================================================
 
 router.get(
@@ -3854,19 +3502,16 @@ router.get(
       if (!settings) {
         return res.status(200).json({
           success: true,
-
           depositMethods: [],
-
-          updatedAt:
-            null,
+          updatedAt: null,
         });
       }
 
       const depositMethods = [];
 
-      // =================================================
+      // ==================================================
       // BANK
-      // =================================================
+      // ==================================================
 
       if (
         settings.bankEnabled === true &&
@@ -3876,61 +3521,49 @@ router.get(
         )
       ) {
         depositMethods.push({
-          method:
-            "BANK",
+          method: "BANK",
 
           title:
             settings.bankName ||
             "Bank Transfer",
 
-          network:
-            "PKR",
+          network: "PKR",
         });
       }
 
-      // =================================================
+      // ==================================================
       // JAZZCASH
-      // =================================================
+      // ==================================================
 
       if (
         settings.jazzCashEnabled === true &&
         settings.jazzCashNumber
       ) {
         depositMethods.push({
-          method:
-            "JAZZCASH",
-
-          title:
-            "JazzCash",
-
-          network:
-            "PKR",
+          method: "JAZZCASH",
+          title: "JazzCash",
+          network: "PKR",
         });
       }
 
-      // =================================================
+      // ==================================================
       // EASYPAISA
-      // =================================================
+      // ==================================================
 
       if (
         settings.easypaisaEnabled === true &&
         settings.easypaisaNumber
       ) {
         depositMethods.push({
-          method:
-            "EASYPAISA",
-
-          title:
-            "EasyPaisa",
-
-          network:
-            "PKR",
+          method: "EASYPAISA",
+          title: "EasyPaisa",
+          network: "PKR",
         });
       }
 
-      // =================================================
+      // ==================================================
       // USDT
-      // =================================================
+      // ==================================================
 
       if (
         settings.usdtEnabled === true &&
@@ -3941,12 +3574,8 @@ router.get(
         )
       ) {
         depositMethods.push({
-          method:
-            "USDT",
-
-          title:
-            "USDT",
-
+          method: "USDT",
+          title: "USDT",
           network:
             "TRC20/BEP20/ERC20",
         });
@@ -3954,12 +3583,9 @@ router.get(
 
       return res.status(200).json({
         success: true,
-
         depositMethods,
-
         updatedAt:
-          settings.updatedAt ||
-          null,
+          settings.updatedAt || null,
       });
     } catch (error) {
       console.error(
@@ -3969,7 +3595,6 @@ router.get(
 
       return res.status(500).json({
         success: false,
-
         message:
           "Unable to load public payment settings.",
       });
@@ -3980,13 +3605,8 @@ router.get(
 
 // ======================================================
 // ADMIN PAYMENT SETTINGS DEBUG
-// ======================================================
 //
 // GET /api/payment-settings/debug
-//
-// Admin only.
-//
-// Use this after deployment to verify MongoDB data.
 // ======================================================
 
 router.get(
@@ -3997,6 +3617,11 @@ router.get(
     try {
       const settings =
         await PaymentSettings.findOne().lean();
+
+      const methods =
+        settings
+          ? getDepositMethods(settings)
+          : [];
 
       return res.status(200).json({
         success: true,
@@ -4014,74 +3639,46 @@ router.get(
           Boolean(settings),
 
         // ----------------------------------------------
-        // BANK
+        // V18 SOURCE OF TRUTH
         // ----------------------------------------------
 
-        hasBank:
-          Boolean(
-            settings?.bankName ||
-            settings?.bankAccountNumber ||
-            settings?.iban
-          ),
+        depositMethods:
+          settings?.depositMethods || [],
+
+        formattedMethods:
+          methods,
+
+        totalMethods:
+          methods.length,
+
+        activeMethods:
+          methods.filter(
+            (item) =>
+              item.enabled === true
+          ).length,
+
+        // ----------------------------------------------
+        // LEGACY STATUS
+        // ----------------------------------------------
 
         bankEnabled:
           settings?.bankEnabled === true,
 
-        // ----------------------------------------------
-        // JAZZCASH
-        // ----------------------------------------------
-
-        hasJazzCash:
-          Boolean(
-            settings?.jazzCashNumber ||
-            settings?.jazzCashTitle
-          ),
-
         jazzCashEnabled:
           settings?.jazzCashEnabled === true,
 
-        // ----------------------------------------------
-        // EASYPAISA
-        // ----------------------------------------------
-
-        hasEasyPaisa:
-          Boolean(
-            settings?.easypaisaNumber ||
-            settings?.easypaisaTitle
-          ),
-
         easypaisaEnabled:
           settings?.easypaisaEnabled === true,
-
-        // ----------------------------------------------
-        // USDT
-        // ----------------------------------------------
-
-        hasUSDTTRC20:
-          Boolean(
-            settings?.usdtTRC20
-          ),
-
-        hasUSDTBEP20:
-          Boolean(
-            settings?.usdtBEP20
-          ),
-
-        hasUSDTERC20:
-          Boolean(
-            settings?.usdtERC20
-          ),
 
         usdtEnabled:
           settings?.usdtEnabled === true,
 
         // ----------------------------------------------
-        // TIMESTAMP
+        // TIMESTAMPS
         // ----------------------------------------------
 
         updatedAt:
-          settings?.updatedAt ||
-          null,
+          settings?.updatedAt || null,
 
         serverTime:
           new Date().toISOString(),
@@ -4094,34 +3691,29 @@ router.get(
 
       return res.status(500).json({
         success: false,
-
         message:
           "Payment settings diagnostics failed.",
       });
     }
   }
 );
-
-
 // ======================================================
-// GoldTrade V18 Enterprise Backend
-// paymentSettingsRoutes.js
 // PART 6/6 — FINAL
-//
-// Reset + Final Safety + Router Export
+// RESET
+// ADMIN SUMMARY
+// ROUTER INFO
+// FINAL EXPORT
 // ======================================================
 
 
 // ======================================================
 // RESET PAYMENT SETTINGS
-// ======================================================
 //
 // POST /api/payment-settings/admin/reset
 //
 // IMPORTANT:
-// Ye sirf admin ke manual reset ke liye hai.
-//
-// Is route ko normal Save button se call nahi kiya jata.
+// Ye manual admin reset hai.
+// Normal Save button is route ko call nahi karta.
 // ======================================================
 
 router.post(
@@ -4137,101 +3729,69 @@ router.post(
           {
             $set: {
               // ------------------------------------------
+              // V18 SOURCE OF TRUTH
+              // ------------------------------------------
+
+              depositMethods: [],
+
+              // ------------------------------------------
               // BANK
               // ------------------------------------------
 
-              bankName:
-                "",
-
-              bankAccountTitle:
-                "",
-
-              bankAccountNumber:
-                "",
-
-              iban:
-                "",
-
-              bankQR:
-                "",
-
-              bankEnabled:
-                false,
+              bankName: "",
+              bankAccountTitle: "",
+              bankAccountNumber: "",
+              iban: "",
+              bankQR: "",
+              bankEnabled: false,
 
               // ------------------------------------------
               // JAZZCASH
               // ------------------------------------------
 
-              jazzCashNumber:
-                "",
-
-              jazzCashTitle:
-                "",
-
-              jazzCashQR:
-                "",
-
-              jazzCashEnabled:
-                false,
+              jazzCashNumber: "",
+              jazzCashTitle: "",
+              jazzCashQR: "",
+              jazzCashEnabled: false,
 
               // ------------------------------------------
               // EASYPAISA
               // ------------------------------------------
 
-              easypaisaNumber:
-                "",
-
-              easypaisaTitle:
-                "",
-
-              easypaisaQR:
-                "",
-
-              easypaisaEnabled:
-                false,
+              easypaisaNumber: "",
+              easypaisaTitle: "",
+              easypaisaQR: "",
+              easypaisaEnabled: false,
 
               // ------------------------------------------
               // USDT
               // ------------------------------------------
 
-              usdtTRC20:
-                "",
-
-              usdtBEP20:
-                "",
-
-              usdtERC20:
-                "",
-
-              binanceQR:
-                "",
-
-              usdtEnabled:
-                false,
+              usdtTRC20: "",
+              usdtBEP20: "",
+              usdtERC20: "",
+              binanceQR: "",
+              usdtEnabled: false,
             },
           },
 
           {
-            new:
-              true,
-
-            upsert:
-              true,
-
-            setDefaultsOnInsert:
-              true,
-
-            runValidators:
-              true,
+            new: true,
+            upsert: true,
+            setDefaultsOnInsert: true,
+            runValidators: true,
           }
         ).lean();
 
       return res.status(200).json({
-        success:
-          true,
+        success: true,
 
         message:
           "Payment settings reset successfully.",
+
+        total: 0,
+
+        methods: [],
 
         settings,
 
@@ -4245,8 +3805,7 @@ router.post(
       );
 
       return res.status(500).json({
-        success:
-          false,
+        success: false,
 
         message:
           "Unable to reset payment settings.",
@@ -4258,7 +3817,6 @@ router.post(
 
 // ======================================================
 // ADMIN PAYMENT SETTINGS SUMMARY
-// ======================================================
 //
 // GET /api/payment-settings/admin/summary
 //
@@ -4274,141 +3832,34 @@ router.get(
       const settings =
         await PaymentSettings.findOne().lean();
 
+      // ----------------------------------------------
+      // NO SETTINGS
+      // ----------------------------------------------
+
       if (!settings) {
         return res.status(200).json({
-          success:
-            true,
+          success: true,
 
-          totalMethods:
-            0,
+          totalMethods: 0,
 
-          activeMethods:
-            0,
+          activeMethods: 0,
+
+          inactiveMethods: 0,
 
           methods: [],
         });
       }
 
-      const methods = [];
+      // ----------------------------------------------
+      // V18 SOURCE OF TRUTH
+      // ----------------------------------------------
 
-      // ------------------------------------------------
-      // BANK
-      // ------------------------------------------------
+      const methods =
+        getDepositMethods(settings);
 
-      if (
-        settings.bankName ||
-        settings.bankAccountNumber ||
-        settings.iban
-      ) {
-        methods.push({
-          method:
-            "BANK",
-
-          title:
-            settings.bankName ||
-            "Bank Transfer",
-
-          enabled:
-            settings.bankEnabled === true,
-        });
-      }
-
-      // ------------------------------------------------
-      // JAZZCASH
-      // ------------------------------------------------
-
-      if (
-        settings.jazzCashNumber ||
-        settings.jazzCashTitle
-      ) {
-        methods.push({
-          method:
-            "JAZZCASH",
-
-          title:
-            "JazzCash",
-
-          enabled:
-            settings.jazzCashEnabled === true,
-        });
-      }
-
-      // ------------------------------------------------
-      // EASYPAISA
-      // ------------------------------------------------
-
-      if (
-        settings.easypaisaNumber ||
-        settings.easypaisaTitle
-      ) {
-        methods.push({
-          method:
-            "EASYPAISA",
-
-          title:
-            "EasyPaisa",
-
-          enabled:
-            settings.easypaisaEnabled === true,
-        });
-      }
-
-      // ------------------------------------------------
-      // TRC20
-      // ------------------------------------------------
-
-      if (
-        settings.usdtTRC20
-      ) {
-        methods.push({
-          method:
-            "BINANCE",
-
-          title:
-            "USDT TRC20",
-
-          enabled:
-            settings.usdtEnabled === true,
-        });
-      }
-
-      // ------------------------------------------------
-      // BEP20
-      // ------------------------------------------------
-
-      if (
-        settings.usdtBEP20
-      ) {
-        methods.push({
-          method:
-            "USDT_BEP20",
-
-          title:
-            "USDT BEP20",
-
-          enabled:
-            settings.usdtEnabled === true,
-        });
-      }
-
-      // ------------------------------------------------
-      // ERC20
-      // ------------------------------------------------
-
-      if (
-        settings.usdtERC20
-      ) {
-        methods.push({
-          method:
-            "USDT_ERC20",
-
-          title:
-            "USDT ERC20",
-
-          enabled:
-            settings.usdtEnabled === true,
-        });
-      }
+      // ----------------------------------------------
+      // ACTIVE METHODS
+      // ----------------------------------------------
 
       const activeMethods =
         methods.filter(
@@ -4417,8 +3868,7 @@ router.get(
         );
 
       return res.status(200).json({
-        success:
-          true,
+        success: true,
 
         totalMethods:
           methods.length,
@@ -4433,8 +3883,7 @@ router.get(
         methods,
 
         updatedAt:
-          settings.updatedAt ||
-          null,
+          settings.updatedAt || null,
       });
     } catch (error) {
       console.error(
@@ -4443,8 +3892,7 @@ router.get(
       );
 
       return res.status(500).json({
-        success:
-          false,
+        success: false,
 
         message:
           "Unable to load payment settings summary.",
@@ -4456,19 +3904,17 @@ router.get(
 
 // ======================================================
 // API ROUTE INFORMATION
-// ======================================================
 //
 // GET /api/payment-settings
 //
-// Simple endpoint to confirm that the router is mounted.
+// Simple endpoint to confirm router is mounted.
 // ======================================================
 
 router.get(
   "/",
   (req, res) => {
     return res.status(200).json({
-      success:
-        true,
+      success: true,
 
       module:
         "GoldTrade V18 Payment Settings API",
@@ -4495,13 +3941,28 @@ router.get(
         adminAll:
           "GET /api/payment-settings/admin/all",
 
+        adminRaw:
+          "GET /api/payment-settings/admin/raw",
+
         adminDeposit:
           "GET /api/payment-settings/admin/deposit",
+
+        adminDebug:
+          "GET /api/payment-settings/admin/deposit/debug",
 
         adminSave:
           "PATCH /api/payment-settings/admin/deposit",
 
-        adminDebug:
+        adminStatus:
+          "PATCH /api/payment-settings/admin/deposit/status",
+
+        adminSummary:
+          "GET /api/payment-settings/admin/summary",
+
+        adminReset:
+          "POST /api/payment-settings/admin/reset",
+
+        debug:
           "GET /api/payment-settings/debug",
       },
 
@@ -4514,11 +3975,10 @@ router.get(
 
 // ======================================================
 // FINAL ROUTER EXPORT
-// ======================================================
 //
 // IMPORTANT:
-// Ye line file ke bilkul end mein honi chahiye.
+// Ye file ki LAST LINE honi chahiye.
+// Iske neeche kuch bhi nahi.
 // ======================================================
 
-module.exports =
-  router;
+module.exports = router;

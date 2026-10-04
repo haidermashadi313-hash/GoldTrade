@@ -4,14 +4,23 @@
 
 const mongoose = require("mongoose");
 
+// ======================================================
+// USER SCHEMA
+// ======================================================
+
 const userSchema = new mongoose.Schema(
   {
+    // ==================================================
+    // BASIC ACCOUNT INFORMATION
+    // ==================================================
+
     username: {
       type: String,
       required: true,
       unique: true,
       lowercase: true,
       trim: true,
+      index: true,
     },
 
     email: {
@@ -20,6 +29,7 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      index: true,
     },
 
     password: {
@@ -27,60 +37,77 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
 
+    // ==================================================
+    // ROLE
+    // ==================================================
+
     role: {
       type: String,
-      default: "user",
       enum: ["user", "admin"],
+      default: "user",
+      lowercase: true,
+      trim: true,
+      index: true,
     },
+
+    // ==================================================
+    // PROFILE
+    // ==================================================
 
     fullName: {
       type: String,
       default: "",
+      trim: true,
     },
 
     phone: {
       type: String,
       default: "",
+      trim: true,
     },
 
     country: {
       type: String,
       default: "",
+      trim: true,
     },
 
-    wallet: {
-      type: Number,
-      default: 0,
-    },
-
-    pkrBalance: {
-      type: Number,
-      default: 0,
-    },
-
-    usdtBalance: {
-      type: Number,
-      default: 0,
-    },
-
-    goldBalance: {
-      type: Number,
-      default: 0,
-    },
+    // ==================================================
+    // ACCOUNT STATUS
+    // ==================================================
 
     isActive: {
       type: Boolean,
       default: true,
+      index: true,
     },
+
+    // ==================================================
+    // LAST LOGIN
+    // ==================================================
 
     lastLogin: {
       type: Date,
       default: null,
     },
   },
+
+  // ====================================================
+  // TIMESTAMPS
+  // ====================================================
+
   {
     timestamps: true,
   }
 );
 
-module.exports = mongoose.model("User", userSchema);
+// ======================================================
+// EXPORT MODEL
+// ======================================================
+
+module.exports =
+  mongoose.models.User ||
+  mongoose.model(
+    "User",
+    userSchema
+  );
