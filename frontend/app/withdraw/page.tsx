@@ -1849,7 +1849,7 @@ const WithdrawConfirmationInfo = () => (
         </h3>
 
         <p className="text-gray-300 text-sm">
-          Every withdrawal request is reviewed by GoldTrade Ai.
+          Every withdrawal request is reviewed by GoldTrade Support.
         </p>
 
         <ul className="text-gray-400 text-sm space-y-2 mt-3">
@@ -2832,10 +2832,6 @@ const WithdrawHistorySection = () => (
   </div>
 );
 
-// PART 8/8
-// FINAL PAGE RETURN + FOOTER + SUCCESS / ERROR TOAST
-// GoldTrade V18 Enterprise (Production Final)
-// =====================================================
 
 // =====================================================
 // SUCCESS TOAST
@@ -2923,7 +2919,7 @@ const WithdrawFooter = () => (
 
         <div className="flex items-center gap-3 text-green-400">
           <Shield size={18} />
-          JWT Protected Withdrawal System
+          Cobra Protected Withdrawal System
         </div>
 
         <div className="flex items-center gap-3 text-red-400">

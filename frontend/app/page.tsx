@@ -30,7 +30,7 @@ export default function HomePage() {
     <main className="min-h-screen bg-black flex items-center justify-center">
       <div className="text-center">
         <h1 className="text-4xl font-bold text-yellow-400 mb-4">
-          GoldTrade V18
+          GoldTrade Enterprises
         </h1>
 
         <p className="text-gray-300 text-lg">
@@ -44,4 +44,3 @@ export default function HomePage() {
     </main>
   );
 }
-

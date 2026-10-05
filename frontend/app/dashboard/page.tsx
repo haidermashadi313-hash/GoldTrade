@@ -1,12 +1,5 @@
 ﻿"use client";
 
-// ==========================================================
-// GoldTrade V18 Enterprise
-// USER DASHBOARD
-// PART 1/12
-// Next.js 15 + TypeScript + Render + Vercel + Linux
-// ==========================================================
-
 import {
   useState,
   useEffect,
@@ -1486,7 +1479,7 @@ return (
         {/* Brand / User */}
         <div className="min-w-0">
           <h1 className="truncate text-xl font-bold text-yellow-400 sm:text-2xl">
-            GoldTrade V18 Enterprise
+            GoldTrade Enterprise.
           </h1>
 
           <p className="mt-1 truncate text-sm text-gray-400">
@@ -1870,7 +1863,7 @@ return (
             </h2>
 
             <p className="mt-1 text-sm text-gray-500">
-              Live buy/sell prices synced from backend.
+              Live buy/sell prices synced from the GoldTrade platform.
             </p>
           </div>
 
@@ -2146,85 +2139,6 @@ return (
 
         </div>
       </section>
-
-
-<section
-  aria-label="Transaction overview"
-  className="rounded-3xl border border-gray-800 bg-zinc-950 p-5 shadow-xl sm:p-6"
->
-  {/* ==================================================== */}
-  {/* SECTION HEADER */}
-  {/* ==================================================== */}
-
-  <div className="mb-6">
-    <h2 className="text-xl font-bold text-white">
-      Transaction Overview
-    </h2>
-
-    <p className="mt-1 text-sm text-gray-500">
-      Summary of your GoldTrade account activity.
-    </p>
-  </div>
-
-  {/* ==================================================== */}
-  {/* TRANSACTION STATS */}
-  {/* ==================================================== */}
-
-  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-    {[
-      {
-        title: "Total Transactions",
-        value: transactionSummary.total,
-        color: "text-white",
-        border: "border-gray-800",
-        bg: "bg-black",
-      },
-      {
-        title: "Deposits",
-        value: transactionSummary.deposits,
-        color: "text-green-400",
-        border: "border-green-500/20",
-        bg: "bg-green-500/5",
-      },
-      {
-        title: "Withdrawals",
-        value: transactionSummary.withdrawals,
-        color: "text-red-400",
-        border: "border-red-500/20",
-        bg: "bg-red-500/5",
-      },
-      {
-        title: "Gold Trades",
-        value: transactionSummary.goldTrades,
-        color: "text-yellow-400",
-        border: "border-yellow-500/20",
-        bg: "bg-yellow-500/5",
-      },
-      {
-        title: "USDT Trades",
-        value: transactionSummary.usdtTrades,
-        color: "text-cyan-400",
-        border: "border-cyan-500/20",
-        bg: "bg-cyan-500/5",
-      },
-    ].map((item) => (
-      <div
-        key={item.title}
-        className={`rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-0.5 ${item.border} ${item.bg}`}
-      >
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-          {item.title}
-        </p>
-
-        <h3
-          className={`mt-3 text-3xl font-bold ${item.color}`}
-        >
-          {formatNumber(item.value)}
-        </h3>
-      </div>
-    ))}
-  </div>
-</section>
 
 
 {/* ======================================================== */}
@@ -2791,7 +2705,6 @@ return (
       </div>
     </div>
   </div>
-</section>
 
 {/* ================================================= */}
 {/* DEPOSIT & WITHDRAW SHORTCUTS */}
@@ -2858,133 +2771,7 @@ return (
   </div>
 </section>
 
-{/* ================================================= */}
-{/* PORTFOLIO INSIGHTS */}
-{/* ================================================= */}
 
-<section
-  aria-label="Portfolio insights"
-  className="rounded-3xl border border-purple-500/20 bg-purple-500/5 p-5 shadow-xl sm:p-6"
->
-  <div className="mb-6">
-    <h2 className="text-xl font-bold text-purple-400">
-      Portfolio Insights
-    </h2>
-
-    <p className="mt-1 text-sm text-purple-100/60">
-      Overview of your wallet diversification.
-    </p>
-  </div>
-
-  <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-    <div className="rounded-2xl border border-gray-800 bg-black p-5">
-      <p className="text-xs uppercase tracking-wide text-gray-500">
-        PKR Wallet
-      </p>
-
-      <h3 className="mt-3 text-2xl font-bold text-green-400">
-        PKR {formatCurrency(wallet.balancePKR)}
-      </h3>
-    </div>
-
-    <div className="rounded-2xl border border-gray-800 bg-black p-5">
-      <p className="text-xs uppercase tracking-wide text-gray-500">
-        Gold Value
-      </p>
-
-      <h3 className="mt-3 text-2xl font-bold text-yellow-400">
-        PKR {formatCurrency(balanceSummary.totalGoldValue)}
-      </h3>
-    </div>
-
-    <div className="rounded-2xl border border-gray-800 bg-black p-5">
-      <p className="text-xs uppercase tracking-wide text-gray-500">
-        USDT Wallet Value
-      </p>
-
-      <h3 className="mt-3 text-2xl font-bold text-cyan-400">
-        PKR{" "}
-        {formatCurrency(
-          Number(wallet.balanceUSDT || 0) *
-            Number(usdtMarket.sellPrice || 0)
-        )}
-      </h3>
-    </div>
-
-    <div className="rounded-2xl border border-gray-800 bg-black p-5">
-      <p className="text-xs uppercase tracking-wide text-gray-500">
-        Total Assets
-      </p>
-
-      <h3 className="mt-3 text-2xl font-bold text-purple-400">
-        PKR {formatCurrency(balanceSummary.totalAssets)}
-      </h3>
-    </div>
-  </div>
-</section>
-
-{/* ================================================= */}
-{/* SECURITY CENTER */}
-{/* ================================================= */}
-
-<section
-  aria-label="Security center"
-  className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-5 shadow-xl sm:p-6"
->
-  <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <h2 className="text-xl font-bold text-emerald-400">
-        GoldTrade Security Center
-      </h2>
-
-      <p className="mt-1 text-sm text-emerald-100/60">
-        Your account security and session protection status.
-      </p>
-    </div>
-
-    <div className="w-fit rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-300">
-      PROTECTED
-    </div>
-  </div>
-
-  <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-    {[
-      {
-        title: "JWT Session",
-        value: "Active",
-        color: "text-green-400",
-      },
-      {
-        title: "HTTPS Connection",
-        value: "Secure",
-        color: "text-cyan-400",
-      },
-      {
-        title: "Wallet Encryption",
-        value: "Enabled",
-        color: "text-yellow-400",
-      },
-      {
-        title: "Role Verification",
-        value: user?.role === "user" ? "Verified" : "Unknown",
-        color: "text-purple-400",
-      },
-    ].map((item) => (
-      <div
-        key={item.title}
-        className="rounded-2xl border border-gray-800 bg-black p-5"
-      >
-        <p className="text-xs uppercase tracking-wide text-gray-500">
-          {item.title}
-        </p>
-
-        <h3 className={`mt-3 text-xl font-bold ${item.color}`}>
-          {item.value}
-        </h3>
-      </div>
-    ))}
-  </div>
-</section>
 
 {/* ================================================= */}
 {/* LIVE SYSTEM STATUS */}
@@ -3050,51 +2837,7 @@ return (
   </div>
 </section>
 
-{/* ================================================= */}
-{/* WALLET PROTECTION */}
-{/* ================================================= */}
 
-<section
-  aria-label="Wallet protection"
-  className="rounded-3xl border border-indigo-500/20 bg-indigo-500/5 p-5 shadow-xl sm:p-6"
->
-  <div className="mb-6">
-    <h2 className="text-xl font-bold text-indigo-400">
-      Wallet Protection
-    </h2>
-
-    <p className="mt-1 text-sm text-indigo-100/60">
-      Security controls used to protect wallet operations.
-    </p>
-  </div>
-
-  <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-    {[
-      "JWT Authentication Enabled",
-      "Secure Wallet Validation",
-      "Transaction Verification",
-      "Protected Withdraw Approval",
-    ].map((item) => (
-      <div
-        key={item}
-        className="rounded-2xl border border-indigo-500/20 bg-black p-5"
-      >
-        <div className="flex items-start gap-3">
-          <span
-            className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500/10 text-xs text-indigo-400"
-            aria-hidden="true"
-          >
-            ✓
-          </span>
-
-          <p className="text-sm leading-6 text-indigo-200">
-            {item}
-          </p>
-        </div>
-      </div>
-    ))}
-  </div>
-</section>
 
 {/* ================================================= */}
 {/* HELP CENTER */}
@@ -3187,102 +2930,10 @@ return (
   </div>
 </section>
 
-{/* ================================================= */}
-{/* ENTERPRISE FOOTER */}
-{/* ================================================= */}
-
-<section
-  aria-label="GoldTrade Enterprise footer"
-  className="rounded-3xl border border-yellow-500/20 bg-gradient-to-r from-yellow-500/10 via-black to-yellow-500/10 p-5 shadow-xl sm:p-6"
->
-  <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-    {/* BRAND / PLATFORM INFO */}
-
-    <div className="min-w-0">
-      <h2 className="text-2xl font-bold text-yellow-400 sm:text-3xl">
-        GoldTrade  Enterprise
-      </h2>
-
-      <p className="mt-2 text-sm leading-6 text-gray-400 sm:text-base">
-        Enterprise Trading Platform •
-      </p>
-
-      <p className="mt-1 max-w-2xl text-xs leading-6 text-gray-500 sm:text-sm">
-        Secure JWT Authentication • Live Gold • Live USDT • Portfolio Sync
-      </p>
-    </div>
-
-    {/* FOOTER STATS */}
-
-    <div className="grid w-full grid-cols-2 gap-4 sm:gap-5 lg:w-auto lg:min-w-[420px]">
-      {/* WALLET BALANCE */}
-
-      <div className="rounded-2xl border border-gray-800 bg-black/60 p-4 text-center">
-        <p className="text-[11px] uppercase tracking-wide text-gray-500 sm:text-xs">
-          Wallet Balance
-        </p>
-
-        <h3 className="mt-2 text-lg font-bold text-green-400 sm:text-xl">
-          PKR {formatCurrency(Number(wallet.balancePKR || 0))}
-        </h3>
-      </div>
-
-      {/* PORTFOLIO VALUE */}
-
-      <div className="rounded-2xl border border-gray-800 bg-black/60 p-4 text-center">
-        <p className="text-[11px] uppercase tracking-wide text-gray-500 sm:text-xs">
-          Portfolio Value
-        </p>
-
-        <h3 className="mt-2 text-lg font-bold text-yellow-400 sm:text-xl">
-          PKR {formatCurrency(Number(stats.portfolioValue || 0))}
-        </h3>
-      </div>
-
-      {/* LIVE PROFIT */}
-
-      <div className="rounded-2xl border border-gray-800 bg-black/60 p-4 text-center">
-        <p className="text-[11px] uppercase tracking-wide text-gray-500 sm:text-xs">
-          Live Profit
-        </p>
-
-        <h3
-          className={`mt-2 text-lg font-bold sm:text-xl ${
-            Number(stats.liveProfit || 0) >= 0
-              ? "text-green-400"
-              : "text-red-400"
-          }`}
-        >
-          PKR {formatCurrency(Number(stats.liveProfit || 0))}
-        </h3>
-      </div>
-
-      {/* TRADING STATUS */}
-
-      <div className="rounded-2xl border border-gray-800 bg-black/60 p-4 text-center">
-        <p className="text-[11px] uppercase tracking-wide text-gray-500 sm:text-xs">
-          Trading Status
-        </p>
-
-        <h3
-          className={`mt-2 text-lg font-bold sm:text-xl ${
-            goldMarket.marketStatus === "OPEN"
-              ? "text-green-400"
-              : "text-red-400"
-          }`}
-        >
-          {goldMarket.marketStatus || "UNKNOWN"}
-        </h3>
-      </div>
-    </div>
-  </div>
-
-  {/* FOOTER BOTTOM */}
-
   <div className="mt-8 border-t border-yellow-500/20 pt-6">
     <div className="flex flex-col gap-3 text-center text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between sm:text-sm">
       <p>
-        © 2026 GoldTrade V18 Enterprise — All Rights Reserved.
+        © 2026 GoldTrade Enterprise — All Rights Reserved.
       </p>
 
       <p className="text-gray-600">

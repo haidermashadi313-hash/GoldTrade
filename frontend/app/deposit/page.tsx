@@ -4686,79 +4686,6 @@ const DepositHistorySection = () => (
 
 
 // =====================================================
-// DEPOSIT STATUS LEGEND
-// =====================================================
-
-const DepositStatusLegend = () => (
-  <div className="rounded-2xl bg-[#111827] border border-gray-700 p-6 mb-8">
-
-    <h3 className="text-xl font-bold text-yellow-400 mb-5">
-      Deposit Status Guide
-    </h3>
-
-    <div className="space-y-4">
-
-      {/* ============================= */}
-      {/* PENDING */}
-      {/* ============================= */}
-
-      <div className="flex items-center gap-4">
-        <div className="w-4 h-4 rounded-full bg-yellow-400 shrink-0" />
-
-        <div>
-          <p className="font-semibold text-yellow-400">
-            Pending
-          </p>
-
-          <p className="text-gray-400 text-sm">
-            Waiting for system verification.
-          </p>
-        </div>
-      </div>
-
-      {/* ============================= */}
-      {/* APPROVED */}
-      {/* ============================= */}
-
-      <div className="flex items-center gap-4">
-        <div className="w-4 h-4 rounded-full bg-green-400 shrink-0" />
-
-        <div>
-          <p className="font-semibold text-green-400">
-            Approved
-          </p>
-
-          <p className="text-gray-400 text-sm">
-            After approval, the deposit and the
-            corresponding wallet credit is processed.
-          </p>
-        </div>
-      </div>
-
-      {/* ============================= */}
-      {/* REJECTED */}
-      {/* ============================= */}
-
-      <div className="flex items-center gap-4">
-        <div className="w-4 h-4 rounded-full bg-red-400 shrink-0" />
-
-        <div>
-          <p className="font-semibold text-red-400">
-            Rejected
-          </p>
-
-          <p className="text-gray-400 text-sm">
-            The system rejected the deposit request.
-          </p>
-        </div>
-      </div>
-
-    </div>
-  </div>
-);
-
-
-// =====================================================
 // SUCCESS / ERROR ALERTS
 // =====================================================
 
@@ -4901,7 +4828,7 @@ const DepositFooter = () => (
           <Shield size={18} />
 
           <span>
-            JWT Protected Deposit System
+            
           </span>
         </div>
 
@@ -4909,7 +4836,7 @@ const DepositFooter = () => (
           <Wallet size={18} />
 
           <span>
-            PKR Wallet Credit After Approval
+            l
           </span>
         </div>
 
@@ -5048,12 +4975,7 @@ return (
 
       <DepositActivityInfo />
 
-      {/* ================================================= */}
-      {/* STATUS GUIDE */}
-      {/* ================================================= */}
-
-      <DepositStatusLegend />
-
+     
       {/* ================================================= */}
       {/* DEPOSIT HISTORY */}
       {/* ================================================= */}

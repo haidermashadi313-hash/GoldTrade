@@ -1,5 +1,5 @@
 ﻿// =====================================================
-// GoldTrade V17 ENTERPRISE
+// GoldTrade V18 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 1/10
 // IMPORTS + TYPES + STATES
@@ -114,7 +114,7 @@ export default function ProfilePage() {
       month: "long",
     });
   }, [profile.createdAt]);// =====================================================
-// GoldTrade V17 ENTERPRISE
+// GoldTrade V18 ENTERPRISE
 // FILE: frontend/app/profile/page.tsx
 // SECTION 2/10
 // API FUNCTIONS + PROFILE UPDATE + IMAGE UPLOAD + SECURITY
@@ -626,9 +626,7 @@ export default function ProfilePage() {
 
         {/* ================= NEXT SECTION STARTS HERE ================= */}
         
-// GoldTrade V18 ENTERPRISE
 
-// =====================================================
 
         {/* ================= EDIT PROFILE ================= */}
 
@@ -894,152 +892,12 @@ export default function ProfilePage() {
                 </p>
 
                 <ul className="space-y-2 text-sm text-white">
-                  <li>鈥?JPG / JPEG / PNG</li>
-                  <li>鈥?Maximum Size: 5 MB</li>
-                  <li>鈥?Square passport-style photo recommended.</li>
+                  <li>JPG / JPEG / PNG</li>
+                  <li>Maximum Size: 5 MB</li>
+                  <li>Square passport-style photo recommended.</li>
                 </ul>
 
               </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GoldTrade V17 ENTERPRISE
-// FILE: frontend/app/profile/page.tsx
-// SECTION 5/10
-// SECURITY SETTINGS + PASSWORD + 2FA + REFERRAL CODE
-// =====================================================
-
-        {/* ================= SECURITY SETTINGS ================= */}
-
-        <div className="bg-zinc-900 border border-green-600 rounded-3xl p-6 mb-10">
-
-          <div className="flex items-center gap-3 mb-8">
-            <Shield className="text-green-400" size={28} />
-
-            <h2 className="text-3xl font-black text-green-400">
-              Account Security
-            </h2>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-6">
-
-            {/* Email Verification */}
-
-            <div className="bg-black border border-zinc-700 rounded-2xl p-5 flex justify-between items-center">
-
-              <div className="flex items-center gap-4">
-                <Mail className="text-green-400" size={26} />
-
-                <div>
-                  <h3 className="font-bold">Email Verification</h3>
-
-                  <p className="text-gray-400 text-sm">
-                    {profile.email}
-                  </p>
-                </div>
-              </div>
-
-              {security.emailVerified ? (
-                <span className="bg-green-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
-                  <CheckCircle2 size={14} />
-                  Verified
-                </span>
-              ) : (
-                <span className="bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
-                  <Clock size={14} />
-                  Pending
-                </span>
-              )}
-
-            </div>
-
-            {/* Phone Verification */}
-
-            <div className="bg-black border border-zinc-700 rounded-2xl p-5 flex justify-between items-center">
-
-              <div className="flex items-center gap-4">
-                <Phone className="text-cyan-400" size={26} />
-
-                <div>
-                  <h3 className="font-bold">Phone Verification</h3>
-
-                  <p className="text-gray-400 text-sm">
-                    {profile.phone}
-                  </p>
-                </div>
-              </div>
-
-              {security.phoneVerified ? (
-                <span className="bg-green-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
-                  <CheckCircle2 size={14} />
-                  Verified
-                </span>
-              ) : (
-                <span className="bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
-                  <Clock size={14} />
-                  Pending
-                </span>
-              )}
-
-            </div>
-
-            {/* Two Factor */}
-
-            <div className="bg-black border border-zinc-700 rounded-2xl p-5 flex justify-between items-center">
-
-              <div className="flex items-center gap-4">
-                <Lock className="text-purple-400" size={26} />
-
-                <div>
-                  <h3 className="font-bold">
-                    Two Factor Authentication
-                  </h3>
-
-                  <p className="text-gray-400 text-sm">
-                    Secure your GoldTrade account.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={toggleTwoFactor}
-                className={`px-4 py-2 rounded-full text-sm font-bold ${
-                  security.twoFactorEnabled
-                    ? "bg-green-600"
-                    : "bg-zinc-700"
-                }`}
-              >
-                {security.twoFactorEnabled ? "Enabled" : "Enable"}
-              </button>
-
-            </div>
-
-            {/* Account Status */}
-
-            <div className="bg-black border border-zinc-700 rounded-2xl p-5 flex justify-between items-center">
-
-              <div className="flex items-center gap-4">
-                <BadgeCheck className="text-yellow-400" size={26} />
-
-                <div>
-                  <h3 className="font-bold">
-                    Account Status
-                  </h3>
-
-                  <p className="text-gray-400 text-sm">
-                    GoldTrade Verified User
-                  </p>
-                </div>
-              </div>
-
-              <span className="bg-green-600 px-3 py-1 rounded-full text-xs font-bold">
-                ACTIVE
-              </span>
 
             </div>
 
@@ -1177,78 +1035,6 @@ export default function ProfilePage() {
 
         </div>
 
-        {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GoldTrade V17 ENTERPRISE
-// FILE: frontend/app/profile/page.tsx
-// SECTION 6/10
-// Wallet PORTFOLIO + ACCOUNT STATISTICS + MEMBERSHIP
-// =====================================================
-
-        {/* ================= Wallet PORTFOLIO ================= */}
-
-        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
-
-          <div className="flex items-center gap-3 mb-8">
-            <Wallet className="text-yellow-400" size={28} />
-            <h2 className="text-3xl font-black text-yellow-400">
-              Wallet Portfolio
-            </h2>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-6">
-
-            <div className="bg-black border border-green-600 rounded-2xl p-6">
-              <p className="text-gray-400 text-sm">Cash Wallet Balance</p>
-
-              <h3 className="text-4xl font-black text-green-400 mt-3">
-                Pkr {profile.WalletBalance.toLocaleString()}
-              </h3>
-
-              <p className="text-green-300 text-sm mt-3">
-                Available for Gold buy & Withdraw.
-              </p>
-            </div>
-
-            <div className="bg-black border border-blue-600 rounded-2xl p-6">
-              <p className="text-gray-400 text-sm">Gold Holdings</p>
-
-              <h3 className="text-4xl font-black text-blue-400 mt-3">
-                {profile.goldBalance.toFixed(4)} g
-              </h3>
-
-              <p className="text-blue-300 text-sm mt-3">
-                Physical Gold Portfolio Balance.
-              </p>
-            </div>
-
-            <div className="bg-black border border-cyan-600 rounded-2xl p-6">
-              <p className="text-gray-400 text-sm">Usdt Balance</p>
-
-              <h3 className="text-4xl font-black text-cyan-400 mt-3">
-                {profile.UsdtBalance.toFixed(2)} Usdt
-              </h3>
-
-              <p className="text-cyan-300 text-sm mt-3">
-                Crypto Wallet Balance.
-              </p>
-            </div>
-
-            <div className="bg-black border border-yellow-500 rounded-2xl p-6">
-              <p className="text-gray-400 text-sm">Total Portfolio Value</p>
-
-              <h3 className="text-4xl font-black text-yellow-400 mt-3">
-                Pkr {totalPortfolio.toLocaleString()}
-              </h3>
-
-              <p className="text-yellow-300 text-sm mt-3">
-                Wallet + Gold + Usdt Combined Value.
-              </p>
-            </div>
-
-          </div>
-
-        </div>
-
         {/* ================= PORTFOLIO ALLOCATION ================= */}
 
         <div className="bg-zinc-900 border border-purple-600 rounded-3xl p-6 mb-10">
@@ -1353,126 +1139,6 @@ export default function ProfilePage() {
 
         </div>
 
-        {/* ================= ACCOUNT STATISTICS ================= */}
-
-        <div className="bg-zinc-900 border border-orange-500 rounded-3xl p-6 mb-10">
-
-          <div className="flex items-center gap-3 mb-8">
-            <TrendingUp className="text-orange-400" size={28} />
-            <h2 className="text-3xl font-black text-orange-400">
-              Account Statistics
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-
-            <div className="bg-black border border-green-600 rounded-2xl p-5 text-center">
-
-              <Wallet className="mx-auto text-green-400 mb-3" size={26} />
-
-              <p className="text-gray-400 text-sm">Wallet Balance</p>
-
-              <h3 className="text-2xl font-black text-green-400 mt-2">
-                Pkr {profile.WalletBalance.toLocaleString()}
-              </h3>
-
-            </div>
-
-            <div className="bg-black border border-blue-600 rounded-2xl p-5 text-center">
-
-              <Coins className="mx-auto text-blue-400 mb-3" size={26} />
-
-              <p className="text-gray-400 text-sm">Gold Holdings</p>
-
-              <h3 className="text-2xl font-black text-blue-400 mt-2">
-                {profile.goldBalance.toFixed(4)} g
-              </h3>
-
-            </div>
-
-            <div className="bg-black border border-cyan-600 rounded-2xl p-5 text-center">
-
-              <Shield className="mx-auto text-cyan-400 mb-3" size={26} />
-
-              <p className="text-gray-400 text-sm">KYC Status</p>
-
-              <h3 className="text-xl font-black text-cyan-400 mt-2">
-                {getKycText()}
-              </h3>
-
-            </div>
-
-            <div className="bg-black border border-yellow-500 rounded-2xl p-5 text-center">
-
-              <Calendar className="mx-auto text-yellow-400 mb-3" size={26} />
-
-              <p className="text-gray-400 text-sm">Member Since</p>
-
-              <h3 className="text-xl font-black text-yellow-400 mt-2">
-                {memberSince}
-              </h3>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* ================= MEMBERSHIP INFORMATION ================= */}
-
-        <div className="bg-zinc-900 border border-cyan-600 rounded-3xl p-6 mb-10">
-
-          <div className="flex items-center gap-3 mb-8">
-            <BadgeCheck className="text-cyan-400" size={28} />
-            <h2 className="text-3xl font-black text-cyan-400">
-              GoldTrade Membership
-            </h2>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-6">
-
-            <div className="bg-black border border-cyan-600 rounded-2xl p-6">
-
-              <p className="text-gray-400 text-sm">Membership Level</p>
-
-              <h3 className="text-3xl font-black text-cyan-400 mt-3">
-                Gold Member
-              </h3>
-
-              <p className="text-cyan-300 text-sm mt-4">
-                Eligible for manual deposits, withdrawals and Gold trading.
-              </p>
-
-            </div>
-
-            <div className="bg-black border border-yellow-500 rounded-2xl p-6">
-
-              <p className="text-gray-400 text-sm">Account Benefits</p>
-
-              <ul className="space-y-3 mt-4 text-white text-sm">
-
-                <li>鈥?Manual Deposit Approval</li>
-
-                <li>鈥?Manual Withdrawal Approval</li>
-
-                <li>鈥?Gold buy & sell Trading</li>
-
-                <li>鈥?Referral Reward Program</li>
-
-                <li>鈥?KYC Protected Transactions</li>
-
-              </ul>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {
-        
-/* ================= NEXT SECTION STARTS HERE ================= */}
-
         {/* ================= KYC DOCUMENTS ================= */}
 
         <div className="bg-zinc-900 border border-indigo-600 rounded-3xl p-6 mb-10">
@@ -1500,7 +1166,7 @@ export default function ProfilePage() {
                 </p>
 
                 <p className="text-gray-500 text-xs mt-2">
-                  PNG / JPG / PDF 鈥?Max 5MB
+                  PNG / JPG / PDF • Max 5MB
                 </p>
 
                 <input type="file" className="hidden" accept="image/*,.pdf" />
@@ -1522,7 +1188,7 @@ export default function ProfilePage() {
                 </p>
 
                 <p className="text-gray-500 text-xs mt-2">
-                  PNG / JPG / PDF 鈥?Max 5MB
+                  PNG / JPG / PDF • Max 5MB
                 </p>
 
                 <input type="file" className="hidden" accept="image/*,.pdf" />
@@ -1728,229 +1394,6 @@ export default function ProfilePage() {
 
         </div>
 
-        {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GoldTrade V17 ENTERPRISE
-// FILE: frontend/app/profile/page.tsx
-// SECTION 8/10
-// NOTIFICATION SETTINGS + LOGIN ACTIVITY + DEVICES
-// =====================================================
-
-        {/* ================= NOTIFICATION SETTINGS ================= */}
-
-        <div className="bg-zinc-900 border border-cyan-600 rounded-3xl p-6 mb-10">
-
-          <div className="flex items-center gap-3 mb-8">
-            <Globe className="text-cyan-400" size={28} />
-
-            <h2 className="text-3xl font-black text-cyan-400">
-              Notification Preferences
-            </h2>
-          </div>
-
-          <div className="space-y-5">
-
-            {[
-              {
-                title: "Deposit Notifications",
-                desc: "Receive notification when your deposit is approved.",
-              },
-              {
-                title: "Withdrawal Notifications",
-                desc: "Receive notification when withdrawal status changes.",
-              },
-              {
-                title: "Gold Price Alerts",
-                desc: "Get live Gold price increase/decrease alerts.",
-              },
-              {
-                title: "Promotions & Offers",
-                desc: "Receive GoldTrade bonus and promotional offers.",
-              },
-              {
-                title: "Security Alerts",
-                desc: "Get notified for login and password activity.",
-              },
-            ].map((item, index) => (
-              <div
-                key={index}
-                className="bg-black border border-zinc-700 rounded-2xl p-5 flex justify-between items-center"
-              >
-
-                <div>
-
-                  <h3 className="font-bold text-white">
-                    {item.title}
-                  </h3>
-
-                  <p className="text-gray-400 text-sm mt-1">
-                    {item.desc}
-                  </p>
-
-                </div>
-
-                <button className="bg-green-600 hover:bg-green-500 px-5 py-2 rounded-full text-sm font-bold">
-                  Enabled
-                </button>
-
-              </div>
-            ))}
-
-          </div>
-
-        </div>
-
-        {/* ================= LOGIN ACTIVITY ================= */}
-
-        <div className="bg-zinc-900 border border-green-600 rounded-3xl p-6 mb-10">
-
-          <div className="flex items-center gap-3 mb-8">
-            <Shield className="text-green-400" size={28} />
-
-            <h2 className="text-3xl font-black text-green-400">
-              Recent Login Activity
-            </h2>
-          </div>
-
-          <div className="space-y-4">
-
-            {[
-              {
-                device: "Chrome on Windows",
-                location: "Islamabad, Pakistan",
-                ip: "39.xxx.xxx.xxx",
-                status: "Current Session",
-              },
-              {
-                device: "Android App",
-                location: "Lahore, Pakistan",
-                ip: "103.xxx.xxx.xxx",
-                status: "Previous Login",
-              },
-              {
-                device: "Safari on iPhone",
-                location: "Dubai, UAE",
-                ip: "185.xxx.xxx.xxx",
-                status: "Previous Login",
-              },
-            ].map((login, index) => (
-              <div
-                key={index}
-                className="bg-black border border-zinc-700 rounded-2xl p-5 flex justify-between items-center flex-wrap gap-4"
-              >
-
-                <div>
-
-                  <h3 className="font-bold text-white">
-                    {login.device}
-                  </h3>
-
-                  <p className="text-gray-400 text-sm mt-1">
-                    {login.location}
-                  </p>
-
-                  <p className="text-gray-500 text-xs mt-2">
-                    IP: {login.ip}
-                  </p>
-
-                </div>
-
-                <span
-                  className={`px-4 py-2 rounded-full text-sm font-bold ${
-                    login.status === "Current Session"
-                      ? "bg-green-600"
-                      : "bg-zinc-700"
-                  }`}
-                >
-                  {login.status}
-                </span>
-
-              </div>
-            ))}
-
-          </div>
-
-        </div>
-
-        {/* ================= CONNECTED DEVICES ================= */}
-
-        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
-
-          <div className="flex items-center gap-3 mb-8">
-            <Shield className="text-yellow-400" size={28} />
-
-            <h2 className="text-3xl font-black text-yellow-400">
-              Connected Devices
-            </h2>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-6">
-
-            {[
-              {
-                name: "Windows Laptop",
-                browser: "Google Chrome",
-                status: "Current Device",
-              },
-              {
-                name: "Samsung Galaxy S24",
-                browser: "GoldTrade Android App",
-                status: "Trusted Device",
-              },
-              {
-                name: "iPhone 15 Pro",
-                browser: "Safari Browser",
-                status: "Trusted Device",
-              },
-              {
-                name: "MacBook Air",
-                browser: "Google Chrome",
-                status: "Inactive Device",
-              },
-            ].map((device, index) => (
-              <div
-                key={index}
-                className="bg-black border border-zinc-700 rounded-2xl p-5"
-              >
-
-                <div className="flex justify-between items-start">
-
-                  <div>
-
-                    <h3 className="font-bold text-lg text-white">
-                      {device.name}
-                    </h3>
-
-                    <p className="text-gray-400 text-sm mt-1">
-                      {device.browser}
-                    </p>
-
-                  </div>
-
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      device.status === "Current Device"
-                        ? "bg-green-600"
-                        : device.status === "Trusted Device"
-                        ? "bg-blue-600"
-                        : "bg-red-600"
-                    }`}
-                  >
-                    {device.status}
-                  </span>
-
-                </div>
-
-                <button className="w-full mt-5 bg-red-600 hover:bg-red-500 py-3 rounded-xl font-bold">
-                  Disconnect Device
-                </button>
-
-              </div>
-            ))}
-
-          </div>
-
-        </div>
-
         {/* ================= SESSION MANAGEMENT ================= */}
 
         <div className="bg-zinc-900 border border-red-600 rounded-3xl p-6 mb-10">
@@ -1981,94 +1424,6 @@ export default function ProfilePage() {
               Security Recommendation
             </h3>
 
-            <ul className="space-y-2 text-gray-300 text-sm">
-              <li>鈥?Enable Two-Factor Authentication.</li>
-              <li>鈥?Change password every 90 days.</li>
-              <li>鈥?Remove devices you no longer use.</li>
-              <li>鈥?Never share OTP or recovery codes.</li>
-            </ul>
-
-          </div>
-
-        </div>
-
-        {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GoldTrade V17 ENTERPRISE
-// FILE: frontend/app/profile/page.tsx
-// SECTION 9/10
-// SUPPORT CENTER + ACCOUNT PREFERENCES + PRIVACY SETTINGS
-// =====================================================
-
-        {/* ================= SUPPORT CENTER ================= */}
-
-        <div className="bg-zinc-900 border border-yellow-500 rounded-3xl p-6 mb-10">
-
-          <div className="flex items-center gap-3 mb-8">
-            <Shield className="text-yellow-400" size={28} />
-            <h2 className="text-3xl font-black text-yellow-400">
-              Support Center
-            </h2>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-6">
-
-            <div className="bg-black border border-zinc-700 rounded-2xl p-5">
-              <h3 className="font-bold text-yellow-400 text-lg mb-2">
-                Deposit Support
-              </h3>
-
-              <p className="text-gray-400 text-sm mb-4">
-                Contact support if your deposit remains pending after the normal
-                review period.
-              </p>
-
-              <button className="w-full bg-green-600 hover:bg-green-500 py-3 rounded-xl font-bold">
-                Contact Deposit Team
-              </button>
-            </div>
-
-            <div className="bg-black border border-zinc-700 rounded-2xl p-5">
-              <h3 className="font-bold text-yellow-400 text-lg mb-2">
-                Withdrawal Support
-              </h3>
-
-              <p className="text-gray-400 text-sm mb-4">
-                Submit withdrawal-related issues or payment complaints.
-              </p>
-
-              <button className="w-full bg-red-600 hover:bg-red-500 py-3 rounded-xl font-bold">
-                Contact Withdrawal Team
-              </button>
-            </div>
-
-            <div className="bg-black border border-zinc-700 rounded-2xl p-5">
-              <h3 className="font-bold text-yellow-400 text-lg mb-2">
-                Trading Support
-              </h3>
-
-              <p className="text-gray-400 text-sm mb-4">
-                Get help with Gold buy, sell orders, or pricing issues.
-              </p>
-
-              <button className="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold">
-                Contact Trading Team
-              </button>
-            </div>
-
-            <div className="bg-black border border-zinc-700 rounded-2xl p-5">
-              <h3 className="font-bold text-yellow-400 text-lg mb-2">
-                Verification Support
-              </h3>
-
-              <p className="text-gray-400 text-sm mb-4">
-                Need help completing KYC or uploading documents?
-              </p>
-
-              <button className="w-full bg-purple-600 hover:bg-purple-500 py-3 rounded-xl font-bold">
-                Contact Verification Team
-              </button>
-            </div>
-
           </div>
 
         </div>
@@ -2094,9 +1449,9 @@ export default function ProfilePage() {
               <select className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none">
                 <option>English</option>
                 <option>Urdu</option>
-                <option>Roman Urdu</option>
+                <option>Nepali</option>
                 <option>Arabic</option>
-                <option>Khmer</option>
+                <option>Farsi</option>
               </select>
             </div>
 
@@ -2109,7 +1464,8 @@ export default function ProfilePage() {
                 <option>Pkr - Pakistani Rupee</option>
                 <option>USD - US Dollar</option>
                 <option>AED - UAE Dirham</option>
-                <option>KHR - Cambodian Riel</option>
+                <option>SAR - Saudi Riyal</option>
+                <option>NPR - Nepalese Rupee</option>
               </select>
             </div>
 
@@ -2121,7 +1477,8 @@ export default function ProfilePage() {
               <select className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none">
                 <option>Asia/Karachi</option>
                 <option>Asia/Dubai</option>
-                <option>Asia/Phnom_Penh</option>
+                <option>Asia/Kathmandu</option>
+                <option>Asia/Riyadh</option>
                 <option>UTC</option>
               </select>
             </div>
@@ -2302,7 +1659,7 @@ export default function ProfilePage() {
               </h3>
 
               <p className="text-gray-400 text-sm mb-4">
-                This action permanently removes your GoldTrade account after admin verification.
+                This action permanently removes your GoldTrade account 
               </p>
 
               <button className="bg-red-700 hover:bg-red-600 px-6 py-3 rounded-xl font-bold">
@@ -2315,12 +1672,7 @@ export default function ProfilePage() {
 
         </div>
 
-        {/* ================= NEXT SECTION STARTS HERE ================= */}// =====================================================
-// GoldTrade V17 ENTERPRISE
-// FILE: frontend/app/profile/page.tsx
-// SECTION 10/10
-// PROFILE SUMMARY + FOOTER + CLOSE COMPONENT
-// =====================================================
+        {/* ================= NEXT SECTION STARTS HERE ================= */}
 
         {/* ================= PROFILE SUMMARY ================= */}
 
@@ -2335,9 +1687,8 @@ export default function ProfilePage() {
               </h2>
 
               <p className="text-gray-300 mt-3 max-w-2xl">
-                Your GoldTrade profile stores your Wallet balances, KYC verification,
-                referral information, security settings, nominee details and payment
-                methods securely using JWT authentication and MongoDB.
+              
+                
               </p>
 
             </div>
@@ -2446,7 +1797,7 @@ export default function ProfilePage() {
               </p>
 
               <p className="text-sm">
-                Every withdrawal request requires admin verification before payment.
+                Every withdrawal request requires system verification before payment.
               </p>
             </div>
 
@@ -2473,7 +1824,7 @@ export default function ProfilePage() {
             <div>
 
               <h3 className="text-2xl font-black text-yellow-400">
-                GoldTrade V17 Enterprise
+                GoldTrade Enterprise
               </h3>
 
               <p className="text-gray-400 mt-2">
@@ -2485,11 +1836,11 @@ export default function ProfilePage() {
             <div>
 
               <p className="text-gray-400 text-sm">
-                Profile Module
+                
               </p>
 
               <p className="text-white font-semibold mt-2">
-                Wallet 鈥?Security 鈥?KYC 鈥?Referral 鈥?Privacy
+                
               </p>
 
             </div>
@@ -2497,11 +1848,11 @@ export default function ProfilePage() {
             <div className="md:text-right">
 
               <p className="text-gray-400 text-sm">
-                Security Status
+                
               </p>
 
               <p className="text-green-400 font-semibold mt-2">
-                JWT Protected 鈥?MongoDB Stored 鈥?Admin Verified
+                
               </p>
 
             </div>
@@ -2510,7 +1861,7 @@ export default function ProfilePage() {
 
           <div className="border-t border-zinc-800 mt-8 pt-5 text-center text-gray-500 text-sm">
 
-            漏 2026 GoldTrade Pakistan. All Rights Reserved.
+            2026 GoldTrade Pakistan. All Rights Reserved.
 
           </div>
 
@@ -2520,5 +1871,3 @@ export default function ProfilePage() {
     </main>
   );
 }
-
-

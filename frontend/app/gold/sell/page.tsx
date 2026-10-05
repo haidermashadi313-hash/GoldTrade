@@ -1271,15 +1271,15 @@ const GoldsellPage: React.FC = () => {
 
       <div className="mt-12 border-t border-zinc-800 pt-6 text-center text-gray-500 text-sm">
         <p className="font-semibold text-red-400 mb-2 text-lg">
-          GoldTrade Enterprise V18
+          GoldTrade Enterprises
         </p>
 
         <p>
-          Sell Gold Module • Live Market • JWT Protected • Real-Time Portfolio
+          Sell Gold Module • Live Market • Cobra Protected • Real-Time Portfolio
         </p>
 
         <p className="mt-2">
-          Powered by GoldTrade Enterprise Backend API
+          Powered by GoldTrade Enterprises.
         </p>
 
         <div className="mt-4 flex justify-center gap-6 flex-wrap text-xs">
