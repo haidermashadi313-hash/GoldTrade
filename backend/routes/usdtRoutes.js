@@ -88,7 +88,13 @@ const normalizeNetwork = (value) => {
     .trim()
     .toUpperCase();
 
-  return ["TRC20", "BEP20", "ERC20"].includes(network)
+  const allowedNetworks = [
+    "TRC20",
+    "BEP20",
+    "ERC20",
+  ];
+
+  return allowedNetworks.includes(network)
     ? network
     : "TRC20";
 };
@@ -102,7 +108,13 @@ const normalizeMarketStatus = (value) => {
     .trim()
     .toUpperCase();
 
-  return ["OPEN", "CLOSED", "MAINTENANCE"].includes(status)
+  const allowedStatuses = [
+    "OPEN",
+    "CLOSED",
+    "MAINTENANCE",
+  ];
+
+  return allowedStatuses.includes(status)
     ? status
     : "OPEN";
 };
@@ -142,69 +154,103 @@ const buildUsdtSettingsResponse = (settings) => {
     0
   );
 
+  const usdtPriceUSD = toNumber(
+    settings.usdtPriceUSD,
+    1
+  );
+
+  const usdToPkr = toNumber(
+    settings.usdToPkr,
+    0
+  );
+
+  const tradingEnabled = toBoolean(
+    settings.usdtTradingEnabled,
+    false
+  );
+
+  const marketStatus = normalizeMarketStatus(
+    settings.marketStatus
+  );
+
+  const network = normalizeNetwork(
+    settings.network
+  );
+
+  const minimumBuy = toNumber(
+    settings.minimumBuy,
+    10
+  );
+
+  const minimumSell = toNumber(
+    settings.minimumSell,
+    10
+  );
+
+  const maximumBuy = toNumber(
+    settings.maximumBuy,
+    100000
+  );
+
+  const maximumSell = toNumber(
+    settings.maximumSell,
+    100000
+  );
+
+  const walletAddress = String(
+    settings.walletAddress || ""
+  ).trim();
+
   return {
+    // ==================================================
+    // DATABASE ID
+    // ==================================================
+
     _id: settings._id,
 
-    // Frontend-compatible names
+    // ==================================================
+    // FRONTEND-COMPATIBLE NAMES
+    // ==================================================
+
     buyPrice,
     sellPrice,
 
-    usdtPriceUSD: toNumber(
-      settings.usdtPriceUSD,
-      1
-    ),
+    usdtPriceUSD,
+    usdToPkr,
 
-    usdToPkr: toNumber(
-      settings.usdToPkr,
-      0
-    ),
+    network,
+    marketStatus,
 
-    network: normalizeNetwork(
-      settings.network
-    ),
+    tradingEnabled,
 
-    marketStatus: normalizeMarketStatus(
-      settings.marketStatus
-    ),
+    minimumBuy,
+    minimumSell,
 
-    tradingEnabled: Boolean(
-      settings.usdtTradingEnabled
-    ),
+    maximumBuy,
+    maximumSell,
 
-    minimumBuy: toNumber(
-      settings.minimumBuy,
-      10
-    ),
+    walletAddress,
 
-    minimumSell: toNumber(
-      settings.minimumSell,
-      10
-    ),
+    // ==================================================
+    // BACKEND-COMPATIBLE NAMES
+    // ==================================================
 
-    maximumBuy: toNumber(
-      settings.maximumBuy,
-      100000
-    ),
-
-    maximumSell: toNumber(
-      settings.maximumSell,
-      100000
-    ),
-
-    walletAddress: String(
-      settings.walletAddress || ""
-    ),
-
-    // Backend-compatible names
     usdtBuyPrice: buyPrice,
     usdtSellPrice: sellPrice,
-    usdtTradingEnabled: Boolean(
-      settings.usdtTradingEnabled
-    ),
+
+    usdtTradingEnabled: tradingEnabled,
+
+    // ==================================================
+    // CALCULATED VALUES
+    // ==================================================
 
     spread: Number(
       (buyPrice - sellPrice).toFixed(2)
     ),
+
+    // ==================================================
+    // AUDIT INFORMATION
+    // ==================================================
 
     updatedAt: settings.updatedAt,
 
@@ -213,63 +259,75 @@ const buildUsdtSettingsResponse = (settings) => {
       "System",
   };
 };
-
 // ======================================================
 // HEALTH CHECK
 // GET /api/usdt/health
 // ======================================================
 
-router.get("/health", (req, res) => {
-  return res.status(200).json({
-    success: true,
-    module: "USDT Trading API",
-    version: "18.0.0 Enterprise",
-    status: "ONLINE",
-    timestamp: new Date().toISOString(),
-  });
-});
+router.get(
+  "/health",
+  (req, res) => {
+    return res.status(200).json({
+      success: true,
+
+      module: "USDT Trading API",
+
+      version: "18.0.0 Enterprise",
+
+      status: "ONLINE",
+
+      timestamp: new Date().toISOString(),
+    });
+  }
+);
 
 // ======================================================
 // API STATUS
 // GET /api/usdt/status
 // ======================================================
 
-router.get("/status", async (req, res) => {
-  try {
-    const settings =
-      await getUsdtSettings();
+router.get(
+  "/status",
+  async (req, res) => {
+    try {
+      const settings =
+        await getUsdtSettings();
 
-    return res.status(200).json({
-      success: true,
+      return res.status(200).json({
+        success: true,
 
-      module: "USDT Trading API",
-      version: "18.0.0 Enterprise",
+        module: "USDT Trading API",
 
-      tradingEnabled: Boolean(
-        settings.usdtTradingEnabled
-      ),
+        version: "18.0.0 Enterprise",
 
-      marketStatus:
-        normalizeMarketStatus(
-          settings.marketStatus
+        tradingEnabled: toBoolean(
+          settings.usdtTradingEnabled,
+          false
         ),
 
-      serverTime:
-        new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error(
-      "USDT STATUS ERROR:",
-      error
-    );
+        marketStatus:
+          normalizeMarketStatus(
+            settings.marketStatus
+          ),
 
-    return res.status(500).json({
-      success: false,
-      message:
-        "Unable to load USDT API status.",
-    });
+        serverTime:
+          new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(
+        "USDT STATUS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load USDT API status.",
+      });
+    }
   }
-});
+);
 
 // ======================================================
 // LIVE USDT PRICE
@@ -293,14 +351,29 @@ const sendUsdtResponse = async (
     return res.status(200).json({
       success: true,
 
-      buyPrice: response.buyPrice,
-      sellPrice: response.sellPrice,
+      // ==================================================
+      // FRONTEND PRICE FIELDS
+      // ==================================================
+
+      buyPrice:
+        response.buyPrice,
+
+      sellPrice:
+        response.sellPrice,
+
+      // ==================================================
+      // BACKEND PRICE FIELDS
+      // ==================================================
 
       usdtBuyPrice:
         response.usdtBuyPrice,
 
       usdtSellPrice:
         response.usdtSellPrice,
+
+      // ==================================================
+      // MARKET INFORMATION
+      // ==================================================
 
       usdtPriceUSD:
         response.usdtPriceUSD,
@@ -320,6 +393,10 @@ const sendUsdtResponse = async (
       spread:
         response.spread,
 
+      // ==================================================
+      // TIMESTAMP
+      // ==================================================
+
       updatedAt:
         response.updatedAt,
 
@@ -334,11 +411,16 @@ const sendUsdtResponse = async (
 
     return res.status(500).json({
       success: false,
+
       message:
         "Unable to load USDT market price.",
     });
   }
 };
+
+// ======================================================
+// PRICE ROUTES
+// ======================================================
 
 router.get(
   "/price",
@@ -360,45 +442,99 @@ router.get(
   verifyToken,
   async (req, res) => {
     try {
+      // ==================================================
+      // FIND CURRENT USER WALLET
+      // ==================================================
+
       const wallet =
         await Wallet.findOne({
           userId: req.user.id,
         }).lean();
 
+      // ==================================================
+      // WALLET NOT FOUND
+      // ==================================================
+
       if (!wallet) {
         return res.status(404).json({
           success: false,
-          message: "Wallet not found.",
+
+          message:
+            "Wallet not found.",
         });
       }
+
+      // ==================================================
+      // WALLET RESPONSE
+      // ==================================================
 
       return res.status(200).json({
         success: true,
 
         wallet: {
+          // ----------------------------------------------
+          // PKR
+          // ----------------------------------------------
+
           pkrBalance:
-            toNumber(wallet.pkrBalance),
+            toNumber(
+              wallet.pkrBalance
+            ),
+
+          // ----------------------------------------------
+          // GOLD
+          // ----------------------------------------------
 
           goldBalance:
-            toNumber(wallet.goldBalance),
+            toNumber(
+              wallet.goldBalance
+            ),
+
+          // ----------------------------------------------
+          // USDT
+          // ----------------------------------------------
 
           usdtBalance:
-            toNumber(wallet.usdtBalance),
+            toNumber(
+              wallet.usdtBalance
+            ),
+
+          // ----------------------------------------------
+          // LOCKED BALANCES
+          // ----------------------------------------------
 
           lockedPkr:
-            toNumber(wallet.lockedPkr),
+            toNumber(
+              wallet.lockedPkr
+            ),
 
           lockedGold:
-            toNumber(wallet.lockedGold),
+            toNumber(
+              wallet.lockedGold
+            ),
 
           lockedUsdt:
-            toNumber(wallet.lockedUsdt),
+            toNumber(
+              wallet.lockedUsdt
+            ),
+
+          // ----------------------------------------------
+          // PORTFOLIO
+          // ----------------------------------------------
 
           portfolioValue:
-            toNumber(wallet.portfolioValue),
+            toNumber(
+              wallet.portfolioValue
+            ),
+
+          // ----------------------------------------------
+          // PROFIT
+          // ----------------------------------------------
 
           liveProfit:
-            toNumber(wallet.liveProfit),
+            toNumber(
+              wallet.liveProfit
+            ),
 
           liveProfitPercent:
             toNumber(
@@ -417,12 +553,14 @@ router.get(
 
       return res.status(500).json({
         success: false,
+
         message:
           "Unable to load USDT wallet.",
       });
     }
   }
 );
+
 
 // ======================================================
 // CURRENT USER USDT BALANCE
