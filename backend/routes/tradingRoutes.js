@@ -1,143 +1,454 @@
 const express = require("express");
-
 const mongoose = require("mongoose");
 
 const router = express.Router();
 
+/* ============================================================
+   MODELS
+============================================================ */
+
 const User = require("../models/User");
-
 const Settings = require("../models/Settings");
-
 const GoldTransaction = require("../models/GoldTransaction");
 
-const { verifyToken, isAdmin } = require("../middleware/auth");
+const {
+  verifyToken,
+  isAdmin,
+} = require("../middleware/auth");
 
-/* ===========================================
+/* ============================================================
+   HELPERS
+============================================================ */
 
-   GET USER TRADING history
+const toNumber = (value, fallback = 0) => {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
+};
+
+const roundMoney = (value) =>
+  Math.round(
+    toNumber(value) * 100
+  ) / 100;
+
+const roundGold = (value) =>
+  Math.round(
+    toNumber(value) * 10000
+  ) / 10000;
+
+/* ============================================================
+   MARKET FORMATTER
+
+   Frontend expects:
+   livePrice
+   buyPrice
+   sellPrice
+   high24h
+   low24h
+   volume24h
+   change24h
+============================================================ */
+
+const buildMarketResponse = (
+  settings
+) => {
+  const buyPrice = toNumber(
+    settings.buyGoldPrice
+  );
+
+  const sellPrice = toNumber(
+    settings.sellGoldPrice
+  );
+
+  const midpoint =
+    (buyPrice + sellPrice) / 2;
+
+  /*
+   * Support existing/new Settings fields
+   * without forcing a schema migration.
+   */
+  const livePrice = toNumber(
+    settings.livePrice ??
+      settings.liveGoldPrice ??
+      settings.goldPrice ??
+      midpoint,
+    midpoint
+  );
+
+  const high24h = toNumber(
+    settings.high24h ??
+      settings.high24H ??
+      Math.max(
+        buyPrice,
+        sellPrice,
+        livePrice
+      ),
+    Math.max(
+      buyPrice,
+      sellPrice,
+      livePrice
+    )
+  );
+
+  const low24h = toNumber(
+    settings.low24h ??
+      settings.low24H ??
+      Math.min(
+        buyPrice,
+        sellPrice,
+        livePrice
+      ),
+    Math.min(
+      buyPrice,
+      sellPrice,
+      livePrice
+    )
+  );
+
+  const volume24h = toNumber(
+    settings.volume24h ??
+      settings.volume24H ??
+      0
+  );
+
+  const change24h = toNumber(
+    settings.change24h ??
+      settings.change24H ??
+      0
+  );
+
+  return {
+    livePrice,
+    buyPrice,
+    sellPrice,
+    high24h,
+    low24h,
+    volume24h,
+    change24h,
+
+    tradingEnabled:
+      Boolean(
+        settings.goldTradingEnabled
+      ),
+
+    marketStatus:
+      settings.marketStatus ??
+      (
+        settings.goldTradingEnabled
+          ? "OPEN"
+          : "CLOSED"
+      ),
+
+    cashbackRate:
+      toNumber(
+        settings.cashbackRate
+      ),
+
+    cashbackEnabled:
+      Boolean(
+        settings.cashbackEnabled
+      ),
+  };
+};
+
+/* ============================================================
+   HISTORY FORMATTER
+
+   Supports old GoldTransaction field names:
+   type
+   quantity
+   pricePerGram
+   amount
+
+   And frontend expected names:
+   type
+   quantity
+   price
+   total
+============================================================ */
+
+const formatTransaction = (
+  transaction
+) => {
+  const object =
+    transaction?.toObject
+      ? transaction.toObject()
+      : transaction;
+
+  const type =
+    object.type === "sell"
+      ? "sell"
+      : "buy";
+
+  const quantity =
+    toNumber(
+      object.quantity
+    );
+
+  const price =
+    toNumber(
+      object.pricePerGram ??
+        object.price
+    );
+
+  const total =
+    toNumber(
+      object.amount ??
+        object.total ??
+        quantity * price
+    );
+
+  return {
+    ...object,
+
+    _id: String(
+      object._id
+    ),
+
+    type,
+
+    quantity,
+
+    price,
+
+    pricePerGram: price,
+
+    total,
+
+    totalAmount: total,
+
+    createdAt:
+      object.createdAt || null,
+  };
+};
+
+/* ============================================================
+   GET USER TRADING HISTORY
 
    GET /api/trading/history
+============================================================ */
 
-=========================================== */
+router.get(
+  "/history",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const transactions =
+        await GoldTransaction.find({
+          userId: req.user._id,
+        })
+          .sort({
+            createdAt: -1,
+          })
+          .limit(50)
+          .lean();
 
-router.get("/history", verifyToken, async (req, res) => {
-  try {
-    const transactions = await GoldTransaction.find({
-      userId: req.user._id,
-    })
-      .sort({ createdAt: -1 })
-      .limit(20);
+      const history =
+        transactions.map(
+          formatTransaction
+        );
 
-    res.json({
-      success: true,
-      transactions,
-    });
-  } catch (err) {
-    console.error("history Error:", err);
+      return res.json({
+        success: true,
 
-    res.status(500).json({
-      success: false,
-      message: "Unable to load trading history.",
-    });
-  }
-});
+        /*
+         * New frontend
+         */
+        history,
 
-/* ===========================================
+        /*
+         * Backward compatibility
+         */
+        transactions: history,
+      });
+    } catch (err) {
+      console.error(
+        "Trading history error:",
+        err
+      );
 
-   GET LIVE GOLD MARKET SETTINGS
-
-   GET /api/trading/market
-
-=========================================== */
-
-router.get("/market", async (req, res) => {
-  try {
-    const settings = await Settings.findOne();
-
-    if (!settings) {
-      return res.status(404).json({
+      return res.status(500).json({
         success: false,
-        message: "Gold market settings not found.",
+        message:
+          "Unable to load trading history.",
+        history: [],
+        transactions: [],
       });
     }
-
-    res.json({
-      success: true,
-      market: {
-        buyPrice: settings.buyGoldPrice,
-        sellPrice: settings.sellGoldPrice,
-        tradingEnabled: settings.goldTradingEnabled,
-        cashbackRate: settings.cashbackRate,
-        cashbackEnabled: settings.cashbackEnabled,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-
-    res.status(500).json({
-      success: false,
-      message: "Unable to load market.",
-    });
   }
-});
+);
 
-/* ===========================================
+/* ============================================================
+   GET LIVE GOLD MARKET
 
-   buy / sell GOLD
+   GET /api/trading/market
+============================================================ */
 
-   POST /api/trading/gold
+router.get(
+  "/market",
+  async (req, res) => {
+    try {
+      const settings =
+        await Settings.findOne().lean();
 
-=========================================== */
+      if (!settings) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Gold market settings not found.",
+        });
+      }
 
-/* ===========================================
+      const market =
+        buildMarketResponse(
+          settings
+        );
 
-   buy GOLD ENGINE
+      return res.json({
+        success: true,
+        market,
+      });
+    } catch (err) {
+      console.error(
+        "Market error:",
+        err
+      );
 
-=========================================== */
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load market.",
+      });
+    }
+  }
+);
 
-router.post("/gold", verifyToken, async (req, res) => {
-  const session = await mongoose.startSession();
+/* ============================================================
+   INTERNAL TRADE ENGINE
 
-  session.startTransaction();
+   Used by:
+   POST /gold
+   POST /buy
+   POST /sell
+
+   Existing /gold route remains supported.
+============================================================ */
+
+const executeGoldTrade = async (
+  req,
+  res,
+  forcedTradeType = null
+) => {
+  const session =
+    await mongoose.startSession();
 
   try {
-    const { tradeType, quantity } = req.body;
+    session.startTransaction();
 
-    const goldQty = Number(quantity);
+    /* ========================================================
+       INPUT
+    ======================================================== */
 
-    if (!goldQty || goldQty <= 0) {
+    const requestedTradeType =
+      forcedTradeType ||
+      req.body.tradeType;
+
+    const tradeType =
+      String(
+        requestedTradeType || ""
+      )
+        .trim()
+        .toLowerCase();
+
+    const goldQty =
+      Number(
+        req.body.quantity ??
+          req.body.grams
+      );
+
+    /* ========================================================
+       VALIDATE TYPE
+    ======================================================== */
+
+    if (
+      !["buy", "sell"].includes(
+        tradeType
+      )
+    ) {
       await session.abortTransaction();
-      session.endSession();
 
       return res.status(400).json({
         success: false,
-        message: "Invalid gold quantity.",
+        message:
+          "Invalid trade type.",
       });
     }
 
-    const user = await User.findById(
-      req.user._id
-    ).session(session);
+    /* ========================================================
+       VALIDATE QUANTITY
+    ======================================================== */
 
-    const settings = await Settings.findOne().session(
-      session
-    );
+    if (
+      !Number.isFinite(goldQty) ||
+      goldQty <= 0
+    ) {
+      await session.abortTransaction();
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid gold quantity.",
+      });
+    }
+
+    const quantity =
+      roundGold(goldQty);
+
+    if (quantity <= 0) {
+      await session.abortTransaction();
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Gold quantity is too small.",
+      });
+    }
+
+    /* ========================================================
+       GET USER
+    ======================================================== */
+
+    const user =
+      await User.findById(
+        req.user._id
+      ).session(session);
+
+    /* ========================================================
+       GET SETTINGS
+    ======================================================== */
+
+    const settings =
+      await Settings.findOne()
+        .session(session);
 
     if (!user || !settings) {
       await session.abortTransaction();
-      session.endSession();
 
       return res.status(404).json({
         success: false,
-        message: "User or settings not found.",
+        message:
+          "User or settings not found.",
       });
     }
 
-    // ================= SECURITY CHECKS =================
+    /* ========================================================
+       SECURITY
+    ======================================================== */
 
     if (user.status === "Blocked") {
       await session.abortTransaction();
-      session.endSession();
 
       return res.status(403).json({
         success: false,
@@ -148,37 +459,64 @@ router.post("/gold", verifyToken, async (req, res) => {
 
     if (user.WalletFrozen) {
       await session.abortTransaction();
-      session.endSession();
 
       return res.status(403).json({
         success: false,
-        message: "Your Wallet has been frozen.",
+        message:
+          "Your Wallet has been frozen.",
       });
     }
 
     if (!settings.goldTradingEnabled) {
       await session.abortTransaction();
-      session.endSession();
 
       return res.status(403).json({
         success: false,
-        message: "Gold market is currently closed.",
+        message:
+          "Gold market is currently closed.",
       });
     }
 
-    // ================= buy GOLD =================
+    /* ========================================================
+       BUY GOLD
+    ======================================================== */
 
     if (tradeType === "buy") {
-      const goldPrice = settings.buyGoldPrice;
-
-      const totalAmount = goldPrice * goldQty;
+      const goldPrice =
+        toNumber(
+          settings.buyGoldPrice
+        );
 
       if (
-        (user.WalletBalance ?? 0) <
+        !Number.isFinite(
+          goldPrice
+        ) ||
+        goldPrice <= 0
+      ) {
+        await session.abortTransaction();
+
+        return res.status(503).json({
+          success: false,
+          message:
+            "Gold buy price is not configured.",
+        });
+      }
+
+      const totalAmount =
+        roundMoney(
+          goldPrice * quantity
+        );
+
+      const currentWallet =
+        toNumber(
+          user.WalletBalance
+        );
+
+      if (
+        currentWallet <
         totalAmount
       ) {
         await session.abortTransaction();
-        session.endSession();
 
         return res.status(400).json({
           success: false,
@@ -187,133 +525,296 @@ router.post("/gold", verifyToken, async (req, res) => {
         });
       }
 
-      // Wallet Update
+      /* ======================================================
+         EXISTING GOLD BALANCE
+      ====================================================== */
 
-      user.WalletBalance -= totalAmount;
+      const oldGoldBalance =
+        toNumber(
+          user.goldBalance
+        );
 
-      user.GoldBalance =
-        (user.GoldBalance ?? 0) + goldQty;
+      const oldAveragePrice =
+        toNumber(
+          user.GoldAveragePrice
+        );
 
-      // Average Gold Price
+      const newGoldBalance =
+        roundGold(
+          oldGoldBalance +
+            quantity
+        );
 
-      const currentGold =
-        user.GoldBalance || goldQty;
+      /* ======================================================
+         AVERAGE PRICE
+
+         Important:
+         old balance × old average
+         +
+         new quantity × current price
+      ====================================================== */
+
+      const oldGoldCost =
+        oldGoldBalance *
+        oldAveragePrice;
+
+      const newGoldCost =
+        quantity *
+        goldPrice;
+
+      const newAveragePrice =
+        newGoldBalance > 0
+          ? roundMoney(
+              (
+                oldGoldCost +
+                newGoldCost
+              ) /
+                newGoldBalance
+            )
+          : 0;
+
+      /* ======================================================
+         WALLET UPDATE
+      ====================================================== */
+
+      user.WalletBalance =
+        roundMoney(
+          currentWallet -
+            totalAmount
+        );
+
+      user.goldBalance =
+        newGoldBalance;
 
       user.GoldAveragePrice =
-        ((user.GoldAveragePrice ?? 0) *
-          (currentGold - goldQty) +
-          totalAmount) /
-        currentGold;
+        newAveragePrice;
 
-      // Cashback
+      /* ======================================================
+         CASHBACK
+      ====================================================== */
 
       let cashback = 0;
 
-      if (settings.cashbackEnabled) {
-        cashback =
-          (totalAmount *
-            settings.cashbackRate) /
-          100;
+      if (
+        settings.cashbackEnabled
+      ) {
+        const cashbackRate =
+          toNumber(
+            settings.cashbackRate
+          );
 
-        user.cashbackEarned =
-          (user.cashbackEarned ?? 0) +
-          cashback;
+        if (
+          cashbackRate > 0
+        ) {
+          cashback =
+            roundMoney(
+              (
+                totalAmount *
+                cashbackRate
+              ) / 100
+            );
 
-        user.WalletBalance += cashback;
+          user.cashbackEarned =
+            roundMoney(
+              toNumber(
+                user.cashbackEarned
+              ) + cashback
+            );
+
+          user.WalletBalance =
+            roundMoney(
+              user.WalletBalance +
+                cashback
+            );
+        }
       }
 
-      // VIP Upgrade
+      /* ======================================================
+         VIP LEVEL
+      ====================================================== */
+
+      const depositAmount =
+        toNumber(
+          user.totalDeposit
+        );
 
       if (
-        user.totalDeposit >=
-        settings.vipDiamondAmount
+        depositAmount >=
+        toNumber(
+          settings.vipDiamondAmount
+        )
       ) {
-        user.vipLevel = "Diamond";
+        user.vipLevel =
+          "Diamond";
       } else if (
-        user.totalDeposit >=
-        settings.vipGoldAmount
+        depositAmount >=
+        toNumber(
+          settings.vipGoldAmount
+        )
       ) {
-        user.vipLevel = "Gold";
+        user.vipLevel =
+          "Gold";
       } else if (
-        user.totalDeposit >=
-        settings.vipSilverAmount
+        depositAmount >=
+        toNumber(
+          settings.vipSilverAmount
+        )
       ) {
-        user.vipLevel = "Silver";
+        user.vipLevel =
+          "Silver";
       } else {
-        user.vipLevel = "Standard";
+        user.vipLevel =
+          "Standard";
       }
 
-      await user.save({ session });
+      /* ======================================================
+         SAVE USER
+      ====================================================== */
 
-      // Save Transaction
+      await user.save({
+        session,
+      });
 
-      await GoldTransaction.create(
-        [
+      /* ======================================================
+         SAVE TRANSACTION
+      ====================================================== */
+
+      const createdTransactions =
+        await GoldTransaction.create(
+          [
+            {
+              userId:
+                user._id,
+
+              username:
+                user.username,
+
+              type: "buy",
+
+              quantity,
+
+              pricePerGram:
+                goldPrice,
+
+              amount:
+                totalAmount,
+
+              cashback,
+
+              status:
+                "Approved",
+
+              description:
+                `Bought ${quantity} gram Gold at Pkr ${goldPrice}/g`,
+            },
+          ],
           {
-            userId: user._id,
-            username: user.username,
-            type: "buy",
-            quantity: goldQty,
-            pricePerGram: goldPrice,
-            amount: totalAmount,
-            cashback,
-            status: "Approved",
-            description: `Bought ${goldQty} gram Gold at Pkr ${goldPrice}/g`,
-          },
-        ],
-        { session }
-      );
+            session,
+          }
+        );
+
+      /* ======================================================
+         COMMIT
+      ====================================================== */
 
       await session.commitTransaction();
 
-      session.endSession();
+      const transaction =
+        formatTransaction(
+          createdTransactions[0]
+        );
 
       return res.json({
         success: true,
+
         message:
           "Gold purchased successfully.",
 
-        transaction: {
+        trade: {
           type: "buy",
-          quantity: goldQty,
-          pricePerGram: goldPrice,
-          totalAmount,
+          quantity,
+          grams: quantity,
+          price:
+            goldPrice,
+          pricePerGram:
+            goldPrice,
+          total:
+            totalAmount,
+          totalPkr:
+            totalAmount,
           cashback,
+          status:
+            "Approved",
         },
+
+        transaction,
 
         Wallet: {
           WalletBalance:
             user.WalletBalance,
+
           GoldBalance:
-            user.GoldBalance,
+            user.goldBalance,
+
+          goldBalance:
+            user.goldBalance,
+
+          UsdtBalance:
+            toNumber(
+              user.UsdtBalance
+            ),
+
           cashbackEarned:
-            user.cashbackEarned,
-          vipLevel: user.vipLevel,
+            toNumber(
+              user.cashbackEarned
+            ),
+
+          vipLevel:
+            user.vipLevel,
         },
       });
     }
 
-    /* ===========================================
-
-       sell GOLD ENGINE
-
-    =========================================== */
+    /* ========================================================
+       SELL GOLD
+    ======================================================== */
 
     if (tradeType === "sell") {
       const goldPrice =
-        settings.sellGoldPrice;
-
-      const totalAmount =
-        goldPrice * goldQty;
-
-      // Gold balance check
+        toNumber(
+          settings.sellGoldPrice
+        );
 
       if (
-        (user.GoldBalance ?? 0) <
-        goldQty
+        !Number.isFinite(
+          goldPrice
+        ) ||
+        goldPrice <= 0
       ) {
         await session.abortTransaction();
-        session.endSession();
+
+        return res.status(503).json({
+          success: false,
+          message:
+            "Gold sell price is not configured.",
+        });
+      }
+
+      const totalAmount =
+        roundMoney(
+          goldPrice * quantity
+        );
+
+      const currentGoldBalance =
+        toNumber(
+          user.goldBalance
+        );
+
+      if (
+        currentGoldBalance <
+        quantity
+      ) {
+        await session.abortTransaction();
 
         return res.status(400).json({
           success: false,
@@ -322,115 +823,326 @@ router.post("/gold", verifyToken, async (req, res) => {
         });
       }
 
-      // Profit / Loss Calculation
+      /* ======================================================
+         PROFIT / LOSS
+      ====================================================== */
 
       const averagePrice =
-        user.GoldAveragePrice ??
-        goldPrice;
+        toNumber(
+          user.GoldAveragePrice,
+          goldPrice
+        );
 
       const profitLoss =
-        (goldPrice - averagePrice) *
-        goldQty;
+        roundMoney(
+          (
+            goldPrice -
+            averagePrice
+          ) * quantity
+        );
 
-      // Wallet Update
+      /* ======================================================
+         WALLET UPDATE
+      ====================================================== */
 
-      user.GoldBalance -= goldQty;
+      const newGoldBalance =
+        roundGold(
+          currentGoldBalance -
+            quantity
+        );
 
-      user.WalletBalance += totalAmount;
+      user.goldBalance =
+        Math.max(
+          0,
+          newGoldBalance
+        );
 
-      user.GoldProfitLoss =
-        (user.GoldProfitLoss ?? 0) +
-        profitLoss;
+      user.WalletBalance =
+        roundMoney(
+          toNumber(
+            user.WalletBalance
+          ) + totalAmount
+        );
 
-      // Reset average price if user sells all gold
+      user.goldProfitLoss =
+        roundMoney(
+          toNumber(
+            user.goldProfitLoss
+          ) + profitLoss
+        );
 
-      if (user.GoldBalance <= 0) {
-        user.GoldBalance = 0;
+      /* ======================================================
+         RESET AVERAGE IF ALL GOLD SOLD
+      ====================================================== */
+
+      if (
+        user.goldBalance <= 0.00000001
+      ) {
+        user.goldBalance = 0;
         user.GoldAveragePrice = 0;
       }
 
-      await user.save({ session });
+      /* ======================================================
+         VIP LEVEL
+      ====================================================== */
 
-      // Save Transaction
+      const depositAmount =
+        toNumber(
+          user.totalDeposit
+        );
 
-      await GoldTransaction.create(
-        [
+      if (
+        depositAmount >=
+        toNumber(
+          settings.vipDiamondAmount
+        )
+      ) {
+        user.vipLevel =
+          "Diamond";
+      } else if (
+        depositAmount >=
+        toNumber(
+          settings.vipGoldAmount
+        )
+      ) {
+        user.vipLevel =
+          "Gold";
+      } else if (
+        depositAmount >=
+        toNumber(
+          settings.vipSilverAmount
+        )
+      ) {
+        user.vipLevel =
+          "Silver";
+      } else {
+        user.vipLevel =
+          "Standard";
+      }
+
+      /* ======================================================
+         SAVE USER
+      ====================================================== */
+
+      await user.save({
+        session,
+      });
+
+      /* ======================================================
+         SAVE TRANSACTION
+      ====================================================== */
+
+      const createdTransactions =
+        await GoldTransaction.create(
+          [
+            {
+              userId:
+                user._id,
+
+              username:
+                user.username,
+
+              type: "sell",
+
+              quantity,
+
+              pricePerGram:
+                goldPrice,
+
+              amount:
+                totalAmount,
+
+              profitLoss,
+
+              status:
+                "Approved",
+
+              description:
+                `Sold ${quantity} gram Gold at Pkr ${goldPrice}/g`,
+            },
+          ],
           {
-            userId: user._id,
-            username: user.username,
-            type: "sell",
-            quantity: goldQty,
-            pricePerGram: goldPrice,
-            amount: totalAmount,
-            profitLoss,
-            status: "Approved",
-            description: `Sold ${goldQty} gram Gold at Pkr ${goldPrice}/g`,
-          },
-        ],
-        { session }
-      );
+            session,
+          }
+        );
+
+      /* ======================================================
+         COMMIT
+      ====================================================== */
 
       await session.commitTransaction();
 
-      session.endSession();
+      const transaction =
+        formatTransaction(
+          createdTransactions[0]
+        );
 
       return res.json({
         success: true,
-        message: "Gold sold successfully.",
 
-        transaction: {
+        message:
+          "Gold sold successfully.",
+
+        trade: {
           type: "sell",
-          quantity: goldQty,
-          pricePerGram: goldPrice,
-          totalAmount,
+          quantity,
+          grams: quantity,
+          price:
+            goldPrice,
+          pricePerGram:
+            goldPrice,
+          total:
+            totalAmount,
+          totalPkr:
+            totalAmount,
           profitLoss,
+          status:
+            "Approved",
         },
+
+        transaction,
 
         Wallet: {
           WalletBalance:
             user.WalletBalance,
+
+          GoldBalance:
+            user.goldBalance,
+
           goldBalance:
             user.goldBalance,
+
+          UsdtBalance:
+            toNumber(
+              user.UsdtBalance
+            ),
+
           goldProfitLoss:
-            user.goldProfitLoss,
+            toNumber(
+              user.goldProfitLoss
+            ),
+
+          vipLevel:
+            user.vipLevel,
         },
       });
     }
 
-    // Invalid Trade Type
+    /* ========================================================
+       FALLBACK
+    ======================================================== */
 
     await session.abortTransaction();
-
-    session.endSession();
 
     return res.status(400).json({
       success: false,
-      message: "Invalid trade type.",
+      message:
+        "Invalid trade type.",
     });
   } catch (err) {
-    await session.abortTransaction();
-
-    session.endSession();
-
     console.error(
       "TRADING ERROR:",
       err
     );
 
+    try {
+      if (
+        session.inTransaction()
+      ) {
+        await session.abortTransaction();
+      }
+    } catch (abortError) {
+      console.error(
+        "Transaction abort error:",
+        abortError
+      );
+    }
+
     return res.status(500).json({
       success: false,
-      message: "Gold trading failed.",
+      message:
+        err?.message ||
+        "Gold trading failed.",
     });
+  } finally {
+    await session.endSession();
   }
-});
+};
 
-/* ===========================================
+/* ============================================================
+   MAIN LEGACY TRADE ROUTE
 
+   POST /api/trading/gold
+
+   Body:
+   {
+     "tradeType": "buy",
+     "quantity": 2
+   }
+============================================================ */
+
+router.post(
+  "/gold",
+  verifyToken,
+  async (req, res) => {
+    return executeGoldTrade(
+      req,
+      res
+    );
+  }
+);
+
+/* ============================================================
+   FRONTEND BUY ROUTE
+
+   POST /api/trading/buy
+
+   Body:
+   {
+     "quantity": 2
+   }
+============================================================ */
+
+router.post(
+  "/buy",
+  verifyToken,
+  async (req, res) => {
+    return executeGoldTrade(
+      req,
+      res,
+      "buy"
+    );
+  }
+);
+
+/* ============================================================
+   FRONTEND SELL ROUTE
+
+   POST /api/trading/sell
+
+   Body:
+   {
+     "quantity": 2
+   }
+============================================================ */
+
+router.post(
+  "/sell",
+  verifyToken,
+  async (req, res) => {
+    return executeGoldTrade(
+      req,
+      res,
+      "sell"
+    );
+  }
+);
+
+/* ============================================================
    REWARD ENGINE
 
    Cashback + VIP + Referral + Lucky Draw
-
-=========================================== */
+============================================================ */
 
 const applyTradingRewards = async (
   user,
@@ -439,58 +1151,89 @@ const applyTradingRewards = async (
   session
 ) => {
   let cashback = 0;
-
   let referralBonus = 0;
+  let luckyDrawEligible =
+    false;
 
-  let luckyDrawEligible = false;
+  const amount =
+    toNumber(tradeAmount);
 
-  // ================= CASHBACK =================
+  /* ==========================================================
+     CASHBACK
+  ========================================================== */
 
   if (
     settings.cashbackEnabled &&
-    Number(settings.cashbackRate) > 0
+    toNumber(
+      settings.cashbackRate
+    ) > 0
   ) {
     cashback =
-      (tradeAmount *
-        Number(settings.cashbackRate)) /
-      100;
+      roundMoney(
+        (
+          amount *
+          toNumber(
+            settings.cashbackRate
+          )
+        ) / 100
+      );
 
     user.cashbackEarned =
-      (user.cashbackEarned ?? 0) +
-      cashback;
-
-    // Cashback directly Wallet me credit
+      roundMoney(
+        toNumber(
+          user.cashbackEarned
+        ) + cashback
+      );
 
     user.WalletBalance =
-      (user.WalletBalance ?? 0) +
-      cashback;
+      roundMoney(
+        toNumber(
+          user.WalletBalance
+        ) + cashback
+      );
   }
 
-  // ================= VIP LEVEL AUTO UPGRADE =================
+  /* ==========================================================
+     VIP LEVEL
+  ========================================================== */
 
   const depositAmount =
-    user.totalDeposit ?? 0;
+    toNumber(
+      user.totalDeposit
+    );
 
   if (
     depositAmount >=
-    settings.vipDiamondAmount
+    toNumber(
+      settings.vipDiamondAmount
+    )
   ) {
-    user.vipLevel = "Diamond";
+    user.vipLevel =
+      "Diamond";
   } else if (
     depositAmount >=
-    settings.vipGoldAmount
+    toNumber(
+      settings.vipGoldAmount
+    )
   ) {
-    user.vipLevel = "Gold";
+    user.vipLevel =
+      "Gold";
   } else if (
     depositAmount >=
-    settings.vipSilverAmount
+    toNumber(
+      settings.vipSilverAmount
+    )
   ) {
-    user.vipLevel = "Silver";
+    user.vipLevel =
+      "Silver";
   } else {
-    user.vipLevel = "Standard";
+    user.vipLevel =
+      "Standard";
   }
 
-  // ================= REFERRAL BONUS =================
+  /* ==========================================================
+     REFERRAL BONUS
+  ========================================================== */
 
   if (user.referredBy) {
     const referrer =
@@ -499,57 +1242,82 @@ const applyTradingRewards = async (
       ).session(session);
 
     if (referrer) {
-      referralBonus = Number(
-        settings.referralBonus ?? 0
-      );
+      referralBonus =
+        roundMoney(
+          toNumber(
+            settings.referralBonus
+          )
+        );
 
-      referrer.WalletBalance =
-        (referrer.WalletBalance ?? 0) +
-        referralBonus;
+      if (
+        referralBonus > 0
+      ) {
+        referrer.WalletBalance =
+          roundMoney(
+            toNumber(
+              referrer.WalletBalance
+            ) + referralBonus
+          );
 
-      referrer.referralBonus =
-        (referrer.referralBonus ?? 0) +
-        referralBonus;
+        referrer.referralBonus =
+          roundMoney(
+            toNumber(
+              referrer.referralBonus
+            ) + referralBonus
+          );
 
-      referrer.totalReferrals =
-        (referrer.totalReferrals ?? 0) +
-        1;
+        referrer.totalReferrals =
+          toNumber(
+            referrer.totalReferrals
+          ) + 1;
 
-      referrer.activeReferrals =
-        (referrer.activeReferrals ?? 0) +
-        1;
+        referrer.activeReferrals =
+          toNumber(
+            referrer.activeReferrals
+          ) + 1;
 
-      await referrer.save({ session });
+        await referrer.save({
+          session,
+        });
+      }
     }
   }
 
-  // ================= LUCKY DRAW =================
+  /* ==========================================================
+     LUCKY DRAW
+  ========================================================== */
 
   if (
     settings.luckyDrawEnabled &&
-    tradeAmount >= 5000
+    amount >= 5000
   ) {
-    luckyDrawEligible = true;
+    luckyDrawEligible =
+      true;
   }
 
-  // Save updated user
+  /* ==========================================================
+     SAVE USER
+  ========================================================== */
 
-  await user.save({ session });
+  await user.save({
+    session,
+  });
 
   return {
     cashback,
     referralBonus,
     luckyDrawEligible,
-    vipLevel: user.vipLevel,
+    vipLevel:
+      user.vipLevel,
   };
 };
-/* ===========================================
+/* ============================================================
+   VIP BENEFITS
+============================================================ */
 
-   VIP BENEFITS (Helper)
-
-=========================================== */
-
-const getVipBenefits = (vipLevel) => {
+const getVipBenefits = (
+  vipLevel
+) => {
   switch (vipLevel) {
     case "Diamond":
       return {
@@ -581,24 +1349,24 @@ const getVipBenefits = (vipLevel) => {
   }
 };
 
-/* ===========================================
-
+/* ============================================================
    USER REWARD SUMMARY
 
    GET /api/trading/rewards
+============================================================ */
 
-=========================================== */
 router.get(
   "/rewards",
   verifyToken,
   async (req, res) => {
     try {
-      const user = await User.findById(
-        req.user._id
-      );
+      const user =
+        await User.findById(
+          req.user._id
+        ).lean();
 
       const settings =
-        await Settings.findOne();
+        await Settings.findOne().lean();
 
       if (!user || !settings) {
         return res.status(404).json({
@@ -608,40 +1376,53 @@ router.get(
         });
       }
 
+      const vipLevel =
+        user.vipLevel ||
+        "Standard";
+
       const vipBenefits =
         getVipBenefits(
-          user.vipLevel || "Standard"
+          vipLevel
         );
 
-      res.json({
+      return res.json({
         success: true,
 
         rewards: {
           cashbackEarned:
-            user.cashbackEarned ?? 0,
+            toNumber(
+              user.cashbackEarned
+            ),
 
           referralBonus:
-            user.referralBonus ?? 0,
+            toNumber(
+              user.referralBonus
+            ),
 
           totalReferrals:
-            user.totalReferrals ?? 0,
+            toNumber(
+              user.totalReferrals
+            ),
 
           activeReferrals:
-            user.activeReferrals ?? 0,
+            toNumber(
+              user.activeReferrals
+            ),
 
-          vipLevel:
-            user.vipLevel ||
-            "Standard",
+          vipLevel,
 
           cashbackRate:
-            settings.cashbackRate ?? 0,
+            toNumber(
+              settings.cashbackRate
+            ),
 
           luckyDrawEnabled:
-            settings.luckyDrawEnabled ??
-            false,
+            Boolean(
+              settings.luckyDrawEnabled
+            ),
 
           luckyDrawPrize:
-            settings.luckyDrawPrize ??
+            settings.luckyDrawPrize ||
             "10 Gram Gold",
 
           vipBenefits,
@@ -653,7 +1434,7 @@ router.get(
         err
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message:
           "Unable to load reward summary.",
@@ -662,25 +1443,24 @@ router.get(
   }
 );
 
-/* ===========================================
-
+/* ============================================================
    DASHBOARD SUMMARY API
 
    GET /api/trading/dashboard
-
-=========================================== */
+============================================================ */
 
 router.get(
   "/dashboard",
   verifyToken,
   async (req, res) => {
     try {
-      const user = await User.findById(
-        req.user._id
-      );
+      const user =
+        await User.findById(
+          req.user._id
+        ).lean();
 
       const settings =
-        await Settings.findOne();
+        await Settings.findOne().lean();
 
       if (!user || !settings) {
         return res.status(404).json({
@@ -690,71 +1470,160 @@ router.get(
         });
       }
 
-      // Recent 10 transactions
+      /* ======================================================
+         RECENT TRANSACTIONS
+      ====================================================== */
 
-      const recentTransactions =
+      const recentRaw =
         await GoldTransaction.find({
           userId: user._id,
         })
-          .sort({ createdAt: -1 })
-          .limit(10);
+          .sort({
+            createdAt: -1,
+          })
+          .limit(10)
+          .lean();
 
-      // Gold current value
+      const recentTransactions =
+        recentRaw.map(
+          formatTransaction
+        );
+
+      /* ======================================================
+         MARKET
+      ====================================================== */
+
+      const market =
+        buildMarketResponse(
+          settings
+        );
+
+      /* ======================================================
+         GOLD CURRENT VALUE
+
+         Sell price = executable
+         current value.
+      ====================================================== */
+
+      const goldBalance =
+        toNumber(
+          user.goldBalance
+        );
 
       const currentGoldValue =
-        (user.goldBalance ?? 0) *
-        (settings.sellGoldPrice ?? 0);
+        roundMoney(
+          goldBalance *
+            market.sellPrice
+        );
 
-      // Total Portfolio Value
+      /* ======================================================
+         PORTFOLIO
+
+         IMPORTANT:
+         UsdtBalance is kept as USDT here.
+         We do not silently treat 1 USDT as
+         1 PKR.
+      ====================================================== */
+
+      const usdtBalance =
+        toNumber(
+          user.UsdtBalance
+        );
+
+      const usdToPkr =
+        toNumber(
+          settings.usdToPkr,
+          1
+        );
+
+      const usdtValuePkr =
+        roundMoney(
+          usdtBalance *
+            usdToPkr
+        );
 
       const portfolioValue =
-        (user.WalletBalance ?? 0) +
-        (user.UsdtBalance ?? 0) +
-        currentGoldValue;
+        roundMoney(
+          toNumber(
+            user.WalletBalance
+          ) +
+            usdtValuePkr +
+            currentGoldValue
+        );
 
-      // Total Trading Volume
+      /* ======================================================
+         TRADING STATISTICS
+      ====================================================== */
 
       const tradingStats =
-        await GoldTransaction.aggregate([
-          {
-            $match: {
-              userId: user._id,
-            },
-          },
-          {
-            $group: {
-              _id: "$type",
-              totalAmount: {
-                $sum: "$amount",
-              },
-              totalQuantity: {
-                $sum: "$quantity",
-              },
-              totalTrades: {
-                $sum: 1,
+        await GoldTransaction.aggregate(
+          [
+            {
+              $match: {
+                userId:
+                  user._id,
               },
             },
-          },
-        ]);
+            {
+              $group: {
+                _id: "$type",
+
+                totalAmount: {
+                  $sum: {
+                    $ifNull: [
+                      "$amount",
+                      0,
+                    ],
+                  },
+                },
+
+                totalQuantity: {
+                  $sum: {
+                    $ifNull: [
+                      "$quantity",
+                      0,
+                    ],
+                  },
+                },
+
+                totalTrades: {
+                  $sum: 1,
+                },
+              },
+            },
+          ]
+        );
 
       const buyStats =
         tradingStats.find(
-          (t) => t._id === "buy"
+          (item) =>
+            item._id === "buy"
         ) || {};
 
       const sellStats =
         tradingStats.find(
-          (t) => t._id === "sell"
+          (item) =>
+            item._id === "sell"
         ) || {};
 
-      res.json({
+      /* ======================================================
+         RESPONSE
+      ====================================================== */
+
+      return res.json({
         success: true,
 
         dashboard: {
           user: {
-            username: user.username,
-            email: user.email,
-            role: user.role,
+            username:
+              user.username,
+
+            email:
+              user.email,
+
+            role:
+              user.role,
+
             vipLevel:
               user.vipLevel ||
               "Standard",
@@ -762,61 +1631,99 @@ router.get(
 
           Wallet: {
             WalletBalance:
-              user.WalletBalance ?? 0,
+              toNumber(
+                user.WalletBalance
+              ),
 
             UsdtBalance:
-              user.UsdtBalance ?? 0,
+              usdtBalance,
 
             goldBalance:
-              user.goldBalance ?? 0,
+              goldBalance,
 
             cashbackEarned:
-              user.cashbackEarned ?? 0,
+              toNumber(
+                user.cashbackEarned
+              ),
 
             referralBonus:
-              user.referralBonus ?? 0,
+              toNumber(
+                user.referralBonus
+              ),
           },
 
           market: {
-            buyPrice:
-              settings.buyGoldPrice,
+            ...market,
 
-            sellPrice:
-              settings.sellGoldPrice,
-
-            tradingEnabled:
-              settings.goldTradingEnabled,
+            usdToPkr,
           },
 
           portfolio: {
             goldCurrentValue:
               currentGoldValue,
 
+            usdtCurrentValue:
+              usdtValuePkr,
+
             totalPortfolioValue:
               portfolioValue,
 
             goldProfitLoss:
-              user.goldProfitLoss ?? 0,
+              toNumber(
+                user.goldProfitLoss
+              ),
           },
 
           statistics: {
+            totalBuyTrades:
+              buyStats.totalTrades ||
+              0,
+
+            totalSellTrades:
+              sellStats.totalTrades ||
+              0,
+
+            /*
+             * Backward-compatible
+             * old property names.
+             */
             totalbuyTrades:
-              buyStats.totalTrades ?? 0,
+              buyStats.totalTrades ||
+              0,
 
             totalsellTrades:
-              sellStats.totalTrades ?? 0,
+              sellStats.totalTrades ||
+              0,
 
             totalGoldBought:
-              buyStats.totalQuantity ?? 0,
+              toNumber(
+                buyStats.totalQuantity
+              ),
 
             totalGoldSold:
-              sellStats.totalQuantity ?? 0,
+              toNumber(
+                sellStats.totalQuantity
+              ),
+
+            totalBuyVolume:
+              toNumber(
+                buyStats.totalAmount
+              ),
+
+            totalSellVolume:
+              toNumber(
+                sellStats.totalAmount
+              ),
 
             totalbuyVolume:
-              buyStats.totalAmount ?? 0,
+              toNumber(
+                buyStats.totalAmount
+              ),
 
             totalsellVolume:
-              sellStats.totalAmount ?? 0,
+              toNumber(
+                sellStats.totalAmount
+              ),
           },
 
           recentTransactions,
@@ -828,7 +1735,7 @@ router.get(
         err
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message:
           "Unable to load dashboard.",
@@ -836,25 +1743,25 @@ router.get(
     }
   }
 );
-/* ===========================================
 
+/* ============================================================
    USER PORTFOLIO API
 
    GET /api/trading/portfolio
-
-=========================================== */
+============================================================ */
 
 router.get(
   "/portfolio",
   verifyToken,
   async (req, res) => {
     try {
-      const user = await User.findById(
-        req.user._id
-      );
+      const user =
+        await User.findById(
+          req.user._id
+        ).lean();
 
       const settings =
-        await Settings.findOne();
+        await Settings.findOne().lean();
 
       if (!user || !settings) {
         return res.status(404).json({
@@ -864,42 +1771,103 @@ router.get(
         });
       }
 
-      const goldValue =
-        (user.goldBalance ?? 0) *
-        settings.sellGoldPrice;
+      const market =
+        buildMarketResponse(
+          settings
+        );
 
-      res.json({
+      const walletBalance =
+        toNumber(
+          user.WalletBalance
+        );
+
+      const usdtBalance =
+        toNumber(
+          user.UsdtBalance
+        );
+
+      const goldBalance =
+        toNumber(
+          user.goldBalance
+        );
+
+      const usdToPkr =
+        toNumber(
+          settings.usdToPkr,
+          1
+        );
+
+      const goldValue =
+        roundMoney(
+          goldBalance *
+            market.sellPrice
+        );
+
+      const usdtValue =
+        roundMoney(
+          usdtBalance *
+            usdToPkr
+        );
+
+      const totalPortfolioValue =
+        roundMoney(
+          walletBalance +
+            usdtValue +
+            goldValue
+        );
+
+      return res.json({
         success: true,
 
         portfolio: {
           WalletBalance:
-            user.WalletBalance ?? 0,
+            walletBalance,
 
           UsdtBalance:
-            user.UsdtBalance ?? 0,
+            usdtBalance,
 
-          goldBalance:
-            user.goldBalance ?? 0,
+          goldBalance,
 
           goldValue,
 
+          usdtValue,
+
+          totalPortfolioValue,
+
           cashbackEarned:
-            user.cashbackEarned ?? 0,
+            toNumber(
+              user.cashbackEarned
+            ),
 
           referralBonus:
-            user.referralBonus ?? 0,
-
-          totalPortfolioValue:
-            (user.WalletBalance ?? 0) +
-            (user.UsdtBalance ?? 0) +
-            goldValue,
+            toNumber(
+              user.referralBonus
+            ),
 
           goldProfitLoss:
-            user.goldProfitLoss ?? 0,
+            toNumber(
+              user.goldProfitLoss
+            ),
 
           vipLevel:
             user.vipLevel ||
             "Standard",
+
+          market: {
+            buyPrice:
+              market.buyPrice,
+
+            sellPrice:
+              market.sellPrice,
+
+            livePrice:
+              market.livePrice,
+
+            tradingEnabled:
+              market.tradingEnabled,
+          },
+
+          usdToPkr,
         },
       });
     } catch (err) {
@@ -908,7 +1876,7 @@ router.get(
         err
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message:
           "Unable to load portfolio.",
@@ -917,10 +1885,28 @@ router.get(
   }
 );
 
-/* ===========================================
+/* ============================================================
+   ADMIN CHECK HELPER
 
+   Kept available if future trading admin
+   routes use this router.
+============================================================ */
+
+router.get(
+  "/admin/check",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    return res.json({
+      success: true,
+      message:
+        "Trading admin access verified.",
+    });
+  }
+);
+
+/* ============================================================
    MODULE EXPORT
-
-=========================================== */
+============================================================ */
 
 module.exports = router;
