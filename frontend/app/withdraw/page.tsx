@@ -1168,10 +1168,6 @@ const withdrawSummary = useMemo(() => {
   };
 }, [withdrawHistory]);
 
-// PART 4/8
-// Withdraw Form UI + Payment Method Cards
-// GoldTrade V18 Enterprise (Production)
-// =====================================================
 
 // =====================================================
 // PAGE HEADER
@@ -1194,7 +1190,7 @@ const WithdrawHeader = () => (
       </h1>
 
       <p className="text-gray-400 mt-2">
-        Withdraw funds securely from your GoldTrade PKR Wallet.
+        Withdraw funds securely from your GoldTrade.
       </p>
     </div>
 
@@ -1581,7 +1577,7 @@ const WithdrawFormSection = () => (
             <span className="text-yellow-400">
               Pending
             </span>{" "}
-            until approved by GoldTrade Ai.
+            until approved by GoldTrade SyStem.
           </p>
 
         </div>
@@ -2655,241 +2651,6 @@ const WithdrawHistoryCard = ({
 );
 
 // =====================================================
-// DESKTOP HISTORY TABLE
-// =====================================================
-
-const WithdrawHistoryTable = () => {
-  if (withdrawHistory.length === 0) {
-    return <EmptyWithdrawHistoryCard />;
-  }
-
-  return (
-    <div className="rounded-2xl bg-[#111827] border border-gray-700 overflow-hidden">
-
-      <div className="overflow-x-auto">
-
-        <table className="w-full">
-
-          <thead className="bg-[#1F2937] text-gray-300 text-sm uppercase">
-
-            <tr>
-
-              <th className="text-left px-5 py-4">
-                Amount
-              </th>
-
-              <th className="text-left px-5 py-4">
-                Method
-              </th>
-
-              <th className="text-left px-5 py-4">
-                Account
-              </th>
-
-              <th className="text-left px-5 py-4">
-                Status
-              </th>
-
-              <th className="text-left px-5 py-4">
-                Date
-              </th>
-
-              <th className="text-left px-5 py-4">
-                Details
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody>
-
-            {withdrawHistory.map((item) => (
-              <tr
-                key={item._id}
-                className="border-t border-gray-700 hover:bg-[#182233] transition"
-              >
-
-                <td className="px-5 py-5 whitespace-nowrap">
-
-                  <p className="text-red-400 text-lg font-bold">
-                    PKR{" "}
-                    {formatMoney(item.amount)}
-                  </p>
-
-                </td>
-
-                <td className="px-5 py-5 whitespace-nowrap">
-
-                  <span className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold">
-                    {item.withdrawMethod}
-                  </span>
-
-                </td>
-
-                <td className="px-5 py-5">
-
-                  <div>
-
-                    <p className="text-white font-medium">
-                      {item.accountTitle}
-                    </p>
-
-                    <p className="text-gray-400 text-sm break-all mt-1">
-                      {item.accountNumber}
-                    </p>
-
-                  </div>
-
-                </td>
-
-                <td className="px-5 py-5">
-
-                  <div className="space-y-2">
-
-                    <WithdrawStatusBadge
-                      status={item.status}
-                    />
-
-                    <WithdrawStatusTimeline
-                      status={item.status}
-                    />
-
-                  </div>
-
-                </td>
-
-                <td className="px-5 py-5 whitespace-nowrap">
-
-                  <p className="text-gray-400 text-sm">
-                    {formatDate(item.createdAt)}
-                  </p>
-
-                </td>
-
-                <td className="px-5 py-5">
-
-                  <button
-                    onClick={() =>
-                      setSelectedWithdraw(item)
-                    }
-                    className="bg-[#1F2937] hover:bg-[#374151] border border-gray-600 rounded-lg px-4 py-2 text-sm transition"
-                  >
-                    View
-                  </button>
-
-                </td>
-
-              </tr>
-            ))}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-    </div>
-  );
-};
-
-// =====================================================
-// RESPONSIVE HISTORY SECTION
-// =====================================================
-
-const WithdrawHistorySection = () => (
-  <div className="mb-10">
-
-    <WithdrawHistoryHeader />
-
-    <WithdrawSummaryStrip />
-
-    {/* Desktop */}
-
-    <div className="hidden lg:block">
-      <WithdrawHistoryTable />
-    </div>
-
-    {/* Mobile */}
-
-    <div className="lg:hidden">
-
-      {withdrawHistory.length === 0 ? (
-        <EmptyWithdrawHistoryCard />
-      ) : (
-        withdrawHistory.map((item) => (
-          <WithdrawHistoryCard
-            key={item._id}
-            item={item}
-          />
-        ))
-      )}
-
-    </div>
-
-    <WithdrawDetailsModal />
-
-  </div>
-);
-
-
-// =====================================================
-// SUCCESS TOAST
-// =====================================================
-
-const SuccessToast = () => {
-  if (!successMessage) return null;
-
-  return (
-    <div className="fixed top-6 right-6 z-[999] bg-green-600 border border-green-400 text-white rounded-2xl shadow-2xl px-5 py-4 flex items-center gap-3 animate-pulse">
-
-      <CheckCircle size={22} />
-
-      <div>
-
-        <p className="font-bold">
-          Withdrawal Submitted
-        </p>
-
-        <p className="text-sm text-green-100">
-          {successMessage}
-        </p>
-
-      </div>
-
-    </div>
-  );
-};
-
-// =====================================================
-// ERROR TOAST
-// =====================================================
-
-const ErrorToast = () => {
-  if (!errorMessage) return null;
-
-  return (
-    <div className="fixed top-24 right-6 z-[999] bg-red-600 border border-red-400 text-white rounded-2xl shadow-2xl px-5 py-4 flex items-center gap-3">
-
-      <AlertCircle size={22} />
-
-      <div>
-
-        <p className="font-bold">
-          Withdrawal Failed
-        </p>
-
-        <p className="text-sm text-red-100">
-          {errorMessage}
-        </p>
-
-      </div>
-
-    </div>
-  );
-};
-
-// =====================================================
 // FOOTER
 // =====================================================
 
@@ -2965,12 +2726,6 @@ return (
 
     <LoadingOverlay />
 
-    {/* Toasts */}
-
-    <SuccessToast />
-
-    <ErrorToast />
-
     {/* Page Container */}
 
     <div className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
@@ -3019,9 +2774,6 @@ return (
 
       <WalletInformationCard />
 
-      {/* History */}
-
-      <WithdrawHistorySection />
 
       {/* Footer */}
 
